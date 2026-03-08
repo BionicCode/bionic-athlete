@@ -1,15 +1,8 @@
 ﻿namespace FitToCsvConverter.Main;
 
-using System.Text;
+using System.Collections.ObjectModel;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
+using FitToCsvConverter.ViewModel;
 
 /// <summary>
 /// Interaction logic for MainWindow.xaml
@@ -30,7 +23,12 @@ public partial class MainWindow : Window
         string[] filePath = (string[])e.Data.GetData(DataFormats.FileDrop, false) ?? [];
         if (filePath.Length > 0)
         {
-            _viewModel.SelectedFilePaths = filePath;
+            _viewModel.SelectedFitFilePaths = new ObservableCollection<string>(filePath);
         }
+    }
+
+    private void SelectDestinationFolderButton_Click(object sender, RoutedEventArgs e)
+    {
+
     }
 }

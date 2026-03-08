@@ -10,7 +10,7 @@ using System.Windows.Input;
 public abstract class RelayCommandCore : IRelayCommandCore
 {
     private readonly object _syncLock = new();
-    private readonly ConcurrentQueue<PendingCommandInfo> executeQueue = new();
+    private readonly ConcurrentQueue<PendingCommandInfo> _executeQueue = new();
     private CancellationToken _currentCancellationToken;
     private bool _isCancelled;
     private bool _isExecuting;
@@ -93,7 +93,7 @@ public event EventHandler CanExecuteChanged;
         {
             if (IsExecuting)
             {
-                executeQueue.Enqueue(pendingInfo);
+                _executeQueue.Enqueue(pendingInfo);
                 IncrementPendingCount();
 
                 return;
@@ -154,7 +154,7 @@ public event EventHandler CanExecuteChanged;
         PendingCommandInfo pendingInfo;
         lock (_syncLock)
         {
-            if (!executeQueue.TryDequeue(out pendingInfo))
+            if (!_executeQueue.TryDequeue(out pendingInfo))
             {
                 IsExecuting = false;
                 IsCancelled = CurrentCancellationToken.IsCancellationRequested;
@@ -203,7 +203,7 @@ public event EventHandler CanExecuteChanged;
         lock (_syncLock)
         {
             bool hasCancelledPending = HasPending;
-            while (executeQueue.TryDequeue(out _))
+            while (_executeQueue.TryDequeue(out _))
             {
                 DecrementPendingCount();
                 OnPendingCommandCancelled();

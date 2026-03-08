@@ -14,6 +14,7 @@ public class MainViewModel : ViewModel
     private ObservableCollection<string> _selectedExtraFilePaths;
     private readonly PropertyValidationDelegate<ObservableCollection<string>> _fitFilePathsValidator;
     private readonly PropertyValidationDelegate<ObservableCollection<string>> _filePathsValidator;
+    private readonly SetValueOptions _setValueOptions = SetValueOptions.Default with { IsRejectInvalidValueEnabled = true, IsThrowExceptionOnValidationErrorEnabled = true, IsRejectEqualValuesEnabled = true };
 
     public MainViewModel()
     {
@@ -31,13 +32,13 @@ public class MainViewModel : ViewModel
     public ObservableCollection<string> SelectedFitFilePaths
     {
         get => _selectedFitFilePaths;
-        set => _ = TrySetValue(value, _fitFilePathsValidator, ref _selectedFitFilePaths);
+        set => _ = TrySetValue(value, _fitFilePathsValidator, ref _selectedFitFilePaths, _setValueOptions);
     }
 
     public ObservableCollection<string> SelectedExtraFilePaths
     {
         get => _selectedExtraFilePaths;
-        set => _ = TrySetValue(value, _fitFilePathsValidator, ref _selectedExtraFilePaths);
+        set => _ = TrySetValue(value, _filePathsValidator, ref _selectedExtraFilePaths, _setValueOptions);
     }
 
     private static PropertyValidationDelegate<ObservableCollection<string>> IsFitFilePathValid() => fitFilePaths => new PropertyValidationResult(fitFilePaths != null

@@ -29,14 +29,23 @@ public class NullObjectFactory<TObject> : Factory<TObject> where TObject : INull
     /// </summary>
     /// <param name="factoryMethod">The delegate to create instances of type <typeparamref name="TObject"/>.</param>
     /// <param name="factoryMode">The lifetime scope of the created instance.</param>
-    public NullObjectFactory(Func<TObject> factoryMethod, FactoryMode factoryMode) : base(factoryMode) => FactoryMethod = factoryMethod;
+    public NullObjectFactory(Func<TObject> factoryMethod, FactoryMode factoryMode) : base(factoryMode)
+    {
+        ArgumentNullExceptionAdvanced.ThrowIfNull(factoryMethod);
+
+        FactoryMethod = factoryMethod;
+    }
 
     /// <summary>
     /// Initializes the <see cref="NullObjectFactory{TObject}"/> using a <see cref="IFactory{TCreate}"/> and its <see cref="IFactory{TCreate}.FactoryMode"/> to set the <see cref="FactoryMode"/>.
     /// </summary>
     /// <param name="factory">The <see cref="IFactory{TCreate}"/> to create instances of type <typeparamref name="TObject"/>.</param>
-    public NullObjectFactory(IFactory<TObject> factory) : this(factory.Create, factory.FactoryMode)
+    public NullObjectFactory(IFactory<TObject> factory)
     {
+        ArgumentNullExceptionAdvanced.ThrowIfNull(factory);
+
+        FactoryMethod = factory.Create;
+        FactoryMode = factory.FactoryMode;
     }
 
     #region Overrides of Factory<TObject>

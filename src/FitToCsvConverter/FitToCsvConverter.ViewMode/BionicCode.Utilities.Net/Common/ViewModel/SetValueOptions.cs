@@ -33,19 +33,19 @@ public readonly struct SetValueOptions
     /// Gets how the invalid property value is stored. Use this to ensure that the view model in a valid state.
     /// </summary>
     /// <value>If <see langword="true"/> the invalid value is not stored to the backing field.<br/> The default is <see langword="false"/>.</value>
-    public bool IsRejectInvalidValueEnabled { get; }
+    public bool IsRejectInvalidValueEnabled { get; init; }
     /// <summary>
     /// Gets if throwing an <exception cref="ArgumentException"></exception> on a failed validation is enabled. 
     /// <br/>Use this when <c>ValidatesOnExceptions</c> on a <c>Binding</c> is set to <see langword="true"/>
     /// </summary>
     /// <value><see langword="true"/> if throwing an <exception cref="ArgumentException"></exception> on a failed validation is enabled. Otherwise <see langword="false"/>. 
     /// <br/>The default is <see langword="false"/>.</value>
-    public bool IsThrowExceptionOnValidationErrorEnabled { get; }
+    public bool IsThrowExceptionOnValidationErrorEnabled { get; init; }
 
     /// <summary>
     /// Gets if the equality check before setting the value is enabled.
     /// </summary>
     /// <value>If <see langword="true"/> the equality check before setting the value to avoid raising the <see cref="INotifyPropertyChanged.PropertyChanged"/> event on equality is enabled. If <see langword="false"/> equality check is deisabled. This will always raise the <see cref="INotifyPropertyChanged.PropertyChanged"/> event.
     /// <br/>the default is <see langword="true"/>.</value>
-    public bool IsRejectEqualValuesEnabled { get; }
+    public bool IsRejectEqualValuesEnabled { get; init; }
 }

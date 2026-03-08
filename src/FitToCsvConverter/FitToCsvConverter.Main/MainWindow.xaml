@@ -26,6 +26,8 @@
             <Border BorderBrush="Gray"
                     BorderThickness="1"
                     Height="100"
+                    Background="Transparent"
+                    IsHitTestVisible="True"
                     AllowDrop="True"
                     Drop="Border_Drop">
                 <TextBlock Text="&#xe8e5;"
@@ -33,6 +35,7 @@
                            Foreground="Gray"
                            FontSize="68"
                            Opacity="0.5"
+                           IsHitTestVisible="False"
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center" />
             </Border>
@@ -55,7 +58,7 @@
                 VerticalAlignment="Top"
                 Height="{Binding ElementName=DestinationFolderTextBox, Path=ActualHeight}"
                 Width="80"
-                Click="SelectDestinationFolerButton_Click">
+                Click="SelectDestinationFolderButton_Click">
 
             <TextBlock Text="&#xe721;"
                        FontFamily="{StaticResource SegoeMDL2Assets}"

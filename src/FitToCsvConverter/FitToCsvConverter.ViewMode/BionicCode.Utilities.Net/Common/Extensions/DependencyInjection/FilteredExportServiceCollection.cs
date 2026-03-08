@@ -22,6 +22,8 @@ public class FilteredExportServiceCollection : IFilteredExportServiceCollection
 
     public IFilteredExportServiceCollection WhereClassType(Func<Type, bool> typeFilter)
     {
+        ArgumentNullException.ThrowIfNull(typeFilter);
+
         Source = Source.Where(typeFilter.Invoke);
         return this;
     }

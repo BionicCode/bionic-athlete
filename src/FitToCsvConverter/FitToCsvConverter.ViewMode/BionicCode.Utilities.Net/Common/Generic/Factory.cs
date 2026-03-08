@@ -110,21 +110,21 @@ public abstract class Factory<TObject> : IFactory<TObject>
     /// </summary>
     protected TObject SharedProductInstance { get; private set; }
 
-    private FactoryMode factoryMode;
+    private FactoryMode _factoryMode;
     /// <inheritdoc />
     public FactoryMode FactoryMode
     {
         get => IsScoped
           ? ScopedFactory.FactoryMode
-          : factoryMode;
+          : _factoryMode;
         set
         {
             if (IsScoped)
             {
-                throw new InvalidOperationException(ExceptionMessages.InvalidOperationExceptionMessage_SetFactoryModeOnScopedFactory());
+                throw new InvalidOperationException(ExceptionMessages.InvalidOperationExceptionMessage_SetFactoryModeOnScopedFactory);
             }
 
-            factoryMode = value;
+            _factoryMode = value;
         }
     }
 
