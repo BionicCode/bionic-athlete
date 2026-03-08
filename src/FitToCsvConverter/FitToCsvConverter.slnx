@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="FitToCsvConverter.Main/FitToCsvConverter.Main.csproj" />
+  <Project Path="FitToCsvConverter.ViewMode/FitToCsvConverter.ViewModel.csproj" />
+</Solution>
