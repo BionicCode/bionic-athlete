@@ -1,4 +1,6 @@
 <Solution>
+  <Project Path="BionicCode.Utilities.Net/BionicCode.Utilities.Net.csproj" Id="94d4e617-5321-4727-9240-883733e2bd93" />
+  <Project Path="FitToCsvConverter.Data/FitToCsvConverter.Data.csproj" Id="1389a9c6-e976-42f0-821f-adfa93806686" />
   <Project Path="FitToCsvConverter.Main/FitToCsvConverter.Main.csproj" />
   <Project Path="FitToCsvConverter.ViewMode/FitToCsvConverter.ViewModel.csproj" />
 </Solution>

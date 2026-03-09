@@ -1,8 +1,8 @@
 ﻿namespace FitToCsvConverter.Main;
 
-using System.Collections.ObjectModel;
 using System.Windows;
 using FitToCsvConverter.ViewModel;
+using Microsoft.Win32;
 
 /// <summary>
 /// Interaction logic for MainWindow.xaml
@@ -10,24 +10,41 @@ using FitToCsvConverter.ViewModel;
 public partial class MainWindow : Window
 {
     private readonly MainViewModel _viewModel;
+    private readonly OpenFolderDialog _openFolderDialog;
     public MainWindow()
     {
         InitializeComponent();
 
         _viewModel = new MainViewModel();
         DataContext = _viewModel;
+        _openFolderDialog = new OpenFolderDialog
+        {
+            Title = "Select Destination Folder",
+            InitialDirectory = MainViewModel.DefaultDestinationFolder,
+            Multiselect = false,
+            AddToRecent = true
+        };
     }
 
     private void Border_Drop(object sender, DragEventArgs e)
     {
-        string[] filePath = (string[])e.Data.GetData(DataFormats.FileDrop, false) ?? [];
-        if (filePath.Length > 0)
+        string[] filePaths = (string[])e.Data.GetData(DataFormats.FileDrop, false) ?? [];
+        if (filePaths.Length > 0)
         {
-            _viewModel.SelectedFitFilePaths = new ObservableCollection<string>(filePath);
+            _viewModel.AddFitFilePaths(filePaths);
         }
     }
 
     private void SelectDestinationFolderButton_Click(object sender, RoutedEventArgs e)
+    {
+        bool? result = _openFolderDialog.ShowDialog();
+        if (result == true)
+        {
+            _viewModel.DestinationFolder = _openFolderDialog.FolderName;
+        }
+    }
+
+    private void OnExtraZipFileContentDropped(object sender, DragEventArgs e)
     {
 
     }
