@@ -1,6 +1,7 @@
 ﻿namespace FitToCsvConverter.ViewModel;
 
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.IO;
 using BionicCode.Utilities.Net;
@@ -11,6 +12,7 @@ public class MainViewModel : ViewModel
     private const string FitFileExtension = ".fit";
     private string _destinationFolder;
     private HashSet<string> _selectedFitFilePaths;
+    private ExportData _selectedExportData;
     private readonly PropertyValidationDelegate<HashSet<string>> _fitFilePathsValidator;
     private readonly PropertyValidationDelegate<ObservableCollection<string>> _filePathsValidator;
     private readonly PropertyValidationDelegate<string> _folderPathValidator;
@@ -18,8 +20,8 @@ public class MainViewModel : ViewModel
 
     public MainViewModel()
     {
-        _fitFilePathsValidator = IsFitFilePathValid();
-        _filePathsValidator = IsFilePathValid();
+        _fitFilePathsValidator = IsFitFilePathsValid();
+        _filePathsValidator = IsFilePathsValid();
         _folderPathValidator = IsFolderPathValid();
         _setValueOptions = SetValueOptions.Default with { IsRejectInvalidValueEnabled = true, IsThrowExceptionOnValidationErrorEnabled = true, IsRejectEqualValuesEnabled = true };
         _destinationFolder = DefaultDestinationFolder;
@@ -62,42 +64,126 @@ public class MainViewModel : ViewModel
     }
 
     public ObservableCollection<ExportData> ExportData { get; private set; }
+    public ExportData SelectedExportData
+    {
+        get => _selectedExportData;
+        set => TrySetValue(value, ref _selectedExportData);
+    }
 
-    private static PropertyValidationDelegate<HashSet<string>> IsFitFilePathValid() => fitFilePaths => new PropertyValidationResult(fitFilePaths != null
-                                                                                                             && fitFilePaths.Count > 0
-                                                                                                             && fitFilePaths.All(filePath => File.Exists(filePath) && Path.GetExtension(filePath).Equals(FitFileExtension, StringComparison.OrdinalIgnoreCase)),
-                                                                                                             ["At least one fit file must be selected."]);
+    private static PropertyValidationDelegate<HashSet<string>> IsFitFilePathsValid() => fitFilePaths =>
+        {
+            if (fitFilePaths.Count == 0)
+            {
+                return new PropertyValidationResult(false, ["At least one file must be selected."]);
+            }
 
-    private static PropertyValidationDelegate<ObservableCollection<string>> IsFilePathValid() => fitFilePaths => new PropertyValidationResult(fitFilePaths != null
-                                                                                                             && fitFilePaths.Count > 0
-                                                                                                             && fitFilePaths.All(filePath => File.Exists(filePath)),
-                                                                                                             ["At least one fit file must be selected."]);
+            foreach (string fitFilePath in fitFilePaths)
+            {
+                PropertyValidationResult result = IsFilePathValid(fitFilePath);
+                if (!result.IsValid)
+                {
+                    return result;
+                }
+
+                if (!Path.GetExtension(fitFilePath).Equals(FitFileExtension, StringComparison.OrdinalIgnoreCase))
+                {
+                    return new PropertyValidationResult(false, [$"Invalid file type: only .fit files are allowed. Found: '{fitFilePath}'."]);
+                }
+            }
+
+            return new PropertyValidationResult(true, Array.Empty<string>());
+        };
+
+    private static PropertyValidationDelegate<ObservableCollection<string>> IsFilePathsValid() => filePaths =>
+        {
+            ArgumentNullExceptionAdvanced.ThrowIfNull(filePaths);
+
+            if (filePaths.Count == 0)
+            {
+                return new PropertyValidationResult(false, ["At least one file must be selected."]);
+            }
+
+            foreach (string filePath in filePaths)
+            {
+                PropertyValidationResult result = IsFilePathValid(filePath);
+                if (!result.IsValid)
+                {
+                    return result;
+                }
+            }
+
+            return new PropertyValidationResult(true, Array.Empty<string>());
+        };
+
+    private static PropertyValidationResult IsFilePathValid(string filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath))
+        {
+            return new PropertyValidationResult(false, ["File path cannot be NULL or empty."]);
+        }
+
+        if (!File.Exists(filePath))
+        {
+            return new PropertyValidationResult(false, [$"Invalid file path: '{filePath}'."]);
+        }
+
+        return new PropertyValidationResult(true, Array.Empty<string>());
+    }
 
     private static PropertyValidationDelegate<string> IsFolderPathValid() => folderPath => new PropertyValidationResult(!string.IsNullOrWhiteSpace(folderPath) && Directory.Exists(folderPath),
-                                                                                                             ["Destination folder cannot be empty or must exist."]);
+                                                                                                             ["Destination folder cannot be empty and must exist."]);
+    public void AddExtraFilePaths(ExportData exportData, string[] filePaths)
+    {
+        ArgumentNullExceptionAdvanced.ThrowIfNull(exportData);
+        ArgumentNullExceptionAdvanced.ThrowIfNull(filePaths);
+
+        if (filePaths.Length == 0)
+        {
+            return;
+        }
+
+        SelectedExportData = exportData;
+        foreach (string filePath in filePaths)
+        {
+        }
+    }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 }
 
 public class ExportData : ViewModel
 {
-    private readonly PropertyValidationDelegate<ObservableCollection<string>> _filePathsValidator;
-    private readonly SetValueOptions _setValueOptions;
-    private ObservableCollection<string> _selectedExtraFilePaths;
+    private readonly PropertyValidationDelegate<string> _filePathsValidator;
 
-    public ExportData(PropertyValidationDelegate<ObservableCollection<string>> filePathsValidator, SetValueOptions setValueOptions)
+    public ExportData(PropertyValidationDelegate<string> filePathsValidator)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(filePathsValidator);
 
         _filePathsValidator = filePathsValidator;
-        _setValueOptions = setValueOptions;
+        SelectedExtraFilePaths = [];
+        SelectedExtraFilePaths.CollectionChanged += ValidateOnItemAdded;
+    }
+
+    private void ValidateOnItemAdded(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        switch (e.Action)
+        {
+            case NotifyCollectionChangedAction.Add:
+            case NotifyCollectionChangedAction.Replace:
+                foreach (string newFilePath in e.NewItems?.OfType<string>() ?? [])
+                {
+                    PropertyValidationResult validationResult = _filePathsValidator.Invoke(newFilePath);
+                    if (!validationResult.IsValid)
+                    {
+                        throw new InvalidOperationException(validationResult.ErrorMessages.JoinToString($",{Environment.NewLine}"));
+                    }
+                }
+
+                break;
+        }
     }
 
     public string FitFilePath { get; init; }
 
-    public ObservableCollection<string> SelectedExtraFilePaths
-    {
-        get => _selectedExtraFilePaths;
-        set => _ = TrySetValue(value, _filePathsValidator, ref _selectedExtraFilePaths, _setValueOptions);
-    }
+    public ObservableCollection<string> SelectedExtraFilePaths { get; }
 }

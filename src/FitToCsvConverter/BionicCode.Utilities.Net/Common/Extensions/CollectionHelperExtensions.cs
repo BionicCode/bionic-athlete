@@ -27,7 +27,7 @@ public static partial class HelperExtensionsCommon
     /// Determines whether a sequence is empty.
     /// </summary>
     /// <typeparam name="TItem"></typeparam>
-    /// <param name="source"></param>
+    /// <param name="source">The sequence to check.</param>
     /// <returns><see langword="true"/> if <paramref name="source"/> is empty. Otherwise <see langword="false"/></returns>
     /// <exception cref="ArgumentNullException"><paramref name="source"/> is <see langword="null"/>.</exception>
     public static bool IsEmpty<TItem>(this IEnumerable<TItem> source) => !source.Any();
@@ -36,7 +36,7 @@ public static partial class HelperExtensionsCommon
     /// Determines whether a sequence is empty.
     /// </summary>
     /// <typeparam name="TItem"></typeparam>
-    /// <param name="source"></param>
+    /// <param name="source">The sequence to check.</param>
     /// <returns><see langword="true"/> if <paramref name="source"/> is empty. Otherwise <see langword="false"/></returns>
     /// <exception cref="ArgumentNullException"><paramref name="source"/> is <see langword="null"/>.</exception>
     public static bool IsEmpty(this IEnumerable source)
@@ -54,10 +54,39 @@ public static partial class HelperExtensionsCommon
     }
 
     /// <summary>
+    /// Determines whether a sequence is <see langword="null"/> or empty.
+    /// </summary>
+    /// <param name="source">The sequence to check.</param>
+    /// <returns><see langword="true"/> if <paramref name="source"/> is <see langword="null"/> or empty. Otherwise <see langword="false"/></returns>
+    public static bool IsNullOrEmpty(this IEnumerable source)
+    {
+        if (source == null)
+        {
+            return true;
+        }
+
+        if (source is ICollection collection)
+        {
+            return collection.Count == 0;
+        }
+        else
+        {
+            return !source.GetEnumerator().MoveNext();
+        }
+    }
+
+    /// <summary>
+    /// Determines whether a sequence is <see langword="null"/> or empty.
+    /// </summary>
+    /// <param name="source">The sequence to check.</param>
+    /// <returns><see langword="true"/> if <paramref name="source"/> is <see langword="null"/> or empty. Otherwise <see langword="false"/></returns>
+    public static bool IsNullOrEmpty<TItem>(this IEnumerable<TItem> source) => source is null || !source.Any();
+
+    /// <summary>
     /// Returns a range of elements.
     /// </summary>
     /// <typeparam name="TItem"></typeparam>
-    /// <param name="source"></param>
+    /// <param name="source">The sequence to take elements from.</param>
     /// <param name="startIndex">The inclusive starting index of the range.</param>
     /// <param name="count">The number of elements to take.</param>
     /// <returns>An <see cref="IEnumerable{T}"/> that contains the requested range of the original <paramref name="source"/>.</returns>

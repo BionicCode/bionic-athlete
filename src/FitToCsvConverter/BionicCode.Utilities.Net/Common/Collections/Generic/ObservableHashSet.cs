@@ -1,0 +1,617 @@
+﻿namespace BionicCode.Utilities.Net.Common.Collections.Generic;
+
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Collections.Specialized;
+using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
+using System.Runtime.Serialization;
+
+public sealed class ObservableHashSet<TItem> :
+    ICollection<TItem>,
+    IEnumerable<TItem>,
+    IReadOnlyCollection<TItem>,
+    ISet<TItem>,
+    IEnumerable,
+    IReadOnlySet<TItem>,
+    IDeserializationCallback,
+    ISerializable,
+    INotifyCollectionChanged,
+    INotifyPropertyChanged
+{
+    /// <inheritdoc/>
+    public event PropertyChangedEventHandler? PropertyChanged;
+    /// <inheritdoc/>
+    public event NotifyCollectionChangedEventHandler? CollectionChanged;
+    private readonly HashSet<TItem> _hashSet;
+
+    public ObservableHashSet() => _hashSet = [];
+
+    [SuppressMessage("Style", "IDE0028:Simplify collection initialization", Justification = "<Pending>")]
+    public ObservableHashSet(IEnumerable<TItem> collection)
+    {
+        ArgumentNullExceptionAdvanced.ThrowIfNull(collection);
+        _hashSet = new(collection);
+    }
+
+    [SuppressMessage("Style", "IDE0028:Simplify collection initialization", Justification = "<Pending>")]
+    public ObservableHashSet(IEqualityComparer<TItem>? comparer) => _hashSet = new(comparer);
+
+    [SuppressMessage("Style", "IDE0028:Simplify collection initialization", Justification = "<Pending>")]
+    public ObservableHashSet(int capacity)
+    {
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(capacity);
+        _hashSet = new(capacity);
+    }
+
+    public ObservableHashSet(IEnumerable<TItem> collection, IEqualityComparer<TItem>? comparer)
+    {
+        ArgumentNullExceptionAdvanced.ThrowIfNull(collection);
+        _hashSet = new HashSet<TItem>(collection, comparer);
+    }
+
+    public ObservableHashSet(int capacity, IEqualityComparer<TItem>? comparer)
+    {
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(capacity);
+        _hashSet = new HashSet<TItem>(capacity, comparer);
+    }
+
+    public int Capacity => _hashSet.Capacity;
+    public IEqualityComparer<TItem> Comparer => _hashSet.Comparer;
+
+    public int Count => _hashSet.Count;
+
+    int ICollection<TItem>.Count => Count;
+    bool ICollection<TItem>.IsReadOnly => false;
+
+    /// <summary>Adds an item to the <see cref="ObservableHashSet{T}"/> if it is not already present.</summary>
+    /// <paramref name="item"/> is the item to add to the set. The value can be <c>null</c> for reference types.
+    /// <remarks>Use this method to add an item to the set. If the item is already present, the set remains unchanged and the method returns <see langword="false"/>; otherwise, the item is added and the method returns <see langword="true"/>.
+    /// <para/>This method raises the <see cref="CollectionChanged"/> event with <see cref="NotifyCollectionChangedAction.Add"/> action where the change index is always '-1'.
+    /// <para/>This method raises the <see cref="PropertyChanged"/> event for the <see cref="Count"/> property.</remarks>
+    /// <returns><see langword="true"/> if the item was added to the set; <see langword="false"/> if the item was already present.</returns>
+    public bool Add(TItem item)
+    {
+        if (_hashSet.Add(item))
+        {
+            OnCountChanged();
+            OnCollectionChanged(NotifyCollectionChangedAction.Add, item);
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Attempts to find a value in the set that is equal to the specified item.
+    /// </summary>
+    /// <param name="equalValue">The item to search for in the set. Equality is determined by the set's comparer.</param>
+    /// <param name="actualValue">When this method returns <see langword="true"/>, contains the value from the set that is equal to <paramref
+    /// name="equalValue"/>; otherwise, contains the default value for the type.</param>
+    /// <returns><see langword="true"/> if a value equal to <paramref name="equalValue"/> was found in the set; otherwise, <see
+    /// langword="false"/>.</returns>
+    public bool TryGetValue(TItem equalValue, [MaybeNullWhen(false)] out TItem actualValue) => _hashSet.TryGetValue(equalValue, out actualValue);
+
+    /// <summary>
+    /// Attempts to remove the specified item from the set.
+    /// </summary>
+    /// <param name="item">The item to remove from the set. The value can be <c>null</c> for reference types.</param>
+    /// <returns><see langword="true"/> if the item was successfully removed; otherwise, <see langword="false"/>.</returns>
+    /// <remarks>Use this method to remove the item <paramref name="item"/> from the set and return a value indicating whether the removal was successful.
+    /// <para/>This method raises the <see cref="CollectionChanged"/> event with <see cref="NotifyCollectionChangedAction.Remove"/> action where the change index is always '-1'.
+    /// <para/>This method raises the <see cref="PropertyChanged"/> event for the <see cref="Count"/> property.</remarks>
+    public bool Remove(TItem item)
+    {
+        if (_hashSet.Remove(item))
+        {
+            OnCountChanged();
+            OnCollectionChanged(NotifyCollectionChangedAction.Remove, item);
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Removes all elements from the collection that match the conditions defined by the specified predicate.
+    /// </summary>
+    /// <remarks>If one or more elements are removed, the collection raises change notifications. Use this
+    /// method to efficiently remove multiple items based on custom criteria.
+    /// <para/>This method raises the <see cref="CollectionChanged"/> event with <see cref="NotifyCollectionChangedAction.Remove"/> action including the set of removed items where the change index is always '-1'.
+    /// <para/>This method raises the <see cref="PropertyChanged"/> event for the <see cref="Count"/> property.</remarks>
+    /// <param name="match">A delegate that defines the conditions of the elements to remove. Cannot be null.</param>
+    /// <returns>The number of elements removed from the collection.</returns>
+    public int RemoveWhere(Predicate<TItem> match)
+    {
+        ArgumentNullExceptionAdvanced.ThrowIfNull(match);
+
+        var oldState = new HashSet<TItem>(_hashSet, Comparer);
+        int removedCount = _hashSet.RemoveWhere(match);
+        PublishDelta(oldState, DeltaType.Remove);
+
+        return removedCount;
+    }
+
+    /// <summary>
+    /// Removes all objects from the <see cref="ObservableHashSet{TItem}"/>.
+    /// </summary>
+    /// <remarks>Use this method to clear the set. This method raises the <see cref="CollectionChanged"/> event with <see cref="NotifyCollectionChangedAction.Reset"/> action.
+    /// <para/>This method raises the <see cref="PropertyChanged"/> event for the <see cref="Count"/> property.</remarks>
+    public void Clear()
+    {
+        if (Count > 0)
+        {
+            _hashSet.Clear();
+            OnCountChanged();
+            OnCollectionChangedReset();
+        }
+    }
+
+    /// <summary>
+    /// Determines whether an element is in the <see cref="ObservableHashSet{T}"/>.
+    /// </summary>
+    /// <param name="item">The object to locate in the <see cref="ObservableHashSet{T}"/>. The value can be <see langword="null"/> for reference types.</param>
+    /// <returns><see langword="true"/> if the <see cref="ObservableHashSet{T}"/> contains the specified element; otherwise, <see langword="false"/>.</returns>
+    public bool Contains(TItem item) => _hashSet.Contains(item);
+    /// <summary>
+    /// Copies the elements of the collection to the specified array, starting at the given array index.
+    /// </summary>
+    /// <param name="array">The destination array that will receive the copied elements. Must be large enough to contain the elements from
+    /// the collection.</param>
+    /// <param name="arrayIndex">The zero-based index in the destination array at which copying begins.</param>
+    public void CopyTo(TItem[] array, int arrayIndex) => _hashSet.CopyTo(array, arrayIndex);
+    /// <summary>
+    /// Creates an equality comparer that can be used to compare two hash sets for set equality.
+    /// </summary>
+    /// <remarks>The returned comparer considers two hash sets equal if they have the same elements, even if
+    /// the order differs. This is useful for scenarios where set semantics are required, such as using hash sets as
+    /// keys in dictionaries.</remarks>
+    /// <returns>An equality comparer that determines whether two hash sets contain the same elements, regardless of order.</returns>
+    public static IEqualityComparer<ObservableHashSet<TItem>> CreateSetComparer() => new ObservableHashSetEqualityComparer<TItem>();
+    /// <summary>
+    /// Returns an array containing the elements of the queue in the order they would be dequeued.
+    /// </summary>
+    /// <returns>An array of type TItem containing all elements in the queue. The array will be empty if the queue contains no
+    /// elements.</returns>
+    public TItem[] ToArray() => _hashSet.ToArray();
+    /// <summary>
+    /// Reduces the capacity of the <see cref="ObservableHashSet{TItem}"/> to match the actual number of elements, minimizing memory overhead.
+    /// </summary>
+    /// <remarks>Use this method to optimize memory usage after removing a significant number of elements from
+    /// the set. Calling this method may incur a performance cost due to internal array resizing.
+    /// <para/>This method raises the <see cref="PropertyChanged"/> event for the <see cref="Capacity"/> property.</remarks>
+    public void TrimExcess()
+    {
+        _hashSet.TrimExcess();
+        OnCapacityChanged();
+    }
+    /// <summary>
+    /// Reduces the memory overhead by adjusting the internal storage to the specified capacity, if possible.
+    /// </summary>
+    /// <remarks>Use this method to minimize memory usage when the queue is expected to remain at or below the
+    /// specified capacity. If the current number of elements exceeds the specified capacity, no trimming
+    /// occurs.
+    /// <para/>This method raises the <see cref="PropertyChanged"/> event for the <see cref="Capacity"/> property.</remarks>
+    /// <param name="capacity">The target capacity for the internal storage after trimming. Must be non-negative.</param>
+    public void TrimExcess(int capacity)
+    {
+        _hashSet.TrimExcess(capacity);
+        OnCapacityChanged();
+    }
+
+    /// <summary>
+    /// Ensures that the <see cref="ObservableHashSet{T}"/> can accommodate at least the specified number of elements without resizing.
+    /// </summary>
+    /// <param name="capacity">The minimum number of elements that the hash set should be able to hold. Must be non-negative.</param>
+    /// <returns>The new capacity of the hash set after ensuring the specified minimum capacity.</returns>
+    /// <remarks>Use this method to optimize performance when you know in advance that the set will grow to a certain size. Ensuring capacity can reduce the number of internal resizes, which can improve performance when adding a large number of elements.
+    /// <para/>This method raises the <see cref="PropertyChanged"/> event for the <see cref="Capacity"/> property.</remarks>
+    public int EnsureCapacity(int capacity)
+    {
+        int newCapacity = _hashSet.EnsureCapacity(capacity);
+        OnCapacityChanged();
+
+        return newCapacity;
+    }
+    /// <summary>
+    /// Removes all elements in the specified collection from the current set.
+    /// </summary>
+    /// <remarks>If the specified collection contains elements that are not present in the set, those elements
+    /// are ignored. The operation modifies the current set and does not return a value.
+    /// <para/>This method raises the <see cref="CollectionChanged"/> event with <see cref="NotifyCollectionChangedAction.Add"/> or <see cref="NotifyCollectionChangedAction.Remove"/> action including the set of removed and added items where the change index is always '-1'.
+    /// <para/>This method raises the <see cref="PropertyChanged"/> event for the <see cref="Count"/> property.</remarks>
+    /// <param name="other">The collection of elements to remove from the set. Cannot be <see langword="null"/>.</param>
+    public void ExceptWith(IEnumerable<TItem> other)
+    {
+        ArgumentNullExceptionAdvanced.ThrowIfNull(other);
+
+        var oldState = new HashSet<TItem>(_hashSet, Comparer);
+        _hashSet.ExceptWith(other);
+
+        PublishDelta(oldState);
+    }
+
+    /// <summary>
+    /// Creates an alternate lookup structure for items in the set using the specified alternate type.
+    /// </summary>
+    /// <remarks>Use this method to efficiently perform lookups based on a different key or representation of
+    /// the items. The alternate lookup is valid only within the scope of the <see langword="ref"/> <see langword="struct"/> and cannot be stored or used
+    /// outside its lifetime.</remarks>
+    /// <typeparam name="TAlternate">The alternate type used for lookup. Must be a <see langword="ref"/> <see langword="struct"/>.</typeparam>
+    /// <returns>An alternate lookup object that enables searching for items using the specified alternate type.</returns>
+    public HashSet<TItem>.AlternateLookup<TAlternate> GetAlternateLookup<TAlternate>() where TAlternate : allows ref struct => _hashSet.GetAlternateLookup<TAlternate>();
+
+    /// <summary>
+    /// Returns an enumerator that iterates through the collection.
+    /// </summary>
+    /// <returns>An enumerator that can be used to iterate through the items in the collection.</returns>
+    public Enumerator GetEnumerator() => new(_hashSet);
+    /// <summary>
+    /// Modifies the current set to contain only elements that are also in the specified collection.
+    /// </summary>
+    /// <remarks>This method removes any elements from the current set that are not present in the specified
+    /// collection. The operation does not preserve the order of elements.
+    /// <para/>This method raises the <see cref="CollectionChanged"/> event with <see cref="NotifyCollectionChangedAction.Add"/> or <see cref="NotifyCollectionChangedAction.Remove"/> action including the set of removed and added items where the change index is always '-1'.
+    /// <para/>This method raises the <see cref="PropertyChanged"/> event for the <see cref="Count"/> property.</remarks>
+    /// <param name="other">The collection to compare to the current set. Cannot be null.</param>
+    public void IntersectWith(IEnumerable<TItem> other)
+    {
+        ArgumentNullExceptionAdvanced.ThrowIfNull(other);
+
+        var oldState = new HashSet<TItem>(_hashSet, Comparer);
+        _hashSet.IntersectWith(other);
+
+        PublishDelta(oldState);
+    }
+
+    /// <summary>
+    /// Determines whether the current set is a proper subset of the specified collection.
+    /// </summary>
+    /// <remarks>A set is a proper subset of another collection if all elements of the set are contained in
+    /// the collection and the collection contains at least one element not in the set. If the specified collection is
+    /// <see langword="null"/>, an <see cref="ArgumentNullException"/> is thrown.</remarks>
+    /// <param name="other">The collection to compare to the current set. Cannot be <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> if the current set is a proper subset of the specified collection; otherwise, <see langword="false"/>.</returns>
+    public bool IsProperSubsetOf(IEnumerable<TItem> other) => _hashSet.IsProperSubsetOf(other);
+    /// <summary>
+    /// Determines whether the current set is a proper superset of the specified collection.
+    /// </summary>
+    /// <remarks>A set is a proper superset of another collection if all elements of the other collection are contained in
+    /// the set and the set contains at least one element not in the other collection. If the specified collection is
+    /// <see langword="null"/>, an <see cref="ArgumentNullException"/> is thrown.</remarks>
+    /// <param name="other">The collection to compare to the current set. Cannot be <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> if the current set is a proper superset of the specified collection; otherwise, <see langword="false"/>.</returns>
+    public bool IsProperSupersetOf(IEnumerable<TItem> other) => _hashSet.IsProperSupersetOf(other);
+    /// <summary>
+    /// Determines whether the current set is a subset of the specified collection.
+    /// </summary>
+    /// <param name="other">The collection to compare to the current set. Cannot be <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> if the current set is a subset of the specified collection; otherwise, <see langword="false"/>.</returns>
+    public bool IsSubsetOf(IEnumerable<TItem> other) => _hashSet.IsSubsetOf(other);
+    /// <summary>
+    /// Determines whether the current set is a superset of the specified collection.
+    /// </summary>
+    /// <param name="other">The collection to compare to the current set. Cannot be <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> if the current set is a superset of the specified collection; otherwise, <see langword="false"/>.</returns>
+    public bool IsSupersetOf(IEnumerable<TItem> other) => _hashSet.IsSupersetOf(other);
+    /// <summary>
+    /// Handles the deserialization event for the collection, restoring its state after being deserialized.
+    /// </summary>
+    /// <remarks>Call this method after the collection has been deserialized to ensure its internal state is
+    /// properly restored. This is commonly used when implementing custom serialization logic.</remarks>
+    /// <param name="sender">The source of the deserialization event. This parameter is typically not used.</param>
+    public void OnDeserialization(object? sender) => _hashSet.OnDeserialization(sender);
+    /// <summary>
+    /// Determines whether the current set and the specified collection share any common elements.
+    /// </summary>
+    /// <param name="other">The collection to compare to the current set. Cannot be <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> if the current set and the specified collection share at least one common element; otherwise, <see langword="false"/>.</returns>
+    public bool Overlaps(IEnumerable<TItem> other) => _hashSet.Overlaps(other);
+    /// <summary>
+    /// Determines whether the current set contains exactly the same elements as the specified collection.
+    /// </summary>
+    /// <remarks>Set equality is determined by comparing the unique elements in both collections, regardless
+    /// of order. The comparison ignores duplicate elements in the input collection.</remarks>
+    /// <param name="other">The collection to compare to the current set. The elements are compared for equality, and duplicate elements are
+    /// ignored.</param>
+    /// <returns><see langword="true"/> if the current set and the specified collection contain the same elements; otherwise, <see langword="false"/>.</returns>
+    public bool SetEquals(IEnumerable<TItem> other) => _hashSet.SetEquals(other);
+    /// <summary>
+    /// Modifies the current set so that it contains only elements that are present in either the set or the specified
+    /// collection, but not both.
+    /// </summary>
+    /// <remarks>The symmetric difference operation removes elements that appear in both the current set and
+    /// the specified collection, and adds elements that appear in either set but not both. If the specified collection
+    /// contains duplicate elements, only unique elements are considered. This method does not return a value; it
+    /// modifies the current set in place.
+    /// <para/>This method raises the <see cref="CollectionChanged"/> event with <see cref="NotifyCollectionChangedAction.Add"/> or <see cref="NotifyCollectionChangedAction.Remove"/> action including the set of removed and added items where the change index is always '-1'.
+    /// <para/>This method raises the <see cref="PropertyChanged"/> event for the <see cref="Count"/> property.</remarks>
+    /// <param name="other">The collection whose symmetric difference with the current set is to be computed. Cannot be <see langword="null"/>.</param>
+    public void SymmetricExceptWith(IEnumerable<TItem> other)
+    {
+        ArgumentNullExceptionAdvanced.ThrowIfNull(other);
+
+        var oldState = new HashSet<TItem>(_hashSet, Comparer);
+        _hashSet.SymmetricExceptWith(other);
+
+        PublishDelta(oldState);
+    }
+
+    /// <summary>
+    /// Determines whether the current set is a subset of, a superset of, or equal to the specified collection.
+    /// </summary>
+    /// <typeparam name="TAlternate">The type of the elements in the alternate lookup.</typeparam>
+    /// <param name="lookup">The alternate lookup to compare with the current set.</param>
+    /// <returns><see langword="true"/> if the alternate lookup is valid; otherwise, <see langword="false"/>.</returns>
+    public bool TryGetAlternateLookup<TAlternate>(out HashSet<TItem>.AlternateLookup<TAlternate> lookup) where TAlternate : allows ref struct => _hashSet.TryGetAlternateLookup(out lookup);
+    /// <summary>
+    /// Adds all elements from the specified collection to the current set.
+    /// </summary>
+    /// <remarks>Duplicate elements in the specified collection are ignored. The set will contain each unique
+    /// element from both the original set and the specified collection after the operation completes.
+    /// <para/>This method raises the <see cref="CollectionChanged"/> event with <see cref="NotifyCollectionChangedAction.Add"/> or <see cref="NotifyCollectionChangedAction.Remove"/> action including the set of removed and added items where the change index is always '-1'.
+    /// <para/>This method raises the <see cref="PropertyChanged"/> event for the <see cref="Count"/> property.</remarks>
+    /// <param name="other">The collection whose elements are to be added to the set. Cannot be <see langword="null"/>.</param>
+    public void UnionWith(IEnumerable<TItem> other)
+    {
+        ArgumentNullExceptionAdvanced.ThrowIfNull(other);
+
+        var oldState = new HashSet<TItem>(_hashSet, Comparer);
+        _hashSet.UnionWith(other);
+        PublishDelta(oldState);
+    }
+
+    #region ISerializable
+    /// <summary>
+    /// Populates a SerializationInfo object with the data needed to serialize the HashSet.
+    /// </summary>
+    /// <param name="info">The SerializationInfo object to populate with serialization data for the HashSet.</param>
+    /// <param name="context">The StreamingContext that contains contextual information about the serialization operation.</param>
+    public void GetObjectData(SerializationInfo info, StreamingContext context) => ((ISerializable)_hashSet).GetObjectData(info, context);
+    #endregion ISerializable
+
+    /// <summary>
+    /// Returns an enumerator that iterates through the collection.
+    /// </summary>
+    /// <returns>An enumerator that can be used to iterate through the collection.</returns>
+    IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable)_hashSet).GetEnumerator();
+    /// <summary>
+    /// Returns an enumerator that iterates through the collection.
+    /// </summary>
+    /// <returns>An enumerator for the collection of items.</returns>
+    IEnumerator<TItem> IEnumerable<TItem>.GetEnumerator() => ((IEnumerable<TItem>)_hashSet).GetEnumerator();
+
+    private void PublishDelta(HashSet<TItem> oldState, DeltaType deltaType = DeltaType.AddAndRemove)
+    {
+        HashSetDelta hashSetDelta = GetDelta(oldState, deltaType);
+        if (!hashSetDelta.HasChanges)
+        {
+            return;
+        }
+
+        if (_hashSet.Count != oldState.Count)
+        {
+            OnCountChanged();
+        }
+
+        if ((deltaType & DeltaType.Remove) == DeltaType.Remove && hashSetDelta.RemovedItems.Count > 0)
+        {
+            OnCollectionChanged(NotifyCollectionChangedAction.Remove, hashSetDelta.RemovedItems);
+        }
+
+        if ((deltaType & DeltaType.Add) == DeltaType.Add && hashSetDelta.AddedItems.Count > 0)
+        {
+            OnCollectionChanged(NotifyCollectionChangedAction.Add, hashSetDelta.AddedItems);
+        }
+    }
+
+    private HashSetDelta GetDelta(HashSet<TItem> oldState, DeltaType deltaType = DeltaType.AddAndRemove)
+    {
+        HashSet<TItem> newState = _hashSet;
+
+        var removedItems = new List<TItem>();
+        var addedItems = new List<TItem>();
+
+        if ((deltaType & DeltaType.Remove) == DeltaType.Remove && oldState.Count > 0)
+        {
+            foreach (TItem item in oldState)
+            {
+                if (!newState.Contains(item))
+                {
+                    removedItems.Add(item);
+                }
+            }
+        }
+
+        if ((deltaType & DeltaType.Add) == DeltaType.Add && newState.Count > 0)
+        {
+            foreach (TItem item in newState)
+            {
+                if (!oldState.Contains(item))
+                {
+                    addedItems.Add(item);
+                }
+            }
+        }
+
+        bool hasChanges = removedItems.Any() || addedItems.Any();
+        return new(removedItems, addedItems, hasChanges);
+    }
+
+    private void OnCollectionChanged(NotifyCollectionChangedAction action, TItem item)
+        => CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(action, item));
+
+    private void OnCollectionChanged(NotifyCollectionChangedAction action, IList changedItems)
+        => CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(action, changedItems));
+
+    private void OnCollectionChangedReset() => CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+
+    private void OnCountChanged() => OnPropertyChanged(nameof(Count));
+
+    private void OnCapacityChanged() => OnPropertyChanged(nameof(Capacity));
+    private void OnPropertyChanged([CallerMemberName] string? propertyName = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    /// <summary>
+    /// Adds an item to the collection and raises change notifications if the collection is modified.
+    /// </summary>
+    /// <remarks>This method triggers collection change and count change notifications only if the item is
+    /// successfully added. If the item already exists in the collection, no notifications are raised.
+    /// <para/>This method raises the <see cref="CollectionChanged"/> event with <see cref="NotifyCollectionChangedAction.Add"/> action where the change index is always '-1'.
+    /// <para/>This method raises the <see cref="PropertyChanged"/> event for the <see cref="Count"/> property.</remarks>
+    /// <param name="item">The item to add to the collection. Cannot be null if the collection does not accept null values.</param>
+    void ICollection<TItem>.Add(TItem item) => Add(item);
+
+    public readonly struct Enumerator : IEnumerator<TItem>
+    {
+        private readonly HashSet<TItem>.Enumerator _enumerator;
+        internal Enumerator(HashSet<TItem> hashSet)
+        {
+            ArgumentNullExceptionAdvanced.ThrowIfNull(hashSet);
+            _enumerator = hashSet.GetEnumerator();
+        }
+
+        public TItem Current => _enumerator.Current;
+        object IEnumerator.Current => Current!;
+        public void Dispose() => _enumerator.Dispose();
+        public bool MoveNext() => _enumerator.MoveNext();
+        public void Reset() => throw new NotSupportedException();
+    }
+
+    internal sealed class ObservableHashSetEqualityComparer<TItem> : IEqualityComparer<ObservableHashSet<TItem>?>, IEqualityComparer<HashSet<TItem>?>
+    {
+        public bool Equals(ObservableHashSet<TItem>? x, ObservableHashSet<TItem>? y)
+        {
+            // If they're the exact same instance, they're equal.
+            if (ReferenceEquals(x, y))
+            {
+                return true;
+            }
+
+            // They're not both null, so if either is null, they're not equal.
+            if (x == null || y == null)
+            {
+                return false;
+            }
+
+            return HashSet<TItem>.CreateSetComparer().Equals(x._hashSet, y._hashSet);
+        }
+
+        public bool Equals(HashSet<TItem>? x, HashSet<TItem>? y)
+        {
+            // If they're the exact same instance, they're equal.
+            if (ReferenceEquals(x, y))
+            {
+                return true;
+            }
+
+            // They're not both null, so if either is null, they're not equal.
+            if (x == null || y == null)
+            {
+                return false;
+            }
+
+            return HashSet<TItem>.CreateSetComparer().Equals(x, y);
+        }
+
+        public bool Equals(ObservableHashSet<TItem>? x, HashSet<TItem>? y)
+        {
+            // If they're the exact same instance, they're equal.
+            if (ReferenceEquals(x, y))
+            {
+                return true;
+            }
+
+            // They're not both null, so if either is null, they're not equal.
+            if (x == null || y == null)
+            {
+                return false;
+            }
+
+            return HashSet<TItem>.CreateSetComparer().Equals(x._hashSet, y);
+        }
+
+        public bool Equals(HashSet<TItem>? x, ObservableHashSet<TItem>? y)
+        {
+            // If they're the exact same instance, they're equal.
+            if (ReferenceEquals(x, y))
+            {
+                return true;
+            }
+
+            // They're not both null, so if either is null, they're not equal.
+            if (x == null || y == null)
+            {
+                return false;
+            }
+
+            return HashSet<TItem>.CreateSetComparer().Equals(x, y._hashSet);
+        }
+
+        public int GetHashCode(ObservableHashSet<TItem>? obj)
+        {
+            int hashCode = 0; // default to 0 for null/empty set
+
+            if (obj != null)
+            {
+                foreach (TItem t in obj)
+                {
+                    if (t != null)
+                    {
+                        hashCode ^= t.GetHashCode(); // same hashcode as default comparer
+                    }
+                }
+            }
+
+            return hashCode;
+        }
+
+        public int GetHashCode(HashSet<TItem>? obj)
+        {
+            int hashCode = 0; // default to 0 for null/empty set
+
+            if (obj != null)
+            {
+                foreach (TItem t in obj)
+                {
+                    if (t != null)
+                    {
+                        hashCode ^= t.GetHashCode(); // same hashcode as default comparer
+                    }
+                }
+            }
+
+            return hashCode;
+        }
+
+        // Equals method for the comparer itself.
+        public override bool Equals([NotNullWhen(true)] object? obj) => obj is ObservableHashSetEqualityComparer<TItem>;
+
+        public override int GetHashCode() => EqualityComparer<TItem>.Default.GetHashCode();
+    }
+
+    internal readonly struct HashSetDelta
+    {
+        public HashSetDelta(IList removedItems, IList addedItems, bool hasChanges)
+        {
+            RemovedItems = removedItems;
+            AddedItems = addedItems;
+            HasChanges = hasChanges;
+        }
+
+        public IList RemovedItems { get; }
+        public IList AddedItems { get; }
+        public bool HasChanges { get; }
+    }
+
+    [Flags]
+    internal enum DeltaType
+    {
+        None = 0,
+        Add = 1,
+        Remove = 2,
+        AddAndRemove = Add | Remove
+    }
+}

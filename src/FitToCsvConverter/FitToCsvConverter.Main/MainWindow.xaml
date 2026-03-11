@@ -67,7 +67,8 @@
                     Margin="5,0">
             <TextBlock Text="ZIP File Data:" />
             <DataGrid AutoGenerateColumns="False"
-                      ItemsSource="{Binding ExportData}">
+                      ItemsSource="{Binding ExportData}"
+                      SelectedItem="{Binding SelectedExportData}">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Fit File"
                                         Binding="{Binding FitFilePath}" />
