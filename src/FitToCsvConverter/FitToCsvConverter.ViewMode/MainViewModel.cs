@@ -5,6 +5,7 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.IO;
 using BionicCode.Utilities.Net;
+using BionicCode.Utilities.Net.Common.Collections.Generic;
 
 public class MainViewModel : ViewModel
 {
@@ -160,7 +161,7 @@ public class ExportData : ViewModel
         ArgumentNullExceptionAdvanced.ThrowIfNull(filePathsValidator);
 
         _filePathsValidator = filePathsValidator;
-        SelectedExtraFilePaths = [];
+        SelectedExtraFilePaths = new ObservableHashSet<string>(StringComparer.OrdinalIgnoreCase);
         SelectedExtraFilePaths.CollectionChanged += ValidateOnItemAdded;
     }
 
@@ -185,5 +186,5 @@ public class ExportData : ViewModel
 
     public string FitFilePath { get; init; }
 
-    public ObservableCollection<string> SelectedExtraFilePaths { get; }
+    public ObservableHashSet<string> SelectedExtraFilePaths { get; }
 }
