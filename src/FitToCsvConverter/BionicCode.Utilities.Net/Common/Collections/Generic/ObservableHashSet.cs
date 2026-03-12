@@ -175,7 +175,7 @@ public class ObservableHashSet<TItem> :
     /// the order differs. This is useful for scenarios where set semantics are required, such as using hash sets as
     /// keys in dictionaries.</remarks>
     /// <returns>An equality comparer that determines whether two hash sets contain the same elements, regardless of order.</returns>
-    public static IEqualityComparer<ObservableHashSet<TItem>> CreateSetComparer() => new ObservableHashSetEqualityComparer<TItem>();
+    public static IEqualityComparer<ObservableHashSet<TItem>> CreateSetComparer() => ObservableHashSetEqualityComparer<TItem>.Instance;
     /// <summary>
     /// Returns an array containing the elements of the queue in the order they would be dequeued.
     /// </summary>
@@ -486,6 +486,10 @@ public class ObservableHashSet<TItem> :
 
     internal sealed class ObservableHashSetEqualityComparer<TItem> : IEqualityComparer<ObservableHashSet<TItem>?>, IEqualityComparer<HashSet<TItem>?>
     {
+        public static ObservableHashSetEqualityComparer<TItem> Instance { get; } = new();
+
+        private ObservableHashSetEqualityComparer() { }
+
         public bool Equals(ObservableHashSet<TItem>? x, ObservableHashSet<TItem>? y)
         {
             // If they're the exact same instance, they're equal.
@@ -554,37 +558,29 @@ public class ObservableHashSet<TItem> :
             return HashSet<TItem>.CreateSetComparer().Equals(x, y.Items);
         }
 
-        public int GetHashCode(ObservableHashSet<TItem>? obj)
+        public int GetHashCode([DisallowNull] ObservableHashSet<TItem> obj)
         {
-            int hashCode = 0; // default to 0 for null/empty set
+            ArgumentNullExceptionAdvanced.ThrowIfNull(obj);
 
-            if (obj != null)
+            // Use an cumulative and therefore order-independent set hash
+            int hashCode = 0;
+            foreach (TItem item in obj.OrEmpty())
             {
-                foreach (TItem t in obj)
-                {
-                    if (t != null)
-                    {
-                        hashCode ^= t.GetHashCode(); // same hashcode as default comparer
-                    }
-                }
+                hashCode ^= obj.Comparer.GetHashCode(item);
             }
 
             return hashCode;
         }
 
-        public int GetHashCode(HashSet<TItem>? obj)
+        public int GetHashCode([DisallowNull] HashSet<TItem>? obj)
         {
-            int hashCode = 0; // default to 0 for null/empty set
+            ArgumentNullExceptionAdvanced.ThrowIfNull(obj);
 
-            if (obj != null)
+            // Use an cumulative and therefore order-independent set hash
+            int hashCode = 0;
+            foreach (TItem item in obj.OrEmpty())
             {
-                foreach (TItem t in obj)
-                {
-                    if (t != null)
-                    {
-                        hashCode ^= t.GetHashCode(); // same hashcode as default comparer
-                    }
-                }
+                hashCode ^= obj.Comparer.GetHashCode(item);
             }
 
             return hashCode;
@@ -593,7 +589,7 @@ public class ObservableHashSet<TItem> :
         // Equals method for the comparer itself.
         public override bool Equals([NotNullWhen(true)] object? obj) => obj is ObservableHashSetEqualityComparer<TItem>;
 
-        public override int GetHashCode() => EqualityComparer<TItem>.Default.GetHashCode();
+        public override int GetHashCode() => RuntimeHelpers.GetHashCode(this);
     }
 
     internal readonly struct HashSetDelta
@@ -772,7 +768,7 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
     /// the order differs. This is useful for scenarios where set semantics are required, such as using hash sets as
     /// keys in dictionaries.</remarks>
     /// <returns>An equality comparer that determines whether two hash sets contain the same elements, regardless of order.</returns>
-    public static new IEqualityComparer<ObservableFileSystemPathHashSet> CreateSetComparer() => new ObservableFileSystemPathHashSetEqualityComparer();
+    public static new IEqualityComparer<ObservableFileSystemPathHashSet> CreateSetComparer() => ObservableFileSystemPathHashSetEqualityComparer.Instance;
 
     /// <summary>
     /// Removes all elements in the specified collection from the current set.
@@ -1053,6 +1049,10 @@ public sealed class CaseInsensitiveFileSystemPathEqualityComparer : FileSystemPa
 
 internal sealed class ObservableFileSystemPathHashSetEqualityComparer : IEqualityComparer<ObservableFileSystemPathHashSet?>, IEqualityComparer<HashSet<string>?>, IEqualityComparer<ObservableHashSet<string>?>, IEqualityComparer<HashSet<FileSystemInfo>?>, IEqualityComparer<ObservableHashSet<FileSystemInfo>?>
 {
+    public static ObservableFileSystemPathHashSetEqualityComparer Instance { get; } = new ObservableFileSystemPathHashSetEqualityComparer();
+
+    private ObservableFileSystemPathHashSetEqualityComparer() { }
+
     public bool Equals(ObservableFileSystemPathHashSet? x, ObservableFileSystemPathHashSet? y)
     {
         IEqualityComparer<string> xComparer = x?.Comparer ?? FileSystemPathEqualityComparer.Instance;
@@ -1094,7 +1094,7 @@ internal sealed class ObservableFileSystemPathHashSetEqualityComparer : IEqualit
             return Equals(x, yPathSet);
         }
 
-        var comparer = (IEqualityComparer<string>)FileSystemPathEqualityComparer.Instance;
+        FileSystemPathEqualityComparer comparer = FileSystemPathEqualityComparer.Instance;
         return IsSetEqual(x, y, comparer);
     }
 
@@ -1109,7 +1109,7 @@ internal sealed class ObservableFileSystemPathHashSetEqualityComparer : IEqualit
     /// <returns><see langword="true"/> if both sets contain the same elements according to file system path equality; otherwise, <see langword="false"/>.</returns>
     public bool Equals(HashSet<string>? x, HashSet<string>? y)
     {
-        var comparer = (IEqualityComparer<string>)FileSystemPathEqualityComparer.Instance;
+        FileSystemPathEqualityComparer comparer = FileSystemPathEqualityComparer.Instance;
         return IsSetEqual(x, y, comparer);
     }
 
@@ -1130,7 +1130,7 @@ internal sealed class ObservableFileSystemPathHashSetEqualityComparer : IEqualit
             return Equals(xPathSet, y);
         }
 
-        var comparer = (IEqualityComparer<string>)FileSystemPathEqualityComparer.Instance;
+        FileSystemPathEqualityComparer comparer = FileSystemPathEqualityComparer.Instance;
         return IsSetEqual(x, y, comparer);
     }
 
@@ -1212,89 +1212,61 @@ internal sealed class ObservableFileSystemPathHashSetEqualityComparer : IEqualit
 
     public int GetHashCode([DisallowNull] HashSet<FileSystemInfo>? obj)
     {
-        var hashCode = new HashCode();
-        if (obj is not null)
-        {
-            foreach (FileSystemInfo item in obj)
-            {
-                hashCode.Add(FileSystemPathEqualityComparer.Instance.GetHashCode(item));
-            }
-        }
+        ArgumentNullExceptionAdvanced.ThrowIfNull(obj);
 
-        return hashCode.ToHashCode();
+        return ComputeHashCode(obj, FileSystemPathEqualityComparer.Instance);
     }
 
-    public int GetHashCode([DisallowNull] ObservableHashSet<FileSystemInfo>? obj)
+    public int GetHashCode([DisallowNull] ObservableHashSet<FileSystemInfo> obj)
     {
-        var hashCode = new HashCode();
-        if (obj is not null)
-        {
-            foreach (FileSystemInfo item in obj)
-            {
-                if (item != null)
-                {
-                    hashCode.Add(FileSystemPathEqualityComparer.Instance.GetHashCode(item));
-                }
-            }
-        }
+        ArgumentNullExceptionAdvanced.ThrowIfNull(obj);
 
-        return hashCode.ToHashCode();
+        return ComputeHashCode(obj, FileSystemPathEqualityComparer.Instance);
     }
 
-    public int GetHashCode(ObservableFileSystemPathHashSet? obj)
+    public int GetHashCode([DisallowNull] ObservableFileSystemPathHashSet obj)
     {
-        var hashCode = new HashCode();
-        if (obj != null)
-        {
-            foreach (string item in obj)
-            {
-                if (item != null)
-                {
-                    hashCode.Add(obj.Comparer.GetHashCode(item));
-                }
-            }
-        }
+        ArgumentNullExceptionAdvanced.ThrowIfNull(obj);
 
-        return hashCode.ToHashCode();
+        return ComputeHashCode(obj, obj.Comparer);
     }
 
-    public int GetHashCode(ObservableHashSet<string>? obj)
+    public int GetHashCode([DisallowNull] ObservableHashSet<string> obj)
     {
-        if (obj is ObservableFileSystemPathHashSet pathSet)
-        {
-            return GetHashCode(pathSet);
-        }
+        ArgumentNullExceptionAdvanced.ThrowIfNull(obj);
 
-        var hashCode = new HashCode();
-        if (obj != null)
-        {
-            foreach (string item in obj)
-            {
-                if (item != null)
-                {
-                    hashCode.Add(FileSystemPathEqualityComparer.Instance.GetHashCode(item));
-                }
-            }
-        }
-
-        return hashCode.ToHashCode();
+        return ComputeHashCode(obj, obj.Comparer);
     }
 
-    public int GetHashCode(HashSet<string>? obj)
+    public int GetHashCode([DisallowNull] HashSet<string> obj)
     {
-        var hashCode = new HashCode();
-        if (obj != null)
+        ArgumentNullExceptionAdvanced.ThrowIfNull(obj);
+
+        return ComputeHashCode(obj, obj.Comparer);
+    }
+
+    private static int ComputeHashCode(ISet<string> obj, IEqualityComparer<string> comparer)
+    {
+        // Use an cumulative and therefore order-independent set hash
+        int hashCode = 0;
+        foreach (string item in obj)
         {
-            foreach (string item in obj)
-            {
-                if (item != null)
-                {
-                    hashCode.Add(FileSystemPathEqualityComparer.Instance.GetHashCode(item));
-                }
-            }
+            hashCode ^= comparer.GetHashCode(item);
         }
 
-        return hashCode.ToHashCode();
+        return hashCode;
+    }
+
+    private static int ComputeHashCode(ISet<FileSystemInfo> obj, IEqualityComparer<string> comparer)
+    {
+        // Use an cumulative and therefore order-independent set hash
+        int hashCode = 0;
+        foreach (FileSystemInfo item in obj)
+        {
+            hashCode ^= comparer.GetHashCode(item.FullName);
+        }
+
+        return hashCode;
     }
 
     // Equals method for the comparer itself.
@@ -1362,6 +1334,11 @@ internal sealed class ObservableFileSystemPathHashSetEqualityComparer : IEqualit
 
     private static bool IsSetEqual(ISet<string>? x, ISet<FileSystemInfo>? y, IEqualityComparer<string> comparer)
     {
+        if (x is null && y is null)
+        {
+            return true;
+        }
+
         // They're not both null, so if either is null, they're not equal.
         if (x == null || y == null)
         {
@@ -1384,5 +1361,5 @@ internal sealed class ObservableFileSystemPathHashSetEqualityComparer : IEqualit
         return true;
     }
 
-    public override int GetHashCode() => throw new NotImplementedException();
+    public override int GetHashCode() => RuntimeHelpers.GetHashCode(this);
 }
