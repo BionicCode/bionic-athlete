@@ -622,22 +622,22 @@ public class ObservableHashSet<TItem> :
 
 public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
 {
-    public ObservableFileSystemPathHashSet() : base(FileSystemPathEqualityComparer.Default) { }
-    public ObservableFileSystemPathHashSet(IEnumerable<string> collection) : base(collection, FileSystemPathEqualityComparer.Default) { }
+    public ObservableFileSystemPathHashSet() : base(FileSystemPathEqualityComparer.Instance) { }
+    public ObservableFileSystemPathHashSet(IEnumerable<string> collection) : base(collection, FileSystemPathEqualityComparer.Instance) { }
 
-    public ObservableFileSystemPathHashSet(int capacity) : base(capacity, FileSystemPathEqualityComparer.Default)
+    public ObservableFileSystemPathHashSet(int capacity) : base(capacity, FileSystemPathEqualityComparer.Instance)
     {
     }
 
-    public ObservableFileSystemPathHashSet(IEqualityComparer<string>? comparer) : base(comparer)
+    public ObservableFileSystemPathHashSet(IEqualityComparer<string>? comparer) : base(comparer ?? FileSystemPathEqualityComparer.Instance)
     {
     }
 
-    public ObservableFileSystemPathHashSet(IEnumerable<string> collection, IEqualityComparer<string>? comparer) : base(collection, comparer)
+    public ObservableFileSystemPathHashSet(IEnumerable<string> collection, IEqualityComparer<string>? comparer) : base(collection, comparer ?? FileSystemPathEqualityComparer.Instance)
     {
     }
 
-    public ObservableFileSystemPathHashSet(int capacity, IEqualityComparer<string>? comparer) : base(capacity, comparer)
+    public ObservableFileSystemPathHashSet(int capacity, IEqualityComparer<string>? comparer) : base(capacity, comparer ?? FileSystemPathEqualityComparer.Instance)
     {
     }
     /// <summary>
@@ -688,20 +688,20 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
     /// <summary>
     /// Removes all items from the collection that match the specified predicate.
     /// </summary>
-    /// <remarks>Each item is represented as a <see cref="FileSystemInfo"/> object, which may be a <see cref="FileInfo"/> or <see cref="DirectoryInfo"/>
-    /// depending on whether the item has a file extension. The method removes only those items for which the predicate
+    /// <remarks>Each item is represented as a <see cref="FileInfo"/> object. The method removes only those items for which the predicate
     /// returns <see langword="true"/>.</remarks>
     /// <param name="match">A delegate that defines the conditions of the items to remove. Cannot be <see langword="null"/>.</param>
     /// <returns>The number of items removed from the collection.</returns>
-    public int RemoveWhere(Predicate<FileSystemInfo> match)
+    public int RemoveWhere(Predicate<FileInfo> match)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(match);
 
+        string[] snapshot = Items.ToArray();
         int removedCount = 0;
-        foreach (string item in Items)
+        foreach (string item in snapshot)
         {
-            FileSystemInfo fileSystemInfo = ConvertToFileSystemInfo(item);
-            if (match(fileSystemInfo) && Remove(item))
+            var fileInfo = new FileInfo(item);
+            if (match(fileInfo) && Remove(item))
             {
                 removedCount++;
             }
@@ -710,14 +710,39 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
         return removedCount;
     }
 
-    public bool TryGetValue(FileSystemInfo item, [MaybeNullWhen(false)] out FileSystemInfo value)
+    /// <summary>
+    /// Removes all items from the collection that match the specified predicate.
+    /// </summary>
+    /// <remarks>Each item is represented as a <see cref="DirectoryInfo"/> object. The method removes only those items for which the predicate
+    /// returns <see langword="true"/>.</remarks>
+    /// <param name="match">A delegate that defines the conditions of the items to remove. Cannot be <see langword="null"/>.</param>
+    /// <returns>The number of items removed from the collection.</returns>
+    public int RemoveWhere(Predicate<DirectoryInfo> match)
+    {
+        ArgumentNullExceptionAdvanced.ThrowIfNull(match);
+
+        string[] snapshot = Items.ToArray();
+        int removedCount = 0;
+        foreach (string item in snapshot)
+        {
+            var directoryInfo = new DirectoryInfo(item);
+            if (match(directoryInfo) && Remove(item))
+            {
+                removedCount++;
+            }
+        }
+
+        return removedCount;
+    }
+
+    public bool TryGetValue(FileInfo item, [MaybeNullWhen(false)] out FileInfo value)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(item);
 
         value = default;
-        if (Items.TryGetValue(item.FullName, out string stringValue))
+        if (Items.TryGetValue(item.FullName, out string? stringValue))
         {
-            value = ConvertToFileSystemInfo(stringValue);
+            value = new FileInfo(stringValue);
 
             return true;
         }
@@ -725,11 +750,20 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
         return false;
     }
 
-    public FileSystemInfo[] ToFileSystemInfoArray() => Items.Select(item =>
+    public bool TryGetValue(DirectoryInfo item, [MaybeNullWhen(false)] out DirectoryInfo value)
     {
-        FileSystemInfo fileSystemInfo = ConvertToFileSystemInfo(item);
-        return fileSystemInfo;
-    }).ToArray();
+        ArgumentNullExceptionAdvanced.ThrowIfNull(item);
+
+        value = default;
+        if (Items.TryGetValue(item.FullName, out string? stringValue))
+        {
+            value = new DirectoryInfo(stringValue);
+
+            return true;
+        }
+
+        return false;
+    }
 
     /// <summary>
     /// Creates an equality comparer that can be used to compare two hash sets for set equality.
@@ -886,26 +920,16 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
         IEnumerable<string> unwrappedOther = other.Select(item => item.FullName);
         UnionWith(unwrappedOther);
     }
-
-    private static FileSystemInfo ConvertToFileSystemInfo(string item) => Path.HasExtension(item)
-        ? new FileInfo(item)
-        : new DirectoryInfo(item);
 }
 
-public sealed class FileSystemPathEqualityComparer : EqualityComparer<string>, IEqualityComparer<FileSystemInfo>
+public abstract class FileSystemPathEqualityComparer : StringComparer, IEqualityComparer<FileSystemInfo>
 {
-    public static new FileSystemPathEqualityComparer Default { get; } = new();
-    private readonly IEqualityComparer<string> _stringComparer;
+    protected StringComparer Comparer { get; }
+    public static FileSystemPathEqualityComparer Instance { get; } = OperatingSystem.IsLinux()
+        ? CaseSensitiveFileSystemPathEqualityComparer.Instance
+        : CaseInsensitiveFileSystemPathEqualityComparer.Instance;
 
-    private FileSystemPathEqualityComparer() => _stringComparer = OperatingSystem.IsLinux()
-        ? StringComparer.Ordinal
-        : StringComparer.OrdinalIgnoreCase;
-
-    public FileSystemPathEqualityComparer(IEqualityComparer<string> comparer)
-    {
-        ArgumentNullExceptionAdvanced.ThrowIfNull(comparer);
-        _stringComparer = comparer;
-    }
+    protected FileSystemPathEqualityComparer(StringComparer comparer) => Comparer = comparer;
 
     public override bool Equals(string? x, string? y)
     {
@@ -922,10 +946,10 @@ public sealed class FileSystemPathEqualityComparer : EqualityComparer<string>, I
         string xNormalized = NormalizeFileSystemPath(x);
         string yNormalized = NormalizeFileSystemPath(y);
 
-        return _stringComparer.Equals(xNormalized, yNormalized);
+        return Comparer.Equals(xNormalized, yNormalized);
     }
 
-    public bool Equals(FileSystemInfo? x, FileSystemInfo? y)
+    public virtual bool Equals(FileSystemInfo? x, FileSystemInfo? y)
     {
         if (ReferenceEquals(x, y))
         {
@@ -940,31 +964,105 @@ public sealed class FileSystemPathEqualityComparer : EqualityComparer<string>, I
         string xNormalized = NormalizeFileSystemPath(x.FullName);
         string yNormalized = NormalizeFileSystemPath(y.FullName);
 
-        return _stringComparer.Equals(xNormalized, yNormalized);
+        return Comparer.Equals(xNormalized, yNormalized);
     }
 
-    private string NormalizeFileSystemPath(string fileSystemPath)
+    public virtual bool Equals(FileSystemPathEqualityComparer? other) => ReferenceEquals(this, other);
+
+    public virtual bool Equals(IEqualityComparer<string>? other)
     {
-        // Normalize the path by removing leading/trailing whitespace
-        // and any trailing directory separators. This helps ensure that paths that differ only in these aspects are considered equal.
-        string normalizedPath = Path.TrimEndingDirectorySeparator(fileSystemPath.Trim());
-        return normalizedPath;
+        if (ReferenceEquals(this, other))
+        {
+            return true;
+        }
+
+        if (other is null)
+        {
+            return false;
+        }
+
+        return Comparer.GetType() == other.GetType();
     }
 
-    public override int GetHashCode(string obj) => obj is string fileSystemPath
-        ? _stringComparer.GetHashCode(NormalizeFileSystemPath(fileSystemPath))
+    public static bool Equals(IEqualityComparer<string>? x, IEqualityComparer<string>? y)
+    {
+        if (ReferenceEquals(x, y))
+        {
+            return true;
+        }
+
+        if (x is null || y is null)
+        {
+            return false;
+        }
+
+        IEqualityComparer<string> xPathComparer = x is FileSystemPathEqualityComparer xComparer ? xComparer.Comparer : x;
+        IEqualityComparer<string> yPathComparer = y is FileSystemPathEqualityComparer yComparer ? yComparer.Comparer : y;
+
+        return xPathComparer.GetType() == yPathComparer.GetType();
+    }
+
+    public override bool Equals(object? obj) => obj is IEqualityComparer<string> other && Equals(other);
+
+    private string NormalizeFileSystemPath(string fileSystemPath) => Path.TrimEndingDirectorySeparator(fileSystemPath);
+
+    public override int GetHashCode(string? obj) => obj is not null
+        ? Comparer.GetHashCode(NormalizeFileSystemPath(obj))
         : 0;
 
     public int GetHashCode([DisallowNull] FileSystemInfo obj) => obj is FileSystemInfo fileSystemInfo
-        ? _stringComparer.GetHashCode(NormalizeFileSystemPath(fileSystemInfo.FullName))
+        ? Comparer.GetHashCode(NormalizeFileSystemPath(fileSystemInfo.FullName))
         : 0;
+
+    public override int GetHashCode() => Comparer.GetHashCode();
+
+    public override int Compare(string? x, string? y)
+    {
+        if (x is null && y is null)
+        {
+            return 0;
+        }
+
+        if (x is null)
+        {
+            return -1;
+        }
+
+        if (y is null)
+        {
+            return 1;
+        }
+
+        return Comparer.Compare(NormalizeFileSystemPath(x), NormalizeFileSystemPath(y));
+    }
+}
+
+public sealed class CaseSensitiveFileSystemPathEqualityComparer : FileSystemPathEqualityComparer
+{
+    public static new CaseSensitiveFileSystemPathEqualityComparer Instance { get; } = new();
+
+    private CaseSensitiveFileSystemPathEqualityComparer() : base(StringComparer.Ordinal) { }
+}
+
+public sealed class CaseInsensitiveFileSystemPathEqualityComparer : FileSystemPathEqualityComparer
+{
+    public static new CaseInsensitiveFileSystemPathEqualityComparer Instance { get; } = new();
+
+    private CaseInsensitiveFileSystemPathEqualityComparer() : base(StringComparer.OrdinalIgnoreCase) { }
 }
 
 internal sealed class ObservableFileSystemPathHashSetEqualityComparer : IEqualityComparer<ObservableFileSystemPathHashSet?>, IEqualityComparer<HashSet<string>?>, IEqualityComparer<ObservableHashSet<string>?>, IEqualityComparer<HashSet<FileSystemInfo>?>, IEqualityComparer<ObservableHashSet<FileSystemInfo>?>
 {
     public bool Equals(ObservableFileSystemPathHashSet? x, ObservableFileSystemPathHashSet? y)
     {
-        IEqualityComparer<string> comparer = x?.Comparer ?? y?.Comparer ?? FileSystemPathEqualityComparer.Default;
+        IEqualityComparer<string> xComparer = x?.Comparer ?? FileSystemPathEqualityComparer.Instance;
+        IEqualityComparer<string> yComparer = y?.Comparer ?? FileSystemPathEqualityComparer.Instance;
+        if (!FileSystemPathEqualityComparer.Equals(xComparer, yComparer))
+        {
+            return false;
+        }
+
+        IEqualityComparer<string> comparer = xComparer;
         return IsSetEqual(x, y, comparer);
     }
 
@@ -974,7 +1072,7 @@ internal sealed class ObservableFileSystemPathHashSetEqualityComparer : IEqualit
     /// </summary>
     /// <remarks>Equality is determined using file system path comparison for string elements. If both
     /// parameters are <see langword="null"/>, they are considered equal. If only one is <see langword="null"/>, they are not equal. Specialized comparison
-    /// is performed if either set is an <see cref="ObservableFileSystemPathHashSet"/> using their provided comparer where <paramref name="x"/> takes precedence over <paramref name="y"/>. Otherwise, the default equality is determined by using the <see cref="FileSystemPathEqualityComparer.Default"/> equality comparer.</remarks>
+    /// is performed if either set is an <see cref="ObservableFileSystemPathHashSet"/> using their provided comparer where <paramref name="x"/> takes precedence over <paramref name="y"/>. Otherwise, the default equality is determined by using the <see cref="FileSystemPathEqualityComparer.Instance"/> equality comparer.</remarks>
     /// <param name="x">The first <see cref="ObservableHashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
     /// <param name="y">The second <see cref="ObservableHashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
     /// <returns><see langword="true"/> if both sets contain the same elements according to file system path equality; otherwise, <see langword="false"/>.</returns>
@@ -996,7 +1094,7 @@ internal sealed class ObservableFileSystemPathHashSetEqualityComparer : IEqualit
             return Equals(x, yPathSet);
         }
 
-        IEqualityComparer<string> comparer = FileSystemPathEqualityComparer.Default;
+        var comparer = (IEqualityComparer<string>)FileSystemPathEqualityComparer.Instance;
         return IsSetEqual(x, y, comparer);
     }
 
@@ -1005,13 +1103,13 @@ internal sealed class ObservableFileSystemPathHashSetEqualityComparer : IEqualit
     /// system path equality semantics.
     /// </summary>
     /// <remarks>Equality is determined using file system path comparison for string elements. If both
-    /// parameters are <see langword="null"/>, they are considered equal. If only one is <see langword="null"/>, they are not equal. The equality is determined by using the <see cref="FileSystemPathEqualityComparer.Default"/> equality comparer.</remarks>
+    /// parameters are <see langword="null"/>, they are considered equal. If only one is <see langword="null"/>, they are not equal. The equality is determined by using the <see cref="FileSystemPathEqualityComparer.Instance"/> equality comparer.</remarks>
     /// <param name="x">The first <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
     /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
     /// <returns><see langword="true"/> if both sets contain the same elements according to file system path equality; otherwise, <see langword="false"/>.</returns>
     public bool Equals(HashSet<string>? x, HashSet<string>? y)
     {
-        IEqualityComparer<string> comparer = FileSystemPathEqualityComparer.Default;
+        var comparer = (IEqualityComparer<string>)FileSystemPathEqualityComparer.Instance;
         return IsSetEqual(x, y, comparer);
     }
 
@@ -1021,7 +1119,7 @@ internal sealed class ObservableFileSystemPathHashSetEqualityComparer : IEqualit
     /// </summary>
     /// <remarks>Equality is determined using file system path comparison for string elements. If both
     /// parameters are <see langword="null"/>, they are considered equal. If only one is <see langword="null"/>, they are not equal. Specialized comparison
-    /// is performed if the <paramref name="x"/> set is an <see cref="ObservableFileSystemPathHashSet"/> using its provided comparer. Otherwise, the default equality is determined by using the <see cref="FileSystemPathEqualityComparer.Default"/> equality comparer.</remarks>
+    /// is performed if the <paramref name="x"/> set is an <see cref="ObservableFileSystemPathHashSet"/> using its provided comparer. Otherwise, the default equality is determined by using the <see cref="FileSystemPathEqualityComparer.Instance"/> equality comparer.</remarks>
     /// <param name="x">The first <see cref="ObservableHashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
     /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
     /// <returns><see langword="true"/> if both sets contain the same elements according to file system path equality; otherwise, <see langword="false"/>.</returns>
@@ -1032,7 +1130,7 @@ internal sealed class ObservableFileSystemPathHashSetEqualityComparer : IEqualit
             return Equals(xPathSet, y);
         }
 
-        IEqualityComparer<string> comparer = FileSystemPathEqualityComparer.Default;
+        var comparer = (IEqualityComparer<string>)FileSystemPathEqualityComparer.Instance;
         return IsSetEqual(x, y, comparer);
     }
 
@@ -1043,25 +1141,25 @@ internal sealed class ObservableFileSystemPathHashSetEqualityComparer : IEqualit
             return Equals(xPathSet, y);
         }
 
-        IEqualityComparer<string> comparer = y?.Comparer ?? FileSystemPathEqualityComparer.Default;
+        IEqualityComparer<string> comparer = y?.Comparer ?? FileSystemPathEqualityComparer.Instance;
         return IsSetEqual(x, y, comparer);
     }
 
     public bool Equals(ObservableFileSystemPathHashSet? x, HashSet<string>? y)
     {
-        IEqualityComparer<string> comparer = x?.Comparer ?? FileSystemPathEqualityComparer.Default;
+        IEqualityComparer<string> comparer = x?.Comparer ?? FileSystemPathEqualityComparer.Instance;
         return IsSetEqual(x, y, comparer);
     }
 
     public bool Equals(ObservableFileSystemPathHashSet? x, ObservableHashSet<string>? y)
     {
-        IEqualityComparer<string> comparer = x?.Comparer ?? FileSystemPathEqualityComparer.Default;
+        IEqualityComparer<string> comparer = x?.Comparer ?? FileSystemPathEqualityComparer.Instance;
         return IsSetEqual(x, y, comparer);
     }
 
     public bool Equals(HashSet<string>? x, ObservableFileSystemPathHashSet? y)
     {
-        IEqualityComparer<string> comparer = y?.Comparer ?? FileSystemPathEqualityComparer.Default;
+        IEqualityComparer<string> comparer = y?.Comparer ?? FileSystemPathEqualityComparer.Instance;
         return IsSetEqual(x, y, comparer);
     }
 
@@ -1072,134 +1170,131 @@ internal sealed class ObservableFileSystemPathHashSetEqualityComparer : IEqualit
             return Equals(x, yPathSet);
         }
 
-        IEqualityComparer<string> comparer = FileSystemPathEqualityComparer.Default;
+        var comparer = (IEqualityComparer<string>)FileSystemPathEqualityComparer.Instance;
         return IsSetEqual(x, y, comparer);
     }
 
     public bool Equals(HashSet<FileSystemInfo>? x, HashSet<FileSystemInfo>? y)
     {
-        IEqualityComparer<FileSystemInfo> comparer = FileSystemPathEqualityComparer.Default;
+        IEqualityComparer<FileSystemInfo> comparer = FileSystemPathEqualityComparer.Instance;
         return IsSetEqual(x, y, comparer);
     }
 
     public bool Equals(ObservableHashSet<FileSystemInfo>? x, ObservableHashSet<FileSystemInfo>? y)
     {
-        IEqualityComparer<FileSystemInfo> comparer = FileSystemPathEqualityComparer.Default;
+        IEqualityComparer<FileSystemInfo> comparer = FileSystemPathEqualityComparer.Instance;
         return IsSetEqual(x, y, comparer);
     }
 
     public bool Equals(ObservableFileSystemPathHashSet? x, HashSet<FileSystemInfo>? y)
     {
-        IEqualityComparer<string> comparer = x?.Comparer ?? FileSystemPathEqualityComparer.Default;
+        IEqualityComparer<string> comparer = x?.Comparer ?? FileSystemPathEqualityComparer.Instance;
         return IsSetEqual(x, y, comparer);
     }
 
     public bool Equals(ObservableFileSystemPathHashSet? x, ObservableHashSet<FileSystemInfo>? y)
     {
-        IEqualityComparer<string> comparer = x?.Comparer ?? FileSystemPathEqualityComparer.Default;
+        IEqualityComparer<string> comparer = x?.Comparer ?? FileSystemPathEqualityComparer.Instance;
         return IsSetEqual(x, y, comparer);
     }
 
     public bool Equals(ObservableHashSet<FileSystemInfo>? x, ObservableFileSystemPathHashSet? y)
     {
-        IEqualityComparer<string> comparer = y?.Comparer ?? FileSystemPathEqualityComparer.Default;
+        IEqualityComparer<string> comparer = y?.Comparer ?? FileSystemPathEqualityComparer.Instance;
         return IsSetEqual(y, x, comparer);
     }
 
     public bool Equals(HashSet<FileSystemInfo>? x, ObservableFileSystemPathHashSet? y)
     {
-        IEqualityComparer<string> comparer = y?.Comparer ?? FileSystemPathEqualityComparer.Default;
+        IEqualityComparer<string> comparer = y?.Comparer ?? FileSystemPathEqualityComparer.Instance;
         return IsSetEqual(y, x, comparer);
     }
 
     public int GetHashCode([DisallowNull] HashSet<FileSystemInfo>? obj)
     {
-        int hashCode = 0; // default to 0 for null/empty set
-
-        if (obj != null)
+        var hashCode = new HashCode();
+        if (obj is not null)
         {
-            foreach (FileSystemInfo t in obj)
+            foreach (FileSystemInfo item in obj)
             {
-                if (t != null)
-                {
-                    hashCode ^= t.GetHashCode(); // same hashcode as default comparer
-                }
+                hashCode.Add(FileSystemPathEqualityComparer.Instance.GetHashCode(item));
             }
         }
 
-        return hashCode;
+        return hashCode.ToHashCode();
     }
 
     public int GetHashCode([DisallowNull] ObservableHashSet<FileSystemInfo>? obj)
     {
-        int hashCode = 0; // default to 0 for null/empty set
-
-        if (obj != null)
+        var hashCode = new HashCode();
+        if (obj is not null)
         {
-            foreach (FileSystemInfo t in obj)
+            foreach (FileSystemInfo item in obj)
             {
-                if (t != null)
+                if (item != null)
                 {
-                    hashCode ^= t.GetHashCode(); // same hashcode as default comparer
+                    hashCode.Add(FileSystemPathEqualityComparer.Instance.GetHashCode(item));
                 }
             }
         }
 
-        return hashCode;
+        return hashCode.ToHashCode();
     }
 
     public int GetHashCode(ObservableFileSystemPathHashSet? obj)
     {
-        int hashCode = 0; // default to 0 for null/empty set
-
+        var hashCode = new HashCode();
         if (obj != null)
         {
-            foreach (string t in obj)
+            foreach (string item in obj)
             {
-                if (t != null)
+                if (item != null)
                 {
-                    hashCode ^= t.GetHashCode(); // same hashcode as default comparer
+                    hashCode.Add(obj.Comparer.GetHashCode(item));
                 }
             }
         }
 
-        return hashCode;
+        return hashCode.ToHashCode();
     }
 
     public int GetHashCode(ObservableHashSet<string>? obj)
     {
-        int hashCode = 0; // default to 0 for null/empty set
+        if (obj is ObservableFileSystemPathHashSet pathSet)
+        {
+            return GetHashCode(pathSet);
+        }
 
+        var hashCode = new HashCode();
         if (obj != null)
         {
-            foreach (string t in obj)
+            foreach (string item in obj)
             {
-                if (t != null)
+                if (item != null)
                 {
-                    hashCode ^= t.GetHashCode(); // same hashcode as default comparer
+                    hashCode.Add(FileSystemPathEqualityComparer.Instance.GetHashCode(item));
                 }
             }
         }
 
-        return hashCode;
+        return hashCode.ToHashCode();
     }
 
     public int GetHashCode(HashSet<string>? obj)
     {
-        int hashCode = 0; // default to 0 for null/empty set
-
+        var hashCode = new HashCode();
         if (obj != null)
         {
-            foreach (string t in obj)
+            foreach (string item in obj)
             {
-                if (t != null)
+                if (item != null)
                 {
-                    hashCode ^= t.GetHashCode(); // same hashcode as default comparer
+                    hashCode.Add(FileSystemPathEqualityComparer.Instance.GetHashCode(item));
                 }
             }
         }
 
-        return hashCode;
+        return hashCode.ToHashCode();
     }
 
     // Equals method for the comparer itself.
@@ -1289,8 +1384,5 @@ internal sealed class ObservableFileSystemPathHashSetEqualityComparer : IEqualit
         return true;
     }
 
-    public override int GetHashCode()
-    {
-        throw new NotImplementedException();
-    }
+    public override int GetHashCode() => throw new NotImplementedException();
 }
