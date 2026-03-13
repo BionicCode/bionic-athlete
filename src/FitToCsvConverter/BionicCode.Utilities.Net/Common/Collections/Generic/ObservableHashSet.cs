@@ -585,11 +585,6 @@ public class ObservableHashSet<TItem> :
 
             return hashCode;
         }
-
-        // Equals method for the comparer itself.
-        public override bool Equals([NotNullWhen(true)] object? obj) => obj is ObservableHashSetEqualityComparer<TItem>;
-
-        public override int GetHashCode() => RuntimeHelpers.GetHashCode(this);
     }
 
     internal readonly struct HashSetDelta
@@ -918,7 +913,12 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
     }
 }
 
-public abstract class FileSystemPathEqualityComparer : StringComparer, IEqualityComparer<FileSystemInfo>
+/// <summary>
+/// A base class for equality comparers that compare file system paths represented as strings. This class provides a common implementation for normalizing file system paths and comparing them using a specified string comparer. The actual comparison logic is delegated to the underlying string comparer, which can be either case-sensitive or case-insensitive depending on the operating system's file system semantics.
+/// </summary>
+/// <remarks>On Linux, file system paths are case-sensitive, so the default comparer is case-sensitive. On Windows and other platforms with case-insensitive file systems, the default comparer is case-insensitive. This class also provides methods for comparing <see cref="FileSystemInfo"/> objects by their full paths.
+/// <para/>To obtain an instance of an actual file system comparer, use the <see cref="Instance"/> property.</remarks>
+public abstract class FileSystemPathEqualityComparer : StringComparer, IEqualityComparer<FileSystemInfo>, IEqualityComparer<string>
 {
     protected StringComparer Comparer { get; }
     public static FileSystemPathEqualityComparer Instance { get; } = OperatingSystem.IsLinux()
@@ -963,40 +963,9 @@ public abstract class FileSystemPathEqualityComparer : StringComparer, IEquality
         return Comparer.Equals(xNormalized, yNormalized);
     }
 
-    public virtual bool Equals(FileSystemPathEqualityComparer? other) => ReferenceEquals(this, other);
+    public virtual bool Equals(IEqualityComparer<string>? other) => ReferenceEquals(this, other);
 
-    public virtual bool Equals(IEqualityComparer<string>? other)
-    {
-        if (ReferenceEquals(this, other))
-        {
-            return true;
-        }
-
-        if (other is null)
-        {
-            return false;
-        }
-
-        return Comparer.GetType() == other.GetType();
-    }
-
-    public static bool Equals(IEqualityComparer<string>? x, IEqualityComparer<string>? y)
-    {
-        if (ReferenceEquals(x, y))
-        {
-            return true;
-        }
-
-        if (x is null || y is null)
-        {
-            return false;
-        }
-
-        IEqualityComparer<string> xPathComparer = x is FileSystemPathEqualityComparer xComparer ? xComparer.Comparer : x;
-        IEqualityComparer<string> yPathComparer = y is FileSystemPathEqualityComparer yComparer ? yComparer.Comparer : y;
-
-        return xPathComparer.GetType() == yPathComparer.GetType();
-    }
+    internal static bool Equals(IEqualityComparer<string>? x, IEqualityComparer<string>? y) => ReferenceEquals(x, y);
 
     public override bool Equals(object? obj) => obj is IEqualityComparer<string> other && Equals(other);
 
@@ -1033,6 +1002,14 @@ public abstract class FileSystemPathEqualityComparer : StringComparer, IEquality
     }
 }
 
+/// <summary>
+/// Provides a file system path equality comparer that performs case-sensitive comparisons using ordinal string
+/// comparison rules.
+/// </summary>
+/// <remarks>Use this comparer when file system path comparisons must distinguish between uppercase and lowercase
+/// characters, such as on case-sensitive file systems as implemented on Linux. 
+/// <para/>This class is a singleton; use the <see cref="Instance"/> property to access
+/// the shared instance.</remarks>
 public sealed class CaseSensitiveFileSystemPathEqualityComparer : FileSystemPathEqualityComparer
 {
     public static new CaseSensitiveFileSystemPathEqualityComparer Instance { get; } = new();
@@ -1040,6 +1017,14 @@ public sealed class CaseSensitiveFileSystemPathEqualityComparer : FileSystemPath
     private CaseSensitiveFileSystemPathEqualityComparer() : base(StringComparer.Ordinal) { }
 }
 
+/// <summary>
+/// Provides a file system path equality comparer that performs case-insensitive comparisons using ordinal string
+/// comparison rules.
+/// </summary>
+/// <remarks>Use this comparer when file system path comparisons must ignore case differences, such as on case-insensitive
+/// file systems as implemented on Windows or macOS. 
+/// <para/>This class is a singleton; use the <see cref="Instance"/> property to access
+/// the shared instance.</remarks>
 public sealed class CaseInsensitiveFileSystemPathEqualityComparer : FileSystemPathEqualityComparer
 {
     public static new CaseInsensitiveFileSystemPathEqualityComparer Instance { get; } = new();
@@ -1269,9 +1254,6 @@ internal sealed class ObservableFileSystemPathHashSetEqualityComparer : IEqualit
         return hashCode;
     }
 
-    // Equals method for the comparer itself.
-    public override bool Equals([NotNullWhen(true)] object? obj) => obj is ObservableFileSystemPathHashSetEqualityComparer;
-
     private static bool IsSetEqual(ISet<string>? x, ISet<string>? y, IEqualityComparer<string> comparer)
     {
         // If they're the exact same instance, they're equal.
@@ -1360,6 +1342,4 @@ internal sealed class ObservableFileSystemPathHashSetEqualityComparer : IEqualit
 
         return true;
     }
-
-    public override int GetHashCode() => RuntimeHelpers.GetHashCode(this);
 }
