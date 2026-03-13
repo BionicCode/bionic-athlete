@@ -1130,11 +1130,7 @@ internal sealed class ObservableFileSystemPathHashSetEqualityComparer : IEqualit
         return IsSetEqual(x, y, comparer);
     }
 
-    public bool Equals(ObservableFileSystemPathHashSet? x, HashSet<string>? y)
-    {
-        IEqualityComparer<string> comparer = x?.Comparer ?? FileSystemPathEqualityComparer.Instance;
-        return IsSetEqual(x, y, comparer);
-    }
+    public bool Equals(ObservableFileSystemPathHashSet? x, HashSet<string>? y) => x?.SetEquals(y) ?? (y is null);
 
     public bool Equals(ObservableFileSystemPathHashSet? x, ObservableHashSet<string>? y)
     {
@@ -1254,7 +1250,7 @@ internal sealed class ObservableFileSystemPathHashSetEqualityComparer : IEqualit
         return hashCode;
     }
 
-    private static bool IsSetEqual(ISet<string>? x, ISet<string>? y, IEqualityComparer<string> comparer)
+    private static bool IsSetEqual<TSet1, TSet2>(ISet<TSet1>? x, ISet<TSet2>? y)
     {
         // If they're the exact same instance, they're equal.
         if (ReferenceEquals(x, y))
@@ -1268,78 +1264,6 @@ internal sealed class ObservableFileSystemPathHashSetEqualityComparer : IEqualit
             return false;
         }
 
-        if (x.Count != y.Count)
-        {
-            return false;
-        }
-
-        foreach (string item in x)
-        {
-            if (!y.Contains(item, comparer))
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private static bool IsSetEqual(ISet<FileSystemInfo>? x, ISet<FileSystemInfo>? y, IEqualityComparer<FileSystemInfo> comparer)
-    {
-        // If they're the exact same instance, they're equal.
-        if (ReferenceEquals(x, y))
-        {
-            return true;
-        }
-
-        // They're not both null, so if either is null, they're not equal.
-        if (x == null || y == null)
-        {
-            return false;
-        }
-
-        if (x.Count != y.Count)
-        {
-            return false;
-        }
-
-        foreach (FileSystemInfo item in x)
-        {
-            if (!y.Contains(item, comparer))
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private static bool IsSetEqual(ISet<string>? x, ISet<FileSystemInfo>? y, IEqualityComparer<string> comparer)
-    {
-        if (x is null && y is null)
-        {
-            return true;
-        }
-
-        // They're not both null, so if either is null, they're not equal.
-        if (x == null || y == null)
-        {
-            return false;
-        }
-
-        if (x.Count != y.Count)
-        {
-            return false;
-        }
-
-        foreach (FileSystemInfo item in y)
-        {
-            if (!x.Contains(item.FullName, comparer))
-            {
-                return false;
-            }
-        }
-
-        return true;
+        return x.SetEquals((IEnumerable<TSet1>)y);
     }
 }
