@@ -1032,70 +1032,448 @@ public sealed class CaseInsensitiveFileSystemPathEqualityComparer : FileSystemPa
     private CaseInsensitiveFileSystemPathEqualityComparer() : base(StringComparer.OrdinalIgnoreCase) { }
 }
 
-internal sealed class ObservableFileSystemPathHashSetEqualityComparer : IEqualityComparer<ObservableFileSystemPathHashSet?>, IEqualityComparer<HashSet<string>?>, IEqualityComparer<ObservableHashSet<string>?>, IEqualityComparer<HashSet<FileSystemInfo>?>, IEqualityComparer<ObservableHashSet<FileSystemInfo>?>, IEqualityComparer<ISet<FileSystemInfo>?>, IEqualityComparer<ISet<string>?>
+internal sealed class ObservableFileSystemPathHashSetEqualityComparer : IEqualityComparer<ObservableFileSystemPathHashSet?>, IEqualityComparer<HashSet<string>?>, IEqualityComparer<ObservableHashSet<string>?>, IEqualityComparer<HashSet<FileSystemInfo>?>, IEqualityComparer<ObservableHashSet<FileSystemInfo>?>
 {
     public static ObservableFileSystemPathHashSetEqualityComparer Instance { get; } = new ObservableFileSystemPathHashSetEqualityComparer();
 
     private ObservableFileSystemPathHashSetEqualityComparer() { }
 
-    public bool Equals(ObservableFileSystemPathHashSet? x, ObservableFileSystemPathHashSet? y) => IsSetEqual(x, y);
+    /// <summary>
+    /// Determines whether two specified <see cref="ObservableFileSystemPathHashSet"> instances are equal by comparing their elements
+    /// and comparers.
+    /// </summary>
+    /// <remarks>Equality is determined using the collection's comparer. Collection equality is defined as follows (ordered by hierarchy):
+    /// <list type="number">
+    /// <item>If both parameters are <see langword="null"/>, they are considered equal.</item>
+    /// <item>If both parameters reference the same instance, they are considered equal.</item>
+    /// <item>If only one is <see langword="null"/>, they are not equal.</item>
+    /// <item>If both sets use the same comparer instance</item>
+    /// <item>AND if both sets have the same number of elements</item>
+    /// <item>AND if all elements are equal according to the set's comparer</item>
+    /// </list>
+    /// both collections are considered equal.
+    /// </remarks>
+    /// <param name="x">The first <see cref="ObservableFileSystemPathHashSet"> to compare, or null.</param>
+    /// <param name="y">The second <see cref="ObservableFileSystemPathHashSet"> to compare, or null.</param>
+    /// <returns><see langword="true"> if both sets satisfy the constraints for equality; otherwise, <see langword="false">.</returns>
+    [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
+    public bool Equals(ObservableFileSystemPathHashSet? x, ObservableFileSystemPathHashSet? y) => IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
 
     /// <summary>
-    /// Determines whether two <see cref="ObservableHashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents using file
-    /// system path equality semantics.
+    /// Determines whether two <see cref="ObservableHashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
     /// </summary>
-    /// <remarks>Equality is determined using file system path comparison for string elements. If both
-    /// parameters are <see langword="null"/>, they are considered equal. If only one is <see langword="null"/>, they are not equal. Specialized comparison
-    /// is performed if either set is an <see cref="ObservableFileSystemPathHashSet"/> using their provided comparer where <paramref name="x"/> takes precedence over <paramref name="y"/>. Otherwise, the default equality is determined by using the <see cref="FileSystemPathEqualityComparer.Instance"/> equality comparer.</remarks>
+    /// <remarks>Equality is determined using the collection's comparer. Collection equality is defined as follows (ordered by hierarchy):
+    /// <list type="number">
+    /// <item>If both parameters are <see langword="null"/>, they are considered equal.</item>
+    /// <item>If both parameters reference the same instance, they are considered equal.</item>
+    /// <item>If only one is <see langword="null"/>, they are not equal.</item>
+    /// <item>If both sets use the same comparer instance</item>
+    /// <item>AND if both sets have the same number of elements</item>
+    /// <item>AND if all elements are equal according to the set's comparer</item>
+    /// </list>
+    /// both collections are considered equal.
+    /// </remarks>
     /// <param name="x">The first <see cref="ObservableHashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
     /// <param name="y">The second <see cref="ObservableHashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
-    /// <returns><see langword="true"/> if both sets contain the same elements according to file system path equality; otherwise, <see langword="false"/>.</returns>
-    public bool Equals(ObservableHashSet<string>? x, ObservableHashSet<string>? y) => IsSetEqual(x, y);
+    /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
+    [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
+    public bool Equals(ObservableHashSet<string>? x, ObservableHashSet<string>? y) => IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
 
     /// <summary>
-    /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents using file
-    /// system path equality semantics.
+    /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
     /// </summary>
-    /// <remarks>Equality is determined using file system path comparison for string elements. If both
-    /// parameters are <see langword="null"/>, they are considered equal. If only one is <see langword="null"/>, they are not equal. The equality is determined by using the <see cref="FileSystemPathEqualityComparer.Instance"/> equality comparer.</remarks>
+    /// <remarks>Equality is determined using the collection's comparer. Collection equality is defined as follows (ordered by hierarchy):
+    /// <list type="number">
+    /// <item>If both parameters are <see langword="null"/>, they are considered equal.</item>
+    /// <item>If both parameters reference the same instance, they are considered equal.</item>
+    /// <item>If only one is <see langword="null"/>, they are not equal.</item>
+    /// <item>If both sets use the same comparer instance</item>
+    /// <item>AND if both sets have the same number of elements</item>
+    /// <item>AND if all elements are equal according to the set's comparer</item>
+    /// </list>
+    /// both collections are considered equal.
+    /// </remarks>
     /// <param name="x">The first <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
     /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
-    /// <returns><see langword="true"/> if both sets contain the same elements according to file system path equality; otherwise, <see langword="false"/>.</returns>
-    public bool Equals(HashSet<string>? x, HashSet<string>? y) => IsSetEqual(x, y);
+    /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
+    [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
+    public bool Equals(HashSet<string>? x, HashSet<string>? y) => IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
 
     /// <summary>
-    /// Determines whether a <see cref="ObservableHashSet"/>&lt;<see langword="string"/>&gt; equals a <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents using file
-    /// system path equality semantics.
+    /// Determines whether two <see cref="ObservableHashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
     /// </summary>
-    /// <remarks>Equality is determined using file system path comparison for string elements. If both
-    /// parameters are <see langword="null"/>, they are considered equal. If only one is <see langword="null"/>, they are not equal. Specialized comparison
-    /// is performed if the <paramref name="x"/> set is an <see cref="ObservableFileSystemPathHashSet"/> using its provided comparer. Otherwise, the default equality is determined by using the <see cref="FileSystemPathEqualityComparer.Instance"/> equality comparer.</remarks>
+    /// <remarks>Equality is determined using the collection's comparer. Collection equality is defined as follows (ordered by hierarchy):
+    /// <list type="number">
+    /// <item>If both parameters are <see langword="null"/>, they are considered equal.</item>
+    /// <item>If both parameters reference the same instance, they are considered equal.</item>
+    /// <item>If only one is <see langword="null"/>, they are not equal.</item>
+    /// <item>If both sets use the same comparer instance</item>
+    /// <item>AND if both sets have the same number of elements</item>
+    /// <item>AND if all elements are equal according to the set's comparer</item>
+    /// </list>
+    /// both collections are considered equal.
+    /// </remarks>
     /// <param name="x">The first <see cref="ObservableHashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
+    /// <param name="y">The second <see cref="ObservableHashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
+    [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
+    public bool Equals(ObservableHashSet<FileSystemInfo>? x, ObservableHashSet<FileSystemInfo>? y) => IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
+
+    /// <summary>
+    /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
+    /// </summary>
+    /// <remarks>Equality is determined using the collection's comparer. Collection equality is defined as follows (ordered by hierarchy):
+    /// <list type="number">
+    /// <item>If both parameters are <see langword="null"/>, they are considered equal.</item>
+    /// <item>If both parameters reference the same instance, they are considered equal.</item>
+    /// <item>If only one is <see langword="null"/>, they are not equal.</item>
+    /// <item>If both sets use the same comparer instance</item>
+    /// <item>AND if both sets have the same number of elements</item>
+    /// <item>AND if all elements are equal according to the set's comparer</item>
+    /// </list>
+    /// both collections are considered equal.
+    /// </remarks>
+    /// <param name="x">The first <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
     /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
-    /// <returns><see langword="true"/> if both sets contain the same elements according to file system path equality; otherwise, <see langword="false"/>.</returns>
-    public bool Equals(ObservableHashSet<string>? x, HashSet<string>? y) => IsSetEqual(x, y);
+    /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
+    [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
+    public bool Equals(HashSet<FileSystemInfo>? x, HashSet<FileSystemInfo>? y) => IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
 
-    public bool Equals(ObservableHashSet<string>? x, ObservableFileSystemPathHashSet? y) => IsSetEqual(x, y);
+    /// <summary>
+    /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
+    /// </summary>
+    /// <remarks>Equality is determined using the collection's comparer. Collection equality is defined as follows (ordered by hierarchy):
+    /// <list type="number">
+    /// <item>If both parameters are <see langword="null"/>, they are considered equal.</item>
+    /// <item>If both parameters reference the same instance, they are considered equal.</item>
+    /// <item>If only one is <see langword="null"/>, they are not equal.</item>
+    /// <item>If both sets use the same comparer instance</item>
+    /// <item>AND if both sets have the same number of elements</item>
+    /// <item>AND if all elements are equal according to the set's comparer</item>
+    /// </list>
+    /// both collections are considered equal.
+    /// </remarks>
+    /// <param name="x">The first <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
+    /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
+    [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
+    public bool Equals(ISet<FileSystemInfo>? x, IEqualityComparer<FileSystemInfo> setXComparer, ISet<FileSystemInfo>? y, IEqualityComparer<FileSystemInfo> setYComparer) => IsSetEqual(x, y, () => setXComparer, () => setYComparer);
 
-    public bool Equals(ObservableFileSystemPathHashSet? x, HashSet<string>? y) => x?.SetEquals(y) ?? (y is null);
+    /// <summary>
+    /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
+    /// </summary>
+    /// <remarks>Equality is determined using the collection's comparer. Collection equality is defined as follows (ordered by hierarchy):
+    /// <list type="number">
+    /// <item>If both parameters are <see langword="null"/>, they are considered equal.</item>
+    /// <item>If both parameters reference the same instance, they are considered equal.</item>
+    /// <item>If only one is <see langword="null"/>, they are not equal.</item>
+    /// <item>If both sets use the same comparer instance</item>
+    /// <item>AND if both sets have the same number of elements</item>
+    /// <item>AND if all elements are equal according to the set's comparer</item>
+    /// </list>
+    /// both collections are considered equal.
+    /// </remarks>
+    /// <param name="x">The first <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
+    /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
+    [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
+    public bool Equals(ISet<FileSystemInfo>? x, IEqualityComparer<FileSystemInfo> setXComparer, ISet<string>? y, IEqualityComparer<string> setYComparer) => IsSetEqual(y, x, () => setYComparer, () => setXComparer);
 
-    public bool Equals(ObservableFileSystemPathHashSet? x, ObservableHashSet<string>? y) => IsSetEqual(x, y);
+    /// <summary>
+    /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
+    /// </summary>
+    /// <remarks>Equality is determined using the collection's comparer. Collection equality is defined as follows (ordered by hierarchy):
+    /// <list type="number">
+    /// <item>If both parameters are <see langword="null"/>, they are considered equal.</item>
+    /// <item>If both parameters reference the same instance, they are considered equal.</item>
+    /// <item>If only one is <see langword="null"/>, they are not equal.</item>
+    /// <item>If both sets use the same comparer instance</item>
+    /// <item>AND if both sets have the same number of elements</item>
+    /// <item>AND if all elements are equal according to the set's comparer</item>
+    /// </list>
+    /// both collections are considered equal.
+    /// </remarks>
+    /// <param name="x">The first <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
+    /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
+    [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
+    public bool Equals(ISet<string>? x, IEqualityComparer<string> setXComparer, ISet<string>? y, IEqualityComparer<string> setYComparer) => IsSetEqual(x, y, () => setXComparer, () => setYComparer);
 
-    public bool Equals(HashSet<string>? x, ObservableFileSystemPathHashSet? y) => IsSetEqual(x, y);
+    /// <summary>
+    /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
+    /// </summary>
+    /// <remarks>Equality is determined using the collection's comparer. Collection equality is defined as follows (ordered by hierarchy):
+    /// <list type="number">
+    /// <item>If both parameters are <see langword="null"/>, they are considered equal.</item>
+    /// <item>If both parameters reference the same instance, they are considered equal.</item>
+    /// <item>If only one is <see langword="null"/>, they are not equal.</item>
+    /// <item>If both sets use the same comparer instance</item>
+    /// <item>AND if both sets have the same number of elements</item>
+    /// <item>AND if all elements are equal according to the set's comparer</item>
+    /// </list>
+    /// both collections are considered equal.
+    /// </remarks>
+    /// <param name="x">The first <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
+    /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
+    [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
+    public bool Equals(ISet<string>? x, IEqualityComparer<string> setXComparer, ISet<FileSystemInfo>? y, IEqualityComparer<FileSystemInfo> setYComparer) => IsSetEqual(x, y, () => setXComparer, () => setYComparer);
 
-    public bool Equals(HashSet<string>? x, ObservableHashSet<string>? y) => IsSetEqual(x, y);
+    /// <summary>
+    /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
+    /// </summary>
+    /// <remarks>Equality is determined using the collection's comparer. Collection equality is defined as follows (ordered by hierarchy):
+    /// <list type="number">
+    /// <item>If both parameters are <see langword="null"/>, they are considered equal.</item>
+    /// <item>If both parameters reference the same instance, they are considered equal.</item>
+    /// <item>If only one is <see langword="null"/>, they are not equal.</item>
+    /// <item>If both sets use the same comparer instance</item>
+    /// <item>AND if both sets have the same number of elements</item>
+    /// <item>AND if all elements are equal according to the set's comparer</item>
+    /// </list>
+    /// both collections are considered equal.
+    /// </remarks>
+    /// <param name="x">The first <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
+    /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
+    [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
+    public bool Equals(ObservableFileSystemPathHashSet? x, ISet<string>? y, IEqualityComparer<string> setYComparer) => IsSetEqual(x, y, () => x!.Comparer, () => setYComparer);
 
-    public bool Equals(HashSet<FileSystemInfo>? x, HashSet<FileSystemInfo>? y) => IsSetEqual(x, y);
+    /// <summary>
+    /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
+    /// </summary>
+    /// <remarks>Equality is determined using the collection's comparer. Collection equality is defined as follows (ordered by hierarchy):
+    /// <list type="number">
+    /// <item>If both parameters are <see langword="null"/>, they are considered equal.</item>
+    /// <item>If both parameters reference the same instance, they are considered equal.</item>
+    /// <item>If only one is <see langword="null"/>, they are not equal.</item>
+    /// <item>If both sets use the same comparer instance</item>
+    /// <item>AND if both sets have the same number of elements</item>
+    /// <item>AND if all elements are equal according to the set's comparer</item>
+    /// </list>
+    /// both collections are considered equal.
+    /// </remarks>
+    /// <param name="x">The first <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
+    /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
+    [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
+    public bool Equals(ObservableFileSystemPathHashSet? x, HashSet<string>? y) => IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
 
-    public bool Equals(ObservableHashSet<FileSystemInfo>? x, ObservableHashSet<FileSystemInfo>? y) => IsSetEqual(x, y);
+    /// <summary>
+    /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
+    /// </summary>
+    /// <remarks>Equality is determined using the collection's comparer. Collection equality is defined as follows (ordered by hierarchy):
+    /// <list type="number">
+    /// <item>If both parameters are <see langword="null"/>, they are considered equal.</item>
+    /// <item>If both parameters reference the same instance, they are considered equal.</item>
+    /// <item>If only one is <see langword="null"/>, they are not equal.</item>
+    /// <item>If both sets use the same comparer instance</item>
+    /// <item>AND if both sets have the same number of elements</item>
+    /// <item>AND if all elements are equal according to the set's comparer</item>
+    /// </list>
+    /// both collections are considered equal.
+    /// </remarks>
+    /// <param name="x">The first <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
+    /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
+    [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
+    public bool Equals(ObservableFileSystemPathHashSet? x, ObservableHashSet<string>? y) => IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
 
-    public bool Equals(ObservableFileSystemPathHashSet? x, HashSet<FileSystemInfo>? y) => IsSetEqual(x, y);
+    /// <summary>
+    /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
+    /// </summary>
+    /// <remarks>Equality is determined using the collection's comparer. Collection equality is defined as follows (ordered by hierarchy):
+    /// <list type="number">
+    /// <item>If both parameters are <see langword="null"/>, they are considered equal.</item>
+    /// <item>If both parameters reference the same instance, they are considered equal.</item>
+    /// <item>If only one is <see langword="null"/>, they are not equal.</item>
+    /// <item>If both sets use the same comparer instance</item>
+    /// <item>AND if both sets have the same number of elements</item>
+    /// <item>AND if all elements are equal according to the set's comparer</item>
+    /// </list>
+    /// both collections are considered equal.
+    /// </remarks>
+    /// <param name="x">The first <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
+    /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
+    [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
+    public bool Equals(ISet<string>? y, IEqualityComparer<string> setYComparer, ObservableFileSystemPathHashSet? x) => IsSetEqual(x, y, () => x!.Comparer, () => setYComparer);
 
-    public bool Equals(ObservableFileSystemPathHashSet? x, ObservableHashSet<FileSystemInfo>? y) => IsSetEqual(x, y);
+    /// <summary>
+    /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
+    /// </summary>
+    /// <remarks>Equality is determined using the collection's comparer. Collection equality is defined as follows (ordered by hierarchy):
+    /// <list type="number">
+    /// <item>If both parameters are <see langword="null"/>, they are considered equal.</item>
+    /// <item>If both parameters reference the same instance, they are considered equal.</item>
+    /// <item>If only one is <see langword="null"/>, they are not equal.</item>
+    /// <item>If both sets use the same comparer instance</item>
+    /// <item>AND if both sets have the same number of elements</item>
+    /// <item>AND if all elements are equal according to the set's comparer</item>
+    /// </list>
+    /// both collections are considered equal.
+    /// </remarks>
+    /// <param name="x">The first <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
+    /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
+    [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
+    public bool Equals(HashSet<string>? y, ObservableFileSystemPathHashSet? x) => IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
 
-    public bool Equals(ObservableHashSet<FileSystemInfo>? x, ObservableFileSystemPathHashSet? y) => IsSetEqual(y, x);
+    /// <summary>
+    /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
+    /// </summary>
+    /// <remarks>Equality is determined using the collection's comparer. Collection equality is defined as follows (ordered by hierarchy):
+    /// <list type="number">
+    /// <item>If both parameters are <see langword="null"/>, they are considered equal.</item>
+    /// <item>If both parameters reference the same instance, they are considered equal.</item>
+    /// <item>If only one is <see langword="null"/>, they are not equal.</item>
+    /// <item>If both sets use the same comparer instance</item>
+    /// <item>AND if both sets have the same number of elements</item>
+    /// <item>AND if all elements are equal according to the set's comparer</item>
+    /// </list>
+    /// both collections are considered equal.
+    /// </remarks>
+    /// <param name="x">The first <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
+    /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
+    [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
+    public bool Equals(ObservableHashSet<string>? y, ObservableFileSystemPathHashSet? x) => IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
 
-    public bool Equals(HashSet<FileSystemInfo>? x, ObservableFileSystemPathHashSet? y) => IsSetEqual(y, x);
+    /// <summary>
+    /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
+    /// </summary>
+    /// <remarks>Equality is determined using the collection's comparer. Collection equality is defined as follows (ordered by hierarchy):
+    /// <list type="number">
+    /// <item>If both parameters are <see langword="null"/>, they are considered equal.</item>
+    /// <item>If both parameters reference the same instance, they are considered equal.</item>
+    /// <item>If only one is <see langword="null"/>, they are not equal.</item>
+    /// <item>If both sets use the same comparer instance</item>
+    /// <item>AND if both sets have the same number of elements</item>
+    /// <item>AND if all elements are equal according to the set's comparer</item>
+    /// </list>
+    /// both collections are considered equal.
+    /// </remarks>
+    /// <param name="x">The first <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
+    /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
+    [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
+    public bool Equals(ObservableFileSystemPathHashSet? x, ISet<FileSystemInfo>? y, IEqualityComparer<FileSystemInfo> setYComparer) => IsSetEqual(x, y, () => x!.Comparer, () => setYComparer);
+
+    /// <summary>
+    /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
+    /// </summary>
+    /// <remarks>Equality is determined using the collection's comparer. Collection equality is defined as follows (ordered by hierarchy):
+    /// <list type="number">
+    /// <item>If both parameters are <see langword="null"/>, they are considered equal.</item>
+    /// <item>If both parameters reference the same instance, they are considered equal.</item>
+    /// <item>If only one is <see langword="null"/>, they are not equal.</item>
+    /// <item>If both sets use the same comparer instance</item>
+    /// <item>AND if both sets have the same number of elements</item>
+    /// <item>AND if all elements are equal according to the set's comparer</item>
+    /// </list>
+    /// both collections are considered equal.
+    /// </remarks>
+    /// <param name="x">The first <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
+    /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
+    [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
+    public bool Equals(ObservableFileSystemPathHashSet? x, HashSet<FileSystemInfo>? y) => IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
+
+    /// <summary>
+    /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
+    /// </summary>
+    /// <remarks>Equality is determined using the collection's comparer. Collection equality is defined as follows (ordered by hierarchy):
+    /// <list type="number">
+    /// <item>If both parameters are <see langword="null"/>, they are considered equal.</item>
+    /// <item>If both parameters reference the same instance, they are considered equal.</item>
+    /// <item>If only one is <see langword="null"/>, they are not equal.</item>
+    /// <item>If both sets use the same comparer instance</item>
+    /// <item>AND if both sets have the same number of elements</item>
+    /// <item>AND if all elements are equal according to the set's comparer</item>
+    /// </list>
+    /// both collections are considered equal.
+    /// </remarks>
+    /// <param name="x">The first <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
+    /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
+    [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
+    public bool Equals(ObservableFileSystemPathHashSet? x, ObservableHashSet<FileSystemInfo>? y) => IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
+
+    /// <summary>
+    /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
+    /// </summary>
+    /// <remarks>Equality is determined using the collection's comparer. Collection equality is defined as follows (ordered by hierarchy):
+    /// <list type="number">
+    /// <item>If both parameters are <see langword="null"/>, they are considered equal.</item>
+    /// <item>If both parameters reference the same instance, they are considered equal.</item>
+    /// <item>If only one is <see langword="null"/>, they are not equal.</item>
+    /// <item>If both sets use the same comparer instance</item>
+    /// <item>AND if both sets have the same number of elements</item>
+    /// <item>AND if all elements are equal according to the set's comparer</item>
+    /// </list>
+    /// both collections are considered equal.
+    /// </remarks>
+    /// <param name="x">The first <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
+    /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
+    [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
+    public bool Equals(ISet<FileSystemInfo>? x, IEqualityComparer<FileSystemInfo> setXComparer, ObservableFileSystemPathHashSet? y) => IsSetEqual(y, x, () => y!.Comparer, () => setXComparer);
+
+    /// <summary>
+    /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
+    /// </summary>
+    /// <remarks>Equality is determined using the collection's comparer. Collection equality is defined as follows (ordered by hierarchy):
+    /// <list type="number">
+    /// <item>If both parameters are <see langword="null"/>, they are considered equal.</item>
+    /// <item>If both parameters reference the same instance, they are considered equal.</item>
+    /// <item>If only one is <see langword="null"/>, they are not equal.</item>
+    /// <item>If both sets use the same comparer instance</item>
+    /// <item>AND if both sets have the same number of elements</item>
+    /// <item>AND if all elements are equal according to the set's comparer</item>
+    /// </list>
+    /// both collections are considered equal.
+    /// </remarks>
+    /// <param name="x">The first <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
+    /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
+    [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
+    public bool Equals(HashSet<FileSystemInfo>? x, ObservableFileSystemPathHashSet? y) => IsSetEqual(y, x, () => y!.Comparer, () => x!.Comparer);
+
+    /// <summary>
+    /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
+    /// </summary>
+    /// <remarks>Equality is determined using the collection's comparer. Collection equality is defined as follows (ordered by hierarchy):
+    /// <list type="number">
+    /// <item>If both parameters are <see langword="null"/>, they are considered equal.</item>
+    /// <item>If both parameters reference the same instance, they are considered equal.</item>
+    /// <item>If only one is <see langword="null"/>, they are not equal.</item>
+    /// <item>If both sets use the same comparer instance</item>
+    /// <item>AND if both sets have the same number of elements</item>
+    /// <item>AND if all elements are equal according to the set's comparer</item>
+    /// </list>
+    /// both collections are considered equal.
+    /// </remarks>
+    /// <param name="x">The first <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
+    /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
+    [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
+    public bool Equals(ObservableHashSet<FileSystemInfo>? x, ObservableFileSystemPathHashSet? y) => IsSetEqual(y, x, () => y!.Comparer, () => x!.Comparer);
+
+    public int GetHashCode([DisallowNull] ISet<string>? obj, IEqualityComparer<string> comparer)
+    {
+        ArgumentNullExceptionAdvanced.ThrowIfNull(obj);
+        ArgumentNullExceptionAdvanced.ThrowIfNull(comparer);
+
+        return ComputeHashCode(obj, comparer);
+    }
+
+    public int GetHashCode([DisallowNull] ISet<FileSystemInfo>? obj, IEqualityComparer<FileSystemInfo> comparer)
+    {
+        ArgumentNullExceptionAdvanced.ThrowIfNull(obj);
+        ArgumentNullExceptionAdvanced.ThrowIfNull(comparer);
+
+        return ComputeHashCode(obj, comparer);
+    }
 
     public int GetHashCode([DisallowNull] HashSet<FileSystemInfo>? obj)
     {
@@ -1144,19 +1522,76 @@ internal sealed class ObservableFileSystemPathHashSetEqualityComparer : IEqualit
         return hashCode;
     }
 
-    private static int ComputeHashCode(ISet<FileSystemInfo> obj, IEqualityComparer<string> comparer)
+    private static int ComputeHashCode(ISet<FileSystemInfo> obj, IEqualityComparer<FileSystemInfo> comparer)
     {
         // Use an cumulative and therefore order-independent set hash
         int hashCode = 0;
         foreach (FileSystemInfo item in obj)
         {
-            hashCode ^= comparer.GetHashCode(item.FullName);
+            hashCode ^= comparer.GetHashCode(item);
         }
 
         return hashCode;
     }
 
-    private static bool IsSetEqual<TItem1, TItem2>(ISet<TItem1> set1, ISet<TItem2> set2, IEqualityComparer<TItem1> set1Comparer, IEqualityComparer<TItem2> set2Comparer)
+    private static bool IsSetEqual<TSet2Comparer>(ISet<string>? set1, ISet<FileSystemInfo>? set2, Func<IEqualityComparer<string>> set1ComparerProvider, Func<IEqualityComparer<TSet2Comparer>> set2ComparerProvider)
+    {
+        if (!IsSetOutlineEqual(set1, set2, set1ComparerProvider, set2ComparerProvider))
+        {
+            return false;
+        }
+
+        IEqualityComparer<string> comparer = set1ComparerProvider();
+        foreach (FileSystemInfo item in set2!)
+        {
+            if (!set1!.Contains(item.FullName, comparer!))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool IsSetEqual(ISet<FileSystemInfo>? set1, ISet<FileSystemInfo>? set2, Func<IEqualityComparer<FileSystemInfo>> set1ComparerProvider, Func<IEqualityComparer<FileSystemInfo>> set2ComparerProvider)
+    {
+        if (!IsSetOutlineEqual(set1, set2, set1ComparerProvider, set2ComparerProvider))
+        {
+            return false;
+        }
+
+        IEqualityComparer<FileSystemInfo> comparer = set1ComparerProvider();
+        foreach (FileSystemInfo item in set1!)
+        {
+            if (!set2.Contains(item, comparer!))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool IsSetEqual(ISet<string>? set1, ISet<string>? set2, Func<IEqualityComparer<string>> set1ComparerProvider, Func<IEqualityComparer<string>> set2ComparerProvider)
+    {
+        if (!IsSetOutlineEqual(set1, set2, set1ComparerProvider, set2ComparerProvider))
+        {
+            return false;
+        }
+
+        IEqualityComparer<string> comparer = set1ComparerProvider();
+        foreach (string item in set1!)
+        {
+            if (!set2!.Contains(item, comparer!))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool IsSetOutlineEqual<TItem1, TItem2, TSet1Comparer, TSet2Comparer>(ISet<TItem1>? set1, ISet<TItem2>? set2, Func<IEqualityComparer<TSet1Comparer>> set1ComparerProvider, Func<IEqualityComparer<TSet2Comparer>> set2ComparerProvider)
     {
         // If they're the exact same instance, they're equal.
         if (ReferenceEquals(set1, set2))
@@ -1183,76 +1618,13 @@ internal sealed class ObservableFileSystemPathHashSetEqualityComparer : IEqualit
          */
 
         // If the comparers are not the same instance, we can't guarantee that they will consider the same elements equal, so we return false.
+        IEqualityComparer<TSet1Comparer> set1Comparer = set1ComparerProvider();
+        IEqualityComparer<TSet2Comparer> set2Comparer = set2ComparerProvider();
         if (!ReferenceEquals(set1Comparer, set2Comparer))
         {
             return false;
         }
 
-        (bool flowControl, bool value) = CheckSpecialSupportedSets(set1, set2, set1Comparer);
-        if (!flowControl)
-        {
-            return value;
-        }
-
         return true;
     }
-
-    private static (bool flowControl, bool value) CheckSpecialSupportedSets<TItem1, TItem2>(ISet<string> set1, ISet<FileSystemInfo> set2, IEqualityComparer<string> set1Comparer)
-    {
-        if (set1 is ISet<string> set1AsStringSet)
-        {
-            if (set2 is ISet<string> set2AsStringSet)
-            {
-                var comparer = set1Comparer as IEqualityComparer<string>;
-
-                foreach (string item in set2AsStringSet)
-                {
-                    if (!set1AsStringSet.Contains(item, comparer))
-                    {
-                        return (flowControl: false, value: false);
-                    }
-                }
-            }
-            else if (set2 is ISet<FileSystemInfo> set2AsFileSystemInfoSet)
-            {
-                if (set1Comparer is IEqualityComparer<string> comparer)
-                {
-                    foreach (FileSystemInfo item in set2AsFileSystemInfoSet)
-                    {
-                        if (!set1AsStringSet.Contains(item.FullName, comparer))
-                        {
-                            return (flowControl: false, value: false);
-                        }
-                    }
-                }
-                else if (set1 is ObservableFileSystemPathHashSet set1AsObservableFileSystemPathHasSet)
-                {
-                    foreach (FileSystemInfo item in set2AsFileSystemInfoSet)
-                    {
-                        if (!set1AsObservableFileSystemPathHasSet.Contains(item.FullName))
-                        {
-                            return (flowControl: false, value: false);
-                        }
-                    }
-                }
-            }
-        }
-        else if (set1 is ISet<string> set1AsStringSet && set2 is ISet<FileSystemInfo> set2AsFileSystemInfoSet && set1Comparer is IEqualityComparer<FileSystemInfo> comparer)
-        {
-            foreach (string item in set1AsStringSet)
-            {
-                if (!set2AsFileSystemInfoSet.Contains(item, comparer))
-                {
-                    return (flowControl: false, value: false);
-                }
-            }
-        }
-
-        return (flowControl: true, value: default);
-    }
-
-    public bool Equals(ISet<FileSystemInfo>? x, ISet<FileSystemInfo>? y) => throw new NotImplementedException();
-    public int GetHashCode([DisallowNull] ISet<FileSystemInfo>? obj) => throw new NotImplementedException();
-    public bool Equals(ISet<string>? x, ISet<string>? y) => throw new NotImplementedException();
-    public int GetHashCode([DisallowNull] ISet<string>? obj) => throw new NotImplementedException();
 }
