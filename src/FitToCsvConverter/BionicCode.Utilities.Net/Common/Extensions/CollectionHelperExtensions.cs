@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
+using BionicCode.Utilities.Net.Common.Collections.Generic;
 
 /// <summary>
 /// A collection of extension methods for various default types
@@ -1245,6 +1246,17 @@ public static partial class HelperExtensionsCommon
         }
 
         return false;
+    }
+
+    public static bool Contains(this ISet<string> set1, FileSystemInfo fileSystemInfo, IEqualityComparer<string>? equalityComparer = null)
+    {
+        ArgumentNullException.ThrowIfNull(set1, nameof(set1));
+        ArgumentNullException.ThrowIfNull(fileSystemInfo, nameof(fileSystemInfo));
+
+        equalityComparer ??= FileSystemPathEqualityComparer.Instance;
+        string fullPath = fileSystemInfo.FullName;
+
+        return set1.Contains(fullPath, equalityComparer);
     }
 }
 

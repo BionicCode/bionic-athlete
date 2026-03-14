@@ -1032,24 +1032,13 @@ public sealed class CaseInsensitiveFileSystemPathEqualityComparer : FileSystemPa
     private CaseInsensitiveFileSystemPathEqualityComparer() : base(StringComparer.OrdinalIgnoreCase) { }
 }
 
-internal sealed class ObservableFileSystemPathHashSetEqualityComparer : IEqualityComparer<ObservableFileSystemPathHashSet?>, IEqualityComparer<HashSet<string>?>, IEqualityComparer<ObservableHashSet<string>?>, IEqualityComparer<HashSet<FileSystemInfo>?>, IEqualityComparer<ObservableHashSet<FileSystemInfo>?>
+internal sealed class ObservableFileSystemPathHashSetEqualityComparer : IEqualityComparer<ObservableFileSystemPathHashSet?>, IEqualityComparer<HashSet<string>?>, IEqualityComparer<ObservableHashSet<string>?>, IEqualityComparer<HashSet<FileSystemInfo>?>, IEqualityComparer<ObservableHashSet<FileSystemInfo>?>, IEqualityComparer<ISet<FileSystemInfo>?>, IEqualityComparer<ISet<string>?>
 {
     public static ObservableFileSystemPathHashSetEqualityComparer Instance { get; } = new ObservableFileSystemPathHashSetEqualityComparer();
 
     private ObservableFileSystemPathHashSetEqualityComparer() { }
 
-    public bool Equals(ObservableFileSystemPathHashSet? x, ObservableFileSystemPathHashSet? y)
-    {
-        IEqualityComparer<string> xComparer = x?.Comparer ?? FileSystemPathEqualityComparer.Instance;
-        IEqualityComparer<string> yComparer = y?.Comparer ?? FileSystemPathEqualityComparer.Instance;
-        if (!FileSystemPathEqualityComparer.Equals(xComparer, yComparer))
-        {
-            return false;
-        }
-
-        IEqualityComparer<string> comparer = xComparer;
-        return IsSetEqual(x, y, comparer);
-    }
+    public bool Equals(ObservableFileSystemPathHashSet? x, ObservableFileSystemPathHashSet? y) => IsSetEqual(x, y);
 
     /// <summary>
     /// Determines whether two <see cref="ObservableHashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents using file
@@ -1061,27 +1050,7 @@ internal sealed class ObservableFileSystemPathHashSetEqualityComparer : IEqualit
     /// <param name="x">The first <see cref="ObservableHashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
     /// <param name="y">The second <see cref="ObservableHashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
     /// <returns><see langword="true"/> if both sets contain the same elements according to file system path equality; otherwise, <see langword="false"/>.</returns>
-    public bool Equals(ObservableHashSet<string>? x, ObservableHashSet<string>? y)
-    {
-        if (x is ObservableFileSystemPathHashSet xPathSet)
-        {
-            if (y is ObservableFileSystemPathHashSet yPathSet)
-            {
-                return Equals(xPathSet, yPathSet);
-            }
-            else
-            {
-                return Equals(xPathSet, y);
-            }
-        }
-        else if (y is ObservableFileSystemPathHashSet yPathSet)
-        {
-            return Equals(x, yPathSet);
-        }
-
-        FileSystemPathEqualityComparer comparer = FileSystemPathEqualityComparer.Instance;
-        return IsSetEqual(x, y, comparer);
-    }
+    public bool Equals(ObservableHashSet<string>? x, ObservableHashSet<string>? y) => IsSetEqual(x, y);
 
     /// <summary>
     /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents using file
@@ -1092,11 +1061,7 @@ internal sealed class ObservableFileSystemPathHashSetEqualityComparer : IEqualit
     /// <param name="x">The first <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
     /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
     /// <returns><see langword="true"/> if both sets contain the same elements according to file system path equality; otherwise, <see langword="false"/>.</returns>
-    public bool Equals(HashSet<string>? x, HashSet<string>? y)
-    {
-        FileSystemPathEqualityComparer comparer = FileSystemPathEqualityComparer.Instance;
-        return IsSetEqual(x, y, comparer);
-    }
+    public bool Equals(HashSet<string>? x, HashSet<string>? y) => IsSetEqual(x, y);
 
     /// <summary>
     /// Determines whether a <see cref="ObservableHashSet"/>&lt;<see langword="string"/>&gt; equals a <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents using file
@@ -1108,88 +1073,29 @@ internal sealed class ObservableFileSystemPathHashSetEqualityComparer : IEqualit
     /// <param name="x">The first <see cref="ObservableHashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
     /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
     /// <returns><see langword="true"/> if both sets contain the same elements according to file system path equality; otherwise, <see langword="false"/>.</returns>
-    public bool Equals(ObservableHashSet<string>? x, HashSet<string>? y)
-    {
-        if (x is ObservableFileSystemPathHashSet xPathSet)
-        {
-            return Equals(xPathSet, y);
-        }
+    public bool Equals(ObservableHashSet<string>? x, HashSet<string>? y) => IsSetEqual(x, y);
 
-        FileSystemPathEqualityComparer comparer = FileSystemPathEqualityComparer.Instance;
-        return IsSetEqual(x, y, comparer);
-    }
-
-    public bool Equals(ObservableHashSet<string>? x, ObservableFileSystemPathHashSet? y)
-    {
-        if (x is ObservableFileSystemPathHashSet xPathSet)
-        {
-            return Equals(xPathSet, y);
-        }
-
-        IEqualityComparer<string> comparer = y?.Comparer ?? FileSystemPathEqualityComparer.Instance;
-        return IsSetEqual(x, y, comparer);
-    }
+    public bool Equals(ObservableHashSet<string>? x, ObservableFileSystemPathHashSet? y) => IsSetEqual(x, y);
 
     public bool Equals(ObservableFileSystemPathHashSet? x, HashSet<string>? y) => x?.SetEquals(y) ?? (y is null);
 
-    public bool Equals(ObservableFileSystemPathHashSet? x, ObservableHashSet<string>? y)
-    {
-        IEqualityComparer<string> comparer = x?.Comparer ?? FileSystemPathEqualityComparer.Instance;
-        return IsSetEqual(x, y, comparer);
-    }
+    public bool Equals(ObservableFileSystemPathHashSet? x, ObservableHashSet<string>? y) => IsSetEqual(x, y);
 
-    public bool Equals(HashSet<string>? x, ObservableFileSystemPathHashSet? y)
-    {
-        IEqualityComparer<string> comparer = y?.Comparer ?? FileSystemPathEqualityComparer.Instance;
-        return IsSetEqual(x, y, comparer);
-    }
+    public bool Equals(HashSet<string>? x, ObservableFileSystemPathHashSet? y) => IsSetEqual(x, y);
 
-    public bool Equals(HashSet<string>? x, ObservableHashSet<string>? y)
-    {
-        if (y is ObservableFileSystemPathHashSet yPathSet)
-        {
-            return Equals(x, yPathSet);
-        }
+    public bool Equals(HashSet<string>? x, ObservableHashSet<string>? y) => IsSetEqual(x, y);
 
-        var comparer = (IEqualityComparer<string>)FileSystemPathEqualityComparer.Instance;
-        return IsSetEqual(x, y, comparer);
-    }
+    public bool Equals(HashSet<FileSystemInfo>? x, HashSet<FileSystemInfo>? y) => IsSetEqual(x, y);
 
-    public bool Equals(HashSet<FileSystemInfo>? x, HashSet<FileSystemInfo>? y)
-    {
-        IEqualityComparer<FileSystemInfo> comparer = FileSystemPathEqualityComparer.Instance;
-        return IsSetEqual(x, y, comparer);
-    }
+    public bool Equals(ObservableHashSet<FileSystemInfo>? x, ObservableHashSet<FileSystemInfo>? y) => IsSetEqual(x, y);
 
-    public bool Equals(ObservableHashSet<FileSystemInfo>? x, ObservableHashSet<FileSystemInfo>? y)
-    {
-        IEqualityComparer<FileSystemInfo> comparer = FileSystemPathEqualityComparer.Instance;
-        return IsSetEqual(x, y, comparer);
-    }
+    public bool Equals(ObservableFileSystemPathHashSet? x, HashSet<FileSystemInfo>? y) => IsSetEqual(x, y);
 
-    public bool Equals(ObservableFileSystemPathHashSet? x, HashSet<FileSystemInfo>? y)
-    {
-        IEqualityComparer<string> comparer = x?.Comparer ?? FileSystemPathEqualityComparer.Instance;
-        return IsSetEqual(x, y, comparer);
-    }
+    public bool Equals(ObservableFileSystemPathHashSet? x, ObservableHashSet<FileSystemInfo>? y) => IsSetEqual(x, y);
 
-    public bool Equals(ObservableFileSystemPathHashSet? x, ObservableHashSet<FileSystemInfo>? y)
-    {
-        IEqualityComparer<string> comparer = x?.Comparer ?? FileSystemPathEqualityComparer.Instance;
-        return IsSetEqual(x, y, comparer);
-    }
+    public bool Equals(ObservableHashSet<FileSystemInfo>? x, ObservableFileSystemPathHashSet? y) => IsSetEqual(y, x);
 
-    public bool Equals(ObservableHashSet<FileSystemInfo>? x, ObservableFileSystemPathHashSet? y)
-    {
-        IEqualityComparer<string> comparer = y?.Comparer ?? FileSystemPathEqualityComparer.Instance;
-        return IsSetEqual(y, x, comparer);
-    }
-
-    public bool Equals(HashSet<FileSystemInfo>? x, ObservableFileSystemPathHashSet? y)
-    {
-        IEqualityComparer<string> comparer = y?.Comparer ?? FileSystemPathEqualityComparer.Instance;
-        return IsSetEqual(y, x, comparer);
-    }
+    public bool Equals(HashSet<FileSystemInfo>? x, ObservableFileSystemPathHashSet? y) => IsSetEqual(y, x);
 
     public int GetHashCode([DisallowNull] HashSet<FileSystemInfo>? obj)
     {
@@ -1250,20 +1156,103 @@ internal sealed class ObservableFileSystemPathHashSetEqualityComparer : IEqualit
         return hashCode;
     }
 
-    private static bool IsSetEqual<TSet1, TSet2>(ISet<TSet1>? x, ISet<TSet2>? y)
+    private static bool IsSetEqual<TItem1, TItem2>(ISet<TItem1> set1, ISet<TItem2> set2, IEqualityComparer<TItem1> set1Comparer, IEqualityComparer<TItem2> set2Comparer)
     {
         // If they're the exact same instance, they're equal.
-        if (ReferenceEquals(x, y))
+        if (ReferenceEquals(set1, set2))
         {
             return true;
         }
 
         // They're not both null, so if either is null, they're not equal.
-        if (x == null || y == null)
+        if (set1 == null || set2 == null)
         {
             return false;
         }
 
-        return x.SetEquals((IEnumerable<TSet1>)y);
+        if (set1.Count != set2.Count)
+        {
+            return false;
+        }
+
+        /* 
+         * We can't use ISet<T>.SetEquals here because the sets may have different types.
+         * While e.g. HashSet<T>.SetEquals can handle this case, equality comparison becomes unnecessarily expensive 
+         * and semantically different since comparers are ignored (for that particular case).
+         * So we need to compare the elements manually using the correct well-known comparers.
+         */
+
+        // If the comparers are not the same instance, we can't guarantee that they will consider the same elements equal, so we return false.
+        if (!ReferenceEquals(set1Comparer, set2Comparer))
+        {
+            return false;
+        }
+
+        (bool flowControl, bool value) = CheckSpecialSupportedSets(set1, set2, set1Comparer);
+        if (!flowControl)
+        {
+            return value;
+        }
+
+        return true;
     }
+
+    private static (bool flowControl, bool value) CheckSpecialSupportedSets<TItem1, TItem2>(ISet<string> set1, ISet<FileSystemInfo> set2, IEqualityComparer<string> set1Comparer)
+    {
+        if (set1 is ISet<string> set1AsStringSet)
+        {
+            if (set2 is ISet<string> set2AsStringSet)
+            {
+                var comparer = set1Comparer as IEqualityComparer<string>;
+
+                foreach (string item in set2AsStringSet)
+                {
+                    if (!set1AsStringSet.Contains(item, comparer))
+                    {
+                        return (flowControl: false, value: false);
+                    }
+                }
+            }
+            else if (set2 is ISet<FileSystemInfo> set2AsFileSystemInfoSet)
+            {
+                if (set1Comparer is IEqualityComparer<string> comparer)
+                {
+                    foreach (FileSystemInfo item in set2AsFileSystemInfoSet)
+                    {
+                        if (!set1AsStringSet.Contains(item.FullName, comparer))
+                        {
+                            return (flowControl: false, value: false);
+                        }
+                    }
+                }
+                else if (set1 is ObservableFileSystemPathHashSet set1AsObservableFileSystemPathHasSet)
+                {
+                    foreach (FileSystemInfo item in set2AsFileSystemInfoSet)
+                    {
+                        if (!set1AsObservableFileSystemPathHasSet.Contains(item.FullName))
+                        {
+                            return (flowControl: false, value: false);
+                        }
+                    }
+                }
+            }
+        }
+        else if (set1 is ISet<string> set1AsStringSet && set2 is ISet<FileSystemInfo> set2AsFileSystemInfoSet && set1Comparer is IEqualityComparer<FileSystemInfo> comparer)
+        {
+            foreach (string item in set1AsStringSet)
+            {
+                if (!set2AsFileSystemInfoSet.Contains(item, comparer))
+                {
+                    return (flowControl: false, value: false);
+                }
+            }
+        }
+
+        return (flowControl: true, value: default);
+    }
+
+    public bool Equals(ISet<FileSystemInfo>? x, ISet<FileSystemInfo>? y) => throw new NotImplementedException();
+    public int GetHashCode([DisallowNull] ISet<FileSystemInfo>? obj) => throw new NotImplementedException();
+    public bool Equals(ISet<string>? x, ISet<string>? y) => throw new NotImplementedException();
+    public int GetHashCode([DisallowNull] ISet<string>? obj) => throw new NotImplementedException();
 }
