@@ -1,19 +1,14 @@
 ﻿namespace FitToCsvConverter.Data;
 
-using System;
-using System.Collections.Immutable;
-using System.Diagnostics;
-using System.Threading.Tasks;
-using BionicCode.Utilities.Net;
-
 public static class FitConverter
 {
     private const string ScriptFilePath = @"Tools\fit2Csv.ps1";
     private const string FitCsvToolPath = @"Tools\fitCsvTool.jar";
 
-    public static async Task<int> RunFitToCsvAsync(ImmutableList<ConversionInfo> conversionInfoList)
+    public static async Task<int> RunFitToCsvAsync(ReadOnlyCollection<ConversionInfo> conversionInfoList, IProgress<ProgressData> progressReporter)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNullOrEmpty(conversionInfoList);
+        ArgumentNullExceptionAdvanced.ThrowIfNull(progressReporter);
 
         var startInfo = new ProcessStartInfo
         {

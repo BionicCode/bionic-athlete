@@ -1,8 +1,9 @@
-﻿namespace BionicCode.Utilities.Net.Common.Collections.Generic;
+﻿namespace BionicCode.Utilities.Net;
 
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
@@ -96,6 +97,30 @@ public class ObservableHashSet<TItem> :
     protected virtual bool AddItem(TItem item) => Items.Add(item);
 
     /// <summary>
+    /// Adds the elements of the specified collection to the current collection.
+    /// </summary>
+    /// <remarks>Only items that are successfully added are included in the operation. Duplicate or invalid
+    /// items may be ignored depending on the collection's rules.
+    /// <para/>This method raises the <see cref="CollectionChanged"/> event with <see cref="NotifyCollectionChangedAction.Add"/> action where the change index is always '-1'.
+    /// <para/>This method raises the <see cref="PropertyChanged"/> event for the <see cref="Count"/> property.</remarks>
+    /// <param name="items">The collection of items to add. Cannot be <see langword="null"/>.</param>
+    public void AddRange(IEnumerable<TItem> items)
+    {
+        ArgumentNullExceptionAdvanced.ThrowIfNull(items);
+
+        var addedItems = new List<TItem>();
+        foreach (TItem item in items)
+        {
+            if (AddItem(item))
+            {
+                addedItems.Add(item);
+            }
+        }
+
+        PublishDelta(new ReadOnlyCollection<TItem>(addedItems), ReadOnlyCollection<TItem>.Empty);
+    }
+
+    /// <summary>
     /// Attempts to find a value in the set that is equal to the specified item.
     /// </summary>
     /// <param name="equalValue">The item to search for in the set. Equality is determined by the set's comparer.</param>
@@ -135,6 +160,30 @@ public class ObservableHashSet<TItem> :
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Removes the specified items from the collection.
+    /// </summary>
+    /// <remarks>Only items that exist in the collection are removed. The method has no effect for items that
+    /// are not present.
+    /// <para/>This method raises the <see cref="CollectionChanged"/> event with <see cref="NotifyCollectionChangedAction.Remove"/> action where the change index is always '-1'.
+    /// <para/>This method raises the <see cref="PropertyChanged"/> event for the <see cref="Count"/> property.</remarks>
+    /// <param name="items">The collection of items to remove from the collection. Cannot be null.</param>
+    public void RemoveRange(IEnumerable<TItem> items)
+    {
+        ArgumentNullExceptionAdvanced.ThrowIfNull(items);
+
+        var removedItems = new List<TItem>();
+        foreach (TItem item in items)
+        {
+            if (RemoveItem(item))
+            {
+                removedItems.Add(item);
+            }
+        }
+
+        PublishDelta(ReadOnlyCollection<TItem>.Empty, new ReadOnlyCollection<TItem>(removedItems));
     }
 
     /// <summary>
@@ -430,7 +479,7 @@ public class ObservableHashSet<TItem> :
 
     private void PublishDelta(HashSet<TItem> oldState, DeltaType deltaType = DeltaType.AddAndRemove)
     {
-        HashSetDelta hashSetDelta = GetDelta(oldState, deltaType);
+        HashSetDelta<TItem> hashSetDelta = GetDelta(oldState, deltaType);
         if (!hashSetDelta.HasChanges)
         {
             return;
@@ -452,7 +501,25 @@ public class ObservableHashSet<TItem> :
         }
     }
 
-    private HashSetDelta GetDelta(HashSet<TItem> oldState, DeltaType deltaType = DeltaType.AddAndRemove)
+    private void PublishDelta(ReadOnlyCollection<TItem> addedItems, ReadOnlyCollection<TItem> removedItems)
+    {
+        if (addedItems.Count != removedItems.Count)
+        {
+            OnCountChanged();
+        }
+
+        if (removedItems.Any())
+        {
+            OnCollectionChanged(NotifyCollectionChangedAction.Remove, removedItems);
+        }
+
+        if (addedItems.Any())
+        {
+            OnCollectionChanged(NotifyCollectionChangedAction.Add, addedItems);
+        }
+    }
+
+    private HashSetDelta<TItem> GetDelta(HashSet<TItem> oldState, DeltaType deltaType = DeltaType.AddAndRemove)
     {
         HashSet<TItem> newState = Items;
 
@@ -482,7 +549,7 @@ public class ObservableHashSet<TItem> :
         }
 
         bool hasChanges = removedItems.Any() || addedItems.Any();
-        return new(removedItems, addedItems, hasChanges);
+        return new(removedItems.AsReadOnly(), addedItems.AsReadOnly(), hasChanges);
     }
 
     private void OnCollectionChanged(NotifyCollectionChangedAction action, TItem item)
@@ -556,17 +623,17 @@ public class ObservableHashSet<TItem> :
         }
     }
 
-    internal readonly struct HashSetDelta
+    internal readonly struct HashSetDelta<TItem>
     {
-        public HashSetDelta(IList removedItems, IList addedItems, bool hasChanges)
+        public HashSetDelta(ReadOnlyCollection<TItem> removedItems, ReadOnlyCollection<TItem> addedItems, bool hasChanges)
         {
             RemovedItems = removedItems;
             AddedItems = addedItems;
             HasChanges = hasChanges;
         }
 
-        public IList RemovedItems { get; }
-        public IList AddedItems { get; }
+        public ReadOnlyCollection<TItem> RemovedItems { get; }
+        public ReadOnlyCollection<TItem> AddedItems { get; }
         public bool HasChanges { get; }
     }
 

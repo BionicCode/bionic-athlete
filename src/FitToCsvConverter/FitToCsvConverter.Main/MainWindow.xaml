@@ -8,25 +8,75 @@
         Title="MainWindow" Height="450" Width="800">
     <Window.Resources>
 
+        <Style x:Key="DataGridCellStyle" TargetType="DataGridCell">
+            <Setter Property="Padding"
+                    Value="50" />
+        </Style>
         <DataTemplate x:Key="ExtraZipFileContentTemplate">
-            <ListBox ItemsSource="{Binding Value}"
+            <ListBox ItemsSource="{Binding SelectedExtraFilePaths}"
                      AllowDrop="True"
-                     Drop="OnExtraZipFileContentDropped">
-                <ListBox.ItemsPanel>
+                     Drop="OnExtraZipFileContentDropped"
+                     Background="Transparent">
+                <!--<ListBox.ItemsPanel>
                     <ItemsPanelTemplate>
                         <WrapPanel Orientation="Horizontal" />
                     </ItemsPanelTemplate>
-                </ListBox.ItemsPanel>
+                </ListBox.ItemsPanel>-->
                 <ListBox.ItemTemplate>
                     <DataTemplate>
-                        <TextBlock Text="{Binding}" />
+                        <Border BorderThickness="1" 
+                                BorderBrush="Gray"
+                                Background="LightSkyBlue">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding}" />
+                                <Button Content="&#xe74d;"
+                                        FontFamily="{StaticResource SegoeMDL2Assets}"
+                                        Foreground="Red"
+                                        Background="Transparent"
+                                        BorderBrush="Transparent"
+                                        ToolTip="Remove file"
+                                        Margin="5,0" />
+                            </StackPanel>
+                        </Border>
                     </DataTemplate>
                 </ListBox.ItemTemplate>
+                <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="Background"
+                                Value="Transparent" />
+                        <Setter Property="Margin"
+                                Value="2" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ListBoxItem">
+                                    <Border Background="{TemplateBinding Background}"
+                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="{TemplateBinding BorderThickness}"
+                                            Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter HorizontalAlignment="Left"
+                                                          VerticalAlignment="Center" />
+                                    </Border>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </ListBox.ItemContainerStyle>
             </ListBox>
+        </DataTemplate>
+
+        <DataTemplate x:Key="RemoveRowContentTemplate">
+            <Button Content="&#xe74d;"
+                    FontFamily="{StaticResource SegoeMDL2Assets}"
+                    Foreground="Red"
+                    Background="Transparent"
+                    BorderBrush="Transparent"
+                    ToolTip="Remove row"
+                    Width="30"/>
         </DataTemplate>
     </Window.Resources>
     <Grid Margin="10">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -40,22 +90,42 @@
                     Grid.ColumnSpan="2"
                     Margin="5">
             <TextBlock Text="FIT File:" />
-            <Border BorderBrush="Gray"
-                    BorderThickness="1"
-                    Height="100"
-                    Background="Transparent"
-                    IsHitTestVisible="True"
-                    AllowDrop="True"
-                    Drop="Border_Drop">
-                <TextBlock Text="&#xe8e5;"
-                           FontFamily="{StaticResource SegoeMDL2Assets}"
-                           Foreground="Gray"
-                           FontSize="68"
-                           Opacity="0.5"
-                           IsHitTestVisible="False"
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Center" />
-            </Border>
+            <ListBox ItemsSource="{Binding SelectedFitFilePaths}"
+                     SelectedItem="{Binding SelectedFitFilePath}"
+                     AllowDrop="True"
+                     Drop="OnFitFilesDropped">
+                <ListBox.Template>
+                    <ControlTemplate TargetType="ListBox">
+                        <Border BorderBrush="Gray"
+                                BorderThickness="1"
+                                Height="100"
+                                Background="Transparent"
+                                IsHitTestVisible="True"
+                                AllowDrop="True"
+                                Drop="OnFitFilesDropped">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <Grid>
+                                    <TextBlock Text="&#xe8e5;"
+                                               FontFamily="{StaticResource SegoeMDL2Assets}"
+                                               Foreground="Gray"
+                                               FontSize="68"
+                                               Opacity="0.5"
+                                               IsHitTestVisible="False"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" />
+                                    <ItemsPresenter />
+                                </Grid>
+                            </ScrollViewer>
+                        </Border>
+                    </ControlTemplate>
+                </ListBox.Template>
+                <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding}" />
+                </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
         </StackPanel>
 
         <Separator Grid.Row="2" 
@@ -70,10 +140,20 @@
                       ItemsSource="{Binding ExportData}"
                       SelectedItem="{Binding SelectedExportData}">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="Fit File"
+                    <DataGridTextColumn Header="Fit File" 
+                                        IsReadOnly="True"
+                                        Width="Auto"
                                         Binding="{Binding FitFilePath}" />
                     <DataGridTemplateColumn Header="Additional Files"
-                                            CellTemplate="{StaticResource ExtraZipFileContentTemplate}" />
+                                            CellTemplate="{StaticResource ExtraZipFileContentTemplate}"
+                                            Width="*" />
+                    <DataGridTextColumn Header="File Name"
+                                        IsReadOnly="True"
+                                        Width="Auto"
+                                        Binding="{Binding FileName}" />
+                    <DataGridTemplateColumn Header="Remove"
+                                            Width="Auto"
+                                            CellTemplate="{StaticResource RemoveRowContentTemplate}" CellStyle="{StaticResource DataGridCellStyle}"/>
                 </DataGrid.Columns>
             </DataGrid>
         </StackPanel>
@@ -110,6 +190,20 @@
                            VerticalAlignment="Center" />
             </Button>
         </Grid>
-        
+
+        <Button Grid.Row="6"
+                Margin="10,120,0,0"
+                VerticalAlignment="Top"
+                Height="{Binding ElementName=DestinationFolderTextBox, Path=ActualHeight}"
+                Width="80"
+                Content="&#xe724;"
+                FontFamily="{StaticResource SegoeMDL2Assets}"
+                Foreground="Gray"
+                Opacity="1"
+                HorizontalAlignment="Right"
+                HorizontalContentAlignment="Center"
+                VerticalContentAlignment="Center"
+                Click="SelectDestinationFolderButton_Click">
+        </Button>
     </Grid>
 </Window>

@@ -28,7 +28,7 @@ public partial class MainWindow : Window
         };
     }
 
-    private void Border_Drop(object sender, DragEventArgs e)
+    private void OnFitFilesDropped(object sender, DragEventArgs e)
     {
         string[] filePaths = (string[])e.Data.GetData(DataFormats.FileDrop, false) ?? [];
         if (filePaths.Length > 0)

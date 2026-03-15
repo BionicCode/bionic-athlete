@@ -5,6 +5,7 @@
 // WpfTestRange.Main
 #endregion
 using System;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 
 /// <summary>
@@ -19,4 +20,6 @@ public interface IProgressReporter : IProgressReporterCommon, INotifyPropertyCha
     /// <remarks>To create a <see cref="IProgress{T}"/> instance that is associated with the application's primary dispatcher thread, call </remarks>
     /// <returns>A <see cref="IProgress{ProgressData}"/> instance that posts progress to the thread <see cref="IProgressReporterCommon.CreateProgressReporterFromCurrentThread"/> was called from.</returns>
     IProgress<ProgressData> CreateProgressReporterFromUiThread();
+
+    ReadOnlyObservableCollection<ObservableProgressData> ProgressDataCollection { get; }
 }

@@ -7,7 +7,6 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
-using BionicCode.Utilities.Net.Common.Collections.Generic;
 
 /// <summary>
 /// A collection of extension methods for various default types
