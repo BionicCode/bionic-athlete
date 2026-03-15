@@ -12,6 +12,7 @@ public partial class MainWindow : Window
 {
     private readonly MainViewModel _viewModel;
     private readonly OpenFolderDialog _openFolderDialog;
+
     public MainWindow()
     {
         InitializeComponent();

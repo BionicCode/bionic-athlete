@@ -12,10 +12,10 @@ public class MainViewModel : ViewModel
     public const string DefaultDestinationFolder = @"C:\Temp\FitToCsvConverterOutput";
     private const string FitFileExtension = ".fit";
     private string _destinationFolder;
-    private HashSet<string> _selectedFitFilePaths;
+    private ObservableFileSystemPathHashSet _selectedFitFilePaths;
     private ExportData _selectedExportData;
-    private readonly PropertyValidationDelegate<HashSet<string>> _fitFilePathsValidator;
-    private readonly PropertyValidationDelegate<ObservableCollection<string>> _filePathsValidator;
+    private readonly PropertyValidationDelegate<ObservableFileSystemPathHashSet> _fitFilePathsValidator;
+    private readonly PropertyValidationDelegate<ObservableFileSystemPathHashSet> _filePathsValidator;
     private readonly PropertyValidationDelegate<string> _folderPathValidator;
     private readonly SetValueOptions _setValueOptions;
 
@@ -30,7 +30,7 @@ public class MainViewModel : ViewModel
         _selectedFitFilePaths = [];
     }
 
-    public void AddFitFilePaths(IEnumerable<string> fitFilePaths)
+    public void AddFitFilePaths(ObservableFileSystemPathHashSet fitFilePaths)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNullOrEmpty(fitFilePaths);
 
@@ -43,7 +43,7 @@ public class MainViewModel : ViewModel
         set => _ = TrySetValue(value, _folderPathValidator, ref _destinationFolder, _setValueOptions);
     }
 
-    public HashSet<string> SelectedFitFilePaths
+    public ObservableFileSystemPathHashSet SelectedFitFilePaths
     {
         get => _selectedFitFilePaths;
         private set
@@ -71,7 +71,7 @@ public class MainViewModel : ViewModel
         set => TrySetValue(value, ref _selectedExportData);
     }
 
-    private static PropertyValidationDelegate<HashSet<string>> IsFitFilePathsValid() => fitFilePaths =>
+    private static PropertyValidationDelegate<ObservableFileSystemPathHashSet> IsFitFilePathsValid() => fitFilePaths =>
         {
             if (fitFilePaths.Count == 0)
             {
@@ -95,7 +95,7 @@ public class MainViewModel : ViewModel
             return new PropertyValidationResult(true, Array.Empty<string>());
         };
 
-    private static PropertyValidationDelegate<ObservableCollection<string>> IsFilePathsValid() => filePaths =>
+    private static PropertyValidationDelegate<ObservableFileSystemPathHashSet> IsFilePathsValid() => filePaths =>
         {
             ArgumentNullExceptionAdvanced.ThrowIfNull(filePaths);
 
@@ -161,7 +161,7 @@ public class ExportData : ViewModel
         ArgumentNullExceptionAdvanced.ThrowIfNull(filePathsValidator);
 
         _filePathsValidator = filePathsValidator;
-        SelectedExtraFilePaths = new ObservableHashSet<string>(StringComparer.OrdinalIgnoreCase);
+        SelectedExtraFilePaths = [with(StringComparer.OrdinalIgnoreCase)];
         SelectedExtraFilePaths.CollectionChanged += ValidateOnItemAdded;
     }
 
@@ -186,5 +186,5 @@ public class ExportData : ViewModel
 
     public string FitFilePath { get; init; }
 
-    public ObservableHashSet<string> SelectedExtraFilePaths { get; }
+    public ObservableFileSystemPathHashSet SelectedExtraFilePaths { get; }
 }
