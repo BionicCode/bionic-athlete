@@ -23,7 +23,7 @@ public static class ArchiveCreator
                     Mode = FileMode.Create,
                     Access = FileAccess.ReadWrite,
                     Share = FileShare.None,
-                    Options = FileOptions.Asynchronous
+                    Options = FileOptions.Asynchronous | FileOptions.SequentialScan
                 });
             await using ZipArchive zipArchive = await ZipArchive.CreateAsync(zipFile, ZipArchiveMode.Create, leaveOpen: false, batch.Encoding, cancellationToken);
             foreach (FileDescriptor sourceFileDescriptor in batch.FileDescriptors)
