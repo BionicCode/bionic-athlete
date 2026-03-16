@@ -4,6 +4,8 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.IO;
+using System.IO.Compression;
+using System.Text;
 using BionicCode.Utilities.Net;
 using FitToCsvConverter.Data;
 
@@ -30,7 +32,7 @@ public class MainViewModel : ViewModel
         ExportData = [];
         _selectedFitFilePaths = [];
         DeleteExtraFileCommand = new RelayCommand<ExportData>(exportData => ExportData.Remove(exportData), (exportData) => ExportData.Contains(exportData));
-        ExportCommand = new RelayCommand(ExecuteExportCommand, CanExecuteExportCommand);
+        ExportCommand = new AsyncRelayCommand(ExecuteExportCommandAsync, CanExecuteExportCommand);
     }
 
     private bool CanExecuteExportCommand() => throw new NotImplementedException();
@@ -51,8 +53,23 @@ public class MainViewModel : ViewModel
         IProgress<ProgressData> exportProgressReporter = StartNewObservableProgressReporting(string.Empty, "Export FIT to CSV");
         _ = await FitConverter.RunFitToCsvAsync(conversionInfoList.AsReadOnly(), exportProgressReporter);
 
-        CreateArchieves();
-        Cleanuo();
+        await CreateArchivesAsync();
+        Cleanup();
+    }
+
+    private async Task CreateArchivesAsync()
+    {
+        var batchList = new List<FileBatch>();
+        foreach (ExportData exportData in ExportData)
+        {
+            IEnumerable<FileDescriptor> fileDescriptors = exportData.SelectedExtraFilePaths.Select(filePath => new FileDescriptor(filePath));
+            var batch = new FileBatch(fileDescriptors, DestinationFolder, exportData.FileName, Encoding.UTF8, CompressionLevel.SmallestSize);
+            batchList.Add(batch);
+        }
+
+        var batches = new FileBatches(batchList);
+        IProgress<ProgressData> packProgressReporter = StartNewObservableProgressReporting(string.Empty, "Pack files to ZIP archives.");
+        await ArchiveCreator.CreateArchivesAsync(batches, packProgressReporter);
     }
 
     public void AddFitFilePaths(IEnumerable<string> fitFilePaths)
@@ -121,7 +138,7 @@ public class MainViewModel : ViewModel
     }
 
     public IRelayCommand<ExportData> DeleteExtraFileCommand { get; }
-    public IRelayCommand ExportCommand { get; }
+    public IAsyncRelayCommand ExportCommand { get; }
 
     public ObservableCollection<ExportData> ExportData { get; private set; }
     public ExportData SelectedExportData

@@ -1,5 +1,10 @@
 ﻿namespace FitToCsvConverter.Data;
 
+using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.IO.Compression;
+using BionicCode.Utilities.Net;
+
 public static class FitConverter
 {
     private const string ScriptFilePath = @"Tools\fit2Csv.ps1";
@@ -31,8 +36,15 @@ public static class FitConverter
         startInfo.ArgumentList.Add("-FitCsvToolPath");
         startInfo.ArgumentList.Add(FitCsvToolPath);
 
+        int completedCount = 0;
         foreach (ConversionInfo conversionInfo in conversionInfoList)
         {
+            progressReporter.Report(new ProgressData
+            {
+                Progress = (double)completedCount / conversionInfoList.Count,
+                Message = $"Exporting fit file {completedCount + 1} of {conversionInfoList.Count}: {conversionInfo.SourceFilePath}"
+            });
+
             string destinationDirectory = Path.GetDirectoryName(conversionInfo.DestinationFilePath) ?? throw new InvalidOperationException("Destination directory cannot be determined.");
             string destinationFileName = Path.GetFileName(conversionInfo.DestinationFilePath) ?? throw new InvalidOperationException("Destination file name cannot be determined.");
 
@@ -64,7 +76,15 @@ public static class FitConverter
                     $"STDERR: {standardError}{Environment.NewLine}" +
                     $"STDOUT: {standardOutput}");
             }
+
+            completedCount++;
         }
+
+        progressReporter.Report(new ProgressData
+        {
+            Progress = 1.0,
+            Message = "All fit files have been successfully exported."
+        });
 
         return 0;
     }

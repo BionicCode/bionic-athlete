@@ -3,7 +3,6 @@ namespace BionicCode.Utilities.Net;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
@@ -23,8 +22,6 @@ public abstract partial class ViewModelCommon : IViewModelCommon
     {
         Errors = [];
         ValidatedAttributedProperties = [];
-        _progressDataCollectionInternal = new ObservableCollection<ObservableProgressData>();
-        ProgressDataCollection = new ReadOnlyObservableCollection<ObservableProgressData>(_progressDataCollectionInternal);
     }
 
     /// <summary>
@@ -1102,10 +1099,6 @@ public abstract partial class ViewModelCommon : IViewModelCommon
     #endregion
 
     #region Implementation of IProgressReporter
-
-    public ReadOnlyObservableCollection<ObservableProgressData> ProgressDataCollection { get; }
-    private readonly ObservableCollection<ObservableProgressData> _progressDataCollectionInternal;
-
     /// <summary>
     /// When overridden, handles the <see cref="IProgress{ProgressData}.Report(ProgressData)"/> that is invoked by the <see cref="IProgress{ProgressData}"/> instance returned from <see cref="CreateProgressReporterFromCurrentThread"/>. Can be used as progress delegate for any <see cref="IProgress{ProgressData}"/>.
     /// </summary>

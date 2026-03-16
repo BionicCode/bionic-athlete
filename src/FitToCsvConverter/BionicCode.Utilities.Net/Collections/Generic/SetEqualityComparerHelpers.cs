@@ -1,6 +1,7 @@
 ﻿namespace BionicCode.Utilities.Net;
 
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Runtime.CompilerServices;
 
 internal static class SetEqualityComparerHelpers
@@ -23,7 +24,13 @@ internal static class SetEqualityComparerHelpers
     [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
     public static bool IsSetEqual<TSet2Comparer>(ISet<string>? set1, ISet<FileSystemInfo>? set2, Func<IEqualityComparer<string>> set1ComparerProvider, Func<IEqualityComparer<TSet2Comparer>> set2ComparerProvider)
     {
-        if (!IsSetOutlineEqual(set1, set2, set1ComparerProvider, set2ComparerProvider))
+        (bool isEqualByReference, bool isGenerallyEqual) = IsSetOutlineEqual(set1, set2, set1ComparerProvider, set2ComparerProvider);
+        if (isEqualByReference)
+        {
+            return true;
+        }
+
+        if (!isGenerallyEqual)
         {
             return false;
         }
@@ -43,7 +50,13 @@ internal static class SetEqualityComparerHelpers
     [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
     public static bool IsSetEqual(ISet<FileSystemInfo>? set1, ISet<FileSystemInfo>? set2, Func<IEqualityComparer<FileSystemInfo>> set1ComparerProvider, Func<IEqualityComparer<FileSystemInfo>> set2ComparerProvider)
     {
-        if (!IsSetOutlineEqual(set1, set2, set1ComparerProvider, set2ComparerProvider))
+        (bool isEqualByReference, bool isGenerallyEqual) = IsSetOutlineEqual(set1, set2, set1ComparerProvider, set2ComparerProvider);
+        if (isEqualByReference)
+        {
+            return true;
+        }
+
+        if (!isGenerallyEqual)
         {
             return false;
         }
@@ -51,7 +64,7 @@ internal static class SetEqualityComparerHelpers
         IEqualityComparer<FileSystemInfo> comparer = set1ComparerProvider();
         foreach (FileSystemInfo item in set1!)
         {
-            if (!set2.Contains(item, comparer!))
+            if (!set2!.Contains(item, comparer!))
             {
                 return false;
             }
@@ -63,7 +76,13 @@ internal static class SetEqualityComparerHelpers
     [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
     public static bool IsSetEqual(ISet<string>? set1, ISet<string>? set2, Func<IEqualityComparer<string>> set1ComparerProvider, Func<IEqualityComparer<string>> set2ComparerProvider)
     {
-        if (!IsSetOutlineEqual(set1, set2, set1ComparerProvider, set2ComparerProvider))
+        (bool isEqualByReference, bool isGenerallyEqual) = IsSetOutlineEqual(set1, set2, set1ComparerProvider, set2ComparerProvider);
+        if (isEqualByReference)
+        {
+            return true;
+        }
+
+        if (!isGenerallyEqual)
         {
             return false;
         }
@@ -83,7 +102,13 @@ internal static class SetEqualityComparerHelpers
     [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
     public static bool IsSetEqual<TItem>(ISet<TItem>? set1, ISet<TItem>? set2, Func<IEqualityComparer<TItem>> set1ComparerProvider, Func<IEqualityComparer<TItem>> set2ComparerProvider)
     {
-        if (!IsSetOutlineEqual(set1, set2, set1ComparerProvider, set2ComparerProvider))
+        (bool isEqualByReference, bool isGenerallyEqual) = IsSetOutlineEqual(set1, set2, set1ComparerProvider, set2ComparerProvider);
+        if (isEqualByReference)
+        {
+            return true;
+        }
+
+        if (!isGenerallyEqual)
         {
             return false;
         }
@@ -100,7 +125,11 @@ internal static class SetEqualityComparerHelpers
         return true;
     }
 
-    public static bool IsSetOutlineEqual<TItem1, TItem2, TSet1Comparer, TSet2Comparer>(ISet<TItem1>? set1, ISet<TItem2>? set2, Func<IEqualityComparer<TSet1Comparer>> set1ComparerProvider, Func<IEqualityComparer<TSet2Comparer>> set2ComparerProvider)
+    public static (bool isEqualByReference, bool isGenerallyEqual) IsSetOutlineEqual<TItem1, TItem2, TSet1Comparer, TSet2Comparer>(
+        ISet<TItem1>? set1, 
+        ISet<TItem2>? set2, 
+        Func<IEqualityComparer<TSet1Comparer>> set1ComparerProvider, 
+        Func<IEqualityComparer<TSet2Comparer>> set2ComparerProvider)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(set1ComparerProvider);
         ArgumentNullExceptionAdvanced.ThrowIfNull(set2ComparerProvider);
@@ -108,18 +137,18 @@ internal static class SetEqualityComparerHelpers
         // If they're the exact same instance, they're equal.
         if (ReferenceEquals(set1, set2))
         {
-            return true;
+            return (true, true);
         }
 
         // They're not both null, so if either is null, they're not equal.
         if (set1 == null || set2 == null)
         {
-            return false;
+            return (false, false);
         }
 
         if (set1.Count != set2.Count)
         {
-            return false;
+            return (false, false);
         }
 
         /* 
@@ -134,9 +163,9 @@ internal static class SetEqualityComparerHelpers
         IEqualityComparer<TSet2Comparer> set2Comparer = set2ComparerProvider.Invoke();
         if (!ReferenceEquals(set1Comparer, set2Comparer))
         {
-            return false;
+            return (false, false);
         }
 
-        return true;
+        return (false, true);
     }
 }

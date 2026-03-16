@@ -18,12 +18,11 @@ public readonly struct ProgressData : IEquatable<ProgressData>
     /// <summary>
     /// The progress message text.
     /// </summary>
-    public string Message { get; }
+    public string Message { get; init; }
     /// <summary>
     /// The progress value.
     /// </summary>
-    public double Progress { get; }
-
+    public double Progress { get; init; }
     public override bool Equals(object obj) => obj is ProgressData other && Equals(other);
 
     public override int GetHashCode() => HashCode.Combine(Message, Progress);

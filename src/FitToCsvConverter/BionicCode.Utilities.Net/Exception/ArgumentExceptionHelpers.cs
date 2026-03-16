@@ -608,13 +608,43 @@ public class ArgumentExceptionAdvanced : ArgumentException
     /// used.</param>
     /// <param name="message">The error message to include in the exception. If <see langword="null"/>, a default message is used.</param>
     /// <exception cref="ArgumentException">Thrown if any element in the sequence satisfies the specified condition.</exception>
-    public static void ThrowIfAny<TItem>(IEnumerable<TItem> items, Func<TItem, bool> condition, [CallerArgumentExpression(nameof(items))] string? paramName = null, string? message = null)
+    public static void ThrowIfAny<TItem>([NotNull] IEnumerable<TItem> items, Func<TItem, bool> condition, [CallerArgumentExpression(nameof(items))] string? paramName = null, string? message = null)
     {
+        ArgumentNullExceptionAdvanced.ThrowIfNull(items);
+        ArgumentNullExceptionAdvanced.ThrowIfNull(condition);
+
         if (items.Any(condition))
         {
             throw new ArgumentException(
-                message ?? "The sequence contains  invalid items.",
+                message ?? "The sequence contains invalid items.",
                 paramName);
+        }
+    }
+
+    /// <summary>
+    /// Throws an <see cref="ArgumentException"/> if any element in the sequence satisfies the specified condition.
+    /// </summary>
+    /// <typeparam name="TItem">The type of the elements in the sequence to check.</typeparam>
+    /// <param name="items">The sequence of items to evaluate against the condition. Cannot be <see langword="null"/>.</param>
+    /// <param name="condition">A predicate function that defines the condition to test for each element. Cannot be <see langword="null"/>.</param>
+    /// <param name="paramName">The name of the parameter that caused the exception. If not specified, the expression for the condition is
+    /// used.</param>
+    /// <param name="message">The error message to include in the exception. If <see langword="null"/>, a default message is used.</param>
+    /// <exception cref="ArgumentException">Thrown if any element in the sequence satisfies the specified condition.</exception>
+    public static void ThrowIfAny<TItem>([NotNull] IEnumerable<TItem> items, Func<TItem, bool> condition, Func<TItem, string> messageFormatter, [CallerArgumentExpression(nameof(items))] string? paramName = null)
+    {
+        ArgumentNullExceptionAdvanced.ThrowIfNull(items);
+        ArgumentNullExceptionAdvanced.ThrowIfNull(condition);
+        ArgumentNullExceptionAdvanced.ThrowIfNull(messageFormatter);
+
+        foreach (TItem item in items)
+        {
+            if (condition.Invoke(item))
+            {
+                throw new ArgumentException(
+                    messageFormatter(item),
+                    paramName);
+            }
         }
     }
 
@@ -627,9 +657,9 @@ public class ArgumentExceptionAdvanced : ArgumentException
     /// <param name="paramName">The name of the parameter that caused the exception. If not specified, the expression for the items is used.</param>
     /// <param name="message">The error message to include in the exception. If <see langword="null"/>, a default message is used.</param>
     /// <exception cref="ArgumentException">Thrown if the sequence contains duplicate items.</exception>
-    public static void ThrowIfContainsDuplicate<TItem>(IEnumerable<TItem> items, IEqualityComparer<TItem>? equalityComparer = null, [CallerArgumentExpression(nameof(items))] string? paramName = null, string? message = null)
+    public static void ThrowIfContainsDuplicate<TItem>([NotNull] IEnumerable<TItem> items, IEqualityComparer<TItem>? equalityComparer = null, [CallerArgumentExpression(nameof(items))] string? paramName = null, string? message = null)
     {
-        ArgumentNullException.ThrowIfNull(items);
+        ArgumentNullExceptionAdvanced.ThrowIfNull(items);
         equalityComparer ??= EqualityComparer<TItem>.Default;
 
         if (items.HasDuplicates(equalityComparer))
