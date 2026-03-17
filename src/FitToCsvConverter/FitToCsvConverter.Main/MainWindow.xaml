@@ -4,9 +4,15 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:FitToCsvConverter.Main"
+        xmlns:viewModel="clr-namespace:FitToCsvConverter.ViewModel;assembly=FitToCsvConverter.ViewModel"
         mc:Ignorable="d"
         Title="MainWindow" Height="450" Width="800">
+    <d:DesignerProperties.DataContext>
+        <viewModel:MainViewModel />
+    </d:DesignerProperties.DataContext>
     <Window.Resources>
+
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
 
         <Style x:Key="DataGridCellStyle" TargetType="DataGridCell">
             <Setter Property="Padding"
@@ -14,6 +20,7 @@
         </Style>
         <DataTemplate x:Key="ExtraZipFileContentTemplate">
             <ListBox ItemsSource="{Binding SelectedExtraFilePaths}"
+                     SelectedItem="{Binding SelectedExtraFilePath}"
                      AllowDrop="True"
                      Drop="OnExtraZipFileContentDropped"
                      Background="Transparent">
@@ -30,6 +37,8 @@
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="{Binding}" />
                                 <Button Content="&#xe74d;"
+                                        Command="{Binding DataContext.DeleteExtraFileCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding SelectedItem, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                         FontFamily="{StaticResource SegoeMDL2Assets}"
                                         Foreground="Red"
                                         Background="Transparent"
@@ -74,136 +83,214 @@
                     Width="30"/>
         </DataTemplate>
     </Window.Resources>
+
     <Grid Margin="10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="1"
-                    Grid.Column="0"
-                    Grid.ColumnSpan="2"
-                    Margin="5">
-            <TextBlock Text="FIT File:" />
-            <ListBox ItemsSource="{Binding SelectedFitFilePaths}"
-                     SelectedItem="{Binding SelectedFitFilePath}"
-                     AllowDrop="True"
-                     Drop="OnFitFilesDropped">
-                <ListBox.Template>
-                    <ControlTemplate TargetType="ListBox">
-                        <Border BorderBrush="Gray"
-                                BorderThickness="1"
-                                Height="100"
-                                Background="Transparent"
-                                IsHitTestVisible="True"
-                                AllowDrop="True"
-                                Drop="OnFitFilesDropped">
-                            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                <Grid>
-                                    <TextBlock Text="&#xe8e5;"
-                                               FontFamily="{StaticResource SegoeMDL2Assets}"
-                                               Foreground="Gray"
-                                               FontSize="68"
-                                               Opacity="0.5"
-                                               IsHitTestVisible="False"
-                                               HorizontalAlignment="Center"
-                                               VerticalAlignment="Center" />
-                                    <ItemsPresenter />
-                                </Grid>
-                            </ScrollViewer>
-                        </Border>
-                    </ControlTemplate>
-                </ListBox.Template>
-                <ListBox.ItemTemplate>
-                <DataTemplate>
-                    <TextBlock Text="{Binding}" />
-                </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
+        <Button Grid.Row="0"
+                Content="Start New Session"
+                Command="{Binding StartNewSessionCommand}"
+                Margin="5" />
 
-        </StackPanel>
-
-        <Separator Grid.Row="2" 
-                   Grid.Column="0" 
-                   Grid.ColumnSpan="2"
-                   Margin="0,10" />
-
-        <StackPanel Grid.Row="3"
-                    Margin="5,0">
-            <TextBlock Text="ZIP File Data:" />
-            <DataGrid AutoGenerateColumns="False"
-                      ItemsSource="{Binding ExportData}"
-                      SelectedItem="{Binding SelectedExportData}">
-                <DataGrid.Columns>
-                    <DataGridTextColumn Header="Fit File" 
-                                        IsReadOnly="True"
-                                        Width="Auto"
-                                        Binding="{Binding FitFilePath}" />
-                    <DataGridTemplateColumn Header="Additional Files"
-                                            CellTemplate="{StaticResource ExtraZipFileContentTemplate}"
-                                            Width="*" />
-                    <DataGridTextColumn Header="File Name"
-                                        IsReadOnly="True"
-                                        Width="Auto"
-                                        Binding="{Binding FileName}" />
-                    <DataGridTemplateColumn Header="Remove"
-                                            Width="Auto"
-                                            CellTemplate="{StaticResource RemoveRowContentTemplate}" CellStyle="{StaticResource DataGridCellStyle}"/>
-                </DataGrid.Columns>
-            </DataGrid>
-        </StackPanel>
-
-        <Separator Grid.Row="4"
+        <Separator Grid.Row="1"
                    Grid.Column="0"
                    Grid.ColumnSpan="2"
                    Margin="0,10" />
+        
+        <ScrollViewer Grid.Row="2">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
 
-        <Grid Grid.Row="5"
-              Margin="5,0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <TextBox x:Name="DestinationFolderTextBox"
-                     Grid.Column="0"
-                     Text="{Binding DestinationFolder}"
-                     Margin="0,0,0,0"
-                     Padding="5"
-                     HorizontalAlignment="Stretch"
-                     VerticalAlignment="Top" />
-            <Button Grid.Column="1"
-                    Margin="10,0,0,0"
-                    VerticalAlignment="Top"
-                    Height="{Binding ElementName=DestinationFolderTextBox, Path=ActualHeight}"
-                    Width="80"
-                    Click="SelectDestinationFolderButton_Click">
-                <TextBlock Text="&#xe721;"
-                           FontFamily="{StaticResource SegoeMDL2Assets}"
-                           Foreground="Gray"
-                           Opacity="1"
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Center" />
-            </Button>
-        </Grid>
+                <StackPanel Grid.Row="1"
+                            Grid.Column="0"
+                            Grid.ColumnSpan="2"
+                            Margin="5">
+                    <TextBlock Text="FIT File:" />
+                    <ListBox ItemsSource="{Binding SelectedFitFilePaths}"
+                             SelectedItem="{Binding SelectedFitFilePath}"
+                             AllowDrop="True"
+                             Drop="OnFitFilesDropped">
+                        <ListBox.Template>
+                            <ControlTemplate TargetType="ListBox">
+                                <Border BorderBrush="Gray"
+                                        BorderThickness="1"
+                                        Height="100"
+                                        Background="Transparent"
+                                        IsHitTestVisible="True"
+                                        AllowDrop="True"
+                                        Drop="OnFitFilesDropped">
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                        <Grid>
+                                            <TextBlock Text="&#xe8e5;"
+                                                       FontFamily="{StaticResource SegoeMDL2Assets}"
+                                                       Foreground="Gray"
+                                                       FontSize="68"
+                                                       Opacity="0.5"
+                                                       IsHitTestVisible="False"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center" />
+                                            <ItemsPresenter />
+                                        </Grid>
+                                    </ScrollViewer>
+                                </Border>
+                            </ControlTemplate>
+                        </ListBox.Template>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
 
-        <Button Grid.Row="6"
-                Margin="10,120,0,0"
-                VerticalAlignment="Top"
-                Height="{Binding ElementName=DestinationFolderTextBox, Path=ActualHeight}"
-                Width="80"
-                Content="&#xe724;"
-                FontFamily="{StaticResource SegoeMDL2Assets}"
-                Foreground="Gray"
-                Opacity="1"
-                HorizontalAlignment="Right"
-                HorizontalContentAlignment="Center"
-                VerticalContentAlignment="Center"
-                Click="SelectDestinationFolderButton_Click">
-        </Button>
+                </StackPanel>
+
+                <Separator Grid.Row="2"
+                           Grid.Column="0"
+                           Grid.ColumnSpan="2"
+                           Margin="0,10" />
+
+                <StackPanel Grid.Row="3"
+                            Margin="5,0">
+                    <TextBlock Text="ZIP File Data:" />
+                    <DataGrid AutoGenerateColumns="False"
+                              ItemsSource="{Binding ExportData}"
+                              SelectedItem="{Binding SelectedExportData}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Fit File"
+                                                IsReadOnly="True"
+                                                Width="Auto"
+                                                Binding="{Binding FitFilePath, Mode=OneTime}" />
+                            <DataGridTemplateColumn Header="Additional Files"
+                                                    CellTemplate="{StaticResource ExtraZipFileContentTemplate}"
+                                                    Width="*" />
+                            <DataGridTextColumn Header="File Name"
+                                                Width="Auto"
+                                                Binding="{Binding FileName}" />
+                            <DataGridCheckBoxColumn Header="Rename files to fit file name"
+                                                    Width="Auto"
+                                                    Binding="{Binding IsRenamingEnabled}" />
+                            <DataGridTemplateColumn Header="Remove"
+                                                    Width="Auto"
+                                                    CellTemplate="{StaticResource RemoveRowContentTemplate}"
+                                                    CellStyle="{StaticResource DataGridCellStyle}" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </StackPanel>
+
+                <Separator Grid.Row="4"
+                           Grid.Column="0"
+                           Grid.ColumnSpan="2"
+                           Margin="0,10" />
+
+                <Grid Grid.Row="5"
+                      Margin="5,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="DestinationFolderTextBox"
+                             Grid.Column="0"
+                             Text="{Binding DestinationFolder}"
+                             Margin="0,0,0,0"
+                             Padding="5"
+                             HorizontalAlignment="Stretch"
+                             VerticalAlignment="Top" />
+                    <Button Grid.Column="1"
+                            Margin="10,0,0,0"
+                            VerticalAlignment="Top"
+                            Height="{Binding ElementName=DestinationFolderTextBox, Path=ActualHeight}"
+                            Width="80"
+                            Click="SelectDestinationFolderButton_Click">
+                        <TextBlock Text="&#xe721;"
+                                   FontFamily="{StaticResource SegoeMDL2Assets}"
+                                   Foreground="Gray"
+                                   Opacity="1"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+                    </Button>
+                </Grid>
+
+                <StackPanel Grid.Row="6"
+                            Margin="0,10,0,0"
+                            Visibility="{Binding IsReportingProgress, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{Binding ProgressDataCollection[0].OperationTitle}" />
+                        <TextBlock Text=":" />
+                    </StackPanel>
+                    <Grid>
+                        <ProgressBar Minimum="0"
+                                     Maximum="1"
+                                     Value="{Binding ProgressDataCollection[0].Progress, Mode=OneWay}"
+                                     Height="20"
+                                     HorizontalAlignment="Stretch" />
+                        <TextBlock Text="{Binding ProgressDataCollection[0].Progress, StringFormat={}{0:P0}}"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   Foreground="Black"
+                                   FontWeight="Bold" />
+                    </Grid>
+                    <TextBlock Text="{Binding ProgressDataCollection[0].Message}"
+                               HorizontalAlignment="Left"
+                               VerticalAlignment="Center"
+                               Foreground="Gray"
+                               FontStyle="Italic" />
+                </StackPanel>
+
+                <StackPanel Grid.Row="7"
+                            Margin="0,10,0,0"
+                            Visibility="{Binding IsReportingProgress, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{Binding ProgressDataCollection[1].OperationTitle}" />
+                        <TextBlock Text=":" />
+                    </StackPanel>
+                    <Grid>
+                        <ProgressBar Minimum="0"
+                                     Maximum="1"
+                                     Value="{Binding ProgressDataCollection[1].Progress, Mode=OneWay}"
+                                     Height="20"
+                                     HorizontalAlignment="Stretch" />
+                        <TextBlock Text="{Binding ProgressDataCollection[1].Progress, StringFormat={}{0:P0}}"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   Foreground="Black"
+                                   FontWeight="Bold" />
+                    </Grid>
+                    <TextBlock Text="{Binding ProgressDataCollection[1].Message}"
+                               HorizontalAlignment="Left"
+                               VerticalAlignment="Center"
+                               Foreground="Gray"
+                               FontStyle="Italic" />
+                </StackPanel>
+
+                <Button Grid.Row="8"
+                        Margin="10,120,0,0"
+                        VerticalAlignment="Top"
+                        Height="{Binding ElementName=DestinationFolderTextBox, Path=ActualHeight}"
+                        Width="80"
+                        Content="&#xe724;"
+                        FontFamily="{StaticResource SegoeMDL2Assets}"
+                        Foreground="Gray"
+                        Opacity="1"
+                        HorizontalAlignment="Right"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        Command="{Binding ExportCommand}">
+                </Button>
+            </Grid>
+        </ScrollViewer>
     </Grid>
 </Window>

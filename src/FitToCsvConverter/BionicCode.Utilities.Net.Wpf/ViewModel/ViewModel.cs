@@ -17,7 +17,7 @@ public abstract class ViewModel : ViewModelCommon, IViewModel
     }
 
     #region IProgressReporter
-    public new ReadOnlyObservableCollection<ObservableProgressData> ProgressDataCollection { get; }
+    public ReadOnlyObservableCollection<ObservableProgressData> ProgressDataCollection { get; }
     private readonly ObservableCollection<ObservableProgressData> _progressDataCollectionInternal;
     #endregion IProgressReporter
 
@@ -43,6 +43,7 @@ public abstract class ViewModel : ViewModelCommon, IViewModel
         var progressData = new ObservableProgressData { Message = initialMessage, OperationTitle = operationTitle };
         _progressDataCollectionInternal.Add(progressData);
         Action<ProgressData> reportAction = onProgress + OnProgress;
+
         return new ObservableProgressReporter(reportAction, progressData);
     }
 
@@ -61,6 +62,8 @@ public abstract class ViewModel : ViewModelCommon, IViewModel
             _ = _progressDataCollectionInternal.Remove(progressData);
         }
     }
+
+    protected void RemoveAllObservableProgressData() => _progressDataCollectionInternal.Clear();
 
     /// <summary>
     /// When overridden, handles the <see cref="IProgress{ObservableProgressData}.Report(ObservableProgressData)"/> 

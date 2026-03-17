@@ -5,6 +5,29 @@ using BionicCode.Utilities.Net;
 
 public static class ArchiveCreator
 {
+    private static readonly FileStreamOptions s_zipFileStreamOptions = new()
+    {
+        Mode = FileMode.Create,
+        Access = FileAccess.ReadWrite,
+        Share = FileShare.None,
+        Options = FileOptions.Asynchronous | FileOptions.SequentialScan
+    };
+
+    private static readonly FileStreamOptions s_readFileStreamOptions = new()
+    {
+        Mode = FileMode.Open,
+        Access = FileAccess.Read,
+        Share = FileShare.Read,
+        Options = FileOptions.Asynchronous | FileOptions.SequentialScan
+    };
+
+    private static readonly FileStreamOptions s_createFileStreamOptions = new()
+    {
+        Mode = FileMode.CreateNew,
+        Access = FileAccess.Write,
+        Share = FileShare.None,
+        Options = FileOptions.Asynchronous | FileOptions.SequentialScan
+    };
 
     public static async Task CreateArchivesAsync(FileBatches conversionInfoBatches, IProgress<ProgressData> progressReporter, CancellationToken cancellationToken = default)
     {
@@ -18,16 +41,34 @@ public static class ArchiveCreator
             string zipFilePath = Path.Combine(batch.DestinationDirectory, zipFileName);
             await using var zipFile = new FileStream(
                 zipFilePath,
-                new FileStreamOptions
-                {
-                    Mode = FileMode.Create,
-                    Access = FileAccess.ReadWrite,
-                    Share = FileShare.None,
-                    Options = FileOptions.Asynchronous | FileOptions.SequentialScan
-                });
+                s_zipFileStreamOptions);
             await using ZipArchive zipArchive = await ZipArchive.CreateAsync(zipFile, ZipArchiveMode.Create, leaveOpen: false, batch.Encoding, cancellationToken);
-            foreach (FileDescriptor sourceFileDescriptor in batch.FileDescriptors)
+
+            foreach (FileDescriptor fileDescriptor in batch.FileDescriptors)
             {
+                FileDescriptor sourceFileDescriptor = fileDescriptor;
+
+                if (sourceFileDescriptor.IsRenamingRequired)
+                {
+                    string newFileName = Path.Combine(
+                        batch.BatchName,
+                        Path.GetExtension(sourceFileDescriptor.FullPath));
+                    string newFilePath = Path.Combine(
+                        sourceFileDescriptor.Location,
+                        newFileName);
+
+                    progressReporter.Report(new ProgressData
+                    {
+                        Progress = (double)completedCount / conversionInfoBatches.TotalConversionCount,
+                        Message = $"Renaming file from {sourceFileDescriptor.Name} to {newFileName}"
+                    });
+
+                    await using var originalFile = new FileStream(sourceFileDescriptor.FullPath, s_readFileStreamOptions);
+                    await using var renamedFile = new FileStream(newFilePath, s_createFileStreamOptions);
+                    await originalFile.CopyToAsync(renamedFile, cancellationToken);
+                    sourceFileDescriptor = new FileDescriptor(newFileName, sourceFileDescriptor.IsRenamingRequired);
+                }
+
                 progressReporter.Report(new ProgressData
                 {
                     Progress = (double)completedCount / conversionInfoBatches.TotalConversionCount,

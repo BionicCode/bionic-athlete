@@ -554,7 +554,7 @@ public class ObservableHashSet<TItem> :
     }
 
     private void OnCollectionChanged(NotifyCollectionChangedAction action, TItem item)
-        => CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(action, item));
+        => CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(action, item, -1));
 
     private void OnCollectionChanged(NotifyCollectionChangedAction action, IList changedItems)
         => CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(action, changedItems));

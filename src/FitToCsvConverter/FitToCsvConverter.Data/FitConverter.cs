@@ -1,8 +1,6 @@
 ﻿namespace FitToCsvConverter.Data;
 
-using System.Collections.ObjectModel;
 using System.Diagnostics;
-using System.IO.Compression;
 using BionicCode.Utilities.Net;
 
 public static class FitConverter
@@ -10,7 +8,7 @@ public static class FitConverter
     private const string ScriptFilePath = @"Tools\fit2Csv.ps1";
     private const string FitCsvToolPath = @"Tools\fitCsvTool.jar";
 
-    public static async Task<int> RunFitToCsvAsync(ReadOnlyCollection<ConversionInfo> conversionInfoList, IProgress<ProgressData> progressReporter)
+    public static async Task<int> RunFitToCsvAsync(IEnumerable<ConversionInfo> conversionInfoList, int conversionInfoCount, IProgress<ProgressData> progressReporter)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNullOrEmpty(conversionInfoList);
         ArgumentNullExceptionAdvanced.ThrowIfNull(progressReporter);
@@ -41,19 +39,25 @@ public static class FitConverter
         {
             progressReporter.Report(new ProgressData
             {
-                Progress = (double)completedCount / conversionInfoList.Count,
-                Message = $"Exporting fit file {completedCount + 1} of {conversionInfoList.Count}: {conversionInfo.SourceFilePath}"
+                Progress = (double)completedCount / conversionInfoCount,
+                Message = $"Exporting fit file {completedCount + 1} of {conversionInfoCount}: {conversionInfo.SourceFilePath}"
             });
 
             string destinationDirectory = Path.GetDirectoryName(conversionInfo.DestinationFilePath) ?? throw new InvalidOperationException("Destination directory cannot be determined.");
             string destinationFileName = Path.GetFileName(conversionInfo.DestinationFilePath) ?? throw new InvalidOperationException("Destination file name cannot be determined.");
 
+            _ = startInfo.ArgumentList.Remove("-DestinationDirectory");
+            _ = startInfo.ArgumentList.Remove(destinationDirectory);
             startInfo.ArgumentList.Add("-DestinationDirectory");
             startInfo.ArgumentList.Add(destinationDirectory);
 
+            _ = startInfo.ArgumentList.Remove("-DestinationFileName");
+            _ = startInfo.ArgumentList.Remove(destinationFileName);
             startInfo.ArgumentList.Add("-DestinationFileName");
             startInfo.ArgumentList.Add(destinationFileName);
 
+            _ = startInfo.ArgumentList.Remove("-SourcePath");
+            _ = startInfo.ArgumentList.Remove(conversionInfo.SourceFilePath);
             startInfo.ArgumentList.Add("-SourcePath");
             startInfo.ArgumentList.Add(conversionInfo.SourceFilePath);
 

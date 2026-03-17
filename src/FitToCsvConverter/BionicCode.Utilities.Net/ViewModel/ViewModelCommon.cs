@@ -1109,7 +1109,9 @@ public abstract partial class ViewModelCommon : IViewModelCommon
     {
         ProgressText = progress.Message;
         IsIndeterminate = progress.Progress == ViewModelCommon.EnableIndeterminateMode || IsIndeterminate;
+        double oldValue = ProgressValue;
         ProgressValue = progress.Progress;
+        OnProgressChanged(oldValue, ProgressValue, ProgressText);
     }
 
     /// <summary>
@@ -1144,11 +1146,7 @@ public abstract partial class ViewModelCommon : IViewModelCommon
     /// <param name="oldValue">The old progress value.</param>
     /// <param name="newValue">The new progress value.</param>
     /// <param name="progressText">The progress message.</param>
-    protected virtual void OnProgressChanged(double oldValue, double newValue, string progressText)
-    {
-        IsReportingProgress = IsIndeterminate || (ProgressValue > 0 && ProgressValue < 100);
-        ProgressChanged?.Invoke(this, new ProgressChangedEventArgs(newValue, oldValue, progressText));
-    }
+    protected virtual void OnProgressChanged(double oldValue, double newValue, string progressText) => ProgressChanged?.Invoke(this, new ProgressChangedEventArgs(newValue, oldValue, progressText));
 
     private bool _isReportingProgress;
     /// <inheritdoc/>

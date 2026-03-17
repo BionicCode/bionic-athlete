@@ -1,8 +1,6 @@
 ﻿namespace FitToCsvConverter.ViewModel;
 
 using System.Collections.ObjectModel;
-using System.Collections.Specialized;
-using System.ComponentModel;
 using System.IO;
 using System.IO.Compression;
 using System.Text;
@@ -15,8 +13,8 @@ public class MainViewModel : ViewModel
     private const string FitFileExtension = ".fit";
     private string _destinationFolder;
     private ObservableFileSystemPathHashSet _selectedFitFilePaths;
-    private ExportData _selectedExportData;
-    private string _selectedFitFilePath;
+    private ExportData? _selectedExportData;
+    private string? _selectedFitFilePath;
     private readonly PropertyValidationDelegate<ObservableFileSystemPathHashSet> _fitFilePathsValidator;
     private readonly PropertyValidationDelegate<string> _filePathsValidator;
     private readonly PropertyValidationDelegate<string> _folderPathValidator;
@@ -31,45 +29,20 @@ public class MainViewModel : ViewModel
         _destinationFolder = DefaultDestinationFolder;
         ExportData = [];
         _selectedFitFilePaths = [];
-        DeleteExtraFileCommand = new RelayCommand<ExportData>(exportData => ExportData.Remove(exportData), (exportData) => ExportData.Contains(exportData));
+        _selectedFitFilePath = string.Empty;
+        DeleteExtraFileCommand = new RelayCommand<string>(filePath => SelectedExportData.SelectedExtraFilePaths.Remove(filePath), (filePath) => SelectedExportData is not null && SelectedExportData.SelectedExtraFilePaths.Contains(filePath));
         ExportCommand = new AsyncRelayCommand(ExecuteExportCommandAsync, CanExecuteExportCommand);
+        StartNewSessionCommand = new RelayCommand(ExecuteStartNewSessionCommand);
     }
 
-    private bool CanExecuteExportCommand() => throw new NotImplementedException();
-    private async Task ExecuteExportCommandAsync()
+    public void StartNewSession()
     {
-        var conversionInfoList = new List<ConversionInfo>();
-        foreach (ExportData exportData in ExportData)
-        {
-            string fitFilePath = exportData.FitFilePath;
-            string temporaryDestinationFilePath = Path.Combine(Path.GetTempPath(), $"{exportData.FileName}.csv");
-            exportData.ExportedFilePath = temporaryDestinationFilePath;
-            // Here we would perform the actual conversion from .fit to .csv using the fitFilePath and destinationFilePath.
-            // For the sake of this example, we'll just create a ConversionInfo object and throw a NotImplementedException.
-            var conversionInfo = new ConversionInfo(fitFilePath, temporaryDestinationFilePath);
-            conversionInfoList.Add(conversionInfo);
-        }
-
-        IProgress<ProgressData> exportProgressReporter = StartNewObservableProgressReporting(string.Empty, "Export FIT to CSV");
-        _ = await FitConverter.RunFitToCsvAsync(conversionInfoList.AsReadOnly(), exportProgressReporter);
-
-        await CreateArchivesAsync();
-        Cleanup();
-    }
-
-    private async Task CreateArchivesAsync()
-    {
-        var batchList = new List<FileBatch>();
-        foreach (ExportData exportData in ExportData)
-        {
-            IEnumerable<FileDescriptor> fileDescriptors = exportData.SelectedExtraFilePaths.Select(filePath => new FileDescriptor(filePath));
-            var batch = new FileBatch(fileDescriptors, DestinationFolder, exportData.FileName, Encoding.UTF8, CompressionLevel.SmallestSize);
-            batchList.Add(batch);
-        }
-
-        var batches = new FileBatches(batchList);
-        IProgress<ProgressData> packProgressReporter = StartNewObservableProgressReporting(string.Empty, "Pack files to ZIP archives.");
-        await ArchiveCreator.CreateArchivesAsync(batches, packProgressReporter);
+        SelectedFitFilePaths.Clear();
+        SelectedFitFilePath = string.Empty;
+        ExportData.Clear();
+        SelectedExportData = null;
+        RemoveAllObservableProgressData();
+        IsReportingProgress = false;
     }
 
     public void AddFitFilePaths(IEnumerable<string> fitFilePaths)
@@ -104,16 +77,99 @@ public class MainViewModel : ViewModel
         SelectedExportData.AddExtraFilePaths(filePaths);
     }
 
+    private bool CanExecuteExportCommand() => ExportData.Any()
+        && !string.IsNullOrEmpty(DestinationFolder)
+        && SelectedFitFilePaths.Any();
+
+    private async Task ExecuteExportCommandAsync()
+    {
+        IsReportingProgress = true;
+        try
+        {
+            IEnumerable<ConversionInfo> conversionInfoEnumerable = EnumerateConversionInfo();
+            IProgress<ProgressData> exportProgressReporter = StartNewObservableProgressReporting(string.Empty, "Export FIT to CSV");
+            _ = await FitConverter.RunFitToCsvAsync(conversionInfoEnumerable, ExportData.Count, exportProgressReporter);
+
+            await CreateArchivesAsync();
+        }
+        finally
+        {
+            CleanUp();
+        }
+    }
+
+    private void ExecuteStartNewSessionCommand() => StartNewSession();
+
+    private IEnumerable<ConversionInfo> EnumerateConversionInfo()
+    {
+        foreach (ExportData exportData in ExportData)
+        {
+            string fitFilePath = exportData.FitFilePath;
+            string temporaryDestinationFilePath = Path.Combine(Path.GetTempPath(), $"{exportData.FileName}.csv");
+            exportData.ExportedFilePath = temporaryDestinationFilePath;
+            var conversionInfo = new ConversionInfo(fitFilePath, temporaryDestinationFilePath);
+
+            yield return conversionInfo;
+        }
+    }
+
+    private void CleanUp()
+    {
+        foreach (ExportData exportData in ExportData)
+        {
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(exportData.ExportedFilePath)
+                    && File.Exists(exportData.ExportedFilePath))
+                {
+                    File.Delete(exportData.ExportedFilePath);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log the exception or handle it as needed. For this example, we'll just write to the console.
+                Console.WriteLine($"Failed to delete temporary file '{exportData.ExportedFilePath}': {ex.Message}");
+            }
+        }
+    }
+
+    private async Task CreateArchivesAsync()
+    {
+        IEnumerable<FileBatch> enumerableFileBatches = EnumerateFileBatches();
+
+        var batches = new FileBatches(enumerableFileBatches, ExportData.Count);
+        IProgress<ProgressData> packProgressReporter = StartNewObservableProgressReporting(string.Empty, "Pack files to ZIP archives.");
+        await ArchiveCreator.CreateArchivesAsync(batches, packProgressReporter);
+    }
+
+    private IEnumerable<FileBatch> EnumerateFileBatches()
+    {
+        foreach (ExportData exportData in ExportData)
+        {
+            var exportedCsvFileDescriptor = new FileDescriptor(exportData.ExportedFilePath, false);
+
+            // Extra files count + 1 exported csv file
+            int sourceFilesCount = exportData.SelectedExtraFilePaths.Count + 1;
+
+            IEnumerable<FileDescriptor> fileDescriptors = exportData.SelectedExtraFilePaths
+                .Select(filePath => new FileDescriptor(filePath, exportData.IsRenamingEnabled))
+                .Concat([exportedCsvFileDescriptor]);
+            var batch = new FileBatch(fileDescriptors, sourceFilesCount, DestinationFolder, exportData.FileName, Encoding.UTF8, CompressionLevel.SmallestSize);
+
+            yield return batch;
+        }
+    }
+
     public string DestinationFolder
     {
         get => _destinationFolder;
         set => _ = TrySetValue(value, _folderPathValidator, ref _destinationFolder, _setValueOptions);
     }
 
-    public string SelectedFitFilePath
+    public string? SelectedFitFilePath
     {
         get => _selectedFitFilePath;
-        set => _ = TrySetValue(value, value => SelectedFitFilePaths.Contains(value) ? new PropertyValidationResult(true, []) : new PropertyValidationResult(false, ["Selected file is not in the list of fit files."]), ref _selectedFitFilePath, _setValueOptions);
+        set => _ = TrySetValue(value, value => SelectedFitFilePaths.IsEmpty() || SelectedFitFilePaths.Contains(value) ? new PropertyValidationResult(true, []) : new PropertyValidationResult(false, ["Selected file is not in the list of fit files."]), ref _selectedFitFilePath, _setValueOptions);
     }
 
     public ObservableFileSystemPathHashSet SelectedFitFilePaths
@@ -137,11 +193,12 @@ public class MainViewModel : ViewModel
         }
     }
 
-    public IRelayCommand<ExportData> DeleteExtraFileCommand { get; }
+    public IRelayCommand<string> DeleteExtraFileCommand { get; }
     public IAsyncRelayCommand ExportCommand { get; }
+    public IRelayCommand StartNewSessionCommand { get; }
 
     public ObservableCollection<ExportData> ExportData { get; private set; }
-    public ExportData SelectedExportData
+    public ExportData? SelectedExportData
     {
         get => _selectedExportData;
         set => TrySetValue(value, ref _selectedExportData);
@@ -197,56 +254,4 @@ public class MainViewModel : ViewModel
     private static PropertyValidationDelegate<string> IsFolderPathValid() => folderPath => new PropertyValidationResult(
         !string.IsNullOrWhiteSpace(folderPath) && Directory.Exists(folderPath),
         ["Destination folder cannot be empty and must exist."]);
-
-    public event PropertyChangedEventHandler? PropertyChanged;
-}
-
-public class ExportData : ViewModel
-{
-    private readonly PropertyValidationDelegate<string> _filePathsValidator;
-
-    public ExportData(PropertyValidationDelegate<string> filePathsValidator)
-    {
-        ArgumentNullExceptionAdvanced.ThrowIfNull(filePathsValidator);
-
-        _filePathsValidator = filePathsValidator;
-        SelectedExtraFilePaths = [];
-        SelectedExtraFilePaths.CollectionChanged += ValidateOnItemAdded;
-        FileName = string.Empty;
-        ExportedFilePath = string.Empty;
-    }
-
-    public void AddExtraFilePaths(IEnumerable<string> filePaths)
-    {
-        ArgumentNullExceptionAdvanced.ThrowIfNull(filePaths);
-        foreach (string filePath in filePaths)
-        {
-            _ = SelectedExtraFilePaths.Add(filePath);
-        }
-    }
-
-    private void ValidateOnItemAdded(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        switch (e.Action)
-        {
-            case NotifyCollectionChangedAction.Add:
-            case NotifyCollectionChangedAction.Replace:
-                foreach (string newFilePath in e.NewItems?.OfType<string>() ?? [])
-                {
-                    PropertyValidationResult validationResult = _filePathsValidator.Invoke(newFilePath);
-                    if (!validationResult.IsValid)
-                    {
-                        throw new InvalidOperationException(validationResult.ErrorMessages.JoinToString($",{Environment.NewLine}"));
-                    }
-                }
-
-                break;
-        }
-    }
-
-    public string FitFilePath { get; init; }
-    public string FileName { get; set; }
-    internal string ExportedFilePath { get; set; }
-
-    public ObservableFileSystemPathHashSet SelectedExtraFilePaths { get; }
 }
