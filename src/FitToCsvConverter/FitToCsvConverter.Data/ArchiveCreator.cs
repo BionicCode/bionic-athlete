@@ -59,7 +59,7 @@ public static class ArchiveCreator
 
                     progressReporter.Report(new ProgressData
                     {
-                        Progress = (double)completedCount / conversionInfoBatches.TotalConversionCount,
+                        Progress = (double)completedCount / conversionInfoBatches.BatchesCount,
                         Message = $"Renaming file from {sourceFileDescriptor.Name} to {newFileName}"
                     });
 
@@ -71,8 +71,8 @@ public static class ArchiveCreator
 
                 progressReporter.Report(new ProgressData
                 {
-                    Progress = (double)completedCount / conversionInfoBatches.TotalConversionCount,
-                    Message = $"Packing file {completedCount + 1} of {conversionInfoBatches.TotalConversionCount} to {zipFileName}: {sourceFileDescriptor.Name}"
+                    Progress = (double)completedCount / conversionInfoBatches.BatchesCount,
+                    Message = $"Packing file {completedCount + 1} of {conversionInfoBatches.BatchesCount} to {zipFileName}: {sourceFileDescriptor.Name}"
                 });
 
                 _ = await zipArchive.CreateEntryFromFileAsync(sourceFileDescriptor.FullPath, sourceFileDescriptor.Name, batch.CompressionLevel, cancellationToken);
