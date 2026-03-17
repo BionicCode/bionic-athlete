@@ -15,6 +15,8 @@ public readonly struct FileDescriptor
         Location = location;
         _filePath = Path.Combine(Location, Name);
         IsRenamingRequired = isRenamingRequired;
+        OriginalName = string.Empty;
+        OriginalFullPath = string.Empty;
     }
 
     public FileDescriptor(string filePath, bool isRenamingRequired)
@@ -25,10 +27,14 @@ public readonly struct FileDescriptor
         Location = Path.GetDirectoryName(filePath) ?? string.Empty;
         _filePath = filePath;
         IsRenamingRequired = isRenamingRequired;
+        OriginalName = string.Empty;
+        OriginalFullPath = string.Empty;
     }
 
-    public bool IsRenamingRequired { get; }
-    public string Name { get; }
-    public string Location { get; }
+    public bool IsRenamingRequired { get; init; }
+    public string Name { get; init; }
+    public string Location { get; init; }
     public string FullPath => _filePath;
+    public string OriginalFullPath { get; init; }
+    public string OriginalName { get; init; }
 }

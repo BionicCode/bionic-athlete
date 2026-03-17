@@ -50,23 +50,14 @@ public static class ArchiveCreator
 
                 if (sourceFileDescriptor.IsRenamingRequired)
                 {
-                    string newFileName = Path.Combine(
-                        batch.BatchName,
-                        Path.GetExtension(sourceFileDescriptor.FullPath));
-                    string newFilePath = Path.Combine(
-                        sourceFileDescriptor.Location,
-                        newFileName);
-
                     progressReporter.Report(new ProgressData
                     {
                         Progress = (double)completedCount / conversionInfoBatches.BatchesCount,
-                        Message = $"Renaming file from {sourceFileDescriptor.Name} to {newFileName}"
+                        Message = $"Renaming file from {sourceFileDescriptor.OriginalName} to {sourceFileDescriptor.Name}"
                     });
 
-                    await using var originalFile = new FileStream(sourceFileDescriptor.FullPath, s_readFileStreamOptions);
-                    await using var renamedFile = new FileStream(newFilePath, s_createFileStreamOptions);
-                    await originalFile.CopyToAsync(renamedFile, cancellationToken);
-                    sourceFileDescriptor = new FileDescriptor(newFileName, sourceFileDescriptor.IsRenamingRequired);
+                    File.Move(sourceFileDescriptor.OriginalFullPath, sourceFileDescriptor.FullPath);
+                    sourceFileDescriptor = new FileDescriptor(sourceFileDescriptor.FullPath, sourceFileDescriptor.IsRenamingRequired);
                 }
 
                 progressReporter.Report(new ProgressData

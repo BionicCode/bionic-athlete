@@ -30,9 +30,40 @@ public class MainViewModel : ViewModel
         ExportData = [];
         _selectedFitFilePaths = [];
         _selectedFitFilePath = string.Empty;
-        DeleteExtraFileCommand = new RelayCommand<string>(filePath => SelectedExportData.SelectedExtraFilePaths.Remove(filePath), (filePath) => SelectedExportData is not null && SelectedExportData.SelectedExtraFilePaths.Contains(filePath));
+        DeleteExtraFileCommand = new RelayCommand<ObservableFileDescriptor>(fileDescriptor => SelectedExportData?.SelectedExtraFilePaths.Remove(fileDescriptor), (fileDescriptor) => SelectedExportData is not null && SelectedExportData.SelectedExtraFilePaths.Contains(fileDescriptor));
         ExportCommand = new AsyncRelayCommand(ExecuteExportCommandAsync, CanExecuteExportCommand);
         StartNewSessionCommand = new RelayCommand(ExecuteStartNewSessionCommand);
+    }
+
+    public static PropertyValidationResult IsFitFilePathValid(string fitFilePath)
+    {
+        PropertyValidationResult result = IsFilePathValid(fitFilePath);
+        if (!result.IsValid)
+        {
+            return result;
+        }
+
+        if (!Path.GetExtension(fitFilePath).Equals(FitFileExtension, StringComparison.OrdinalIgnoreCase))
+        {
+            return new PropertyValidationResult(false, [$"Invalid file type: only .fit files are allowed. Found: '{fitFilePath}'."]);
+        }
+
+        return new PropertyValidationResult(true, Array.Empty<string>());
+    }
+
+    public static PropertyValidationResult IsFilePathValid(string filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath))
+        {
+            return new PropertyValidationResult(false, ["File path cannot be NULL or empty."]);
+        }
+
+        if (!File.Exists(filePath))
+        {
+            return new PropertyValidationResult(false, [$"Invalid file path: '{filePath}'."]);
+        }
+
+        return new PropertyValidationResult(true, Array.Empty<string>());
     }
 
     public void StartNewSession()
@@ -51,7 +82,9 @@ public class MainViewModel : ViewModel
 
         foreach (string fitFilePath in fitFilePaths)
         {
-            if (SelectedFitFilePaths.Add(fitFilePath))
+            PropertyValidationResult filePathValidationResult = IsFitFilePathValid(fitFilePath);
+            if (filePathValidationResult.IsValid
+                && SelectedFitFilePaths.Add(fitFilePath))
             {
                 var exportData = new ExportData(_filePathsValidator)
                 {
@@ -104,10 +137,9 @@ public class MainViewModel : ViewModel
     {
         foreach (ExportData exportData in ExportData)
         {
-            string fitFilePath = exportData.FitFilePath;
-            string temporaryDestinationFilePath = Path.Combine(Path.GetTempPath(), $"{exportData.FileName}.csv");
+            string temporaryDestinationFilePath = Path.Combine(Path.GetTempPath(), $"{exportData.FitFileName}.csv");
             exportData.ExportedFilePath = temporaryDestinationFilePath;
-            var conversionInfo = new ConversionInfo(fitFilePath, temporaryDestinationFilePath);
+            var conversionInfo = new ConversionInfo(exportData.FitFilePath, temporaryDestinationFilePath);
 
             yield return conversionInfo;
         }
@@ -152,9 +184,19 @@ public class MainViewModel : ViewModel
             int sourceFilesCount = exportData.SelectedExtraFilePaths.Count + 1;
 
             IEnumerable<FileDescriptor> fileDescriptors = exportData.SelectedExtraFilePaths
-                .Select(filePath => new FileDescriptor(filePath, exportData.IsRenamingEnabled))
+                .Select(observableFileDescriptor => observableFileDescriptor.ToFileDescriptor())
                 .Concat([exportedCsvFileDescriptor]);
-            var batch = new FileBatch(fileDescriptors, sourceFilesCount, DestinationFolder, exportData.FileName, Encoding.UTF8, CompressionLevel.SmallestSize);
+
+            string batchName = exportData.IsAutoRenamingEnabled || string.IsNullOrWhiteSpace(exportData.BatchName)
+                ? exportData.AutoRenameBatchName
+                : exportData.BatchName;
+            var batch = new FileBatch(
+                fileDescriptors,
+                sourceFilesCount,
+                DestinationFolder,
+                batchName,
+                Encoding.UTF8,
+                CompressionLevel.SmallestSize);
 
             yield return batch;
         }
@@ -193,7 +235,7 @@ public class MainViewModel : ViewModel
         }
     }
 
-    public IRelayCommand<string> DeleteExtraFileCommand { get; }
+    public IRelayCommand<ObservableFileDescriptor> DeleteExtraFileCommand { get; }
     public IAsyncRelayCommand ExportCommand { get; }
     public IRelayCommand StartNewSessionCommand { get; }
 
@@ -213,16 +255,7 @@ public class MainViewModel : ViewModel
 
             foreach (string fitFilePath in fitFilePaths)
             {
-                PropertyValidationResult result = IsFilePathValid(fitFilePath);
-                if (!result.IsValid)
-                {
-                    return result;
-                }
-
-                if (!Path.GetExtension(fitFilePath).Equals(FitFileExtension, StringComparison.OrdinalIgnoreCase))
-                {
-                    return new PropertyValidationResult(false, [$"Invalid file type: only .fit files are allowed. Found: '{fitFilePath}'."]);
-                }
+                PropertyValidationResult result = IsFitFilePathValid(fitFilePath);
             }
 
             return new PropertyValidationResult(true, Array.Empty<string>());
@@ -235,21 +268,6 @@ public class MainViewModel : ViewModel
             PropertyValidationResult result = IsFilePathValid(filePath);
             return new PropertyValidationResult(true, Array.Empty<string>());
         };
-
-    private static PropertyValidationResult IsFilePathValid(string filePath)
-    {
-        if (string.IsNullOrWhiteSpace(filePath))
-        {
-            return new PropertyValidationResult(false, ["File path cannot be NULL or empty."]);
-        }
-
-        if (!File.Exists(filePath))
-        {
-            return new PropertyValidationResult(false, [$"Invalid file path: '{filePath}'."]);
-        }
-
-        return new PropertyValidationResult(true, Array.Empty<string>());
-    }
 
     private static PropertyValidationDelegate<string> IsFolderPathValid() => folderPath => new PropertyValidationResult(
         !string.IsNullOrWhiteSpace(folderPath) && Directory.Exists(folderPath),

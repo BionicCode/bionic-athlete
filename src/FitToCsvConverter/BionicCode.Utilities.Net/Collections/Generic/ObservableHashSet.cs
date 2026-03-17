@@ -575,9 +575,10 @@ public class ObservableHashSet<TItem> :
     /// <param name="item">The item to add to the collection. Cannot be null if the collection does not accept null values.</param>
     void ICollection<TItem>.Add(TItem item) => Add(item);
 
-    public readonly struct Enumerator : IEnumerator<TItem>
+    #region Enumerator
+    public struct Enumerator : IEnumerator<TItem>
     {
-        private readonly HashSet<TItem>.Enumerator _enumerator;
+        private HashSet<TItem>.Enumerator _enumerator;
         internal Enumerator(HashSet<TItem> hashSet)
         {
             ArgumentNullExceptionAdvanced.ThrowIfNull(hashSet);
@@ -590,6 +591,7 @@ public class ObservableHashSet<TItem> :
         public bool MoveNext() => _enumerator.MoveNext();
         public void Reset() => throw new NotSupportedException();
     }
+    #endregion Enumerator
 
     internal sealed class ObservableHashSetEqualityComparer<TItem> : IEqualityComparer<ObservableHashSet<TItem>?>, IEqualityComparer<HashSet<TItem>?>
     {

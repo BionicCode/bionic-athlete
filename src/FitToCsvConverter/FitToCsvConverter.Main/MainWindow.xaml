@@ -33,18 +33,27 @@
                     <DataTemplate>
                         <Border BorderThickness="1" 
                                 BorderBrush="Gray"
-                                Background="LightSkyBlue">
+                                Background="{StaticResource ExtraFileItemBackgroundBrush}"
+                                CornerRadius="4"
+                                Padding="2">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="{Binding}" />
-                                <Button Content="&#xe74d;"
-                                        Command="{Binding DataContext.DeleteExtraFileCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                        CommandParameter="{Binding SelectedItem, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                        FontFamily="{StaticResource SegoeMDL2Assets}"
-                                        Foreground="Red"
-                                        Background="Transparent"
-                                        BorderBrush="Transparent"
-                                        ToolTip="Remove file"
-                                        Margin="5,0" />
+                                <TextBlock Text="{Binding Name}" 
+                                           VerticalAlignment="Center" />
+                                <CheckBox IsChecked="{Binding IsRenamingEnabled}"
+                                          Content="Rename"
+                                          Margin="5,0,20,0"
+                                          VerticalAlignment="Center"
+                                          ToolTip="Manually rename file to use the batch name."/>
+                                <Border x:Name="ClipBorder" CornerRadius="8">
+                                    <Button Content="&#xe74d;"
+                                            Command="{Binding DataContext.DeleteExtraFileCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            CommandParameter="{Binding}"
+                                            FontFamily="{StaticResource SegoeMDL2Assets}"
+                                            ToolTip="Remove file"
+                                            Margin="5,0"
+                                            Padding="3"
+                                            FontSize="10" />
+                                </Border>
                             </StackPanel>
                         </Border>
                     </DataTemplate>
@@ -54,7 +63,11 @@
                         <Setter Property="Background"
                                 Value="Transparent" />
                         <Setter Property="Margin"
-                                Value="2" />
+                                Value="0" />
+                        <Setter Property="Padding"
+                                Value="0" />
+                        <Setter Property="IsHitTestVisible"
+                                Value="True" />
                         <Setter Property="Template">
                             <Setter.Value>
                                 <ControlTemplate TargetType="ListBoxItem">
@@ -62,8 +75,8 @@
                                             BorderBrush="{TemplateBinding BorderBrush}"
                                             BorderThickness="{TemplateBinding BorderThickness}"
                                             Padding="{TemplateBinding Padding}">
-                                        <ContentPresenter HorizontalAlignment="Left"
-                                                          VerticalAlignment="Center" />
+                                        <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
                                     </Border>
                                 </ControlTemplate>
                             </Setter.Value>
@@ -123,7 +136,11 @@
                     <ListBox ItemsSource="{Binding SelectedFitFilePaths}"
                              SelectedItem="{Binding SelectedFitFilePath}"
                              AllowDrop="True"
-                             Drop="OnFitFilesDropped">
+                             ToolTip="Drag and drop FIT files here, either raw or as ZIP files."
+                             Drop="OnFitFilesDropped"
+                             DragEnter="PrepareFitFileDropTargetFeedBack"
+                             DragOver="ProvideFitFileDropTargetFeedBack"
+                             DragLeave="ClearFitFileDropTargetFeedBack">
                         <ListBox.Template>
                             <ControlTemplate TargetType="ListBox">
                                 <Border BorderBrush="Gray"
@@ -131,8 +148,7 @@
                                         Height="100"
                                         Background="Transparent"
                                         IsHitTestVisible="True"
-                                        AllowDrop="True"
-                                        Drop="OnFitFilesDropped">
+                                        AllowDrop="True">
                                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                                         <Grid>
                                             <TextBlock Text="&#xe8e5;"
@@ -169,6 +185,12 @@
                     <DataGrid AutoGenerateColumns="False"
                               ItemsSource="{Binding ExportData}"
                               SelectedItem="{Binding SelectedExportData}">
+                        <DataGrid.Resources>
+                            <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}"
+                                             Color="Transparent" />
+                            <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}"
+                                             Color="Black" />
+                        </DataGrid.Resources>
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Fit File"
                                                 IsReadOnly="True"
@@ -177,12 +199,12 @@
                             <DataGridTemplateColumn Header="Additional Files"
                                                     CellTemplate="{StaticResource ExtraZipFileContentTemplate}"
                                                     Width="*" />
-                            <DataGridTextColumn Header="File Name"
+                            <DataGridCheckBoxColumn Header="Enable auto-rename"
                                                 Width="Auto"
-                                                Binding="{Binding FileName}" />
-                            <DataGridCheckBoxColumn Header="Rename files to fit file name"
-                                                    Width="Auto"
-                                                    Binding="{Binding IsRenamingEnabled}" />
+                                                Binding="{Binding IsAutoRenamingEnabled}" />
+                            <DataGridTextColumn Header="Batch Name"
+                                                Width="Auto"
+                                                Binding="{Binding BatchName, UpdateSourceTrigger=PropertyChanged}" />
                             <DataGridTemplateColumn Header="Remove"
                                                     Width="Auto"
                                                     CellTemplate="{StaticResource RemoveRowContentTemplate}"
