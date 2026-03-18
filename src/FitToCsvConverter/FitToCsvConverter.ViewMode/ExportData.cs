@@ -4,7 +4,6 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.IO;
 using BionicCode.Utilities.Net;
-using FitToCsvConverter.Data;
 
 public class ExportData : ViewModel
 {
@@ -14,7 +13,7 @@ public class ExportData : ViewModel
     private bool _hasCorrectedDuplicateNewNames;
     private bool _isAutoRenamingEnabled;
     private string? _fitFileName;
-    private string _autoRenameBatchName;
+    private readonly string _autoRenameBatchName;
     private string? _autoRenameBatchName1;
     private readonly SetValueOptions _setValueOptions;
 
@@ -92,13 +91,15 @@ public class ExportData : ViewModel
         }
     }
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1024:Use properties where appropriate", Justification = "<Pending>")]
     private string GetAutoRenameBatchName()
     {
         if (_autoRenameBatchName is null)
         {
-            DateTime dataDate = FitFileAnalyzer.GetSessionDate(FitFilePath);
-            string batchFileName = $"{dataDate:yyyyMMdd_HHmmss}_{FitFileName}";
-            _autoRenameBatchName = batchFileName;
+            // TODO::Replace with new API call
+            //DateTime dataDate = FitFileAnalyzer.GetSessionDate(FitFilePath);
+            //string batchFileName = $"{dataDate:yyyyMMdd_HHmmss}_{FitFileName}";
+            //_autoRenameBatchName = batchFileName;
         }
 
         return _autoRenameBatchName;

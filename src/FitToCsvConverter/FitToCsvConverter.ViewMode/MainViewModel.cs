@@ -86,7 +86,6 @@ public class MainViewModel : ViewModel
             if (filePathValidationResult.IsValid
                 && SelectedFitFilePaths.Add(fitFilePath))
             {
-                FitDebugExport.ExportSessionFieldsToCsv(fitFilePath, Path.Combine(Path.GetTempPath(), $"{Path.GetFileNameWithoutExtension(fitFilePath)}_debug.csv"));
                 var exportData = new ExportData(_filePathsValidator)
                 {
                     FitFilePath = fitFilePath

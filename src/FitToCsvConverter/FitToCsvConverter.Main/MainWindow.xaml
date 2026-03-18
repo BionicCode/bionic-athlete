@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:FitToCsvConverter.Main"
+        xmlns:swipe="clr-namespace:BionicCode.BionicSwipePageFrame;assembly=FitToCsvConverter.Controls"
         xmlns:viewModel="clr-namespace:FitToCsvConverter.ViewModel;assembly=FitToCsvConverter.ViewModel"
         mc:Ignorable="d"
         Title="MainWindow" Height="450" Width="800">
@@ -96,6 +97,13 @@
                     Width="30"/>
         </DataTemplate>
     </Window.Resources>
+    <!--<swipe:BionicSwipePageFrame x:Name="PageFrame"
+                          Height="500">
+        <swipe:BionicSwipePage>First XAML created page</swipe:BionicSwipePage>
+        <swipe:BionicSwipePage>Second XAML created page</swipe:BionicSwipePage>
+        <swipe:BionicSwipePage>Third XAML created page</swipe:BionicSwipePage>
+        <swipe:BionicSwipePage>Fourth XAML created page</swipe:BionicSwipePage>
+    </swipe:BionicSwipePageFrame>-->
 
     <Grid Margin="10">
         <Grid.RowDefinitions>

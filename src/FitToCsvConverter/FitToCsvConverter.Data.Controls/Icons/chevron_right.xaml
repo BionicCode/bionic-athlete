@@ -1,0 +1,16 @@
+<!-- Converted from svg with ViewerSvg and Ab2d.ReaderSvg -->
+<!-- Created with evaluation version for evaluation purpose only! NOT FOR COMMERCIAL USE! -->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+  <Viewbox xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Key="ChevronRightIcon"
+           Stretch="Uniform"
+           x:Shared="False"
+           UseLayoutRounding="True">
+    <Canvas Width="542.900024414063"
+            Height="980">
+      <!--<Canvas />-->
+      <Path Fill="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType=Control}, Path=Foreground}"
+            StrokeThickness="1"
+            Data="F1M437,490L0,927 53,980 542.9,490 53.1,0 0.100000000000023,53 437,490z" />
+    </Canvas>
+  </Viewbox>
+</ResourceDictionary>
