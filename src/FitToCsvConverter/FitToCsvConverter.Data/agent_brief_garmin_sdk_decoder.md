@@ -5,13 +5,22 @@ Before writing code, inspect the repository and do an architecture-first plannin
 For this first response:
 1. Summarize the current relevant code and where the draft model/decoder types live.
 2. Propose the target file/folder layout.
-3. List the concrete types/interfaces you want to introduce or replace.
+3. List the concrete types/interfaces you want to introduce, replace, or remove.
 4. Identify ambiguities, risks, and likely migration pain points.
 5. State whether any existing draft types should be removed from compilation or replaced instead of patched in place.
 6. Explain the cache decision you recommend for this app.
-7. Do not generate code yet.
+7. Inspect the existing xUnit test project structure and propose where tests for this work should live.
+8. Provide a migration plan from the current draft model/decoder code to the proposed design.
+9. Do not generate code yet.
 
 Additional constraints:
+- Use the repository as the primary source of truth.
+- If available, use the local cloned Garmin reference repositories as the first external reference source:
+  - `/workspace/refs/fit-csharp-sdk`
+  - `/workspace/refs/fit-sdk-tools`
+- Assume those Garmin references are intentionally pinned to version/tag `21.195.0`.
+- Where Garmin FIT SDK behavior is still unclear after inspecting the repository and local Garmin references, use official Garmin FIT documentation and the official Garmin FIT C# SDK source/repository and FIT SDK Tools repository as reference material.
+- Do not assume undocumented Garmin SDK behavior without checking.
 - Treat the current draft model types as disposable unless they are already used elsewhere in the repository in a way that would make replacement risky.
 - Prefer replacement over in-place patching if the current design is structurally wrong.
 - Do not implement CSV export in this pass.
@@ -118,7 +127,7 @@ DESIGN CONSTRAINTS
    - lap.csv
    - record.csv
 
-7. The model must support later “reset edited values back to original decoded values”.
+7. The model must support later reset of edited values back to original decoded values.
 
 8. Keep unit conversion OUT of the immutable decoded data model.
    Unit selection belongs later in export/formatting/application service logic.
@@ -152,6 +161,29 @@ Important refinement:
 - Introduce a stable field key / export column key abstraction that works for both fixed modeled properties and dynamic FIT-derived fields
 
 The initial export-column naming state should default to the original/source field name from the FIT file where applicable.
+
+TEST PROJECT / VERIFICATION
+
+This repository contains an xUnit test project named `FitToCsvConverter.Test`.
+
+For the planning pass:
+- inspect the existing test project structure and propose where tests for the decoder/model layer should live
+- identify which new tests should be added for the code produced in this step
+- do not treat tests as optional; testability is a required design goal
+
+For the implementation pass:
+- place unit tests into the `FitToCsvConverter.Test` project
+- add or update focused xUnit tests for the decoding boundary and domain model behavior where appropriate
+- prefer deterministic unit tests over broad integration-style tests unless integration coverage is clearly justified
+
+At minimum, consider tests for:
+- FIT activity hierarchy mapping (`Activity -> Session -> Lap / Record`)
+- preservation of immutable original/raw data
+- separation of immutable original data from editable working/export state
+- unknown/developer field classification and filtering metadata
+- array/multi-value field preservation
+- cache-key behavior if caching is implemented
+- reset of edited values back to original decoded values, if that behavior is included in this step
 
 DELIVERABLES
 
@@ -199,13 +231,16 @@ Provide all of the following:
    - recommend whether to accept string file path, Stream, or both
    - recommend whether to return DecoderResult<FitActivity> or a richer result type
 
-7. Full code
-   - provide the full recommended domain model code
-   - provide the full decoder interface + Garmin implementation
-   - provide helper types needed for field snapshots / field state / cache keys / results
-   - split responsibilities into appropriate files/classes rather than one large file
+7. Full code plan
+   - identify the files/classes to add, replace, or remove
+   - specify which code belongs in `FitToCsvConverter.Data`
+   - specify which tests belong in `FitToCsvConverter.Test`
 
-8. Design assumptions / limitations
+8. Tests
+   - propose or add appropriate xUnit tests in `FitToCsvConverter.Test`
+   - explain any cases where tests should be deferred and why
+
+9. Design assumptions / limitations
    - explicitly call out any places where Garmin SDK docs are incomplete and generated SDK/profile metadata are being used as the practical source of truth
    - call out assumptions about access modifiers across assemblies
 
@@ -282,27 +317,3 @@ Do NOT optimize for:
 - shortest code
 - cleverness
 - tight coupling to the Garmin SDK
-
-TEST PROJECT / VERIFICATION
-
-This repository contains an xUnit test project named `FitToCsvConverter.Test`.
-
-For the planning pass:
-- inspect the existing test project structure and propose where tests for the decoder/model layer should live,
-- identify which new tests should be added for the code produced in this step,
-- do not treat tests as optional; testability is a required design goal.
-
-For the implementation pass:
-- place unit tests into the `FitToCsvConverter.Test` project,
-- add or update focused xUnit tests for the decoding boundary and domain model behavior where appropriate,
-- prefer deterministic unit tests over broad integration-style tests unless integration coverage is clearly justified.
-
-At minimum, consider tests for:
-- FIT activity hierarchy mapping (`Activity -> Session -> Lap / Record`)
-- preservation of immutable original/raw data
-- separation of immutable original data from editable working/export state
-- unknown/developer field classification and filtering metadata
-- array/multi-value field preservation
-- cache-key behavior if caching is implemented
-- reset of edited values back to original decoded values, if that behavior is included in this step
-

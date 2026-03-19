@@ -1,0 +1,12 @@
+sandbox_mode = "workspace-write"
+model = "gpt-5.4"
+model_reasoning_effort = "xhigh"
+
+[sandbox_workspace_write]
+network_access = true
+
+[windows]
+sandbox = "elevated"
+
+[features]
+multi_agent = true
