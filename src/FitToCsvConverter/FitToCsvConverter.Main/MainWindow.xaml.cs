@@ -2,7 +2,7 @@
 
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
+using BionicCode.Utilities.Net;
 using FitToCsvConverter.ViewModel;
 using Microsoft.Win32;
 
@@ -29,13 +29,36 @@ public partial class MainWindow : Window
         };
     }
 
-    private void OnFitFilesDropped(object sender, DragEventArgs e)
+    private async void OnFitFilesDropped(object sender, DragEventArgs e)
     {
         string[] filePaths = (string[])e.Data.GetData(DataFormats.FileDrop, false) ?? [];
-        if (filePaths.Length > 0)
+        if (_isFitFileDropAllowed.GetValueOrDefault() && filePaths.Length > 0)
         {
-            _viewModel.AddFitFilePaths(filePaths);
+            _viewModel.ProgressChanged += OnAddFitFileProgressChanged;
+            await _viewModel.AddFitFilePathsAsync(filePaths, CancellationToken.None);
         }
+    }
+
+    private Window? _progressDialog;
+    private void OnAddFitFileProgressChanged(object sender, ProgressChangedEventArgs e)
+    {
+        _progressDialog ??= new Window()
+        {
+            Title = "Adding FIT Files",
+            Content = new ProgressBar
+            {
+                IsIndeterminate = e.IsIndeterminate,
+                Minimum = 0,
+                Maximum = e.MaxValue,
+                Width = 300,
+                Height = 30
+            },
+            SizeToContent = SizeToContent.WidthAndHeight,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Owner = this
+        };
+        _ = (_progressDialog.Content as ProgressBar)!.SetBinding(ProgressBar.ValueProperty, new System.Windows.Data.Binding(nameof(MainViewModel.SelectedProgress)) { Source = _viewModel });
+        _progressDialog.Show();
     }
 
     private void SelectDestinationFolderButton_Click(object sender, RoutedEventArgs e)
@@ -65,10 +88,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ClearFitFileDropTargetFeedBack(object sender, DragEventArgs e)
-    {
-        _isFitFileDropAllowed = null;
-    }
+    private void ClearFitFileDropTargetFeedBack(object sender, DragEventArgs e) => _isFitFileDropAllowed = null;
 
     private void PrepareFitFileDropTargetFeedBack(object sender, DragEventArgs e)
     {
@@ -81,7 +101,7 @@ public partial class MainWindow : Window
 
         // Only disallow when all files are invalid.
         // Otherwise, allow the drop and let the view model handle the validation and error reporting for each file.
-        _isFitFileDropAllowed = filePaths.Any(path => MainViewModel.IsFitFilePathValid(path).IsValid);
+        _isFitFileDropAllowed = filePaths.Any(path => _viewModel.IsFitFilePathValid(path).IsValid);
     }
 
     private void ProvideFitFileDropTargetFeedBack(object sender, GiveFeedbackEventArgs e)

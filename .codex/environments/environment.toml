@@ -71,8 +71,7 @@ script = '''
 $ErrorActionPreference = "Stop"
 
 $garminFitSdkVersion = "21.195.0"
-$refsDirectory = "C:\workspace\refs"
-$projectDirectory = "C:\workspace\project"
+$refsDirectory = "C:\codex-workspace\refs"
 
 function Require-Command {
     param(
@@ -99,7 +98,7 @@ function Clone-OrUpdateTaggedRepo {
 
     if (Test-Path (Join-Path $TargetDirectory ".git")) {
         Write-Host "Updating $TargetDirectory to tag $TagName..."
-        git -C $TargetDirectory fetch --depth 1 origin "refs/tags/$TagName:refs/tags/$TagName"
+        git -C $TargetDirectory fetch --depth 1 origin tag $TagName
         git -C $TargetDirectory checkout --force $TagName
         git -C $TargetDirectory reset --hard $TagName
     }
@@ -131,11 +130,6 @@ Clone-OrUpdateTaggedRepo `
     -TagName $garminFitSdkVersion
 
 git -C $fitSdkToolsDirectory lfs pull
-
-Set-Location $projectDirectory
-
-dotnet restore
-dotnet build --no-restore
 '''
 
 [[actions]]

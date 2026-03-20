@@ -6,10 +6,28 @@
     <Application.Resources>
         <FontFamily x:Key="SegoeMDL2Assets">Segoe Fluent Icons</FontFamily>
 
-        <Color x:Key="ExtraFileItemBackgroundColor">#2bb9fb</Color>
-        <SolidColorBrush x:Key="ExtraFileItemBackgroundBrush"
-                         Color="{StaticResource ExtraFileItemBackgroundColor}"
-                         Opacity="0.2" />
+        <Duration x:Key="MouseOverAnimationDuration">0:0:0.2</Duration>
+
+        <Color x:Key="MouseOverTextColor">White</Color>
+        <SolidColorBrush x:Key="MouseOverTextBrush"
+                         Color="{StaticResource MouseOverTextColor}"
+                         Opacity="1" />
+        <Color x:Key="TextColor">Black</Color>
+        <SolidColorBrush x:Key="TextBrush"
+                         Color="{StaticResource TextColor}"
+                         Opacity="1" />
+        <Color x:Key="ExtraFileItemAutoRenamingEnabledBackgroundColor">#ade79c</Color>
+        <SolidColorBrush x:Key="FileItemAutoRenamingEnabledBackgroundBrush"
+                         Color="{StaticResource ExtraFileItemAutoRenamingEnabledBackgroundColor}"
+                         Opacity="0.8" />
+        <Color x:Key="ExtraFileItemManualRenamingEnabledBackgroundColor">#e7d89c</Color>
+        <SolidColorBrush x:Key="FileItemManualRenamingEnabledBackgroundBrush"
+                         Color="{StaticResource ExtraFileItemManualRenamingEnabledBackgroundColor}"
+                         Opacity="0.8" />
+        <Color x:Key="ExtraFileItemDefaultBackgroundColor">#9bc3c5</Color>
+        <SolidColorBrush x:Key="ExtraFileItemDefaultBackgroundBrush"
+                         Color="{StaticResource ExtraFileItemDefaultBackgroundColor}"
+                         Opacity="0.8" />
         <Color x:Key="ExtraFileItemButtonBackgroundColor">LightSteelBlue</Color>
         <Color x:Key="ExtraFileItemButtonHighlightColor">SteelBlue</Color>
         <SolidColorBrush x:Key="ExtraFileItemButtonBackgroundBrush"
@@ -17,10 +35,12 @@
                          Opacity="0.8" />
 
                          
-        <Style TargetType="Button">
+        <Style TargetType="Button" x:Shared="False">
             <Style.Setters>
                 <Setter Property="Background"
                         Value="{StaticResource ExtraFileItemButtonBackgroundBrush}" />
+                <Setter Property="Foreground"
+                        Value="{StaticResource TextBrush}" />
                 <Setter Property="BorderThickness"
                         Value="0" />
                 <Setter Property="HorizontalContentAlignment"
@@ -48,7 +68,7 @@
                 <Trigger Property="IsMouseOver"
                          Value="True">
                     <Setter Property="Foreground"
-                            Value="White" />
+                            Value="{StaticResource MouseOverTextBrush}" />
                 </Trigger>
                 
                 <EventTrigger RoutedEvent="MouseEnter">
@@ -56,7 +76,7 @@
                         <Storyboard>
                             <ColorAnimation Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
                                             To="{StaticResource ExtraFileItemButtonHighlightColor}"
-                                            Duration="0:0:0.2" />
+                                            Duration="{StaticResource MouseOverAnimationDuration}" />
                         </Storyboard>
                     </BeginStoryboard>
                 </EventTrigger>
@@ -65,7 +85,7 @@
                         <Storyboard>
                             <ColorAnimation Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
                                             To="{StaticResource ExtraFileItemButtonBackgroundColor}"
-                                            Duration="0:0:0.2" />
+                                            Duration="{StaticResource MouseOverAnimationDuration}" />
                         </Storyboard>
                     </BeginStoryboard>
                 </EventTrigger>

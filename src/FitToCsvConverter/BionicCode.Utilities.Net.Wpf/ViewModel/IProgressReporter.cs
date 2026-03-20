@@ -19,7 +19,10 @@ public interface IProgressReporter : IProgressReporterCommon, INotifyPropertyCha
     /// </summary>
     /// <remarks>To create a <see cref="IProgress{T}"/> instance that is associated with the application's primary dispatcher thread, call </remarks>
     /// <returns>A <see cref="IProgress{ProgressData}"/> instance that posts progress to the thread <see cref="IProgressReporterCommon.CreateProgressReporterFromCurrentThread"/> was called from.</returns>
+    [Obsolete("Use 'StartNewObservableProgressReporting()' instead.", error: true)]
     IProgress<ProgressData> CreateProgressReporterFromUiThread();
 
     ReadOnlyObservableCollection<ObservableProgressData> ProgressDataCollection { get; }
+
+    ObservableProgressData SelectedProgress { get; }
 }

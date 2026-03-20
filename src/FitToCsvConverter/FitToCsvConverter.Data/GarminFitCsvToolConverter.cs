@@ -3,12 +3,12 @@
 using System.Diagnostics;
 using BionicCode.Utilities.Net;
 
-public static class FitConverter
+public class GarminFitCsvToolConverter : IFitToCsvConverter
 {
     private const string ScriptFilePath = @"Tools\fit2Csv.ps1";
     private const string FitCsvToolPath = @"Tools\fitCsvTool.jar";
 
-    public static async Task<int> RunFitToCsvAsync(IEnumerable<ConversionInfo> conversionInfoList, int conversionInfoCount, IProgress<ProgressData> progressReporter)
+    public async Task<int> ExportToCsvAsync(IEnumerable<ConversionInfo> conversionInfoList, int conversionInfoCount, IProgress<ProgressData> progressReporter)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNullOrEmpty(conversionInfoList);
         ArgumentNullExceptionAdvanced.ThrowIfNull(progressReporter);
@@ -40,6 +40,7 @@ public static class FitConverter
             progressReporter.Report(new ProgressData
             {
                 Progress = (double)completedCount / conversionInfoCount,
+                MaxValue = 1.0,
                 Message = $"Exporting fit file {completedCount + 1} of {conversionInfoCount}: {conversionInfo.SourceFilePath}"
             });
 
@@ -87,6 +88,7 @@ public static class FitConverter
         progressReporter.Report(new ProgressData
         {
             Progress = 1.0,
+            MaxValue = 1.0,
             Message = "All fit files have been successfully exported."
         });
 

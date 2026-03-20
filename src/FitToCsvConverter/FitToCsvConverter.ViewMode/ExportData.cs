@@ -13,8 +13,9 @@ public class ExportData : ViewModel
     private bool _hasCorrectedDuplicateNewNames;
     private bool _isAutoRenamingEnabled;
     private string? _fitFileName;
-    private readonly string _autoRenameBatchName;
-    private string? _autoRenameBatchName1;
+    private string? _autoRenameBatchName;
+    private string? _fitFileNameWithoutExtension;
+    private bool _isIncludeFitFileEnabled;
     private readonly SetValueOptions _setValueOptions;
 
     public ExportData(PropertyValidationDelegate<string> filePathsValidator)
@@ -26,10 +27,11 @@ public class ExportData : ViewModel
         SelectedExtraFilePaths.CollectionChanged += OnSelectedExtraFilePathsCollectionChanged;
         _newFilenames = [];
         SelectedExtraFilePaths.CollectionChanged += ValidateOnItemAdded;
+        FitFilePath = string.Empty;
         _batchName = string.Empty;
         ExportedFilePath = string.Empty;
-        FitFilePath = string.Empty;
         _isAutoRenamingEnabled = true;
+        _isIncludeFitFileEnabled = true;
 
         _setValueOptions = new SetValueOptions
         {
@@ -43,6 +45,11 @@ public class ExportData : ViewModel
         ArgumentNullExceptionAdvanced.ThrowIfNull(filePaths);
         foreach (string filePath in filePaths)
         {
+            if (filePath.Equals(FitFilePath, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
             var fileDescriptor = new ObservableFileDescriptor(filePath, isRenamingRequired: false);
             _ = SelectedExtraFilePaths.Add(fileDescriptor);
         }
@@ -181,6 +188,7 @@ public class ExportData : ViewModel
 
     public string FitFilePath { get; init; }
     public string FitFileName => _fitFileName ??= Path.GetFileName(FitFilePath);
+    public string FitFileNameWithoutExtension => _fitFileNameWithoutExtension ??= Path.GetFileNameWithoutExtension(FitFilePath);
 
     public string BatchName
     {
@@ -200,7 +208,13 @@ public class ExportData : ViewModel
         set => TrySetValue(value, ref _isAutoRenamingEnabled, _setValueOptions);
     }
 
+    public bool IsIncludeFitFileEnabled
+    {
+        get => _isIncludeFitFileEnabled;
+        set => TrySetValue(value, ref _isIncludeFitFileEnabled, _setValueOptions);
+    }
+
     internal string ExportedFilePath { get; set; }
     public ObservableHashSet<ObservableFileDescriptor> SelectedExtraFilePaths { get; }
-    public string AutoRenameBatchName => _autoRenameBatchName1 ??= GetAutoRenameBatchName();
+    public string AutoRenameBatchName => _autoRenameBatchName ??= GetAutoRenameBatchName();
 }

@@ -4,49 +4,84 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:FitToCsvConverter.Main"
-        xmlns:swipe="clr-namespace:BionicCode.BionicSwipePageFrame;assembly=FitToCsvConverter.Controls"
+        xmlns:controls="clr-namespace:FitToCsvConverter.Controls;assembly=FitToCsvConverter.Controls"
         xmlns:viewModel="clr-namespace:FitToCsvConverter.ViewModel;assembly=FitToCsvConverter.ViewModel"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        Title="MainWindow" Height="500" Width="1000">
     <d:DesignerProperties.DataContext>
         <viewModel:MainViewModel />
     </d:DesignerProperties.DataContext>
     <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/FlipSwitchToggleButtonStyle.xaml" />
+            </ResourceDictionary.MergedDictionaries>
 
-        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+            <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
 
-        <Style x:Key="DataGridCellStyle" TargetType="DataGridCell">
-            <Setter Property="Padding"
-                    Value="50" />
-        </Style>
-        <DataTemplate x:Key="ExtraZipFileContentTemplate">
-            <ListBox ItemsSource="{Binding SelectedExtraFilePaths}"
-                     SelectedItem="{Binding SelectedExtraFilePath}"
-                     AllowDrop="True"
-                     Drop="OnExtraZipFileContentDropped"
-                     Background="Transparent">
-                <!--<ListBox.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <WrapPanel Orientation="Horizontal" />
-                    </ItemsPanelTemplate>
-                </ListBox.ItemsPanel>-->
-                <ListBox.ItemTemplate>
-                    <DataTemplate>
-                        <Border BorderThickness="1" 
-                                BorderBrush="Gray"
-                                Background="{StaticResource ExtraFileItemBackgroundBrush}"
-                                CornerRadius="4"
-                                Padding="2">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="{Binding Name}" 
-                                           VerticalAlignment="Center" />
-                                <CheckBox IsChecked="{Binding IsRenamingEnabled}"
-                                          Content="Rename"
-                                          Margin="5,0,20,0"
-                                          VerticalAlignment="Center"
-                                          ToolTip="Manually rename file to use the batch name."/>
-                                <Border x:Name="ClipBorder" CornerRadius="8">
-                                    <Button Content="&#xe74d;"
+            <Style x:Key="DataGridCellStyle" TargetType="DataGridCell">
+                <Setter Property="Padding"
+                        Value="50" />
+            </Style>
+
+            <Style x:Key="DataGridTextCellStyle"
+                   TargetType="TextBlock">
+                <Setter Property="VerticalAlignment"
+                        Value="Center" />
+            </Style>
+
+            <Style x:Key="DataGridCheckBoxCellStyle"
+                   TargetType="CheckBox">
+                <Setter Property="VerticalAlignment"
+                        Value="Center" />
+                <Setter Property="HorizontalAlignment"
+                        Value="Center" />
+            </Style>
+            
+            <DataTemplate x:Key="ExtraZipFileContentTemplate">
+                <Grid>
+                    <TextBlock Text="&#xe8e5;"
+                               ToolTip="Drag and drop FIT files here, either raw or as ZIP files."
+                               FontFamily="{StaticResource SegoeMDL2Assets}"
+                               Foreground="Gray"
+                               FontSize="68"
+                               Opacity="0.5"
+                               IsHitTestVisible="False"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center" />
+                    <ListBox ItemsSource="{Binding SelectedExtraFilePaths}"
+                             SelectedItem="{Binding SelectedExtraFilePath}"
+                             AllowDrop="True"
+                             Drop="OnExtraZipFileContentDropped"
+                             Background="Transparent"
+                             ToolTip="Drag and drop FIT files here, either raw or as ZIP files.">
+                        <!--<ListBox.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ListBox.ItemsPanel>-->
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0"
+                                               Text="{Binding Name}"
+                                               VerticalAlignment="Center"
+                                               HorizontalAlignment="Stretch" />
+                                    <CheckBox x:Name="ManualRenameCheckBox"
+                                              Grid.Column="1"
+                                              IsChecked="{Binding IsRenamingEnabled}"
+                                              Foreground="{StaticResource TextBrush}"
+                                              Content="Rename"
+                                              Margin="5,0,20,0"
+                                              VerticalAlignment="Center"
+                                              ToolTip="Manually rename file to use the batch name." />
+                                    <Button Grid.Column="2"
+                                            Content="&#xe74d;"
                                             Command="{Binding DataContext.DeleteExtraFileCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                             CommandParameter="{Binding}"
                                             FontFamily="{StaticResource SegoeMDL2Assets}"
@@ -54,48 +89,122 @@
                                             Margin="5,0"
                                             Padding="3"
                                             FontSize="10" />
-                                </Border>
-                            </StackPanel>
-                        </Border>
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-                <ListBox.ItemContainerStyle>
-                    <Style TargetType="ListBoxItem">
-                        <Setter Property="Background"
-                                Value="Transparent" />
-                        <Setter Property="Margin"
-                                Value="0" />
-                        <Setter Property="Padding"
-                                Value="0" />
-                        <Setter Property="IsHitTestVisible"
-                                Value="True" />
-                        <Setter Property="Template">
-                            <Setter.Value>
-                                <ControlTemplate TargetType="ListBoxItem">
-                                    <Border Background="{TemplateBinding Background}"
-                                            BorderBrush="{TemplateBinding BorderBrush}"
-                                            BorderThickness="{TemplateBinding BorderThickness}"
-                                            Padding="{TemplateBinding Padding}">
-                                        <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
-                                    </Border>
-                                </ControlTemplate>
-                            </Setter.Value>
-                        </Setter>
-                    </Style>
-                </ListBox.ItemContainerStyle>
-            </ListBox>
-        </DataTemplate>
+                                </Grid>
 
-        <DataTemplate x:Key="RemoveRowContentTemplate">
-            <Button Content="&#xe74d;"
-                    FontFamily="{StaticResource SegoeMDL2Assets}"
-                    Foreground="Red"
-                    Background="Transparent"
-                    BorderBrush="Transparent"
-                    ToolTip="Remove row"
-                    Width="30"/>
-        </DataTemplate>
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding ElementName=ManualRenameCheckBox, Path=IsMouseOver}"
+                                                 Value="True">
+                                        <DataTrigger.EnterActions>
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <ColorAnimation Storyboard.TargetName="ManualRenameCheckBox"
+                                                                    Storyboard.TargetProperty="(Foreground).(SolidColorBrush.Color)"
+                                                                    To="{StaticResource MouseOverTextColor}" 
+                                                                    Duration="{StaticResource MouseOverAnimationDuration}" />
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.EnterActions>
+                                        <DataTrigger.ExitActions>
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <ColorAnimation Storyboard.TargetName="ManualRenameCheckBox"
+                                                                    Storyboard.TargetProperty="(Foreground).(SolidColorBrush.Color)"
+                                                                    To="{StaticResource TextColor}"
+                                                                    Duration="{StaticResource MouseOverAnimationDuration}" />
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.ExitActions>
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="Background"
+                                        Value="{StaticResource ExtraFileItemDefaultBackgroundBrush}" />
+                                <Setter Property="BorderThickness"
+                                        Value="1" />
+                                <Setter Property="BorderBrush"
+                                        Value="Gray" />
+                                <Setter Property="Margin"
+                                        Value="5,0" />
+                                <Setter Property="Padding"
+                                        Value="5,2" />
+                                <Setter Property="IsHitTestVisible"
+                                        Value="True" />
+                                <Setter Property="HorizontalContentAlignment"
+                                        Value="Stretch" />
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListBoxItem">
+                                            <Border Background="{TemplateBinding Background}"
+                                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                                    Padding="{TemplateBinding Padding}"
+                                                    CornerRadius="6">
+                                                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                                            </Border>
+
+                                            <ControlTemplate.Triggers>
+                                                <!--<Trigger Property="IsMouseOver"
+                                                         Value="True">
+                                                    <Setter Property="Background"
+                                                            Value="{StaticResource ExtraFileItemDefaultBackgroundBrush}" />
+                                                </Trigger>-->
+                                                <DataTrigger Binding="{Binding IsRenamingEnabled}"
+                                                             Value="True">
+                                                    <Setter Property="Background"
+                                                            Value="{StaticResource FileItemManualRenamingEnabledBackgroundBrush}" />
+                                                </DataTrigger>
+                                                <MultiDataTrigger>
+                                                    <MultiDataTrigger.Conditions>
+                                                        <Condition Binding="{Binding IsRenamingEnabled}"
+                                                                   Value="False" />
+                                                        <Condition Binding="{Binding DataContext.IsAutoRenamingEnabled, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                                   Value="True" />
+                                                    </MultiDataTrigger.Conditions>
+                                                    <Setter Property="Background"
+                                                            Value="{StaticResource FileItemAutoRenamingEnabledBackgroundBrush}" />
+                                                </MultiDataTrigger>
+                                                <!--<MultiDataTrigger>
+                                                    <MultiDataTrigger.Conditions>
+                                                        <Condition Binding="{Binding IsRenamingEnabled}"
+                                                                   Value="False" />
+                                                        <Condition Binding="{Binding DataContext.IsAutoRenamingEnabled, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                                   Value="False" />
+                                                    </MultiDataTrigger.Conditions>
+                                                    <Setter Property="Background"
+                                                            Value="{StaticResource ExtraFileItemDefaultBackgroundBrush}" />
+                                                </MultiDataTrigger>-->
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                    </ListBox>
+                </Grid>
+            </DataTemplate>
+
+            <DataTemplate x:Key="RemoveRowCellTemplate">
+                <Button Content="&#xe74d;"
+                        FontFamily="{StaticResource SegoeMDL2Assets}"
+                        Foreground="Red"
+                        Background="Transparent"
+                        BorderBrush="Transparent"
+                        ToolTip="Remove row"
+                        Width="50"
+                        Height="50"
+                        Margin="5"/>
+            </DataTemplate>
+
+            <DataTemplate x:Key="ToggleButtonCellTemplate">
+                <ToggleButton IsChecked="{Binding IsAutoRenamingEnabled, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource FlipSwitchToggleButtonStyle}"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Center" />
+            </DataTemplate>
+        </ResourceDictionary>
     </Window.Resources>
     <!--<swipe:BionicSwipePageFrame x:Name="PageFrame"
                           Height="500">
@@ -122,7 +231,7 @@
                    Grid.ColumnSpan="2"
                    Margin="0,10" />
         
-        <ScrollViewer Grid.Row="2">
+        <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Auto">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -160,6 +269,7 @@
                                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                                         <Grid>
                                             <TextBlock Text="&#xe8e5;"
+                                                       ToolTip="{TemplateBinding ToolTip}"
                                                        FontFamily="{StaticResource SegoeMDL2Assets}"
                                                        Foreground="Gray"
                                                        FontSize="68"
@@ -202,20 +312,21 @@
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Fit File"
                                                 IsReadOnly="True"
-                                                Width="Auto"
+                                                ElementStyle="{StaticResource DataGridTextCellStyle}"
                                                 Binding="{Binding FitFilePath, Mode=OneTime}" />
                             <DataGridTemplateColumn Header="Additional Files"
                                                     CellTemplate="{StaticResource ExtraZipFileContentTemplate}"
-                                                    Width="*" />
-                            <DataGridCheckBoxColumn Header="Enable auto-rename"
-                                                Width="Auto"
-                                                Binding="{Binding IsAutoRenamingEnabled}" />
+                                                    MinWidth="500" />
+                            <DataGridTemplateColumn Header="Auto-rename" 
+                                                    CellTemplate="{StaticResource ToggleButtonCellTemplate}"/>
+                            <DataGridTemplateColumn Header="Include FIT file"
+                                                    CellTemplate="{StaticResource ToggleButtonCellTemplate}" />
                             <DataGridTextColumn Header="Batch Name"
-                                                Width="Auto"
+                                                ElementStyle="{StaticResource DataGridTextCellStyle}"
+                                                MinWidth="200"
                                                 Binding="{Binding BatchName, UpdateSourceTrigger=PropertyChanged}" />
                             <DataGridTemplateColumn Header="Remove"
-                                                    Width="Auto"
-                                                    CellTemplate="{StaticResource RemoveRowContentTemplate}"
+                                                    CellTemplate="{StaticResource RemoveRowCellTemplate}"
                                                     CellStyle="{StaticResource DataGridCellStyle}" />
                         </DataGrid.Columns>
                     </DataGrid>

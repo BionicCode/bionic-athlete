@@ -5,12 +5,12 @@ using System.Diagnostics;
 
 internal class ObservableProgressReporter : IProgress<ProgressData>
 {
-    private readonly ObservableProgressData _progressData;
+    private readonly ObservableProgressData _observableProgressData;
     private readonly SendOrPostCallback _invokeReportProgress;
-    private readonly Action<ProgressData> _reportAction;
+    private readonly Action<ObservableProgressData> _reportAction;
     private readonly SynchronizationContext _synchronizationContext;
 
-    public ObservableProgressReporter(Action<ProgressData> reportAction, ObservableProgressData progressData)
+    public ObservableProgressReporter(Action<ObservableProgressData> reportAction, ObservableProgressData progressData)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(reportAction);
 
@@ -23,22 +23,22 @@ internal class ObservableProgressReporter : IProgress<ProgressData>
         _invokeReportProgress = ReportProgress;
 
         _reportAction = reportAction;
-        _progressData = progressData;
+        _observableProgressData = progressData;
     }
 
     private void ReportProgress(object? state)
     {
         var progressData = (ProgressData)state!;
-        _reportAction.Invoke(progressData);
-        double oldProgress = _progressData.Progress;
-        _progressData.Update(progressData);
-        OnProgressReported(oldProgress, _progressData.Progress, _progressData.Message);
+        double oldProgress = _observableProgressData.Progress;
+        _observableProgressData.Update(progressData);
+        _reportAction.Invoke(_observableProgressData);
+        OnProgressReported(oldProgress, _observableProgressData.Progress, _observableProgressData.Message);
     }
 
     protected virtual void OnReport(ProgressData value) => _synchronizationContext.Post(_invokeReportProgress, value);
 
     void IProgress<ProgressData>.Report(ProgressData value) => OnReport(value);
 
-    protected virtual void OnProgressReported(double oldProgress, double newProgress, string message) => ProgressReported?.Invoke(this, new ObservableProgressChangedEventArgs(oldProgress, newProgress, message, _progressData));
+    protected virtual void OnProgressReported(double oldProgress, double newProgress, string message) => ProgressReported?.Invoke(this, new ObservableProgressChangedEventArgs(oldProgress, newProgress, message, _observableProgressData));
     public event EventHandler<ObservableProgressChangedEventArgs>? ProgressReported;
 }

@@ -19,6 +19,8 @@ public class MainViewModel : ViewModel
     private readonly PropertyValidationDelegate<string> _filePathsValidator;
     private readonly PropertyValidationDelegate<string> _folderPathValidator;
     private readonly SetValueOptions _setValueOptions;
+    private readonly IArchiveManager _zipArchiveManager;
+    private readonly IFitToCsvConverter _garminFitCsvToolConverter;
 
     public MainViewModel()
     {
@@ -30,12 +32,24 @@ public class MainViewModel : ViewModel
         ExportData = [];
         _selectedFitFilePaths = [];
         _selectedFitFilePath = string.Empty;
+        _zipArchiveManager = new ZipArchiveManager();
+        _garminFitCsvToolConverter = new GarminFitCsvToolConverter();
         DeleteExtraFileCommand = new RelayCommand<ObservableFileDescriptor>(fileDescriptor => SelectedExportData?.SelectedExtraFilePaths.Remove(fileDescriptor), (fileDescriptor) => SelectedExportData is not null && SelectedExportData.SelectedExtraFilePaths.Contains(fileDescriptor));
         ExportCommand = new AsyncRelayCommand(ExecuteExportCommandAsync, CanExecuteExportCommand);
         StartNewSessionCommand = new RelayCommand(ExecuteStartNewSessionCommand);
     }
 
-    public static PropertyValidationResult IsFitFilePathValid(string fitFilePath)
+    public void StartNewSession()
+    {
+        SelectedFitFilePaths.Clear();
+        SelectedFitFilePath = string.Empty;
+        ExportData.Clear();
+        SelectedExportData = null;
+        RemoveAllObservableProgressData();
+        IsReportingProgress = false;
+    }
+
+    public PropertyValidationResult IsFitFilePathValid(string fitFilePath)
     {
         PropertyValidationResult result = IsFilePathValid(fitFilePath);
         if (!result.IsValid)
@@ -43,7 +57,8 @@ public class MainViewModel : ViewModel
             return result;
         }
 
-        if (!Path.GetExtension(fitFilePath).Equals(FitFileExtension, StringComparison.OrdinalIgnoreCase))
+        if (!Path.GetExtension(fitFilePath).Equals(FitFileExtension, StringComparison.OrdinalIgnoreCase)
+            && !_zipArchiveManager.IsFileTypeSupportedArchive(fitFilePath))
         {
             return new PropertyValidationResult(false, [$"Invalid file type: only .fit files are allowed. Found: '{fitFilePath}'."]);
         }
@@ -66,32 +81,25 @@ public class MainViewModel : ViewModel
         return new PropertyValidationResult(true, Array.Empty<string>());
     }
 
-    public void StartNewSession()
-    {
-        SelectedFitFilePaths.Clear();
-        SelectedFitFilePath = string.Empty;
-        ExportData.Clear();
-        SelectedExportData = null;
-        RemoveAllObservableProgressData();
-        IsReportingProgress = false;
-    }
-
-    public void AddFitFilePaths(IEnumerable<string> fitFilePaths)
+    public async Task AddFitFilePathsAsync(IEnumerable<string> fitFilePaths, CancellationToken cancellationToken)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNullOrEmpty(fitFilePaths);
 
         foreach (string fitFilePath in fitFilePaths)
         {
-            PropertyValidationResult filePathValidationResult = IsFitFilePathValid(fitFilePath);
-            if (filePathValidationResult.IsValid
-                && SelectedFitFilePaths.Add(fitFilePath))
+            if (_zipArchiveManager.IsFileTypeSupportedArchive(fitFilePath))
             {
-                var exportData = new ExportData(_filePathsValidator)
+                IProgress<ProgressData> progressReporter = StartNewObservableProgressReporting(string.Empty, $"Extracting '{Path.GetFileName(fitFilePath)}'...");
+                await foreach (string extractedFIlePath in _zipArchiveManager.ExtractArchiveAsync(fitFilePath, progressReporter, cancellationToken).ConfigureAwait(true))
                 {
-                    FitFilePath = fitFilePath
-                };
+                    AddFitFilePath(extractedFIlePath);
+                }
 
-                ExportData.Add(exportData);
+                RemoveAllObservableProgressData();
+            }
+            else
+            {
+                AddFitFilePath(fitFilePath);
             }
         }
     }
@@ -110,6 +118,26 @@ public class MainViewModel : ViewModel
         SelectedExportData.AddExtraFilePaths(filePaths);
     }
 
+    private void AddFitFilePath(string fitFilePath)
+    {
+        if (string.IsNullOrWhiteSpace(fitFilePath))
+        {
+            return;
+        }
+
+        PropertyValidationResult filePathValidationResult = IsFitFilePathValid(fitFilePath);
+        if (filePathValidationResult.IsValid
+            && SelectedFitFilePaths.Add(fitFilePath))
+        {
+            var exportData = new ExportData(_filePathsValidator)
+            {
+                FitFilePath = fitFilePath
+            };
+
+            ExportData.Add(exportData);
+        }
+    }
+
     private bool CanExecuteExportCommand() => ExportData.Any()
         && !string.IsNullOrEmpty(DestinationFolder)
         && SelectedFitFilePaths.Any();
@@ -121,7 +149,7 @@ public class MainViewModel : ViewModel
         {
             IEnumerable<ConversionInfo> conversionInfoEnumerable = EnumerateConversionInfo();
             IProgress<ProgressData> exportProgressReporter = StartNewObservableProgressReporting(string.Empty, "Export FIT to CSV");
-            _ = await FitConverter.RunFitToCsvAsync(conversionInfoEnumerable, ExportData.Count, exportProgressReporter);
+            _ = await _garminFitCsvToolConverter.ExportToCsvAsync(conversionInfoEnumerable, ExportData.Count, exportProgressReporter);
 
             await CreateArchivesAsync();
         }
@@ -131,13 +159,11 @@ public class MainViewModel : ViewModel
         }
     }
 
-    private void ExecuteStartNewSessionCommand() => StartNewSession();
-
     private IEnumerable<ConversionInfo> EnumerateConversionInfo()
     {
         foreach (ExportData exportData in ExportData)
         {
-            string temporaryDestinationFilePath = Path.Combine(Path.GetTempPath(), $"{exportData.FitFileName}.csv");
+            string temporaryDestinationFilePath = Path.Combine(Path.GetTempPath(), $"{exportData.FitFileNameWithoutExtension}.csv");
             exportData.ExportedFilePath = temporaryDestinationFilePath;
             var conversionInfo = new ConversionInfo(exportData.FitFilePath, temporaryDestinationFilePath);
 
@@ -171,21 +197,29 @@ public class MainViewModel : ViewModel
 
         var batches = new FileBatches(enumerableFileBatches, ExportData.Count);
         IProgress<ProgressData> packProgressReporter = StartNewObservableProgressReporting(string.Empty, "Pack files to ZIP archives.");
-        await ArchiveCreator.CreateArchivesAsync(batches, packProgressReporter);
+        await _zipArchiveManager.CreateArchivesAsync(batches, packProgressReporter);
     }
 
     private IEnumerable<FileBatch> EnumerateFileBatches()
     {
         foreach (ExportData exportData in ExportData)
         {
+            var dataFiles = new List<FileDescriptor>(2);
             var exportedCsvFileDescriptor = new FileDescriptor(exportData.ExportedFilePath, false);
+            dataFiles.Add(exportedCsvFileDescriptor);
 
-            // Extra files count + 1 exported csv file
-            int sourceFilesCount = exportData.SelectedExtraFilePaths.Count + 1;
+            if (exportData.IsIncludeFitFileEnabled)
+            {
+                var fitFileDescriptor = new FileDescriptor(exportData.FitFilePath, false);
+                dataFiles.Add(fitFileDescriptor);
+            }
+
+            // Extra files count + 1 exported csv file + 1 original fit file
+            int sourceFilesCount = exportData.SelectedExtraFilePaths.Count + 2;
 
             IEnumerable<FileDescriptor> fileDescriptors = exportData.SelectedExtraFilePaths
                 .Select(observableFileDescriptor => observableFileDescriptor.ToFileDescriptor())
-                .Concat([exportedCsvFileDescriptor]);
+                .Concat(dataFiles);
 
             string batchName = exportData.IsAutoRenamingEnabled || string.IsNullOrWhiteSpace(exportData.BatchName)
                 ? exportData.AutoRenameBatchName
@@ -201,6 +235,8 @@ public class MainViewModel : ViewModel
             yield return batch;
         }
     }
+
+    private void ExecuteStartNewSessionCommand() => StartNewSession();
 
     public string DestinationFolder
     {
@@ -246,7 +282,7 @@ public class MainViewModel : ViewModel
         set => TrySetValue(value, ref _selectedExportData);
     }
 
-    private static PropertyValidationDelegate<ObservableFileSystemPathHashSet> IsFitFilePathsValid() => fitFilePaths =>
+    private PropertyValidationDelegate<ObservableFileSystemPathHashSet> IsFitFilePathsValid() => fitFilePaths =>
         {
             if (fitFilePaths.Count == 0)
             {

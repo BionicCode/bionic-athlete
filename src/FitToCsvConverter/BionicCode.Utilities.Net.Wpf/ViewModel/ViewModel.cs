@@ -19,6 +19,13 @@ public abstract class ViewModel : ViewModelCommon, IViewModel
     #region IProgressReporter
     public ReadOnlyObservableCollection<ObservableProgressData> ProgressDataCollection { get; }
     private readonly ObservableCollection<ObservableProgressData> _progressDataCollectionInternal;
+    private ObservableProgressData _selectedProgress;
+
+    public virtual ObservableProgressData SelectedProgress
+    {
+        get => _selectedProgress;
+        protected set => TrySetValue(value, ref _selectedProgress);
+    }
     #endregion IProgressReporter
 
     /// <summary>
@@ -27,22 +34,26 @@ public abstract class ViewModel : ViewModelCommon, IViewModel
     /// </summary>
     /// <remarks>The returned <see cref="IProgress{T}"/> instance is associated with the application's primary dispatcher thread. Progress is always reported to the UI thread that is associated with the <c>Dispatcher</c> returned by <c>Application.Current.Dispatcher</c>.</remarks>
     /// <returns>A <see cref="IProgress{ProgressData}"/> instance that always posts progress to the UI thread.</returns>
+    [Obsolete("This method is deprecated. Use 'StartNewObservableProgressReporting' instead.")]
     public IProgress<ProgressData> CreateProgressReporterFromUiThread() => Application.Current.Dispatcher.Invoke(() => new Progress<ProgressData>(OnProgress));
 
-    protected IProgress<ProgressData> StartNewObservableProgressReporting(string initialMessage = "", string operationTitle = "")
+    protected IProgress<ProgressData> StartNewObservableProgressReporting(string initialMessage = "", string operationTitle = "", double maxValue = 100)
     {
-        var progressData = new ObservableProgressData { Message = initialMessage, OperationTitle = operationTitle };
+        var progressData = new ObservableProgressData(0, maxValue, initialMessage, operationTitle);
+        SelectedProgress = progressData;
         _progressDataCollectionInternal.Add(progressData);
         return new ObservableProgressReporter(OnProgress, progressData);
     }
 
-    protected IProgress<ProgressData> StartNewObservableProgressReporting(Action<ProgressData> onProgress, string initialMessage = "", string operationTitle = "")
+    protected IProgress<ProgressData> StartNewObservableProgressReporting(Action<ObservableProgressData> onProgress, string initialMessage = "", string operationTitle = "", double maxValue = 100)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(onProgress);
 
-        var progressData = new ObservableProgressData { Message = initialMessage, OperationTitle = operationTitle };
+        var progressData = new ObservableProgressData(0, maxValue, initialMessage, operationTitle);
+        SelectedProgress = progressData;
         _progressDataCollectionInternal.Add(progressData);
-        Action<ProgressData> reportAction = onProgress + OnProgress;
+
+        Action<ObservableProgressData> reportAction = onProgress + OnProgress;
 
         return new ObservableProgressReporter(reportAction, progressData);
     }
@@ -61,6 +72,8 @@ public abstract class ViewModel : ViewModelCommon, IViewModel
         {
             _ = _progressDataCollectionInternal.Remove(progressData);
         }
+
+        SelectedProgress = new ObservableProgressData(0, -1, string.Empty, string.Empty);
     }
 
     protected void RemoveAllObservableProgressData() => _progressDataCollectionInternal.Clear();
@@ -82,8 +95,9 @@ public abstract class ViewModel : ViewModelCommon, IViewModel
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(progress);
 
-        ProgressText = progress.Message;
-        IsIndeterminate = progress.Progress == ViewModelCommon.EnableIndeterminateMode || IsIndeterminate;
-        ProgressValue = progress.Progress;
+        if (SelectedProgress != progress)
+        {
+            SelectedProgress = progress;
+        }
     }
 }
