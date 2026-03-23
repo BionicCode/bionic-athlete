@@ -4,7 +4,7 @@ using System.IO.Compression;
 using System.Runtime.CompilerServices;
 using BionicCode.Utilities.Net;
 
-public class ZipArchiveManager : IArchiveManager
+public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
 {
     private static readonly FileStreamOptions s_zipFileStreamOptions = new()
     {
@@ -31,7 +31,9 @@ public class ZipArchiveManager : IArchiveManager
     };
 
     public const string ZipFileExtension = ".zip";
-    private readonly string _temporaryExtractionDestinationDirectory = Path.GetTempPath();
+    private readonly ITemporaryFileManager _temporaryFileManager;
+
+    public ZipArchiveManager(ITemporaryFileManager temporaryFileManager) => _temporaryFileManager = temporaryFileManager;
 
     public async IAsyncEnumerable<string> ExtractArchivesAsync(IEnumerable<string> archivePaths, IProgress<ProgressData>? progressReporter, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
@@ -82,7 +84,8 @@ public class ZipArchiveManager : IArchiveManager
                 Message = $"Extracting file: {count + 1} of {zip.Entries.Count} from archive: {entry.Name}"
             });
 
-            string destinationFileName = Path.Combine(_temporaryExtractionDestinationDirectory, entry.FullName);
+            string destinationFileName = _temporaryFileManager.CreateTemporaryFilePath(entry.FullName);
+            _temporaryFileManager.RegisterTemporaryFilePath(destinationFileName);
             await entry.ExtractToFileAsync(destinationFileName, overwrite: true, cancellationToken).ConfigureAwait(false);
 
             yield return destinationFileName;
@@ -123,8 +126,11 @@ public class ZipArchiveManager : IArchiveManager
                         Message = $"Renaming file from {sourceFileDescriptor.OriginalName} to {sourceFileDescriptor.Name}"
                     });
 
-                    File.Move(sourceFileDescriptor.OriginalFullPath, sourceFileDescriptor.FullPath);
-                    sourceFileDescriptor = new FileDescriptor(sourceFileDescriptor.FullPath, sourceFileDescriptor.IsRenamingRequired);
+                    string destinationFilePath = _temporaryFileManager.CreateTemporaryFilePath(sourceFileDescriptor.Name);
+                    // Don't rename the originil files but create a copy with the new name in the same location and delete it after packing it to the zip archive
+                    File.Copy(sourceFileDescriptor.OriginalFullPath, destinationFilePath, overwrite: true);
+                    _temporaryFileManager.RegisterTemporaryFilePath(destinationFilePath);
+                    sourceFileDescriptor = new FileDescriptor(destinationFilePath, sourceFileDescriptor.IsRenamingRequired);
                 }
 
                 progressReporter.Report(new ProgressData

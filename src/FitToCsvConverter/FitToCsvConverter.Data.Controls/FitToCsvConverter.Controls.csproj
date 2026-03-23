@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\BionicCode.Utilities.Net\BionicCode.Utilities.Net.Common.csproj" />
+    <ProjectReference Include="..\FitToCsvConverter.ViewMode\FitToCsvConverter.ViewModel.csproj" />
   </ItemGroup>
 
   <ItemGroup>

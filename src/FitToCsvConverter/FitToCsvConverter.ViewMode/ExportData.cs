@@ -1,7 +1,6 @@
 ﻿namespace FitToCsvConverter.ViewModel;
 
 using System.Collections.Specialized;
-using System.ComponentModel;
 using System.IO;
 using BionicCode.Utilities.Net;
 
@@ -16,6 +15,10 @@ public class ExportData : ViewModel
     private string? _autoRenameBatchName;
     private string? _fitFileNameWithoutExtension;
     private bool _isIncludeFitFileEnabled;
+    private string _fitFilePath;
+
+    public ObservableFileDescriptor FitFileDescriptor { get; private set; }
+
     private readonly SetValueOptions _setValueOptions;
 
     public ExportData(PropertyValidationDelegate<string> filePathsValidator)
@@ -40,7 +43,7 @@ public class ExportData : ViewModel
         };
     }
 
-    public void AddExtraFilePaths(IEnumerable<string> filePaths)
+    public void AddExtraFilePaths(IEnumerable<string> filePaths, bool isRenamingRequired = false)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(filePaths);
         foreach (string filePath in filePaths)
@@ -50,7 +53,7 @@ public class ExportData : ViewModel
                 continue;
             }
 
-            var fileDescriptor = new ObservableFileDescriptor(filePath, isRenamingRequired: false);
+            var fileDescriptor = new ObservableFileDescriptor(filePath, isRenamingRequired);
             _ = SelectedExtraFilePaths.Add(fileDescriptor);
         }
     }
@@ -105,8 +108,8 @@ public class ExportData : ViewModel
         {
             // TODO::Replace with new API call
             //DateTime dataDate = FitFileAnalyzer.GetSessionDate(FitFilePath);
-            //string batchFileName = $"{dataDate:yyyyMMdd_HHmmss}_{FitFileName}";
-            //_autoRenameBatchName = batchFileName;
+            string batchFileName = $"{DateTime.Now:yyyy-MM-dd}_{FitFileNameWithoutExtension}";
+            _autoRenameBatchName = batchFileName;
         }
 
         return _autoRenameBatchName;
@@ -138,7 +141,7 @@ public class ExportData : ViewModel
             case NotifyCollectionChangedAction.Add:
                 foreach (ObservableFileDescriptor fileDescriptor in e.NewItems?.OfType<ObservableFileDescriptor>() ?? [])
                 {
-                    fileDescriptor.PropertyChanged += OnFileDescriptorPropertyChanged;
+                    fileDescriptor.Renamed += OnFileDescriptorRenamed;
                     RenameFile(fileDescriptor);
                 }
 
@@ -146,7 +149,7 @@ public class ExportData : ViewModel
             case NotifyCollectionChangedAction.Remove:
                 foreach (ObservableFileDescriptor fileDescriptor in e.OldItems?.OfType<ObservableFileDescriptor>() ?? [])
                 {
-                    fileDescriptor.PropertyChanged -= OnFileDescriptorPropertyChanged;
+                    fileDescriptor.Renamed -= OnFileDescriptorRenamed;
                     _ = _newFilenames.Remove(fileDescriptor.Name);
                     if (_hasCorrectedDuplicateNewNames)
                     {
@@ -158,35 +161,52 @@ public class ExportData : ViewModel
         }
     }
 
-    private void OnFileDescriptorPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    private void OnFileDescriptorRenamed(object? sender, FileDescriptorChangedEventArgs e)
     {
-        switch (e.PropertyName)
+        if (sender is ObservableFileDescriptor fileDescriptor)
         {
-            case nameof(ObservableFileDescriptor.IsRenamingEnabled):
-                if (sender is ObservableFileDescriptor fileDescriptor)
+            if (fileDescriptor.IsRenamingEnabled)
+            {
+                RenameFile(fileDescriptor);
+            }
+            else
+            {
+                if (_hasCorrectedDuplicateNewNames)
                 {
-                    if (fileDescriptor.IsRenamingEnabled)
-                    {
-                        RenameFile(fileDescriptor);
-                    }
-                    else
-                    {
-                        if (_hasCorrectedDuplicateNewNames)
-                        {
-                            RenameAllFiles();
-                        }
-                        else
-                        {
-                            _ = _newFilenames.Remove(fileDescriptor.Name);
-                        }
-                    }
+                    RenameAllFiles();
                 }
-
-                break;
+                else
+                {
+                    _ = _newFilenames.Remove(e.OldName);
+                }
+            }
         }
     }
 
-    public string FitFilePath { get; init; }
+    public string FitFilePath
+    {
+        get => _fitFilePath;
+        init
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return;
+            }
+
+            _fitFilePath = value;
+            if (FitFileDescriptor is not null)
+            {
+                _ = SelectedExtraFilePaths.Remove(FitFileDescriptor);
+            }
+
+            FitFileDescriptor = new ObservableFileDescriptor(FitFilePath, isRenamingRequired: false);
+            if (IsIncludeFitFileEnabled)
+            {
+                _ = SelectedExtraFilePaths.Add(FitFileDescriptor);
+            }
+        }
+    }
+
     public string FitFileName => _fitFileName ??= Path.GetFileName(FitFilePath);
     public string FitFileNameWithoutExtension => _fitFileNameWithoutExtension ??= Path.GetFileNameWithoutExtension(FitFilePath);
 
@@ -211,7 +231,21 @@ public class ExportData : ViewModel
     public bool IsIncludeFitFileEnabled
     {
         get => _isIncludeFitFileEnabled;
-        set => TrySetValue(value, ref _isIncludeFitFileEnabled, _setValueOptions);
+        set
+        {
+            if (TrySetValue(value, ref _isIncludeFitFileEnabled, _setValueOptions)
+                && FitFileDescriptor is not null)
+            {
+                if (IsIncludeFitFileEnabled)
+                {
+                    _ = SelectedExtraFilePaths.Add(FitFileDescriptor);
+                }
+                else
+                {
+                    _ = SelectedExtraFilePaths.Remove(FitFileDescriptor);
+                }
+            }
+        }
     }
 
     internal string ExportedFilePath { get; set; }

@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace FitToCsvConverter.Controls {
+namespace FitToCsvConverter.Main {
     using System;
     
     

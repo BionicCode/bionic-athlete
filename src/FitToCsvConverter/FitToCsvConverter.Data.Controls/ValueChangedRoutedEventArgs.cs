@@ -1,4 +1,4 @@
-﻿namespace FitToCsvConverter.Controls;
+﻿namespace FitToCsvConverter.Main;
 
 #region Info
 // //  

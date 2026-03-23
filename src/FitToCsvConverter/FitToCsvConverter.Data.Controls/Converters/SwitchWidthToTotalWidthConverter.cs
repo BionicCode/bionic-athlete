@@ -1,4 +1,4 @@
-﻿namespace FitToCsvConverter.Controls;
+﻿namespace FitToCsvConverter.Main;
 
 using System;
 using System.Globalization;

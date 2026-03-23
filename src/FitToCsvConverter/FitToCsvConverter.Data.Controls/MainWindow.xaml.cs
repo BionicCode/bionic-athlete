@@ -1,4 +1,4 @@
-﻿namespace FitToCsvConverter.Main;
+﻿namespace FitToCsvConverter.Controls;
 
 using System.Windows;
 using System.Windows.Controls;
@@ -14,11 +14,11 @@ public partial class MainWindow : Window
     private readonly MainViewModel _viewModel;
     private readonly OpenFolderDialog _openFolderDialog;
 
-    public MainWindow()
+    public MainWindow(MainViewModel viewModel)
     {
         InitializeComponent();
 
-        _viewModel = new MainViewModel();
+        _viewModel = viewModel;
         DataContext = _viewModel;
         _openFolderDialog = new OpenFolderDialog
         {

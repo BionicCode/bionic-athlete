@@ -22,7 +22,7 @@ public class MainViewModel : ViewModel
     private readonly IArchiveManager _zipArchiveManager;
     private readonly IFitToCsvConverter _garminFitCsvToolConverter;
 
-    public MainViewModel()
+    public MainViewModel(IZipArchiveManager zipArchiveManager, IGarminFitCsvToolConverter garminFitCsvToolConverter)
     {
         _fitFilePathsValidator = IsFitFilePathsValid();
         _filePathsValidator = IsFilePathsValid();
@@ -32,11 +32,16 @@ public class MainViewModel : ViewModel
         ExportData = [];
         _selectedFitFilePaths = [];
         _selectedFitFilePath = string.Empty;
-        _zipArchiveManager = new ZipArchiveManager();
-        _garminFitCsvToolConverter = new GarminFitCsvToolConverter();
+        _zipArchiveManager = zipArchiveManager;
+        _garminFitCsvToolConverter = garminFitCsvToolConverter;
         DeleteExtraFileCommand = new RelayCommand<ObservableFileDescriptor>(fileDescriptor => SelectedExportData?.SelectedExtraFilePaths.Remove(fileDescriptor), (fileDescriptor) => SelectedExportData is not null && SelectedExportData.SelectedExtraFilePaths.Contains(fileDescriptor));
         ExportCommand = new AsyncRelayCommand(ExecuteExportCommandAsync, CanExecuteExportCommand);
         StartNewSessionCommand = new RelayCommand(ExecuteStartNewSessionCommand);
+    }
+
+    // For design-time data only
+    public MainViewModel()
+    {
     }
 
     public void StartNewSession()
@@ -134,6 +139,10 @@ public class MainViewModel : ViewModel
                 FitFilePath = fitFilePath
             };
 
+            string temporaryDestinationFilePath = Path.Combine(Path.GetTempPath(), $"{exportData.FitFileNameWithoutExtension}.csv");
+            exportData.ExportedFilePath = temporaryDestinationFilePath;
+            exportData.AddExtraFilePaths([temporaryDestinationFilePath], isRenamingRequired: false);
+
             ExportData.Add(exportData);
         }
     }
@@ -145,49 +154,19 @@ public class MainViewModel : ViewModel
     private async Task ExecuteExportCommandAsync()
     {
         IsReportingProgress = true;
-        try
-        {
-            IEnumerable<ConversionInfo> conversionInfoEnumerable = EnumerateConversionInfo();
-            IProgress<ProgressData> exportProgressReporter = StartNewObservableProgressReporting(string.Empty, "Export FIT to CSV");
-            _ = await _garminFitCsvToolConverter.ExportToCsvAsync(conversionInfoEnumerable, ExportData.Count, exportProgressReporter);
-
-            await CreateArchivesAsync();
-        }
-        finally
-        {
-            CleanUp();
-        }
+        IEnumerable<ConversionInfo> conversionInfoEnumerable = EnumerateConversionInfo();
+        IProgress<ProgressData> exportProgressReporter = StartNewObservableProgressReporting(string.Empty, "Export FIT to CSV");
+        await _garminFitCsvToolConverter.ExportToCsvAsync(conversionInfoEnumerable, ExportData.Count, exportProgressReporter);
+        await CreateArchivesAsync();
     }
 
     private IEnumerable<ConversionInfo> EnumerateConversionInfo()
     {
         foreach (ExportData exportData in ExportData)
         {
-            string temporaryDestinationFilePath = Path.Combine(Path.GetTempPath(), $"{exportData.FitFileNameWithoutExtension}.csv");
-            exportData.ExportedFilePath = temporaryDestinationFilePath;
-            var conversionInfo = new ConversionInfo(exportData.FitFilePath, temporaryDestinationFilePath);
+            var conversionInfo = new ConversionInfo(exportData.FitFilePath, exportData.ExportedFilePath);
 
             yield return conversionInfo;
-        }
-    }
-
-    private void CleanUp()
-    {
-        foreach (ExportData exportData in ExportData)
-        {
-            try
-            {
-                if (!string.IsNullOrWhiteSpace(exportData.ExportedFilePath)
-                    && File.Exists(exportData.ExportedFilePath))
-                {
-                    File.Delete(exportData.ExportedFilePath);
-                }
-            }
-            catch (Exception ex)
-            {
-                // Log the exception or handle it as needed. For this example, we'll just write to the console.
-                Console.WriteLine($"Failed to delete temporary file '{exportData.ExportedFilePath}': {ex.Message}");
-            }
         }
     }
 
@@ -204,22 +183,11 @@ public class MainViewModel : ViewModel
     {
         foreach (ExportData exportData in ExportData)
         {
-            var dataFiles = new List<FileDescriptor>(2);
-            var exportedCsvFileDescriptor = new FileDescriptor(exportData.ExportedFilePath, false);
-            dataFiles.Add(exportedCsvFileDescriptor);
-
-            if (exportData.IsIncludeFitFileEnabled)
-            {
-                var fitFileDescriptor = new FileDescriptor(exportData.FitFilePath, false);
-                dataFiles.Add(fitFileDescriptor);
-            }
-
             // Extra files count + 1 exported csv file + 1 original fit file
             int sourceFilesCount = exportData.SelectedExtraFilePaths.Count + 2;
 
             IEnumerable<FileDescriptor> fileDescriptors = exportData.SelectedExtraFilePaths
-                .Select(observableFileDescriptor => observableFileDescriptor.ToFileDescriptor())
-                .Concat(dataFiles);
+                .Select(observableFileDescriptor => observableFileDescriptor.ToFileDescriptor());
 
             string batchName = exportData.IsAutoRenamingEnabled || string.IsNullOrWhiteSpace(exportData.BatchName)
                 ? exportData.AutoRenameBatchName

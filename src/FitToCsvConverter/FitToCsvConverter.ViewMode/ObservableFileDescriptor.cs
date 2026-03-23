@@ -1,9 +1,11 @@
 ﻿namespace FitToCsvConverter.ViewModel;
 
+using System.Diagnostics;
 using System.IO;
 using BionicCode.Utilities.Net;
 using FitToCsvConverter.Data;
 
+[DebuggerDisplay("Name = {Name}, Location = {Location}, IsRenamingEnabled = {IsRenamingEnabled}, IsRenamed = {IsRenamed}")]
 public class ObservableFileDescriptor : ViewModel
 {
     private bool _isRenamingEnabled;
@@ -30,8 +32,24 @@ public class ObservableFileDescriptor : ViewModel
         };
     }
 
-    public ObservableFileDescriptor(string filePath, bool isRenamingRequired) : this(new FileDescriptor(filePath, isRenamingRequired))
+    public ObservableFileDescriptor(string filePath, bool isRenamingRequired)
     {
+        ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(filePath);
+
+        Name = Path.GetFileName(filePath);
+        Location = Path.GetDirectoryName(filePath) ?? string.Empty;
+        _isRenamingEnabled = isRenamingRequired;
+        _originalName = Name;
+        _newName = Name;
+        FullPath = filePath;
+        Extension = Path.GetExtension(FullPath);
+        OriginalFullPath = FullPath;
+
+        _setValueOptions = new SetValueOptions
+        {
+            IsRejectEqualValuesEnabled = true,
+            IsThrowExceptionOnValidationErrorEnabled = true,
+        };
     }
 
     public void UndoRenaming()
@@ -75,6 +93,10 @@ public class ObservableFileDescriptor : ViewModel
         OriginalName = _originalName,
     };
 
+    protected virtual void OnRenamed(string oldName, string oldFullPath) => Renamed?.Invoke(this, new FileDescriptorChangedEventArgs(oldName, Name, oldFullPath, FullPath, OriginalFullPath));
+
+    public event EventHandler<FileDescriptorChangedEventArgs>? Renamed;
+
     public string Location { get; }
     public string FullPath { get; private set; }
     public string Extension { get; }
@@ -94,6 +116,9 @@ public class ObservableFileDescriptor : ViewModel
         {
             if (TrySetValueSilent(value, ref _isRenamingEnabled, _setValueOptions))
             {
+                string oldName = Name;
+                string oldFullPath = FullPath;
+
                 if (!IsRenamingEnabled)
                 {
                     UndoRenaming();
@@ -104,7 +129,26 @@ public class ObservableFileDescriptor : ViewModel
                 }
 
                 OnPropertyChanged();
+                OnRenamed(oldName, oldFullPath);
             }
         }
     }
+}
+
+public class FileDescriptorChangedEventArgs : EventArgs
+{
+    public FileDescriptorChangedEventArgs(string oldName, string newName, string oldFullPath, string newFullPath, string originalFullPath)
+    {
+        OldName = oldName;
+        NewName = newName;
+        OldFullPath = oldFullPath;
+        NewFullPath = newFullPath;
+        OriginalFullPath = originalFullPath;
+    }
+
+    public string OldName { get; }
+    public string NewName { get; }
+    public string OldFullPath { get; }
+    public string NewFullPath { get; }
+    public string OriginalFullPath { get; }
 }

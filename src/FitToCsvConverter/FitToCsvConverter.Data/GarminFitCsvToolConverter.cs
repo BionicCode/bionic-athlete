@@ -3,12 +3,18 @@
 using System.Diagnostics;
 using BionicCode.Utilities.Net;
 
-public class GarminFitCsvToolConverter : IFitToCsvConverter
+public class GarminFitCsvToolConverter : IFitToCsvConverter, IGarminFitCsvToolConverter
 {
     private const string ScriptFilePath = @"Tools\fit2Csv.ps1";
     private const string FitCsvToolPath = @"Tools\fitCsvTool.jar";
+    private readonly ITemporaryFileManager _temporaryFileManager;
 
-    public async Task<int> ExportToCsvAsync(IEnumerable<ConversionInfo> conversionInfoList, int conversionInfoCount, IProgress<ProgressData> progressReporter)
+    public GarminFitCsvToolConverter(ITemporaryFileManager temporaryFileManager)
+    {
+        _temporaryFileManager = temporaryFileManager;
+    }
+
+    public async Task ExportToCsvAsync(IEnumerable<ConversionInfo> conversionInfoList, int conversionInfoCount, IProgress<ProgressData> progressReporter)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNullOrEmpty(conversionInfoList);
         ArgumentNullExceptionAdvanced.ThrowIfNull(progressReporter);
@@ -46,6 +52,7 @@ public class GarminFitCsvToolConverter : IFitToCsvConverter
 
             string destinationDirectory = Path.GetDirectoryName(conversionInfo.DestinationFilePath) ?? throw new InvalidOperationException("Destination directory cannot be determined.");
             string destinationFileName = Path.GetFileName(conversionInfo.DestinationFilePath) ?? throw new InvalidOperationException("Destination file name cannot be determined.");
+            _temporaryFileManager.RegisterTemporaryFilePath(conversionInfo.DestinationFilePath);
 
             _ = startInfo.ArgumentList.Remove("-DestinationDirectory");
             _ = startInfo.ArgumentList.Remove(destinationDirectory);
@@ -91,7 +98,5 @@ public class GarminFitCsvToolConverter : IFitToCsvConverter
             MaxValue = 1.0,
             Message = "All fit files have been successfully exported."
         });
-
-        return 0;
     }
 }
