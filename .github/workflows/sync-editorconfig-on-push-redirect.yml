@@ -1,10 +1,10 @@
-name: Sync .editorconfig from canonical [redirect job] (PR-only)
+name: Sync .editorconfig from canonical redirect (PR-only)
 
 on:
-  pull_request:
   push:
     branches-ignore:
       - "chore/sync-editorconfig/**"
+  pull_request:
   workflow_dispatch:
 
 jobs:
