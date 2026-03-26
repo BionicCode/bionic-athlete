@@ -23,7 +23,7 @@ internal class SwitchIsCheckedToStringConverter : IValueConverter
     {
         if (value is not bool)
         {
-            throw new ArgumentException("Wrong conversion type. Only conversion from bool to srting supported.", nameof(value));
+            throw new ArgumentException("Wrong conversion type. Only conversion from bool to string supported.", nameof(value));
         }
 
         return (bool)value
