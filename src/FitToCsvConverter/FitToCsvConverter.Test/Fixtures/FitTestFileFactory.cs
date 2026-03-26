@@ -7,7 +7,7 @@ internal static class FitTestFileFactory
 {
     public static byte[] CreateSingleSessionActivityWithDeveloperFields()
     {
-        FitDateTime startTime = new(new DateTime(2024, 05, 01, 06, 30, 00, DateTimeKind.Utc));
+        FitDateTime startTime = new(new System.DateTime(2024, 05, 01, 06, 30, 00, DateTimeKind.Utc));
         FitDateTime endTime = new(startTime);
         endTime.Add(20U);
 
@@ -111,9 +111,9 @@ internal static class FitTestFileFactory
 
         DeveloperField sessionArrayField = new(sessionArrayFieldDescription, developerDataId);
         session.SetDeveloperField(sessionArrayField);
-        sessionArrayField.SetValue(0, (ushort)10);
-        sessionArrayField.SetValue(1, (ushort)20);
-        sessionArrayField.SetValue(2, (ushort)30);
+        sessionArrayField.SetValue(index: 0, value: (ushort)10);
+        sessionArrayField.SetValue(index: 1, value: (ushort)20);
+        sessionArrayField.SetValue(index: 2, value: (ushort)30);
         messages.Add(session);
 
         messages.Add(CreateTimerEvent(endTime, EventType.StopAll));
@@ -129,8 +129,8 @@ internal static class FitTestFileFactory
 
     public static byte[] CreateMultiSessionActivity()
     {
-        FitDateTime firstSessionStart = new(new DateTime(2024, 06, 15, 08, 00, 00, DateTimeKind.Utc));
-        FitDateTime secondSessionStart = new(new DateTime(2024, 06, 15, 10, 00, 00, DateTimeKind.Utc));
+        FitDateTime firstSessionStart = new(new System.DateTime(2024, 06, 15, 08, 00, 00, DateTimeKind.Utc));
+        FitDateTime secondSessionStart = new(new System.DateTime(2024, 06, 15, 10, 00, 00, DateTimeKind.Utc));
 
         List<Mesg> messages =
         [
@@ -204,7 +204,7 @@ internal static class FitTestFileFactory
                 "..",
                 "FitToCsvConverter.Data",
                 "ExampleFiles",
-                "fit_file.fit"));
+                "2026-03-17_22204467914_ACTIVITY.fit"));
 
     private static void AddRecord(List<Mesg> messages, FitDateTime timestamp, byte heartRate, float distance)
     {

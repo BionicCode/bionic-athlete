@@ -3,7 +3,7 @@ namespace FitToCsvConverter.Data.Activities;
 using System.Collections.Immutable;
 using FitToCsvConverter.Data.Fields;
 
-internal abstract class FitNode
+public abstract class FitNode
 {
     protected FitNode(FitNodeSnapshot original, ImmutableArray<FitField> fields)
     {

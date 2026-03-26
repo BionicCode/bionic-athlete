@@ -8,11 +8,16 @@ using FitToCsvConverter.Data.Fields;
 internal static class FitModelCloner
 {
     public static FitActivityDecodeResult CloneResult(FitActivityDecodeResult result, FitFileSource source, bool isFromCache)
-        => new(
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        ArgumentNullException.ThrowIfNull(source);
+
+        return new(
             result.Activity is null ? null : CloneActivity(result.Activity, source),
             source,
             result.Issues,
             isFromCache);
+    }
 
     private static FitActivity CloneActivity(FitActivity activity, FitFileSource source)
         => new(

@@ -22,6 +22,7 @@ public sealed class FitFieldSnapshot
         uint? developerApplicationVersion,
         byte? nativeOverrideFieldNumber,
         ushort? nativeOverrideMessageNumber,
+        bool isArray,
         ImmutableArray<FitFieldValue> originalValues)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(originalName);
@@ -47,6 +48,7 @@ public sealed class FitFieldSnapshot
         NativeOverrideFieldNumber = nativeOverrideFieldNumber;
         NativeOverrideMessageNumber = nativeOverrideMessageNumber;
         OriginalValues = originalValues.IsDefault ? ImmutableArray<FitFieldValue>.Empty : originalValues;
+        IsArray = isArray || OriginalValues.Length > 1;
     }
 
     public FitFieldKey Key { get; }
@@ -83,7 +85,7 @@ public sealed class FitFieldSnapshot
 
     public ushort? NativeOverrideMessageNumber { get; }
 
-    public ImmutableArray<FitFieldValue> OriginalValues { get; }
+    public bool IsArray { get; }
 
-    public bool IsArray => OriginalValues.Length > 1;
+    public ImmutableArray<FitFieldValue> OriginalValues { get; }
 }

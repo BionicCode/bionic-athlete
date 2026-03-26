@@ -67,7 +67,8 @@ internal sealed class GarminFieldMapper
             null,
             null,
             null,
-            CreateFieldValues(field, field.Type, field.ProfileType.ToString()));
+            isArray: field.GetNumValues() > 1 || HasSingleArrayEncodedValue(field, field.Type),
+            CreateFieldValues(field, field.Type, field.ProfileType.ToString(), preserveSingleArrayValueAsCollection: true));
     }
 
     private FitFieldSnapshot CreateDeveloperFieldSnapshot(Mesg mesg, FitNodeType nodeType, DeveloperField developerField)
@@ -109,13 +110,41 @@ internal sealed class GarminFieldMapper
             applicationVersion,
             nativeOverrideFieldNumber,
             fieldDescription?.NativeMessageNumber,
-            CreateFieldValues(developerField, developerField.Type, "DeveloperField"));
+            isArray: fieldDescription?.IsArray == true
+                || developerField.GetNumValues() > 1
+                || HasSingleArrayEncodedValue(developerField, developerField.Type),
+            CreateFieldValues(developerField, developerField.Type, "DeveloperField", preserveSingleArrayValueAsCollection: true));
     }
 
-    private static ImmutableArray<FitFieldValue> CreateFieldValues(FieldBase fieldBase, byte baseType, string profileTypeName)
+    private static ImmutableArray<FitFieldValue> CreateFieldValues(
+        FieldBase fieldBase,
+        byte baseType,
+        string profileTypeName,
+        bool preserveSingleArrayValueAsCollection)
     {
-        ImmutableArray<FitFieldValue>.Builder builder = ImmutableArray.CreateBuilder<FitFieldValue>(fieldBase.GetNumValues());
-        for (int index = 0; index < fieldBase.GetNumValues(); index++)
+        int valueCount = fieldBase.GetNumValues();
+        if (preserveSingleArrayValueAsCollection
+            && valueCount == 1
+            && TryExpandArrayValue(fieldBase.GetRawValue(0), baseType, out ImmutableArray<object?> rawValues))
+        {
+            ImmutableArray<object?> decodedValues = TryExpandArrayValue(fieldBase.GetValue(), baseType, out ImmutableArray<object?> expandedDecodedValues)
+                && expandedDecodedValues.Length == rawValues.Length
+                    ? expandedDecodedValues
+                    : rawValues;
+
+            ImmutableArray<FitFieldValue>.Builder expandedBuilder = ImmutableArray.CreateBuilder<FitFieldValue>(rawValues.Length);
+            for (int index = 0; index < rawValues.Length; index++)
+            {
+                object? rawValue = NormalizeRawValue(rawValues[index]);
+                object? decodedValue = NormalizeDecodedValue(baseType, profileTypeName, decodedValues[index], rawValue);
+                expandedBuilder.Add(new FitFieldValue(rawValue, decodedValue));
+            }
+
+            return expandedBuilder.MoveToImmutable();
+        }
+
+        ImmutableArray<FitFieldValue>.Builder builder = ImmutableArray.CreateBuilder<FitFieldValue>(valueCount);
+        for (int index = 0; index < valueCount; index++)
         {
             object? rawValue = NormalizeRawValue(fieldBase.GetRawValue(index));
             object? decodedValue = NormalizeDecodedValue(baseType, profileTypeName, fieldBase.GetValue(index), rawValue);
@@ -123,6 +152,29 @@ internal sealed class GarminFieldMapper
         }
 
         return builder.MoveToImmutable();
+    }
+
+    private static bool HasSingleArrayEncodedValue(FieldBase fieldBase, byte baseType)
+        => fieldBase.GetNumValues() == 1
+            && (TryExpandArrayValue(fieldBase.GetRawValue(0), baseType, out _)
+                || TryExpandArrayValue(fieldBase.GetValue(), baseType, out _));
+
+    private static bool TryExpandArrayValue(object? value, byte baseType, out ImmutableArray<object?> values)
+    {
+        values = default;
+        if ((baseType & Fit.BaseTypeNumMask) == Fit.String || value is not Array arrayValue || arrayValue.Rank != 1)
+        {
+            return false;
+        }
+
+        ImmutableArray<object?>.Builder builder = ImmutableArray.CreateBuilder<object?>(arrayValue.Length);
+        foreach (object? item in arrayValue)
+        {
+            builder.Add(item);
+        }
+
+        values = builder.MoveToImmutable();
+        return true;
     }
 
     private static object? NormalizeRawValue(object? rawValue)

@@ -3,6 +3,7 @@ namespace FitToCsvConverter.Test.Decoding;
 using System.IO;
 using Dynastream.Fit;
 using FitToCsvConverter.Data.Activities;
+using FitToCsvConverter.Data.Decoding;
 using FitToCsvConverter.Data.Decoding.Garmin;
 using FitToCsvConverter.Data.Fields;
 using FitToCsvConverter.Test.Fixtures;
@@ -10,12 +11,12 @@ using FitToCsvConverter.Test.Fixtures;
 public sealed class GarminFitActivityDecoderTests
 {
     [Fact]
-    public async Task DecodeAsync_BuildsHierarchyAndPreservesDeveloperFields()
+    public async Task DecodeAsyncBuildsHierarchyAndPreservesDeveloperFields()
     {
         GarminFitActivityDecoder decoder = new();
         await using MemoryStream fitStream = new(FitTestFileFactory.CreateSingleSessionActivityWithDeveloperFields());
 
-        var result = await decoder.DecodeAsync(fitStream, "single-session.fit");
+        FitActivityDecodeResult result = await decoder.DecodeAsync(fitStream, "single-session.fit");
 
         Assert.True(result.IsSuccess);
         FitActivity activity = Assert.IsType<FitActivity>(result.Activity);
@@ -49,12 +50,12 @@ public sealed class GarminFitActivityDecoderTests
     }
 
     [Fact]
-    public async Task DecodeAsync_UsesCanonicalSessionAndActivityDates()
+    public async Task DecodeAsyncUsesCanonicalSessionAndActivityDates()
     {
         GarminFitActivityDecoder decoder = new();
         await using MemoryStream fitStream = new(FitTestFileFactory.CreateSingleSessionActivityWithDeveloperFields());
 
-        var result = await decoder.DecodeAsync(fitStream, "single-session.fit");
+        FitActivityDecodeResult result = await decoder.DecodeAsync(fitStream, "single-session.fit");
 
         FitActivity activity = Assert.IsType<FitActivity>(result.Activity);
         FitSession session = Assert.Single(activity.Sessions);
@@ -66,20 +67,20 @@ public sealed class GarminFitActivityDecoderTests
     }
 
     [Fact]
-    public async Task DecodeAsync_AssignsRecordsToTheCorrectSessionAcrossMultipleSessions()
+    public async Task DecodeAsyncAssignsRecordsToTheCorrectSessionAcrossMultipleSessions()
     {
         GarminFitActivityDecoder decoder = new();
         await using MemoryStream fitStream = new(FitTestFileFactory.CreateMultiSessionActivity());
 
-        var result = await decoder.DecodeAsync(fitStream, "multi-session.fit");
+        FitActivityDecodeResult result = await decoder.DecodeAsync(fitStream, "multi-session.fit");
 
         FitActivity activity = Assert.IsType<FitActivity>(result.Activity);
 
         Assert.Equal(2, activity.Sessions.Length);
         Assert.Equal(2, activity.Sessions[0].Records.Length);
         Assert.Equal(2, activity.Sessions[1].Records.Length);
-        Assert.Single(activity.Sessions[0].Laps);
-        Assert.Single(activity.Sessions[1].Laps);
+        _ = Assert.Single(activity.Sessions[0].Laps);
+        _ = Assert.Single(activity.Sessions[1].Laps);
 
         Assert.Equal(new DateTimeOffset(2024, 06, 15, 08, 00, 00, TimeSpan.Zero), activity.Sessions[0].Records[0].Original.TimestampUtc);
         Assert.Equal(new DateTimeOffset(2024, 06, 15, 08, 00, 10, TimeSpan.Zero), activity.Sessions[0].Records[1].Original.TimestampUtc);
@@ -88,11 +89,11 @@ public sealed class GarminFitActivityDecoderTests
     }
 
     [Fact]
-    public async Task DecodeFileAsync_PreservesUnknownFieldsFromTheExampleFile()
+    public async Task DecodeFileAsyncPreservesUnknownFieldsFromTheExampleFile()
     {
         GarminFitActivityDecoder decoder = new();
 
-        var result = await decoder.DecodeFileAsync(FitTestFileFactory.GetExampleFitFilePath());
+        FitActivityDecodeResult result = await decoder.DecodeFileAsync(FitTestFileFactory.GetExampleFitFilePath());
 
         FitActivity activity = Assert.IsType<FitActivity>(result.Activity);
         bool hasUnknownNodeField = activity.Sessions

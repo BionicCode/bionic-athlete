@@ -5,15 +5,15 @@ using Dynastream.Fit;
 
 internal sealed class GarminDeveloperFieldCatalog
 {
-    private readonly ImmutableDictionary<byte, GarminDeveloperDataIdentity> developerDataByIndex;
-    private readonly ImmutableDictionary<GarminDeveloperFieldCatalogKey, GarminDeveloperFieldDescriptionMetadata> fieldDescriptionsByKey;
+    private readonly ImmutableDictionary<byte, GarminDeveloperDataIdentity> _developerDataByIndex;
+    private readonly ImmutableDictionary<GarminDeveloperFieldCatalogKey, GarminDeveloperFieldDescriptionMetadata> _fieldDescriptionsByKey;
 
     private GarminDeveloperFieldCatalog(
         ImmutableDictionary<byte, GarminDeveloperDataIdentity> developerDataByIndex,
         ImmutableDictionary<GarminDeveloperFieldCatalogKey, GarminDeveloperFieldDescriptionMetadata> fieldDescriptionsByKey)
     {
-        this.developerDataByIndex = developerDataByIndex;
-        this.fieldDescriptionsByKey = fieldDescriptionsByKey;
+        _developerDataByIndex = developerDataByIndex;
+        _fieldDescriptionsByKey = fieldDescriptionsByKey;
     }
 
     public static GarminDeveloperFieldCatalog Create(FitMessages fitMessages)
@@ -44,7 +44,7 @@ internal sealed class GarminDeveloperFieldCatalog
                 continue;
             }
 
-            developerDataByIndex.TryGetValue(index, out GarminDeveloperDataIdentity? developerDataIdentity);
+            _ = developerDataByIndex.TryGetValue(index, out GarminDeveloperDataIdentity? developerDataIdentity);
             fieldDescriptionsByKey[new GarminDeveloperFieldCatalogKey(index, fieldNumber)] =
                 new GarminDeveloperFieldDescriptionMetadata(
                     fieldDescriptionMessage.GetFieldNameAsString(0),
@@ -54,6 +54,7 @@ internal sealed class GarminDeveloperFieldCatalog
                     fieldDescriptionMessage.GetOffset() ?? 0,
                     fieldDescriptionMessage.GetNativeFieldNum(),
                     fieldDescriptionMessage.GetNativeMesgNum(),
+                    fieldDescriptionMessage.GetArray() is byte arrayFlag && arrayFlag != 0,
                     developerDataIdentity);
         }
 
@@ -63,10 +64,10 @@ internal sealed class GarminDeveloperFieldCatalog
     }
 
     public GarminDeveloperDataIdentity? GetDeveloperDataIdentity(byte developerDataIndex)
-        => developerDataByIndex.GetValueOrDefault(developerDataIndex);
+        => _developerDataByIndex.GetValueOrDefault(developerDataIndex);
 
     public GarminDeveloperFieldDescriptionMetadata? GetFieldDescription(byte developerDataIndex, byte fieldDefinitionNumber)
-        => fieldDescriptionsByKey.GetValueOrDefault(new GarminDeveloperFieldCatalogKey(developerDataIndex, fieldDefinitionNumber));
+        => _fieldDescriptionsByKey.GetValueOrDefault(new GarminDeveloperFieldCatalogKey(developerDataIndex, fieldDefinitionNumber));
 
     private static ImmutableArray<byte> ReadApplicationId(DeveloperDataIdMesg developerDataIdMessage)
     {
@@ -79,7 +80,7 @@ internal sealed class GarminDeveloperFieldCatalog
             }
         }
 
-        return builder.MoveToImmutable();
+        return builder.ToImmutable();
     }
 }
 
@@ -95,6 +96,7 @@ internal sealed record GarminDeveloperFieldDescriptionMetadata(
     double Offset,
     byte? NativeFieldNumber,
     ushort? NativeMessageNumber,
+    bool IsArray,
     GarminDeveloperDataIdentity? DeveloperDataIdentity);
 
 internal readonly record struct GarminDeveloperFieldCatalogKey(byte DeveloperDataIndex, byte FieldDefinitionNumber);

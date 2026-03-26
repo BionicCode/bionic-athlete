@@ -1,6 +1,6 @@
 namespace FitToCsvConverter.Data.Caching;
 
-public readonly record struct FitContentHash(string HexValue)
+public readonly record struct FitContentHash
 {
     public FitContentHash(string hexValue)
     {
