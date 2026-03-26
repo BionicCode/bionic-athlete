@@ -102,3 +102,30 @@ Include these sections in this order:
 - Focus on actionable findings.
 - Prefer robust fixes over minimal patches when the design is structurally unsafe.
 - Call out invariant violations explicitly.
+
+# GIT MESSAGE CONVENTIONS
+
+When creating commits or pull request text for this repository:
+
+## Commit messages
+- Prefer scopes that match this repository and solution structure, especially:
+  - `data`
+  - `decoder`
+  - `fit`
+  - `model`
+  - `cache`
+  - `tests`
+- Mention `FitToCsvConverter.Data` or `FitToCsvConverter.Test` in the commit body when relevant.
+- If the change is part of the FIT model/decoder redesign, make that explicit in the summary or body.
+- Do not mention CSV export unless export code was actually changed.
+- If draft model types were replaced or removed, state that clearly in the body.
+
+## Pull request descriptions
+- Call out which parts of the solution were changed, especially:
+  - `FitToCsvConverter.Data`
+  - `FitToCsvConverter.Test`
+- If the work only covers Step A (domain model / decoding boundary / Garmin implementation), explicitly state that CSV export remains out of scope.
+- Mention how Garmin SDK types are kept out of the domain model when relevant to the diff.
+- Mention migration impact if placeholder or draft types were replaced, removed, or moved.
+- Summarize tests added or updated in `FitToCsvConverter.Test`.
+- Call out assumptions related to Garmin FIT SDK behavior when generated SDK/profile metadata had to be used as the practical source of truth.

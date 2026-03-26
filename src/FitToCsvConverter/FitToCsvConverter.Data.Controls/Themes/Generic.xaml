@@ -1,13 +1,13 @@
 ﻿<ResourceDictionary
   xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-  xmlns:local="clr-namespace:BionicCode.BionicSwipePageFrame"
+  xmlns:local="clr-namespace:FitToCsvConverter.Main"
   xmlns:system="clr-namespace:System;assembly=mscorlib">
 
   <ResourceDictionary.MergedDictionaries>
-    <ResourceDictionary Source="/BionicCode.BionicSwipePageFrame;component/Styles/BionicSwipePageStyle.xaml" />
-    <ResourceDictionary Source="/BionicCode.BionicSwipePageFrame;component/Styles/FrameHeaderStyle.xaml" />
-    <ResourceDictionary Source="/BionicCode.BionicSwipePageFrame;component/Styles/BionicSwipePageFrameStyle.xaml" />
+    <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/BionicSwipePageStyle.xaml" />
+    <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/FrameHeaderStyle.xaml" />
+    <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/BionicSwipePageFrameStyle.xaml" />
   </ResourceDictionary.MergedDictionaries>
   <!--<Viewbox x:Key="ChevronRightIcon"
            Stretch="Uniform"
@@ -22,12 +22,4 @@
     </Canvas>
   </Viewbox>-->
 
-  
-  
-
-  
-
-  
-
-  
 </ResourceDictionary>

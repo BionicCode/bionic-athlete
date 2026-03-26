@@ -1105,13 +1105,14 @@ public abstract partial class ViewModelCommon : IViewModelCommon
     /// <param name="progress">The progress argument.</param>
     /// <remarks>The default implementation provides the following logic: a value of <see cref="double.NegativeInfinity"/> or <see cref="ViewModelCommon.DisableIndeterminateMode"/> will automatically set the <see cref="ViewModelCommon.IsIndeterminate"/> property to <see langword="false"/>. A value of <see cref="double.PositiveInfinity"/> or <see cref="ViewModelCommon.EnableIndeterminateMode"/> will automatically set the <see cref="ViewModelCommon.IsIndeterminate"/> property to <see langword="true"/>.
     /// </remarks>
+    [Obsolete("Deprecated API")]
     protected virtual void OnProgress(ProgressData progress)
     {
         ProgressText = progress.Message;
         IsIndeterminate = progress.Progress == ViewModelCommon.EnableIndeterminateMode || IsIndeterminate;
         double oldValue = ProgressValue;
         ProgressValue = progress.Progress;
-        OnProgressChanged(oldValue, ProgressValue, ProgressText);
+        OnProgressChanged(oldValue, ProgressValue, progress.MaxValue, ProgressText);
     }
 
     /// <summary>
@@ -1130,6 +1131,7 @@ public abstract partial class ViewModelCommon : IViewModelCommon
     /// </summary>
     /// <remarks>To create a <see cref="IProgress{T}"/> instance that is associated with the application's primary dispatcher thread of a Windows targeting application, for example to update properties that bind to a <c>DispatcherObject</c>, call <c>CreateProgressReporterFromUiThread</c>.</remarks>
     /// <returns>A <see cref="IProgress{ProgressData}"/> instance that posts progress to the thread <see cref="CreateProgressReporterFromCurrentThread"/> was called from.</returns>
+    [Obsolete("Deprecated API")]
     public IProgress<ProgressData> CreateProgressReporterFromCurrentThread() => new Progress<ProgressData>(OnProgress);
 
     /// <summary>
@@ -1138,15 +1140,23 @@ public abstract partial class ViewModelCommon : IViewModelCommon
     /// </summary>
     /// <param name="oldValue">The old progress value.</param>
     /// <param name="newValue">The new progress value.</param>
-    protected virtual void OnProgressChanged(double oldValue, double newValue) => OnProgressChanged(oldValue, newValue, string.Empty);
+    /// <param name="maxValue">The maximum progress value.</param>
+    protected virtual void OnProgressChanged(double oldValue, double newValue, double maxValue) => OnProgressChanged(oldValue, newValue, maxValue, string.Empty);
+
+    [Obsolete("Use OnProgressChanged(double oldValue, double newValue, double maxValue, string progressText) instead.", false)]
+    protected virtual void OnProgressChanged(double oldValue, double newValue) => OnProgressChanged(oldValue, newValue, -1, string.Empty);
 
     /// <summary>
     /// Raises the <see cref="IProgressReporterCommon.ProgressChanged"/> event.
     /// </summary>
     /// <param name="oldValue">The old progress value.</param>
     /// <param name="newValue">The new progress value.</param>
+    /// <param name="maxValue">The maximum progress value.</param>
     /// <param name="progressText">The progress message.</param>
-    protected virtual void OnProgressChanged(double oldValue, double newValue, string progressText) => ProgressChanged?.Invoke(this, new ProgressChangedEventArgs(newValue, oldValue, progressText));
+    protected virtual void OnProgressChanged(double oldValue, double newValue, double maxValue, string progressText) => ProgressChanged?.Invoke(this, new ProgressChangedEventArgs(oldValue, newValue, maxValue, progressText));
+
+    [Obsolete("Use OnProgressChanged(double oldValue, double newValue, double maxValue, string progressText) instead.", false)]
+    protected virtual void OnProgressChanged(double oldValue, double newValue, string progressText) => ProgressChanged?.Invoke(this, new ProgressChangedEventArgs(oldValue, newValue, -1, progressText));
 
     private bool _isReportingProgress;
     /// <inheritdoc/>
@@ -1157,7 +1167,9 @@ public abstract partial class ViewModelCommon : IViewModelCommon
     }
 
     private bool _isIndeterminate;
+
     /// <inheritdoc/>
+    [Obsolete("This property is deprecated. Use 'ObservableProgressData.IsIndeterminate' instead.")]
     public bool IsIndeterminate
     {
         get => _isIndeterminate;
@@ -1170,7 +1182,9 @@ public abstract partial class ViewModelCommon : IViewModelCommon
     }
 
     private string _progressText;
+
     /// <inheritdoc/>
+    [Obsolete("This property is deprecated. Use 'ObservableProgressData.Message' instead.")]
     public string ProgressText
     {
         get => _progressText;
@@ -1184,7 +1198,9 @@ public abstract partial class ViewModelCommon : IViewModelCommon
     }
 
     private double _progressValue;
+
     /// <inheritdoc/>
+    [Obsolete("This property is deprecated. Use 'ObservableProgressData.Progress' instead.")]
     public double ProgressValue
     {
         get => _progressValue;
@@ -1209,6 +1225,7 @@ public abstract partial class ViewModelCommon : IViewModelCommon
     private Dictionary<string, IList<object>> Errors { get; }
     private HashSet<string> ValidatedAttributedProperties { get; }
     private bool IsSilent { get; set; }
+    public double MaxProgressValue { get; set; }
 
     /// <summary>
     /// Raised when the validation state of the view model has changed (e.g. error added or removed).

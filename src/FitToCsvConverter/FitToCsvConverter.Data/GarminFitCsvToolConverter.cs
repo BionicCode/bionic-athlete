@@ -3,12 +3,18 @@
 using System.Diagnostics;
 using BionicCode.Utilities.Net;
 
-public static class FitConverter
+public class GarminFitCsvToolConverter : IFitToCsvConverter, IGarminFitCsvToolConverter
 {
     private const string ScriptFilePath = @"Tools\fit2Csv.ps1";
     private const string FitCsvToolPath = @"Tools\fitCsvTool.jar";
+    private readonly ITemporaryFileManager _temporaryFileManager;
 
-    public static async Task<int> RunFitToCsvAsync(IEnumerable<ConversionInfo> conversionInfoList, int conversionInfoCount, IProgress<ProgressData> progressReporter)
+    public GarminFitCsvToolConverter(ITemporaryFileManager temporaryFileManager)
+    {
+        _temporaryFileManager = temporaryFileManager;
+    }
+
+    public async Task ExportToCsvAsync(IEnumerable<ConversionInfo> conversionInfoList, int conversionInfoCount, IProgress<ProgressData> progressReporter)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNullOrEmpty(conversionInfoList);
         ArgumentNullExceptionAdvanced.ThrowIfNull(progressReporter);
@@ -40,11 +46,13 @@ public static class FitConverter
             progressReporter.Report(new ProgressData
             {
                 Progress = (double)completedCount / conversionInfoCount,
+                MaxValue = 1.0,
                 Message = $"Exporting fit file {completedCount + 1} of {conversionInfoCount}: {conversionInfo.SourceFilePath}"
             });
 
             string destinationDirectory = Path.GetDirectoryName(conversionInfo.DestinationFilePath) ?? throw new InvalidOperationException("Destination directory cannot be determined.");
             string destinationFileName = Path.GetFileName(conversionInfo.DestinationFilePath) ?? throw new InvalidOperationException("Destination file name cannot be determined.");
+            _temporaryFileManager.RegisterTemporaryFilePath(conversionInfo.DestinationFilePath);
 
             _ = startInfo.ArgumentList.Remove("-DestinationDirectory");
             _ = startInfo.ArgumentList.Remove(destinationDirectory);
@@ -87,9 +95,8 @@ public static class FitConverter
         progressReporter.Report(new ProgressData
         {
             Progress = 1.0,
+            MaxValue = 1.0,
             Message = "All fit files have been successfully exported."
         });
-
-        return 0;
     }
 }
