@@ -4,7 +4,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
 using System.Linq;
 using System.Numerics;
 using System.Reflection;
@@ -67,13 +66,13 @@ public class ArgumentNullExceptionAdvanced : System.ArgumentNullException
     /// <param name="paramName">The name of the parameter to include in the exception message. This value is typically provided
     /// automatically and should not be set explicitly.</param>
     /// <param name="message">The message that describes the error.</param>
-    public static void ThrowIfDefault<TStruct>(TStruct value, [CallerArgumentExpression(nameof(value))] string? paramName = null, string? message = null) where TStruct : struct
+    public static void ThrowIfDefault<TStruct>(TStruct value, string? message = null, [CallerArgumentExpression(nameof(value))] string? paramName = null) where TStruct : struct
     {
         if (EqualityComparer<TStruct>.Default.Equals(value, default))
         {
             throw new ArgumentNullException(
                 paramName,
-                message ?? "The argument is equal to the default value of its value type.");
+                message ?? $"The argument '{paramName}' is equal to the default value of '{typeof(TStruct).FullName}'.");
         }
     }
 
@@ -85,38 +84,13 @@ public class ArgumentNullExceptionAdvanced : System.ArgumentNullException
     /// <param name="paramName">The name of the parameter being validated. Used in the exception message to identify the argument. Optional.</param>
     /// <param name="message">An optional custom message to include in the exception if the span is <see langword="default"/> (which is <see cref="ReadOnlySpan{T}.Empty"/>).</param>
     /// <exception cref="ArgumentNullExceptionAdvanced">Thrown if <paramref name="value"/> is <see langword="default"/> (which is <see cref="ReadOnlySpan{T}.Empty"/>).</exception>
-    public static void ThrowIfDefault<TStruct>(ReadOnlySpan<TStruct> value, [CallerArgumentExpression(nameof(value))] string? paramName = null, string? message = null) where TStruct : struct
+    public static void ThrowIfDefault<TStruct>(ReadOnlySpan<TStruct> value, string? message = null, [CallerArgumentExpression(nameof(value))] string? paramName = null) where TStruct : struct
     {
         if (value.IsEmpty)
         {
             throw new ArgumentNullException(
                 paramName,
-                message ?? "The argument must not be empty.");
-        }
-    }
-
-    /// <summary>
-    /// Throws an exception if the specified enumerable is<see langword="null"/>or contains no elements.
-    /// </summary>
-    /// <remarks>This method is typically used to validate method arguments that are expected to be
-    /// non-null and contain at least one element. If the enumerable is <see langword="null"/>, an <see cref="ArgumentNullException"/> is thrown by
-    /// <see cref="ArgumentNullException.ThrowIfNull(object, string)"/>.</remarks>
-    /// <param name="value">The enumerable to validate. Cannot be <see langword="null"/>.</param>
-    /// <param name="paramName">The name of the parameter representing the enumerable. This value is used in the exception message if an
-    /// exception is thrown.</param>
-    /// <param name="message">The custom error message to include in the exception if the enumerable is empty. If <see langword="null"/>, a default message
-    /// is used.</param>
-    /// <exception cref="ArgumentException">Thrown if the enumerable is empty.</exception>
-    /// <exception cref="ArgumentNullException">Thrown if the enumerable is <see langword="null"/><see langword="null"/>.</exception>"
-    public static void ThrowIfNullOrEmpty([NotNull] IEnumerable value, [CallerArgumentExpression(nameof(value))] string? paramName = null, string? message = null)
-    {
-        ArgumentNullException.ThrowIfNull(value, paramName);
-        IEnumerator enumerator = value.GetEnumerator();
-        if (!enumerator.MoveNext())
-        {
-            throw new ArgumentException(
-                message ?? "The enumerable is empty.",
-                paramName);
+                message ?? $"The argument '{paramName}' must not be a default value of '{typeof(ReadOnlySpan<TStruct>).FullName}'.");
         }
     }
 
@@ -128,12 +102,12 @@ public class ArgumentNullExceptionAdvanced : System.ArgumentNullException
     /// caller argument expression is used.</param>
     /// <param name="message">The custom error message to include in the exception. If <see langword="null"/>, a default message is used.</param>
     /// <exception cref="ArgumentException">Thrown if value is not <see langword="null"/>.</exception>
-    public static void ThrowIfNotNull<TValue>(TValue value, [CallerArgumentExpression(nameof(value))] string? paramName = null, string? message = null)
+    public static void ThrowIfNotNull<TValue>(TValue value, string? message = null, [CallerArgumentExpression(nameof(value))] string? paramName = null)
     {
         if (value is not null)
         {
             throw new ArgumentException(
-                message ?? $"The argument must be 'null'. Allowed: 'null', Found: '{value.GetType().FullName}'",
+                message ?? $"The argument '{paramName}' must be NULL. Allowed: NULL, Found: '{value.GetType().FullName}'",
                 paramName);
         }
     }
@@ -146,13 +120,13 @@ public class ArgumentNullExceptionAdvanced : System.ArgumentNullException
     /// parameter. If not specified, the caller argument expression is used.</param>
     /// <param name="message">An optional custom message to include in the exception. If <see langword="null"/>, a default message is used.</param>
     /// <exception cref="ArgumentException">Thrown if <paramref name="value"/> is <see langword="null"/>.</exception>
-    public static void ThrowIfNull<TValue>([NotNull] TValue value, [CallerArgumentExpression(nameof(value))] string? paramName = null, string? message = null)
+    public static void ThrowIfNull<TValue>([NotNull] TValue value, string? message = null, [CallerArgumentExpression(nameof(value))] string? paramName = null)
     {
         if (value is null)
         {
             throw new ArgumentNullException(
                 paramName,
-                message ?? "The argument must not be 'null'.");
+                message ?? $"The argument '{paramName}' must not be NULL.");
         }
     }
 
@@ -166,13 +140,13 @@ public class ArgumentNullExceptionAdvanced : System.ArgumentNullException
     /// <exception cref="ArgumentException">Thrown if <paramref name="value"/> is <see langword="null"/>.</exception>
     /// <returns>The validated value if it is not <see langword="null"/>.</returns>
     [return: NotNull]
-    public static TValue ThrowIfNullOrReturn<TValue>([NotNull] TValue value, [CallerArgumentExpression(nameof(value))] string? paramName = null, string? message = null)
+    public static TValue ThrowIfNullOrReturn<TValue>([NotNull] TValue value, string? message = null, [CallerArgumentExpression(nameof(value))] string? paramName = null)
     {
         if (value is null)
         {
             throw new ArgumentNullException(
                 paramName,
-                message ?? "The argument must not be 'null'.");
+                message ?? $"The argument '{paramName}' must not be NULL.");
         }
 
         return value;
@@ -187,13 +161,13 @@ public class ArgumentNullExceptionAdvanced : System.ArgumentNullException
     /// <param name="message">An optional custom message to include in the exception.</param>
     /// <returns><see langword="true"/> if the value is not <see langword="null"/>; otherwise, <see langword="false"/>.</returns>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="value"/> is <see langword="null"/>.</exception>
-    public static bool IsNotNullOrThrow<TValue>([NotNull] TValue value, [CallerArgumentExpression(nameof(value))] string? paramName = null, string? message = null)
+    public static bool IsNotNullOrThrow<TValue>([NotNull] TValue value, string? message = null, [CallerArgumentExpression(nameof(value))] string? paramName = null)
     {
         if (value is null)
         {
             throw new ArgumentNullException(
                 paramName,
-                message ?? "The argument must not be 'null'.");
+                message ?? $"The argument '{paramName}' must not be NULL.");
         }
 
         return true;
@@ -273,7 +247,7 @@ public class ArgumentExceptionAdvanced : ArgumentException
     /// <param name="paramName"></param>
     /// <param name="message"></param>
     /// <exception cref="EventHandlerMismatchException">Thrown if the delegate's signature does not match the event handler type required by the event.</exception>
-    public static void ThrowIfEventHandlerNotAssignable([NotNull] Delegate clientHandler, [NotNull] EventInfo targetEvent, [CallerArgumentExpression(nameof(clientHandler))] string? paramName = null, string? message = null)
+    public static void ThrowIfEventHandlerNotAssignable([NotNull] Delegate clientHandler, [NotNull] EventInfo targetEvent, string? message = null, [CallerArgumentExpression(nameof(clientHandler))] string? paramName = null)
     {
         ArgumentNullException.ThrowIfNull(targetEvent);
         ArgumentNullException.ThrowIfNull(clientHandler, paramName);
@@ -302,7 +276,7 @@ public class ArgumentExceptionAdvanced : ArgumentException
                 string exceptionMessage = message ?? ExceptionMessages.GetHandlerDelegateSignatureMismatchExceptionMessage(
                     targetEvent,
                     clientHandlerMethod,
-                    $"The parameter '{paramName}' is incompatible with the event {eventType.FullName}. Reason: Unable to cast parameter of type '{eventDelegateParameterType.FullName}' at parameter index '{parameterIndex}' of the event delegate to type '{eventHandlerParameterType.FullName}' of the event handler.");
+                    $"The argument '{paramName}' is incompatible with the event {eventType.FullName}. Reason: Unable to cast parameter of type '{eventDelegateParameterType.FullName}' at parameter index '{parameterIndex}' of the event delegate to type '{eventHandlerParameterType.FullName}' of the event handler.");
                 throw new EventHandlerMismatchException(exceptionMessage);
             }
         }
@@ -360,10 +334,6 @@ public class ArgumentExceptionAdvanced : ArgumentException
     //        }
     //    }
     //}
-
-
-
- 
 
     ///// <summary>
     ///// Throws an exception if the specified enum value is equal to any of the provided disallowed values.
@@ -447,7 +417,7 @@ public class ArgumentExceptionAdvanced : ArgumentException
     //                : null;
 
     //            throw new ArgumentException(
-    //                $"Invalid value. The '{iConvertibleToStringMethodData?.FullyQualifiedSignature ?? $"{nameof(IConvertible.ToString)}.{iConvertibleToStringMethodName}"}' conversion of the argument '{paramName}' returned 'null'.",
+    //                $"Invalid value. The '{iConvertibleToStringMethodData?.FullyQualifiedSignature ?? $"{nameof(IConvertible.ToString)}.{iConvertibleToStringMethodName}"}' conversion of the argument '{paramName}' returned NULL.",
     //                paramName);
     //        }
     //    }
@@ -464,14 +434,14 @@ public class ArgumentExceptionAdvanced : ArgumentException
     /// and should not be set explicitly.</param>
     /// <param name="message">An optional exception message.</param>
     /// <exception cref="ArgumentException">Thrown if <paramref name="value"/> is not equal to <paramref name="other"/>.</exception>
-    public static void ThrowIfNotEqualsType([NotNull] Type value, [NotNull] Type other, [CallerArgumentExpression(nameof(value))] string? paramName = null, string? message = null)
+    public static void ThrowIfNotEqualsType([NotNull] Type value, [NotNull] Type other, string? message = null, [CallerArgumentExpression(nameof(value))] string? paramName = null)
     {
         ArgumentNullException.ThrowIfNull(value, paramName);
         ArgumentNullException.ThrowIfNull(other);
         if (value != other)
         {
             throw new ArgumentException(
-                message ?? $"The provided type is not of the expected type. Allowed: '{other.FullName}', Found: '{value.FullName}'.",
+                message ?? $"The provided argument '{paramName}' is not of the same type '{other.FullName}'. Found: '{value.FullName}'.",
                 paramName);
         }
     }
@@ -485,14 +455,14 @@ public class ArgumentExceptionAdvanced : ArgumentException
     /// and should not be set explicitly in most cases.</param>
     /// <param name="message">An optional exception message.</param>
     /// <exception cref="ArgumentException">Thrown if <paramref name="value"/> is not assignable to <paramref name="target"/>.</exception>
-    public static void ThrowIfNotAssignableTo([NotNull] Type value, [NotNull] Type target, [CallerArgumentExpression(nameof(value))] string? paramName = null, string? message = null)
+    public static void ThrowIfNotAssignableTo([NotNull] Type value, [NotNull] Type target, string? message = null, [CallerArgumentExpression(nameof(value))] string? paramName = null)
     {
         ArgumentNullException.ThrowIfNull(value, paramName);
         ArgumentNullException.ThrowIfNull(target);
         if (!value.IsAssignableTo(target))
         {
             throw new ArgumentException(
-                message ?? $"The provided type is not assignable to the expected type. Allowed: '{target.FullName}', Found: '{value.FullName}'.",
+                message ?? $"The provided argument '{paramName}' is not assignable to the expected type '{target.FullName}'. Found: '{value.FullName}'.",
                 paramName);
         }
     }
@@ -506,7 +476,7 @@ public class ArgumentExceptionAdvanced : ArgumentException
     /// and should not be set explicitly in most cases.</param>
     /// <param name="message">An optional exception message.</param>
     /// <exception cref="ArgumentException">Thrown if <paramref name="value"/> is not assignable to <paramref name="target"/>.</exception>
-    public static void ThrowIfNotAssignableTo<TValue, TTarget>([NotNull] TValue value, [NotNull] TTarget target, [CallerArgumentExpression(nameof(value))] string? paramName = null, string? message = null)
+    public static void ThrowIfNotAssignableTo<TValue, TTarget>([NotNull] TValue value, [NotNull] TTarget target, string? message = null, [CallerArgumentExpression(nameof(value))] string? paramName = null)
     {
         ArgumentNullException.ThrowIfNull(value, paramName);
         ArgumentNullException.ThrowIfNull(target);
@@ -516,7 +486,7 @@ public class ArgumentExceptionAdvanced : ArgumentException
         if (!valueType.IsAssignableTo(targetType))
         {
             throw new ArgumentException(
-                message ?? $"The provided type is not assignable to the expected type. Allowed: '{targetType.FullName}', Found: '{valueType.FullName}'.",
+                message ?? $"The provided argument '{paramName}' is not assignable to the expected type '{targetType.FullName}'. Found: '{valueType.FullName}'.",
                 paramName);
         }
     }
@@ -535,7 +505,7 @@ public class ArgumentExceptionAdvanced : ArgumentException
         if (!valueType.IsAssignableTo(targetType))
         {
             throw new ArgumentException(
-                message ?? $"The provided type is not assignable to the expected type. Allowed: '{targetType.FullName}', Found: '{valueType.FullName}'.",
+                message ?? $"The provided type '{valueType.FullName}' is not assignable to the expected type '{targetType.FullName}'. Found: '{valueType.FullName}'.",
                 string.Empty);
         }
     }
@@ -549,7 +519,7 @@ public class ArgumentExceptionAdvanced : ArgumentException
     /// <typeparam name="TTarget"> The target type to check assignability against. Cannot be <see langword="null"/>.</typeparam>
     /// <param name="message">An optional exception message.</param>
     /// <exception cref="ArgumentException">Thrown if <paramref name="value"/> is not assignable to <typeparamref name="TTarget"/>.</exception>
-    public static void ThrowIfNotAssignableTo<TTarget>([NotNull] object? value, [CallerArgumentExpression(nameof(value))] string? paramName = null, string? message = null)
+    public static void ThrowIfNotAssignableTo<TTarget>([NotNull] object? value, string? message = null, [CallerArgumentExpression(nameof(value))] string? paramName = null)
     {
         ArgumentNullException.ThrowIfNull(value, paramName);
         Type targetType = typeof(TTarget);
@@ -557,7 +527,7 @@ public class ArgumentExceptionAdvanced : ArgumentException
         if (!valueType.IsAssignableTo(targetType))
         {
             throw new ArgumentException(
-                message ?? $"The provided type is not assignable to the expected type. Allowed: '{targetType.FullName}', Found: '{valueType.FullName}'.",
+                message ?? $"The provided argument '{paramName}' is not assignable to the expected type. Allowed: '{targetType.FullName}', Found: '{valueType.FullName}'.",
                 paramName);
         }
     }
@@ -570,12 +540,12 @@ public class ArgumentExceptionAdvanced : ArgumentException
     /// expression is used.</param>
     /// <param name="message">The error message to include in the exception. If null, a default message is used.</param>
     /// <exception cref="ArgumentException">Thrown when <paramref name="value"/> is <see langword="false"/>.</exception>
-    public static void ThrowIfFalse(bool value, [CallerArgumentExpression(nameof(value))] string? paramName = null, string? message = null)
+    public static void ThrowIfFalse(bool value, string? message = null, [CallerArgumentExpression(nameof(value))] string? paramName = null)
     {
         if (!value)
         {
             throw new ArgumentException(
-                message ?? "The condition is 'FALSE'. Allowed: 'TRUE'.",
+                message ?? $"The condition '{paramName}' is 'FALSE'. Allowed: 'TRUE'.",
                 paramName);
         }
     }
@@ -588,12 +558,12 @@ public class ArgumentExceptionAdvanced : ArgumentException
     /// compiler.</param>
     /// <param name="message">The error message to include in the exception. If <see langword="null"/>, a default message is used.</param>
     /// <exception cref="ArgumentException">Thrown if <paramref name="value"/> is <see langword="true"/>.</exception>
-    public static void ThrowIfTrue(bool value, [CallerArgumentExpression(nameof(value))] string? paramName = null, string? message = null)
+    public static void ThrowIfTrue(bool value, string? message = null, [CallerArgumentExpression(nameof(value))] string? paramName = null)
     {
         if (value)
         {
             throw new ArgumentException(
-                message ?? "The condition is 'TRUE'. Allowed: 'FALSE'.",
+                message ?? $"The condition '{paramName}' is 'TRUE'. Allowed: 'FALSE'.",
                 paramName);
         }
     }
@@ -608,7 +578,7 @@ public class ArgumentExceptionAdvanced : ArgumentException
     /// used.</param>
     /// <param name="message">The error message to include in the exception. If <see langword="null"/>, a default message is used.</param>
     /// <exception cref="ArgumentException">Thrown if any element in the sequence satisfies the specified condition.</exception>
-    public static void ThrowIfAny<TItem>([NotNull] IEnumerable<TItem> items, Func<TItem, bool> condition, [CallerArgumentExpression(nameof(items))] string? paramName = null, string? message = null)
+    public static void ThrowIfAny<TItem>([NotNull] IEnumerable<TItem> items, Func<TItem, bool> condition, string? message = null, [CallerArgumentExpression(nameof(items))] string? paramName = null)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(items);
         ArgumentNullExceptionAdvanced.ThrowIfNull(condition);
@@ -616,7 +586,7 @@ public class ArgumentExceptionAdvanced : ArgumentException
         if (items.Any(condition))
         {
             throw new ArgumentException(
-                message ?? "The sequence contains invalid items.",
+                message ?? $"The enumerable '{paramName}' contains invalid items.",
                 paramName);
         }
     }
@@ -657,15 +627,98 @@ public class ArgumentExceptionAdvanced : ArgumentException
     /// <param name="paramName">The name of the parameter that caused the exception. If not specified, the expression for the items is used.</param>
     /// <param name="message">The error message to include in the exception. If <see langword="null"/>, a default message is used.</param>
     /// <exception cref="ArgumentException">Thrown if the sequence contains duplicate items.</exception>
-    public static void ThrowIfContainsDuplicate<TItem>([NotNull] IEnumerable<TItem> items, IEqualityComparer<TItem>? equalityComparer = null, [CallerArgumentExpression(nameof(items))] string? paramName = null, string? message = null)
+    public static void ThrowIfContainsDuplicate<TItem>([NotNull] IEnumerable<TItem> items, IEqualityComparer<TItem>? equalityComparer = null, string? message = null, [CallerArgumentExpression(nameof(items))] string? paramName = null)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(items);
+
         equalityComparer ??= EqualityComparer<TItem>.Default;
 
         if (items.HasDuplicates(equalityComparer))
         {
             throw new ArgumentException(
-                message ?? "The sequence contains duplicate items.",
+                message ?? $"The enumerable '{paramName}' contains duplicate items.",
+                paramName);
+        }
+    }
+
+    /// <summary>
+    /// Throws an exception if the specified enumerable is<see langword="null"/>or contains no elements.
+    /// </summary>
+    /// <remarks>This method is typically used to validate method arguments that are expected to be
+    /// non-null and contain at least one element. If the enumerable is <see langword="null"/>, an <see cref="ArgumentNullException"/> is thrown by
+    /// <see cref="ArgumentNullException.ThrowIfNull(object, string)"/>.</remarks>
+    /// <param name="value">The enumerable to validate. Cannot be <see langword="null"/>.</param>
+    /// <param name="paramName">The name of the parameter representing the enumerable. This value is used in the exception message if an
+    /// exception is thrown.</param>
+    /// <param name="message">The custom error message to include in the exception if the enumerable is empty. If <see langword="null"/>, a default message
+    /// is used.</param>
+    /// <exception cref="ArgumentException">Thrown if the enumerable is empty.</exception>
+    /// <exception cref="ArgumentNullException">Thrown if the enumerable is <see langword="null"/><see langword="null"/>.</exception>"
+    public static void ThrowIfNullOrEmpty([NotNull] IEnumerable value, string? message = null, [CallerArgumentExpression(nameof(value))] string? paramName = null)
+    {
+        ArgumentNullExceptionAdvanced.ThrowIfNull(value, message ?? $"The enumerable '{paramName}' is NULL.", paramName);
+
+        IEnumerator enumerator = value.GetEnumerator();
+        if (!enumerator.MoveNext())
+        {
+            throw new ArgumentException(
+                message ?? $"The enumerable '{paramName}' is empty.",
+                paramName);
+        }
+    }
+
+    /// <summary>
+    /// Throws a <see cref="ArgumentException"/> if the string value is <see langword="null"/> or an empty string.
+    /// </summary>
+    /// <param name="value">The string to validate.</param>
+    /// <param name="message">An optional error message.</param>
+    /// <param name="paramName">An optional name to represent the name of the variable that is passed to the method.</param>
+    /// <exception cref="ArgumentException">Thrown if <paramref name="value"/> is <see langword="null"/> or an empty string.</exception>
+    public static void ThrowIfNullOrEmpty([NotNull] string value, string? message = null, [CallerArgumentExpression(nameof(value))] string? paramName = null)
+    {
+        if (value is null)
+        {
+            throw new ArgumentException(
+                message ?? $"The argument '{paramName}' is NULL.",
+                paramName);
+        }
+
+        if (value.Length == 0)
+        {
+            throw new ArgumentException(
+                message ?? $"The argument '{paramName}' is empty.",
+                paramName);
+        }
+    }
+
+    /// <summary>
+    /// Throws a <see cref="ArgumentException"/> if the string value is <see langword="null"/> or an empty string or consists exclusively of white-space characters.
+    /// </summary>
+    /// <param name="value">The string to validate.</param>
+    /// <param name="message">An optional error message.</param>
+    /// <param name="paramName">An optional name to represent the name of the variable that is passed to the method.</param>
+    /// <exception cref="ArgumentException">Thrown if <paramref name="value"/> is <see langword="null"/> 
+    /// or an empty string or consists exclusively of white-space characters.</exception>
+    public static void ThrowIfNullOrWhiteSpace([NotNull] string value, string? message = null, [CallerArgumentExpression(nameof(value))] string? paramName = null)
+    {
+        if (value is null)
+        {
+            throw new ArgumentException(
+                message ?? $"The argument '{paramName}' is NULL.",
+                paramName);
+        }
+
+        if (value.Length == 0)
+        {
+            throw new ArgumentException(
+                message ?? $"The argument '{paramName}' is empty.",
+                paramName);
+        }
+
+        if (value.All(char.IsWhiteSpace))
+        {
+            throw new ArgumentException(
+                message ?? $"The argument '{paramName}' consists exclusively of white-space characters.",
                 paramName);
         }
     }
@@ -740,7 +793,7 @@ public class ArgumentOutOfRangeExceptionAdvanced : System.ArgumentOutOfRangeExce
     /// exception is thrown.</param>
     /// <param name="message">An optional custom error message for the exception. If <see langword="null"/>, a default message is used.</param>
     /// <exception cref="ArgumentOutOfRangeException">Thrown if <paramref name="value"/> is less than <paramref name="other"/>.</exception>
-    public static void ThrowIfLessThan<TValue>([NotNull] TValue value, [NotNull] TValue other, [CallerArgumentExpression(nameof(value))] string? paramName = null, string? message = null)
+    public static void ThrowIfLessThan<TValue>([NotNull] TValue value, [NotNull] TValue other, string? message = null, [CallerArgumentExpression(nameof(value))] string? paramName = null)
         where TValue : IComparable<TValue>
     {
         ArgumentNullException.ThrowIfNull(value, paramName);
@@ -750,7 +803,7 @@ public class ArgumentOutOfRangeExceptionAdvanced : System.ArgumentOutOfRangeExce
             throw new ArgumentOutOfRangeException(
                 paramName,
                 value,
-                message ?? $"Value is less than the expected value. Allowed: {paramName} < {other}, Found: '{value}'");
+                message ?? $"The argument '{paramName}' is less than the expected value. Allowed: {paramName} < {other}, Found: '{value}'");
         }
     }
 
@@ -766,7 +819,7 @@ public class ArgumentOutOfRangeExceptionAdvanced : System.ArgumentOutOfRangeExce
     /// <param name="message">The custom error message to include in the exception if the values are not equal. If <see langword="null"/>, a default message
     /// is used.</param>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="value"/> is not equal to <paramref name="other"/>.</exception>
-    public static void ThrowIfNotEqual<TValue>([NotNull] TValue value, [NotNull] TValue other, [CallerArgumentExpression(nameof(value))] string? paramName = null, string? message = null)
+    public static void ThrowIfNotEqual<TValue>([NotNull] TValue value, [NotNull] TValue other, string? message = null, [CallerArgumentExpression(nameof(value))] string? paramName = null)
     {
         ArgumentNullException.ThrowIfNull(value, paramName);
         ArgumentNullException.ThrowIfNull(other);
@@ -775,7 +828,7 @@ public class ArgumentOutOfRangeExceptionAdvanced : System.ArgumentOutOfRangeExce
             throw new ArgumentOutOfRangeException(
                 paramName,
                 value,
-                message ?? $"Value is not equal to the expected value. Allowed: {paramName} = {other}, Found: '{value}'");
+                message ?? $"The argument '{paramName}' is not equal to the expected value. Allowed: {paramName} = {other}, Found: '{value}'");
         }
     }
 
@@ -788,7 +841,7 @@ public class ArgumentOutOfRangeExceptionAdvanced : System.ArgumentOutOfRangeExce
     /// used in the exception message.</param>
     /// <param name="message">An optional custom message to include in the exception. If <see langword="null"/>, a default message is used.</param>
     /// <exception cref="ArgumentOutOfRangeException">Thrown if <paramref name="value"/> is negative.</exception>
-    public static void ThrowIfNegative<TValue>(TValue value, [CallerArgumentExpression(nameof(value))] string? paramName = null, string? message = null)
+    public static void ThrowIfNegative<TValue>(TValue value, string? message = null, [CallerArgumentExpression(nameof(value))] string? paramName = null)
         where TValue : INumberBase<TValue>
     {
         if (TValue.IsNegative(value))
@@ -796,7 +849,7 @@ public class ArgumentOutOfRangeExceptionAdvanced : System.ArgumentOutOfRangeExce
             throw new ArgumentOutOfRangeException(
                 paramName,
                 value,
-                message ?? $"The argument must not be negative. Allowed: {paramName} >= 0, Found: '{value}'.");
+                message ?? $"The argument '{paramName}' must not be negative. Allowed: {paramName} >= 0, Found: '{value}'.");
         }
     }
 
@@ -809,7 +862,7 @@ public class ArgumentOutOfRangeExceptionAdvanced : System.ArgumentOutOfRangeExce
     /// specified, the compiler will supply the argument expression.</param>
     /// <param name="message">The error message to include in the exception. If <see langword="null"/>, a default message is used.</param>
     /// <exception cref="ArgumentOutOfRangeException">Thrown if <paramref name="value"/> is less than or equal to zero.</exception>
-    public static void ThrowIfNegativeOrZero<TValue>(TValue value, [CallerArgumentExpression(nameof(value))] string? paramName = null, string? message = null)
+    public static void ThrowIfNegativeOrZero<TValue>(TValue value, string? message = null, [CallerArgumentExpression(nameof(value))] string? paramName = null)
         where TValue : INumberBase<TValue>
     {
         if (TValue.IsNegative(value) || TValue.IsZero(value))
@@ -817,7 +870,7 @@ public class ArgumentOutOfRangeExceptionAdvanced : System.ArgumentOutOfRangeExce
             throw new ArgumentOutOfRangeException(
                 paramName,
                 value,
-                message ?? $"The argument must be greater than zero. Allowed: {paramName} > 0, Found: '{value}'.");
+                message ?? $"The argument '{paramName}' must be greater than zero. Allowed: {paramName} > 0, Found: '{value}'.");
         }
     }
 
@@ -834,14 +887,14 @@ public class ArgumentOutOfRangeExceptionAdvanced : System.ArgumentOutOfRangeExce
     /// should not be set manually.</param>
     /// <param name="message">The error message to include in the exception. If <see langword="null"/>, a default message is used.</param>
     /// <exception cref="ArgumentOutOfRangeException">Thrown if <paramref name="value"/> is equal to <paramref name="other"/>.</exception>
-    public static void ThrowIfEqual<TValue>(TValue value, TValue other, [CallerArgumentExpression(nameof(value))] string? paramName = null, string? message = null)
+    public static void ThrowIfEqual<TValue>(TValue value, TValue other, string? message = null, [CallerArgumentExpression(nameof(value))] string? paramName = null)
     {
         if (EqualityComparer<TValue>.Default.Equals(value, other))
         {
             throw new ArgumentOutOfRangeException(
                 paramName,
                 value,
-                message ?? $"Value is equal to the disallowed value. Allowed: {paramName} != {other}, Found: '{value}'");
+                message ?? $"The argument '{paramName}' is equal to the disallowed value. Allowed: {paramName} != {other}, Found: '{value}'");
         }
     }
 
@@ -855,7 +908,7 @@ public class ArgumentOutOfRangeExceptionAdvanced : System.ArgumentOutOfRangeExce
     /// Optional.</param>
     /// <param name="message">The custom error message to include in the exception. If <see langword="null"/>, a default message is used. Optional.</param>
     /// <exception cref="ArgumentOutOfRangeException">Thrown if <paramref name="value"/> is greater than <paramref name="other"/>.</exception>
-    public static void ThrowIfGreaterThan<TValue>(TValue value, TValue other, [CallerArgumentExpression(nameof(value))] string? paramName = null, string? message = null)
+    public static void ThrowIfGreaterThan<TValue>(TValue value, TValue other, string? message = null, [CallerArgumentExpression(nameof(value))] string? paramName = null)
         where TValue : IComparable<TValue>
     {
         if (value.CompareTo(other) > 0)
@@ -863,7 +916,7 @@ public class ArgumentOutOfRangeExceptionAdvanced : System.ArgumentOutOfRangeExce
             throw new ArgumentOutOfRangeException(
                 paramName,
                 value,
-                message ?? $"Value is greater than the allowed maximum. Allowed: {paramName} <= {other}, Found: '{value}'");
+                message ?? $"The argument '{paramName}' is greater than the allowed maximum. Allowed: {paramName} <= {other}, Found: '{value}'");
         }
     }
 
@@ -878,7 +931,7 @@ public class ArgumentOutOfRangeExceptionAdvanced : System.ArgumentOutOfRangeExce
     /// should not be set manually.</param>
     /// <param name="message">The error message to include in the exception. If <see langword="null"/>, a default message is used.</param>
     /// <exception cref="ArgumentOutOfRangeException">Thrown if <paramref name="value"/> is greater than or equal to <paramref name="other"/>.</exception>
-    public static void ThrowIfGreaterThanOrEqual<TValue>(TValue value, TValue other, [CallerArgumentExpression(nameof(value))] string? paramName = null, string? message = null)
+    public static void ThrowIfGreaterThanOrEqual<TValue>(TValue value, TValue other, string? message = null, [CallerArgumentExpression(nameof(value))] string? paramName = null)
         where TValue : IComparable<TValue>
     {
         if (value.CompareTo(other) >= 0)
@@ -886,7 +939,7 @@ public class ArgumentOutOfRangeExceptionAdvanced : System.ArgumentOutOfRangeExce
             throw new ArgumentOutOfRangeException(
                 paramName,
                 value,
-                message ?? $"Value is greater than or equal to the disallowed value. Allowed: {paramName} < {other}, Found: '{value}'");
+                message ?? $"The argument '{paramName}' is greater than or equal to the disallowed value. Allowed: {paramName} < {other}, Found: '{value}'");
         }
     }
 
@@ -900,7 +953,7 @@ public class ArgumentOutOfRangeExceptionAdvanced : System.ArgumentOutOfRangeExce
     /// parameter is typically supplied automatically and should not be set manually.</param>
     /// <param name="message">An optional custom message to include in the exception. If <see langword="null"/>, a default message is used.</param>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="value"/> is less than or equal to <paramref name="other"/>.</exception>
-    public static void ThrowIfLessThanOrEqual<TValue>(TValue value, TValue other, [CallerArgumentExpression(nameof(value))] string? paramName = null, string? message = null)
+    public static void ThrowIfLessThanOrEqual<TValue>(TValue value, TValue other, string? message = null, [CallerArgumentExpression(nameof(value))] string? paramName = null)
         where TValue : IComparable<TValue>
     {
         if (value.CompareTo(other) <= 0)
@@ -908,7 +961,7 @@ public class ArgumentOutOfRangeExceptionAdvanced : System.ArgumentOutOfRangeExce
             throw new ArgumentOutOfRangeException(
                 paramName,
                 value,
-                message ?? $"Value is less than or equal to the disallowed value. Allowed: {paramName} > {other}, Found: '{value}'");
+                message ?? $"The argument '{paramName}' is less than or equal to the disallowed value. Allowed: {paramName} > {other}, Found: '{value}'");
         }
     }
 }

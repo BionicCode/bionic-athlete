@@ -46,7 +46,7 @@ public abstract class RelayCommandCommon<TParam> : RelayCommandCore, IRelayComma
     /// <param name="execute">The execute handler.</param>
     protected RelayCommandCommon(Action execute)
     {
-        ArgumentNullExceptionAdvanced.ThrowIfNull(execute, nameof(execute));
+        ArgumentNullExceptionAdvanced.ThrowIfNull(execute);
 
         _cancellableExecuteDelegate = (commandParameter, cancellationToken) => execute.Invoke();
         _canExecuteDelegate = commandParameter => true;
@@ -60,7 +60,7 @@ public abstract class RelayCommandCommon<TParam> : RelayCommandCore, IRelayComma
     /// <param name="execute">The execute handler.</param>
     protected RelayCommandCommon(Action<CancellationToken> execute)
     {
-        ArgumentNullExceptionAdvanced.ThrowIfNull(execute, nameof(execute));
+        ArgumentNullExceptionAdvanced.ThrowIfNull(execute);
 
         _cancellableExecuteDelegate = (commandParameter, cancellationToken) => execute.Invoke(cancellationToken);
         _canExecuteDelegate = commandParameter => true;
@@ -73,7 +73,7 @@ public abstract class RelayCommandCommon<TParam> : RelayCommandCore, IRelayComma
     /// <param name="canExecute">The can execute handler.</param>
     protected RelayCommandCommon(Action execute, Func<bool> canExecute)
     {
-        ArgumentNullExceptionAdvanced.ThrowIfNull(execute, nameof(execute));
+        ArgumentNullExceptionAdvanced.ThrowIfNull(execute);
 
         _cancellableExecuteDelegate = (commandParameter, cancellationToken) => execute.Invoke();
         _canExecuteDelegate = commandParameter => canExecute?.Invoke() ?? true;
@@ -86,7 +86,7 @@ public abstract class RelayCommandCommon<TParam> : RelayCommandCore, IRelayComma
     /// <param name="canExecute">The can execute handler.</param>
     protected RelayCommandCommon(Action<CancellationToken> execute, Func<bool> canExecute)
     {
-        ArgumentNullExceptionAdvanced.ThrowIfNull(execute, nameof(execute));
+        ArgumentNullExceptionAdvanced.ThrowIfNull(execute);
 
         _cancellableExecuteDelegate = (commandParameter, cancellationToken) => execute.Invoke(cancellationToken);
         _canExecuteDelegate = commandParameter => canExecute?.Invoke() ?? true;
@@ -110,7 +110,7 @@ public abstract class RelayCommandCommon<TParam> : RelayCommandCore, IRelayComma
     /// <param name="canExecute">The can execute handler.</param>
     protected RelayCommandCommon(Action<TParam> execute, Func<TParam, bool> canExecute)
     {
-        ArgumentNullExceptionAdvanced.ThrowIfNull(execute, nameof(execute));
+        ArgumentNullExceptionAdvanced.ThrowIfNull(execute);
 
         _cancellableExecuteDelegate = (commandParameter, cancellationToken) => execute.Invoke(commandParameter);
         _canExecuteDelegate = canExecute;
@@ -123,7 +123,7 @@ public abstract class RelayCommandCommon<TParam> : RelayCommandCore, IRelayComma
     /// <param name="canExecute">The can execute handler.</param>
     protected RelayCommandCommon(Action<TParam, CancellationToken> execute, Func<TParam, bool> canExecute)
     {
-        ArgumentNullExceptionAdvanced.ThrowIfNull(execute, nameof(execute));
+        ArgumentNullExceptionAdvanced.ThrowIfNull(execute);
 
         _cancellableExecuteDelegate = execute;
         _canExecuteDelegate = canExecute;

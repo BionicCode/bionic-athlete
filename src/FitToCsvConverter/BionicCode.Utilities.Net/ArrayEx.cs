@@ -21,11 +21,11 @@ public static class ArrayEx
 
     public static void Move<TItem>(ref TItem[] array, int oldIndex, int newIndex)
     {
-        ArgumentNullExceptionAdvanced.ThrowIfNull(array, nameof(array));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(oldIndex, nameof(oldIndex));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(oldIndex, array.Length, nameof(oldIndex));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(newIndex, nameof(newIndex));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(newIndex, array.Length, nameof(newIndex));
+        ArgumentNullExceptionAdvanced.ThrowIfNull(array);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(oldIndex);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(oldIndex, array.Length);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(newIndex);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(newIndex, array.Length);
 
         if (newIndex == oldIndex || array.IsEmpty())
         {
@@ -52,13 +52,13 @@ public static class ArrayEx
 
     public static void Move<TItem>(ref TItem[] array, int oldIndex, int newIndex, bool isMoveOutOfBoundsAllowed)
     {
-        ArgumentNullExceptionAdvanced.ThrowIfNull(array, nameof(array));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(oldIndex, nameof(oldIndex));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(oldIndex, array.Length, nameof(oldIndex));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(newIndex, nameof(newIndex));
+        ArgumentNullExceptionAdvanced.ThrowIfNull(array);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(oldIndex);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(oldIndex, array.Length);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(newIndex);
         if (!isMoveOutOfBoundsAllowed)
         {
-            ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(newIndex, array.Length, nameof(newIndex));
+            ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(newIndex, array.Length);
         }
 
         if (newIndex == oldIndex || array.IsEmpty())
@@ -91,24 +91,24 @@ public static class ArrayEx
 
     public static void ShiftRangeLeft<TItem>(in TItem[] array, int rangeStartIndex, int rangeLength, int numberOfShifts)
     {
-        ArgumentNullExceptionAdvanced.ThrowIfNull(array, nameof(array));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(rangeStartIndex, nameof(rangeStartIndex));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(rangeStartIndex, array.Length, nameof(rangeStartIndex));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(numberOfShifts, nameof(numberOfShifts));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(rangeStartIndex - numberOfShifts, nameof(numberOfShifts));
+        ArgumentNullExceptionAdvanced.ThrowIfNull(array);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(rangeStartIndex);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(rangeStartIndex, array.Length);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(numberOfShifts);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(rangeStartIndex - numberOfShifts);
 
         ShiftRangeLeftInternal(in array, rangeStartIndex, rangeLength, numberOfShifts);
     }
 
     internal static void ShiftRangeLeftInternal<TItem>(in TItem[] array, int rangeStartIndex, int rangeLength, int numberOfShifts)
     {
-        ArgumentNullExceptionAdvanced.ThrowIfNull(array, nameof(array));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(rangeStartIndex, nameof(rangeStartIndex));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(rangeStartIndex, array.Length, nameof(rangeStartIndex));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(rangeLength, nameof(rangeLength));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(rangeLength, array.Length - rangeStartIndex, nameof(rangeLength));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(numberOfShifts, nameof(numberOfShifts));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(numberOfShifts, array.Length - rangeLength - rangeStartIndex, nameof(numberOfShifts));
+        ArgumentNullExceptionAdvanced.ThrowIfNull(array);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(rangeStartIndex);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(rangeStartIndex, array.Length);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(rangeLength);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(rangeLength, array.Length - rangeStartIndex);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(numberOfShifts);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(numberOfShifts, array.Length - rangeLength - rangeStartIndex);
 
         Debug.Assert(rangeLength > -1);
         Debug.Assert(rangeLength < array.Length);
@@ -127,24 +127,23 @@ public static class ArrayEx
 
     public static void ShiftRangeRight<TItem>(in TItem[] array, int rangeStartIndex, int rangeLength, int numberOfShifts)
     {
-        ArgumentNullExceptionAdvanced.ThrowIfNull(array, nameof(array));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(rangeStartIndex, nameof(rangeStartIndex));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(rangeStartIndex, array.Length, nameof(rangeStartIndex));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(numberOfShifts, nameof(numberOfShifts));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(rangeStartIndex + numberOfShifts, array.Length, nameof(numberOfShifts));
-
+        ArgumentNullExceptionAdvanced.ThrowIfNull(array);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(rangeStartIndex);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(rangeStartIndex, array.Length);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(numberOfShifts);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(rangeStartIndex + numberOfShifts, array.Length);
         ShiftRangeRightInternal(in array, rangeStartIndex, rangeLength, numberOfShifts);
     }
 
     internal static void ShiftRangeRightInternal<TItem>(in TItem[] array, int rangeStartIndex, int rangeLength, int numberOfShifts)
     {
-        ArgumentNullExceptionAdvanced.ThrowIfNull(array, nameof(array));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(rangeStartIndex, nameof(rangeStartIndex));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(rangeStartIndex, array.Length, nameof(rangeStartIndex));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(rangeLength, nameof(rangeLength));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(rangeLength, array.Length - rangeStartIndex, nameof(rangeLength));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(numberOfShifts, nameof(numberOfShifts));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(numberOfShifts, array.Length - rangeLength - rangeStartIndex, nameof(numberOfShifts));
+        ArgumentNullExceptionAdvanced.ThrowIfNull(array);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(rangeStartIndex);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(rangeStartIndex, array.Length);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(rangeLength);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(rangeLength, array.Length - rangeStartIndex);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(numberOfShifts);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(numberOfShifts, array.Length - rangeLength - rangeStartIndex);
 
         Debug.Assert(rangeLength > -1);
         Debug.Assert(rangeLength < array.Length);
@@ -164,31 +163,31 @@ public static class ArrayEx
 #if !(NETSTANDARD2_0 || NETFRAMEWORK)
     public static void MoveRange<TItem>(ref TItem[] array, Range range, int newIndex)
     {
-        ArgumentNullExceptionAdvanced.ThrowIfNull(array, nameof(array));
+        ArgumentNullExceptionAdvanced.ThrowIfNull(array);
 
         (int rangeStartIndex, int rangeLength) = range.GetOffsetAndLength(array.Length);
         int rangeEndIndex = rangeStartIndex + rangeLength;
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(rangeStartIndex, array.Length, nameof(range.Start));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(rangeEndIndex, array.Length, nameof(range.End));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(newIndex, array.Length, nameof(newIndex));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(newIndex + rangeLength, array.Length, nameof(newIndex));
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(rangeStartIndex, array.Length);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(rangeEndIndex, array.Length);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(newIndex, array.Length);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(newIndex + rangeLength, array.Length);
 
         MoveInternal(ref array, rangeStartIndex, rangeLength, newIndex, isResizeEnabled: false);
     }
 
     public static void MoveRange<TItem>(ref TItem[] array, Range range, int newIndex, bool isMoveOutOfBoundsAllowed)
     {
-        ArgumentNullExceptionAdvanced.ThrowIfNull(array, nameof(array));
+        ArgumentNullExceptionAdvanced.ThrowIfNull(array);
 
         (int rangeStartIndex, int rangeLength) = range.GetOffsetAndLength(array.Length);
         int rangeEndIndex = rangeStartIndex + rangeLength;
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(rangeStartIndex, array.Length, nameof(range.Start));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(rangeEndIndex, array.Length, nameof(range.End));
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(rangeStartIndex, array.Length);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(rangeEndIndex, array.Length);
 
         if (!isMoveOutOfBoundsAllowed)
         {
-            ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(newIndex, array.Length, nameof(newIndex));
-            ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(newIndex + rangeLength, array.Length, nameof(newIndex));
+            ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(newIndex, array.Length);
+            ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(newIndex + rangeLength, array.Length);
         }
 
         MoveInternal(ref array, rangeStartIndex, rangeLength, newIndex, isMoveOutOfBoundsAllowed);
@@ -197,29 +196,29 @@ public static class ArrayEx
 
     public static void MoveRange<TItem>(ref TItem[] array, int rangeStartIndex, int rangeLength, int newIndex)
     {
-        ArgumentNullExceptionAdvanced.ThrowIfNull(array, nameof(array));
+        ArgumentNullExceptionAdvanced.ThrowIfNull(array);
 
         int rangeEndIndex = rangeStartIndex + rangeLength;
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(rangeStartIndex, array.Length, nameof(rangeStartIndex));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(rangeEndIndex, array.Length, nameof(rangeLength));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(newIndex, array.Length, nameof(newIndex));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(newIndex + rangeLength, array.Length, nameof(newIndex));
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(rangeStartIndex, array.Length);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(rangeEndIndex, array.Length);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(newIndex, array.Length);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(newIndex + rangeLength, array.Length);
 
         MoveInternal(ref array, rangeStartIndex, rangeLength, newIndex, isResizeEnabled: false);
     }
 
     public static void MoveRange<TItem>(ref TItem[] array, int rangeStartIndex, int rangeLength, int newIndex, bool isMoveOutOfBoundsAllowed)
     {
-        ArgumentNullExceptionAdvanced.ThrowIfNull(array, nameof(array));
+        ArgumentNullExceptionAdvanced.ThrowIfNull(array);
 
         int rangeEndIndex = rangeStartIndex + rangeLength;
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(rangeStartIndex, array.Length, nameof(rangeStartIndex));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(rangeEndIndex, array.Length, nameof(rangeLength));
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(rangeStartIndex, array.Length);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(rangeEndIndex, array.Length);
 
         if (!isMoveOutOfBoundsAllowed)
         {
-            ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(newIndex, array.Length, nameof(newIndex));
-            ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(newIndex + rangeLength, array.Length, nameof(newIndex));
+            ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(newIndex, array.Length);
+            ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(newIndex + rangeLength, array.Length);
         }
 
         MoveInternal(ref array, rangeStartIndex, rangeLength, newIndex, isMoveOutOfBoundsAllowed);
@@ -227,10 +226,10 @@ public static class ArrayEx
 
     public static void Insert<TItem>(ref TItem[] destination, int index, TItem item)
     {
-        ArgumentNullExceptionAdvanced.ThrowIfNull(destination, nameof(destination));
-        ArgumentNullExceptionAdvanced.ThrowIfNull(item, nameof(item));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(index, nameof(index));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(index, destination.Length, nameof(index));
+        ArgumentNullExceptionAdvanced.ThrowIfNull(destination);
+        ArgumentNullExceptionAdvanced.ThrowIfNull(item);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(index);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(index, destination.Length);
 
         int originalDestinationLength = destination.Length;
         int desiredSize = destination.Length + 1;
@@ -248,36 +247,36 @@ public static class ArrayEx
 
     public static void Insert<TItem>(ref TItem[] destination, int index, TItem[] source)
     {
-        ArgumentNullExceptionAdvanced.ThrowIfNull(destination, nameof(destination));
-        ArgumentNullExceptionAdvanced.ThrowIfNull(source, nameof(source));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(index, nameof(index));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(index, destination.Length, nameof(index));
+        ArgumentNullExceptionAdvanced.ThrowIfNull(destination);
+        ArgumentNullExceptionAdvanced.ThrowIfNull(source);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(index);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(index, destination.Length);
 
         InsertInternal(ref destination, index, source, 0, source.Length);
     }
 
     public static void Insert<TItem>(ref TItem[] destination, int index, TItem[] source, int sourceStartIndex, int sourceCount)
     {
-        ArgumentNullExceptionAdvanced.ThrowIfNull(destination, nameof(destination));
-        ArgumentNullExceptionAdvanced.ThrowIfNull(source, nameof(source));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(index, nameof(index));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(index, destination.Length, nameof(index));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(sourceStartIndex, nameof(sourceStartIndex));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(sourceStartIndex, source.Length, nameof(sourceStartIndex));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(sourceCount, nameof(sourceCount));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(sourceCount, source.Length - sourceStartIndex, nameof(sourceCount));
+        ArgumentNullExceptionAdvanced.ThrowIfNull(destination);
+        ArgumentNullExceptionAdvanced.ThrowIfNull(source);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(index);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(index, destination.Length);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(sourceStartIndex);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(sourceStartIndex, source.Length);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(sourceCount);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(sourceCount, source.Length - sourceStartIndex);
 
         InsertInternal(ref destination, index, source, sourceStartIndex, sourceCount);
     }
 
     public static void Insert<TItem>(ref TItem[] destination, int destinationStartIndex, IEnumerable<TItem> source, int rangeStartIndex, int rangeLength)
     {
-        ArgumentNullExceptionAdvanced.ThrowIfNull(destination, nameof(destination));
-        ArgumentNullExceptionAdvanced.ThrowIfNull(source, nameof(source));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(destinationStartIndex, nameof(destinationStartIndex));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(destinationStartIndex, destination.Length, nameof(destinationStartIndex));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(rangeStartIndex, nameof(rangeStartIndex));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(rangeLength, nameof(rangeLength));
+        ArgumentNullExceptionAdvanced.ThrowIfNull(destination);
+        ArgumentNullExceptionAdvanced.ThrowIfNull(source);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(destinationStartIndex);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(destinationStartIndex, destination.Length);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(rangeStartIndex);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(rangeLength);
 
         InsertInternal(ref destination, destinationStartIndex, source, rangeStartIndex, rangeLength);
     }
@@ -285,46 +284,46 @@ public static class ArrayEx
 #if !(NETSTANDARD2_0 || NETFRAMEWORK)
     public static void Insert<TItem>(ref TItem[] destination, int index, IEnumerable<TItem> source, Range sourceRange)
     {
-        ArgumentNullExceptionAdvanced.ThrowIfNull(destination, nameof(destination));
-        ArgumentNullExceptionAdvanced.ThrowIfNull(source, nameof(source));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(index, nameof(index));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(index, destination.Length, nameof(index));
+        ArgumentNullExceptionAdvanced.ThrowIfNull(destination);
+        ArgumentNullExceptionAdvanced.ThrowIfNull(source);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(index);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(index, destination.Length);
 
         if (source is TItem[] array)
         {
             (int rangeStartIndex, int rangeLength) = sourceRange.GetOffsetAndLength(array.Length);
-            ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(rangeStartIndex, nameof(sourceRange));
-            ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(rangeStartIndex, array.Length, nameof(sourceRange));
-            ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(rangeLength, nameof(sourceRange));
-            ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(rangeLength, destination.Length, nameof(sourceRange));
+            ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(rangeStartIndex);
+            ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(rangeStartIndex, array.Length);
+            ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(rangeLength);
+            ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(rangeLength, destination.Length);
             InsertInternal(ref destination, index, array, rangeStartIndex, rangeLength);
         }
         else if (source is IList<TItem> list)
         {
             (int rangeStartIndex, int rangeLength) = sourceRange.GetOffsetAndLength(list.Count);
-            ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(rangeStartIndex, nameof(sourceRange));
-            ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(rangeStartIndex, list.Count, nameof(sourceRange));
-            ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(rangeLength, nameof(sourceRange));
-            ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(rangeLength, destination.Length, nameof(sourceRange));
+            ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(rangeStartIndex);
+            ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(rangeStartIndex, list.Count);
+            ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(rangeLength);
+            ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(rangeLength, destination.Length);
             InsertInternal(ref destination, index, list, rangeStartIndex, rangeLength);
         }
         else if (source is ICollection<TItem> genericCollection)
         {
             (int rangeStartIndex, int rangeLength) = sourceRange.GetOffsetAndLength(genericCollection.Count);
-            ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(rangeStartIndex, nameof(sourceRange));
-            ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(rangeStartIndex, genericCollection.Count, nameof(sourceRange));
-            ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(rangeLength, nameof(sourceRange));
-            ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(rangeLength, destination.Length, nameof(sourceRange));
+            ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(rangeStartIndex);
+            ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(rangeStartIndex, genericCollection.Count);
+            ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(rangeLength);
+            ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(rangeLength, destination.Length);
 
             ArrayEx.InsertInternal(ref destination, destination.Length, source, rangeStartIndex, rangeLength);
         }
         else if (source is ICollection collection)
         {
             (int rangeStartIndex, int rangeLength) = sourceRange.GetOffsetAndLength(collection.Count);
-            ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(rangeStartIndex, nameof(sourceRange));
-            ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(rangeStartIndex, collection.Count, nameof(sourceRange));
-            ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(rangeLength, nameof(sourceRange));
-            ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(rangeLength, destination.Length, nameof(sourceRange));
+            ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(rangeStartIndex);
+            ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(rangeStartIndex, collection.Count);
+            ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(rangeLength);
+            ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(rangeLength, destination.Length);
 
             ArrayEx.InsertInternal(ref destination, destination.Length, source, rangeStartIndex, rangeLength);
         }
@@ -352,11 +351,11 @@ public static class ArrayEx
         ArgumentNullExceptionAdvanced.ThrowIfNull(destination);
         ArgumentNullExceptionAdvanced.ThrowIfNull(source);
         ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(index);
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(index, destination.Length, nameof(index));
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(index, destination.Length);
         ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(sourceStartIndex);
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(sourceStartIndex, source.Length, nameof(sourceStartIndex));
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(sourceStartIndex, source.Length);
         ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(sourceCount);
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(sourceCount, source.Length - sourceStartIndex, nameof(sourceCount));
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(sourceCount, source.Length - sourceStartIndex);
 
         Debug.Assert(sourceCount > -1);
         Debug.Assert(sourceCount <= source.Length);
@@ -396,11 +395,11 @@ public static class ArrayEx
         ArgumentNullExceptionAdvanced.ThrowIfNull(destination);
         ArgumentNullExceptionAdvanced.ThrowIfNull(source);
         ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(destinationStartIndex);
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(destinationStartIndex, destination.Length, nameof(destinationStartIndex));
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(destinationStartIndex, destination.Length);
         ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(sourceStartIndex);
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(sourceStartIndex, source.Count, nameof(sourceStartIndex));
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(sourceStartIndex, source.Count);
         ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(sourceCount);
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(sourceCount, source.Count - sourceStartIndex, nameof(sourceCount));
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(sourceCount, source.Count - sourceStartIndex);
 
         Debug.Assert(sourceCount > -1);
         Debug.Assert(sourceCount <= source.Count);
@@ -469,11 +468,11 @@ public static class ArrayEx
         ArgumentNullExceptionAdvanced.ThrowIfNull(destination);
         ArgumentNullExceptionAdvanced.ThrowIfNull(source);
         ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(destinationStartIndex);
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(destinationStartIndex, destination.Length, nameof(destinationStartIndex));
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(destinationStartIndex, destination.Length);
         ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(rangeStartIndex);
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(rangeStartIndex, source.Count(), nameof(rangeStartIndex));
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(rangeStartIndex, source.Count());
         ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(rangeLength);
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(rangeLength, source.Count() - rangeStartIndex, nameof(rangeLength));
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(rangeLength, source.Count() - rangeStartIndex);
 
         Debug.Assert(destinationStartIndex > -1);
         Debug.Assert(destinationStartIndex <= destination.Length);
@@ -574,11 +573,11 @@ public static class ArrayEx
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(array);
         ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(rangeStartIndex);
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(rangeStartIndex, array.Length, nameof(rangeStartIndex));
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(rangeStartIndex, array.Length);
         ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(rangeLength);
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(rangeLength, array.Length - rangeStartIndex, nameof(rangeLength));
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThan(rangeLength, array.Length - rangeStartIndex);
         ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(newIndex);
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(newIndex, array.Length, nameof(newIndex));
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(newIndex, array.Length);
 
         Debug.Assert(rangeStartIndex > -1);
         Debug.Assert(rangeStartIndex < array.Length);

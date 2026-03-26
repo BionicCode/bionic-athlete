@@ -21,8 +21,10 @@ public class MainViewModel : ViewModel
     private readonly SetValueOptions _setValueOptions;
     private readonly IArchiveManager _zipArchiveManager;
     private readonly IFitToCsvConverter _garminFitCsvToolConverter;
+    private readonly ITemporaryFileManager _temporaryFileManager;
+    private readonly string _allowedFileExtensions;
 
-    public MainViewModel(IZipArchiveManager zipArchiveManager, IGarminFitCsvToolConverter garminFitCsvToolConverter)
+    public MainViewModel(IZipArchiveManager zipArchiveManager, IGarminFitCsvToolConverter garminFitCsvToolConverter, ITemporaryFileManager temporaryFileManager)
     {
         _fitFilePathsValidator = IsFitFilePathsValid();
         _filePathsValidator = IsFilePathsValid();
@@ -34,9 +36,11 @@ public class MainViewModel : ViewModel
         _selectedFitFilePath = string.Empty;
         _zipArchiveManager = zipArchiveManager;
         _garminFitCsvToolConverter = garminFitCsvToolConverter;
+        _temporaryFileManager = temporaryFileManager;
         DeleteExtraFileCommand = new RelayCommand<ObservableFileDescriptor>(fileDescriptor => SelectedExportData?.SelectedExtraFilePaths.Remove(fileDescriptor), (fileDescriptor) => SelectedExportData is not null && SelectedExportData.SelectedExtraFilePaths.Contains(fileDescriptor));
         ExportCommand = new AsyncRelayCommand(ExecuteExportCommandAsync, CanExecuteExportCommand);
         StartNewSessionCommand = new RelayCommand(ExecuteStartNewSessionCommand);
+        _allowedFileExtensions = _zipArchiveManager.SupportedArchiveFileExtensions.Concat([FitFileExtension]).JoinToString();
     }
 
     // For design-time data only
@@ -65,7 +69,7 @@ public class MainViewModel : ViewModel
         if (!Path.GetExtension(fitFilePath).Equals(FitFileExtension, StringComparison.OrdinalIgnoreCase)
             && !_zipArchiveManager.IsFileTypeSupportedArchive(fitFilePath))
         {
-            return new PropertyValidationResult(false, [$"Invalid file type: only .fit files are allowed. Found: '{fitFilePath}'."]);
+            return new PropertyValidationResult(false, [$"Invalid file type: only '{_allowedFileExtensions}' files are allowed. Found: '{fitFilePath}'."]);
         }
 
         return new PropertyValidationResult(true, Array.Empty<string>());
@@ -88,7 +92,7 @@ public class MainViewModel : ViewModel
 
     public async Task AddFitFilePathsAsync(IEnumerable<string> fitFilePaths, CancellationToken cancellationToken)
     {
-        ArgumentNullExceptionAdvanced.ThrowIfNullOrEmpty(fitFilePaths);
+        ArgumentExceptionAdvanced.ThrowIfNullOrEmpty(fitFilePaths);
 
         foreach (string fitFilePath in fitFilePaths)
         {
@@ -139,7 +143,14 @@ public class MainViewModel : ViewModel
                 FitFilePath = fitFilePath
             };
 
-            string temporaryDestinationFilePath = Path.Combine(Path.GetTempPath(), $"{exportData.FitFileNameWithoutExtension}.csv");
+            string csvFileName = $"{exportData.FitFileNameWithoutExtension}.csv";
+            string temporaryDestinationFilePath = Path.Combine(Path.GetTempPath(), csvFileName);
+            if (File.Exists(temporaryDestinationFilePath))
+            {
+                string temporaryUniqueFileName = _temporaryFileManager.MakeFileNameUnique(csvFileName);
+                temporaryDestinationFilePath = Path.Combine(Path.GetTempPath(), temporaryUniqueFileName);
+            }
+
             exportData.ExportedFilePath = temporaryDestinationFilePath;
             exportData.AddExtraFilePaths([temporaryDestinationFilePath], isRenamingRequired: false);
 
@@ -183,15 +194,13 @@ public class MainViewModel : ViewModel
     {
         foreach (ExportData exportData in ExportData)
         {
-            // Extra files count + 1 exported csv file + 1 original fit file
-            int sourceFilesCount = exportData.SelectedExtraFilePaths.Count + 2;
-
             IEnumerable<FileDescriptor> fileDescriptors = exportData.SelectedExtraFilePaths
                 .Select(observableFileDescriptor => observableFileDescriptor.ToFileDescriptor());
 
             string batchName = exportData.IsAutoRenamingEnabled || string.IsNullOrWhiteSpace(exportData.BatchName)
                 ? exportData.AutoRenameBatchName
                 : exportData.BatchName;
+            int sourceFilesCount = exportData.SelectedExtraFilePaths.Count;
             var batch = new FileBatch(
                 fileDescriptors,
                 sourceFilesCount,

@@ -34,7 +34,7 @@ public abstract class RelayCommandCommon : RelayCommandCore, IRelayCommandCommon
     /// <param name="execute">The execute handler.</param>
     protected RelayCommandCommon(Action execute)
     {
-        ArgumentNullExceptionAdvanced.ThrowIfNull(execute, nameof(execute));
+        ArgumentNullExceptionAdvanced.ThrowIfNull(execute);
 
         _cancellableExecuteDelegate = cancellationToken => execute.Invoke();
         _canExecuteDelegate = () => true;
@@ -48,7 +48,7 @@ public abstract class RelayCommandCommon : RelayCommandCore, IRelayCommandCommon
     /// <param name="execute">The execute handler.</param>
     protected RelayCommandCommon(Action<CancellationToken> execute)
     {
-        ArgumentNullExceptionAdvanced.ThrowIfNull(execute, nameof(execute));
+        ArgumentNullExceptionAdvanced.ThrowIfNull(execute);
 
         _cancellableExecuteDelegate = execute;
         _canExecuteDelegate = () => true;
@@ -61,7 +61,7 @@ public abstract class RelayCommandCommon : RelayCommandCore, IRelayCommandCommon
     /// <param name="canExecute">The can execute handler.</param>
     protected RelayCommandCommon(Action execute, Func<bool> canExecute)
     {
-        ArgumentNullExceptionAdvanced.ThrowIfNull(execute, nameof(execute));
+        ArgumentNullExceptionAdvanced.ThrowIfNull(execute);
 
         _cancellableExecuteDelegate = cancellationToken => execute.Invoke();
         _canExecuteDelegate = canExecute is null ? () => true : canExecute;
@@ -74,7 +74,7 @@ public abstract class RelayCommandCommon : RelayCommandCore, IRelayCommandCommon
     /// <param name="canExecute">The can execute handler.</param>
     protected RelayCommandCommon(Action<CancellationToken> execute, Func<bool> canExecute)
     {
-        ArgumentNullExceptionAdvanced.ThrowIfNull(execute, nameof(execute));
+        ArgumentNullExceptionAdvanced.ThrowIfNull(execute);
 
         _cancellableExecuteDelegate = execute;
         _canExecuteDelegate = canExecute is null ? () => true : canExecute;

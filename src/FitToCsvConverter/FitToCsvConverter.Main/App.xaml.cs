@@ -60,8 +60,8 @@ public partial class App : Application
 
     private void Cleanp()
     {
-        _serviceProvider!.Dispose();
-        _temporaryFileManager!.CleanUpTemporaryFiles();
+        _serviceProvider?.Dispose();
+        _temporaryFileManager?.CleanUpTemporaryFiles();
     }
 }
 

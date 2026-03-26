@@ -58,7 +58,7 @@ public abstract partial class AsyncRelayCommandCommon : AsyncRelayCommandCore, I
     /// <param name="canExecuteNoParam">The execution status handler.</param>
     protected AsyncRelayCommandCommon(Func<Task> executeAsyncNoParam, Func<bool> canExecuteNoParam)
     {
-        ArgumentNullExceptionAdvanced.ThrowIfNull(executeAsyncNoParam, nameof(executeAsyncNoParam));
+        ArgumentNullExceptionAdvanced.ThrowIfNull(executeAsyncNoParam);
 
         _cancellableAsyncNoParamExecuteDelegate = cancellationToken => executeAsyncNoParam.Invoke();
         _canExecuteNoParamDelegate = canExecuteNoParam ?? (() => true);
