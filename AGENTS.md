@@ -5,6 +5,13 @@
 - When a task is architectural, propose a plan first before writing code.
 - After code changes, run build, analyzer/lint, and the smallest relevant test suite. Fix violations instead of ignoring them, and report any remaining warnings/errors.
 
+After code changes:
+- Run `dotnet build --no-restore`
+- Run `dotnet test --no-build` for the smallest relevant test scope
+- Run `dotnet format --verify-no-changes`
+- Fix analyzer/style violations surfaced by these commands unless explicitly instructed otherwise
+- Report any remaining warnings/errors and why they remain
+  
 If the user prompt is exactly "<review>", treat it as a placeholder that expands to the task defined in the [REVIEW MISSION (default)](#review-mission-default) section below.
 
 User prompt instructions always override this file.
