@@ -3,6 +3,7 @@
 - Do not let external SDK/runtime types leak into domain models unless explicitly requested.
 - Prefer replacing structurally wrong draft designs over patching them in place.
 - When a task is architectural, propose a plan first before writing code.
+- After code changes, run build, analyzer/lint, and the smallest relevant test suite. Fix violations instead of ignoring them, and report any remaining warnings/errors.
 
 If the user prompt is exactly "<review>", treat it as a placeholder that expands to the task defined in the [REVIEW MISSION (default)](#review-mission-default) section below.
 
