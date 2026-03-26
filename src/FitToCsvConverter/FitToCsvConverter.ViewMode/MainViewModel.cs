@@ -6,6 +6,8 @@ using System.IO.Compression;
 using System.Text;
 using BionicCode.Utilities.Net;
 using FitToCsvConverter.Data;
+using FitToCsvConverter.Data.Decoding;
+using FitToCsvConverter.Data.Decoding.Garmin;
 
 public class MainViewModel : ViewModel
 {
@@ -108,6 +110,8 @@ public class MainViewModel : ViewModel
             }
             else
             {
+                await using FileStream stream = File.Open(fitFilePath, FileMode.Open);
+                FitActivityDecodeResult result = await new GarminFitActivityDecoder().DecodeAsync(stream, cancellationToken: cancellationToken);
                 AddFitFilePath(fitFilePath);
             }
         }
