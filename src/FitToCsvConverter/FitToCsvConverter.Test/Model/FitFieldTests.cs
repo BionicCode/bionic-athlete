@@ -35,13 +35,21 @@ public sealed class FitFieldTests
 
         field.SetEditedDecodedValues([150, 151]);
 
-        Assert.Equal([(object?)150, (object?)151], field.GetEffectiveDecodedValues());
+        ImmutableArray<object?> effectiveEditedValues = field.GetEffectiveDecodedValues();
+        Assert.Collection(
+            effectiveEditedValues,
+            value => Assert.Equal(150, Assert.IsType<int>(value)),
+            value => Assert.Equal(151, Assert.IsType<int>(value)));
         Assert.Equal((byte)140, field.Original.OriginalValues[0].DecodedValue);
         Assert.Equal((byte)141, field.Original.OriginalValues[1].DecodedValue);
 
         field.ResetEditedDecodedValues();
 
-        Assert.Equal([(object?)(byte)140, (object?)(byte)141], field.GetEffectiveDecodedValues());
+        ImmutableArray<object?> effectiveOriginalValues = field.GetEffectiveDecodedValues();
+        Assert.Collection(
+            effectiveOriginalValues,
+            value => Assert.Equal((byte)140, Assert.IsType<byte>(value)),
+            value => Assert.Equal((byte)141, Assert.IsType<byte>(value)));
         Assert.False(field.State.HasEditedDecodedValues);
     }
 }
