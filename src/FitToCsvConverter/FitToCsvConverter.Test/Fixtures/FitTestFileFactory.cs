@@ -7,7 +7,7 @@ internal static class FitTestFileFactory
 {
     public static byte[] CreateSingleSessionActivityWithDeveloperFields()
     {
-        FitDateTime startTime = new(new DateTime(2024, 05, 01, 06, 30, 00, DateTimeKind.Utc));
+        FitDateTime startTime = new(new System.DateTime(2024, 05, 01, 06, 30, 00, DateTimeKind.Utc));
         FitDateTime endTime = new(startTime);
         endTime.Add(20U);
 
@@ -129,8 +129,8 @@ internal static class FitTestFileFactory
 
     public static byte[] CreateMultiSessionActivity()
     {
-        FitDateTime firstSessionStart = new(new DateTime(2024, 06, 15, 08, 00, 00, DateTimeKind.Utc));
-        FitDateTime secondSessionStart = new(new DateTime(2024, 06, 15, 10, 00, 00, DateTimeKind.Utc));
+        FitDateTime firstSessionStart = new(new System.DateTime(2024, 06, 15, 08, 00, 00, DateTimeKind.Utc));
+        FitDateTime secondSessionStart = new(new System.DateTime(2024, 06, 15, 10, 00, 00, DateTimeKind.Utc));
 
         List<Mesg> messages =
         [
