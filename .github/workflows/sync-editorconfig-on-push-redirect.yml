@@ -9,7 +9,7 @@ on:
 
 jobs:
   call-sync:
-    uses: BionicCode/workflows/.github/workflows/sync-editorconfig-reusable.yml@main
+    uses: BionicCode/workflows/.github/workflows/sync-editorconfig-on-push.yml@main
     with:
       canonical_raw_url: "https://raw.githubusercontent.com/BionicCode/bioniccode-code-style/refs/heads/main/BionicCode.CodeStyle/BionicCode.CodeStyle/.editorconfig"
       sync_branch_prefix: "chore/sync-editorconfig"
