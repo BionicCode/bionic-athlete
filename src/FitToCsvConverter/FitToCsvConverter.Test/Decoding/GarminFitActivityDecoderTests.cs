@@ -31,7 +31,7 @@ public sealed class GarminFitActivityDecoderTests
         FitField sessionDeveloperField = Assert.Single(session.Fields.Where(field => field.Original.OriginalName == "session_score"));
         Assert.Equal(FitFieldKind.Developer, sessionDeveloperField.Original.Kind);
         Assert.Equal(42U, sessionDeveloperField.Original.DeveloperApplicationVersion);
-        Assert.Equal([1, 2, 3, 4, 5, 6, 7, 8], sessionDeveloperField.Original.DeveloperApplicationIdBytes);
+        Assert.True(sessionDeveloperField.Original.DeveloperApplicationIdBytes.SequenceEqual(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 }));
 
         FitField sessionArrayField = Assert.Single(session.Fields.Where(field => field.Original.OriginalName == "session_steps"));
         Assert.True(sessionArrayField.Original.IsArray);

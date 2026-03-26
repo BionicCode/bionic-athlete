@@ -35,7 +35,7 @@ public sealed class FitFieldTests
 
         field.SetEditedDecodedValues([150, 151]);
 
-        Assert.Equal([150, 151], field.GetEffectiveDecodedValues());
+        Assert.Equal([(object?)150, (object?)151], field.GetEffectiveDecodedValues());
         Assert.Equal((byte)140, field.Original.OriginalValues[0].DecodedValue);
         Assert.Equal((byte)141, field.Original.OriginalValues[1].DecodedValue);
 

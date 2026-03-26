@@ -20,6 +20,9 @@ public sealed class FitActivityDecodeResult
         IsFromCache = isFromCache;
     }
 
+    /// <summary>
+    /// Decoded activity tree, or null when decoding failed.
+    /// </summary>
     public FitActivity? Activity { get; }
 
     public FitFileSource Source { get; }
@@ -28,5 +31,8 @@ public sealed class FitActivityDecodeResult
 
     public bool IsFromCache { get; }
 
+    /// <summary>
+    /// True when an activity was produced and no error-severity issues were recorded.
+    /// </summary>
     public bool IsSuccess => Activity is not null && Issues.All(issue => issue.Severity != FitDecodeIssueSeverity.Error);
 }

@@ -11,5 +11,8 @@ public sealed class FitActivityAncillaryData
         Messages = messages.IsDefault ? ImmutableArray<FitAncillaryMessage>.Empty : messages;
     }
 
+    /// <summary>
+    /// Preserved non-tree FIT messages that were decoded alongside the activity tree.
+    /// </summary>
     public ImmutableArray<FitAncillaryMessage> Messages { get; }
 }

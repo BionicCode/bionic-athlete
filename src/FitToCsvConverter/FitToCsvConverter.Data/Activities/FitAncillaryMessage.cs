@@ -13,7 +13,13 @@ public sealed class FitAncillaryMessage
         Fields = fields.IsDefault ? ImmutableArray<FitFieldSnapshot>.Empty : fields;
     }
 
+    /// <summary>
+    /// Immutable FIT message metadata for the ancillary message.
+    /// </summary>
     public FitNodeSnapshot Original { get; }
 
+    /// <summary>
+    /// Immutable field snapshots for the ancillary message.
+    /// </summary>
     public ImmutableArray<FitFieldSnapshot> Fields { get; }
 }

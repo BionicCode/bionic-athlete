@@ -51,10 +51,19 @@ public sealed class FitFieldSnapshot
         IsArray = isArray || OriginalValues.Length > 1;
     }
 
+    /// <summary>
+    /// Stable identity for this field within the decoded model.
+    /// </summary>
     public FitFieldKey Key { get; }
 
+    /// <summary>
+    /// Stable export key that remains usable even when the presentation column name changes.
+    /// </summary>
     public FitExportColumnKey ExportColumnKey { get; }
 
+    /// <summary>
+    /// Source FIT field name as decoded from the file or Garmin metadata.
+    /// </summary>
     public string OriginalName { get; }
 
     public string MessageName { get; }
@@ -85,7 +94,14 @@ public sealed class FitFieldSnapshot
 
     public ushort? NativeOverrideMessageNumber { get; }
 
+    /// <summary>
+    /// True when the FIT field is logically an array/multi-value field, even if the SDK surfaced it as a single CLR array object.
+    /// </summary>
     public bool IsArray { get; }
 
+    /// <summary>
+    /// Immutable raw/decoded value pairs in source order.
+    /// Use <see cref="FitField.GetEffectiveDecodedValues"/> for presentation and <see cref="OriginalValues"/> when you need immutable source values.
+    /// </summary>
     public ImmutableArray<FitFieldValue> OriginalValues { get; }
 }

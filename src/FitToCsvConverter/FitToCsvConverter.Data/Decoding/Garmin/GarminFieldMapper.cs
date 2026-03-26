@@ -127,6 +127,8 @@ internal sealed class GarminFieldMapper
             && valueCount == 1
             && TryExpandArrayValue(fieldBase.GetRawValue(0), baseType, out ImmutableArray<object?> rawValues))
         {
+            // Garmin can surface a FIT array field as a single CLR array value.
+            // Expand it here so the domain model always preserves element-by-element field shape.
             ImmutableArray<object?> decodedValues = TryExpandArrayValue(fieldBase.GetValue(), baseType, out ImmutableArray<object?> expandedDecodedValues)
                 && expandedDecodedValues.Length == rawValues.Length
                     ? expandedDecodedValues

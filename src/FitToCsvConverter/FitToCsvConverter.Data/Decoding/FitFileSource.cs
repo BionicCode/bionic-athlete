@@ -12,6 +12,9 @@ public sealed class FitFileSource
         LastWriteTimeUtc = lastWriteTimeUtc;
     }
 
+    /// <summary>
+    /// Display name used in the application for this decoded source.
+    /// </summary>
     public string DisplayName { get; }
 
     public string? FilePath { get; }

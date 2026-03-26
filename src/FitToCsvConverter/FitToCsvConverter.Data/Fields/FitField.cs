@@ -13,10 +13,20 @@ public sealed class FitField
         State = new FitFieldState(original.OriginalName);
     }
 
+    /// <summary>
+    /// Immutable source metadata and original values from the decoded FIT file.
+    /// </summary>
     public FitFieldSnapshot Original { get; }
 
+    /// <summary>
+    /// Mutable presentation/export state layered over the immutable source data.
+    /// </summary>
     public FitFieldState State { get; }
 
+    /// <summary>
+    /// Gets the values that should currently be shown to the user or sent to export:
+    /// edited values when present, otherwise the original decoded values from the FIT file.
+    /// </summary>
     public ImmutableArray<object?> GetEffectiveDecodedValues()
         => State.HasEditedDecodedValues
             ? State.EditedDecodedValues
@@ -30,6 +40,10 @@ public sealed class FitField
 
     public void SetExportInclusion(bool isIncludedInExport) => State.IsIncludedInExport = isIncludedInExport;
 
+    /// <summary>
+    /// Replaces the current effective decoded values while preserving the immutable original values.
+    /// The edited value count must match the original field shape.
+    /// </summary>
     public void SetEditedDecodedValues(IEnumerable<object?> editedDecodedValues)
     {
         ArgumentNullException.ThrowIfNull(editedDecodedValues);
@@ -44,5 +58,8 @@ public sealed class FitField
         State.EditedDecodedValues = editedValues;
     }
 
+    /// <summary>
+    /// Clears the edited values so presentation falls back to the original decoded values.
+    /// </summary>
     public void ResetEditedDecodedValues() => State.EditedDecodedValues = default;
 }
