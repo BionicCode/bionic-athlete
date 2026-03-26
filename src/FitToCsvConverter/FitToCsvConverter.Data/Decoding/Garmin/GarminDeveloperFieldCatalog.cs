@@ -54,6 +54,7 @@ internal sealed class GarminDeveloperFieldCatalog
                     fieldDescriptionMessage.GetOffset() ?? 0,
                     fieldDescriptionMessage.GetNativeFieldNum(),
                     fieldDescriptionMessage.GetNativeMesgNum(),
+                    fieldDescriptionMessage.GetArray() is byte arrayFlag && arrayFlag != 0,
                     developerDataIdentity);
         }
 
@@ -79,7 +80,7 @@ internal sealed class GarminDeveloperFieldCatalog
             }
         }
 
-        return builder.MoveToImmutable();
+        return builder.ToImmutable();
     }
 }
 
@@ -95,6 +96,7 @@ internal sealed record GarminDeveloperFieldDescriptionMetadata(
     double Offset,
     byte? NativeFieldNumber,
     ushort? NativeMessageNumber,
+    bool IsArray,
     GarminDeveloperDataIdentity? DeveloperDataIdentity);
 
 internal readonly record struct GarminDeveloperFieldCatalogKey(byte DeveloperDataIndex, byte FieldDefinitionNumber);

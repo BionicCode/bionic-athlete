@@ -111,9 +111,9 @@ internal static class FitTestFileFactory
 
         DeveloperField sessionArrayField = new(sessionArrayFieldDescription, developerDataId);
         session.SetDeveloperField(sessionArrayField);
-        sessionArrayField.SetValue(0, (ushort)10);
-        sessionArrayField.SetValue(1, (ushort)20);
-        sessionArrayField.SetValue(2, (ushort)30);
+        sessionArrayField.SetValue(index: 0, value: (ushort)10);
+        sessionArrayField.SetValue(index: 1, value: (ushort)20);
+        sessionArrayField.SetValue(index: 2, value: (ushort)30);
         messages.Add(session);
 
         messages.Add(CreateTimerEvent(endTime, EventType.StopAll));
@@ -204,7 +204,7 @@ internal static class FitTestFileFactory
                 "..",
                 "FitToCsvConverter.Data",
                 "ExampleFiles",
-                "fit_file.fit"));
+                "2026-03-17_22204467914_ACTIVITY.fit"));
 
     private static void AddRecord(List<Mesg> messages, FitDateTime timestamp, byte heartRate, float distance)
     {

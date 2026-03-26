@@ -28,6 +28,7 @@ public sealed class FitFieldTests
                 developerApplicationVersion: null,
                 nativeOverrideFieldNumber: null,
                 nativeOverrideMessageNumber: null,
+                isArray: true,
                 originalValues: ImmutableArray.Create(
                     new FitFieldValue((byte)140, (byte)140),
                     new FitFieldValue((byte)141, (byte)141))));

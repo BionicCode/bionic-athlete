@@ -339,7 +339,7 @@ public sealed class GarminFitActivityDecoder : IFitActivityDecoder
         if (timestampUtc is null)
         {
             int projectionIndex = Math.Clamp(fallbackProjectionIndex, 0, sessionProjections.Length - 1);
-            return new SessionResolution(sessionProjections[projectionIndex].Context, projectionIndex, wasBeforeFirstSession: false);
+            return new SessionResolution(sessionProjections[projectionIndex].Context, projectionIndex, WasBeforeFirstSession: false);
         }
 
         int firstKnownProjectionIndex = -1;
@@ -355,12 +355,12 @@ public sealed class GarminFitActivityDecoder : IFitActivityDecoder
         if (firstKnownProjectionIndex < 0)
         {
             int projectionIndex = Math.Clamp(fallbackProjectionIndex, 0, sessionProjections.Length - 1);
-            return new SessionResolution(sessionProjections[projectionIndex].Context, projectionIndex, wasBeforeFirstSession: false);
+            return new SessionResolution(sessionProjections[projectionIndex].Context, projectionIndex, WasBeforeFirstSession: false);
         }
 
         if (timestampUtc < sessionProjections[firstKnownProjectionIndex].StartTimeUtc)
         {
-            return new SessionResolution(sessionProjections[firstKnownProjectionIndex].Context, firstKnownProjectionIndex, wasBeforeFirstSession: true);
+            return new SessionResolution(sessionProjections[firstKnownProjectionIndex].Context, firstKnownProjectionIndex, WasBeforeFirstSession: true);
         }
 
         for (int index = firstKnownProjectionIndex; index < sessionProjections.Length; index++)
@@ -384,11 +384,11 @@ public sealed class GarminFitActivityDecoder : IFitActivityDecoder
             if (timestampUtc >= currentStartTimeUtc
                 && (nextKnownStartTimeUtc is null || timestampUtc < nextKnownStartTimeUtc.Value))
             {
-                return new SessionResolution(currentProjection.Context, index, wasBeforeFirstSession: false);
+                return new SessionResolution(currentProjection.Context, index, WasBeforeFirstSession: false);
             }
         }
 
-        return new SessionResolution(sessionProjections[^1].Context, sessionProjections.Length - 1, wasBeforeFirstSession: false);
+        return new SessionResolution(sessionProjections[^1].Context, sessionProjections.Length - 1, WasBeforeFirstSession: false);
     }
 
     private static FitActivityAncillaryData BuildAncillaryData(
@@ -418,7 +418,7 @@ public sealed class GarminFitActivityDecoder : IFitActivityDecoder
 
         return builder.Count == 0
             ? FitActivityAncillaryData.Empty
-            : new FitActivityAncillaryData(builder.MoveToImmutable());
+            : new FitActivityAncillaryData(builder.ToImmutable());
     }
 
     private static FitNodeSnapshot CreateActivitySnapshot(ActivityMesg activityMessage, int sequenceNumber, FileIdMesg fileIdMessage)
@@ -450,7 +450,7 @@ public sealed class GarminFitActivityDecoder : IFitActivityDecoder
 
     private static FitNodeSnapshot CreateRecordSnapshot(RecordMesg recordMessage, int sequenceNumber)
         => new(
-            new FitNodeIdentity(FitNodeType.Record, sequenceNumber, messageIndex: null),
+            new FitNodeIdentity(FitNodeType.Record, sequenceNumber, MessageIndex: null),
             recordMessage.Num,
             recordMessage.Name,
             recordMessage.LocalNum,
@@ -586,7 +586,7 @@ public sealed class GarminFitActivityDecoder : IFitActivityDecoder
 
         public ImmutableArray<FitRecord>.Builder Records { get; } = ImmutableArray.CreateBuilder<FitRecord>();
 
-        public FitSession Build() => new(Original, Fields, Laps.MoveToImmutable(), Records.MoveToImmutable());
+        public FitSession Build() => new(Original, Fields, Laps.ToImmutable(), Records.ToImmutable());
     }
 
     private sealed class LapContext

@@ -101,6 +101,7 @@ public sealed class CachingFitActivityDecoderTests
                     developerApplicationVersion: null,
                     nativeOverrideFieldNumber: null,
                     nativeOverrideMessageNumber: null,
+                    isArray: false,
                     originalValues: ImmutableArray.Create(new FitFieldValue(value, value))));
 
             FitRecord record = new(
