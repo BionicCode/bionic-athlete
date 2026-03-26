@@ -42,13 +42,17 @@ jobs:
           set -euo pipefail
           curl -fsSL "${CANONICAL_RAW_URL}" -o canonical.editorconfig
 
-      - name: Ensure exactly one tracked .editorconfig (repo root)
+      - name: Ensure exactly one tracked .editorconfig at repo root (no others)
         run: |
           set -euo pipefail
-          count="$(git ls-files '**/.editorconfig' | wc -l | tr -d ' ')"
-          if [ "${count}" -ne 1 ]; then
-            echo "::error::Expected exactly one tracked .editorconfig (repo root). Found: ${count}"
-            git ls-files '**/.editorconfig' || true
+          if ! git ls-files --error-unmatch .editorconfig >/dev/null 2>&1; then
+            echo "::error::Expected tracked .editorconfig at repository root, but none was found."
+            exit 1
+          fi
+          count=$(git ls-files | grep -E '(^|/)\.editorconfig$' | wc -l | tr -d ' ')
+          if [ "$count" -ne 1 ]; then
+            echo "::error::Expected exactly one tracked .editorconfig in repository (repo root). Found: $count"
+            git ls-files | grep -E '(^|/)\.editorconfig$' || true
             exit 1
           fi
 
