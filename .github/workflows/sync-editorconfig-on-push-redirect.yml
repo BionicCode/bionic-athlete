@@ -10,7 +10,7 @@ on:
 jobs:
   call-sync:
     # For pull requests, run the check; for pushes, you can conditionally run the "open PR" behavior in the central workflow if needed.
-    uses: BionicCode/workflows/.github/workflows/sync-editorconfig-on-push.yml
+    uses: BionicCode/workflows/.github/workflows/sync-editorconfig-on-push.yml@v1.0.0
     with:
       canonical_raw_url: "https://raw.githubusercontent.com/BionicCode/bioniccode-code-style/refs/heads/main/BionicCode.CodeStyle/BionicCode.CodeStyle/.editorconfig"
       sync_branch_prefix: "chore/sync-editorconfig"
