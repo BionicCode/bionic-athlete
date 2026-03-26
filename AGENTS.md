@@ -45,6 +45,7 @@ In implementation mode:
 - Fix violations surfaced by those commands instead of ignoring them.
 - Update relevant documentation in the same change when public APIs, behavior, invariants, caveats, or usage patterns changed.
 - If you cannot run a required command because of sandbox limits, missing SDKs, missing dependencies, missing restore, or permission constraints, say exactly which command could not run and why.
+- Follow all naming conventions from .editorconfig. Do not introduce names that violate configured naming rules. For example, private static fields must use the configured prefix style such as s_ when required by the repository.
 
 This distinction is intentional. Review-only tasks avoid unnecessary execution. Code-change tasks must verify and clean up their work.
 
@@ -117,6 +118,7 @@ For .NET repositories:
 - Respect warnings and errors from SDK analyzers and any repository-installed analyzers.
 - Prefer fixing the code over suppressing the diagnostic.
 - If a violation appears to be a false positive, document it and use the narrowest justified suppression only if the user allows repository rule exceptions.
+- Follow all naming conventions from .editorconfig. Do not introduce names that violate configured naming rules. For example, private static fields must use the configured prefix style such as s_ when required by the repository.
 
 Important:
 - Command-line `dotnet build` does not automatically enforce all IDE code-style diagnostics unless the project enables build enforcement for code-style analysis.
