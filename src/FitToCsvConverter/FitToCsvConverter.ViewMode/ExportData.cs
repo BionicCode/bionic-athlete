@@ -30,7 +30,7 @@ public class ExportData : ViewModel
         SelectedExtraFilePaths.CollectionChanged += OnSelectedExtraFilePathsCollectionChanged;
         _newFilenames = [];
         SelectedExtraFilePaths.CollectionChanged += ValidateOnItemAdded;
-        FitFilePath = string.Empty;
+        _fitFilePath = string.Empty;
         _batchName = string.Empty;
         ExportedFilePath = string.Empty;
         _isAutoRenamingEnabled = true;

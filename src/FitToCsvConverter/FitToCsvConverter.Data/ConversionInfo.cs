@@ -23,8 +23,8 @@ public readonly struct ConversionInfo
 
     public ConversionInfo(string sourceFilePath, string destinationFilePath, Encoding encoding)
     {
-        ArgumentExceptionAdvanced.ThrowIfNullOrEmpty(sourceFilePath);
-        ArgumentExceptionAdvanced.ThrowIfNullOrEmpty(destinationFilePath);
+        ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(sourceFilePath);
+        ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(destinationFilePath);
         ArgumentNullExceptionAdvanced.ThrowIfNull(encoding);
 
         SourceFilePath = sourceFilePath;

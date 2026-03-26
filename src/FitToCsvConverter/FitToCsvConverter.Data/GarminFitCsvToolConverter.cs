@@ -9,14 +9,11 @@ public class GarminFitCsvToolConverter : IFitToCsvConverter, IGarminFitCsvToolCo
     private const string FitCsvToolPath = @"Tools\fitCsvTool.jar";
     private readonly ITemporaryFileManager _temporaryFileManager;
 
-    public GarminFitCsvToolConverter(ITemporaryFileManager temporaryFileManager)
-    {
-        _temporaryFileManager = temporaryFileManager;
-    }
+    public GarminFitCsvToolConverter(ITemporaryFileManager temporaryFileManager) => _temporaryFileManager = temporaryFileManager;
 
     public async Task ExportToCsvAsync(IEnumerable<ConversionInfo> conversionInfoList, int conversionInfoCount, IProgress<ProgressData> progressReporter)
     {
-        ArgumentNullExceptionAdvanced.ThrowIfNullOrEmpty(conversionInfoList);
+        ArgumentExceptionAdvanced.ThrowIfNullOrEmpty(conversionInfoList);
         ArgumentNullExceptionAdvanced.ThrowIfNull(progressReporter);
 
         var startInfo = new ProcessStartInfo

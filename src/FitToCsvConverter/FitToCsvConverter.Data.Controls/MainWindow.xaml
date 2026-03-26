@@ -20,7 +20,8 @@
 
             <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
 
-            <Style x:Key="DataGridCellStyle" TargetType="DataGridCell">
+            <Style x:Key="DataGridCellStyle"
+                   TargetType="DataGridCell">
                 <Setter Property="Padding"
                         Value="50" />
             </Style>
@@ -38,7 +39,7 @@
                 <Setter Property="HorizontalAlignment"
                         Value="Center" />
             </Style>
-            
+
             <DataTemplate x:Key="ExtraZipFileContentTemplate">
                 <Grid>
                     <TextBlock Text="&#xe8e5;"
@@ -100,7 +101,7 @@
                                                 <Storyboard>
                                                     <ColorAnimation Storyboard.TargetName="ManualRenameCheckBox"
                                                                     Storyboard.TargetProperty="(Foreground).(SolidColorBrush.Color)"
-                                                                    To="{StaticResource MouseOverTextColor}" 
+                                                                    To="{StaticResource MouseOverTextColor}"
                                                                     Duration="{StaticResource MouseOverAnimationDuration}" />
                                                 </Storyboard>
                                             </BeginStoryboard>
@@ -197,11 +198,19 @@
                         ToolTip="Remove row"
                         Width="50"
                         Height="50"
-                        Margin="5"/>
+                        Margin="5" />
             </DataTemplate>
 
-            <DataTemplate x:Key="ToggleButtonCellTemplate">
-                <ToggleButton IsChecked="{Binding IsAutoRenamingEnabled, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource FlipSwitchToggleButtonStyle}"
+            <DataTemplate x:Key="ToggleButtonIsAutoRenamingEnabledCellTemplate">
+                <ToggleButton IsChecked="{Binding IsAutoRenamingEnabled, UpdateSourceTrigger=PropertyChanged}"
+                              Style="{StaticResource FlipSwitchToggleButtonStyle}"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Center" />
+            </DataTemplate>
+
+            <DataTemplate x:Key="ToggleButtonIsIncludeFitFileEnabledCellTemplate">
+                <ToggleButton IsChecked="{Binding IsIncludeFitFileEnabled, UpdateSourceTrigger=PropertyChanged}"
+                              Style="{StaticResource FlipSwitchToggleButtonStyle}"
                               HorizontalAlignment="Center"
                               VerticalAlignment="Center" />
             </DataTemplate>
@@ -319,9 +328,9 @@
                                                     CellTemplate="{StaticResource ExtraZipFileContentTemplate}"
                                                     MinWidth="500" />
                             <DataGridTemplateColumn Header="Auto-rename" 
-                                                    CellTemplate="{StaticResource ToggleButtonCellTemplate}"/>
+                                                    CellTemplate="{StaticResource ToggleButtonIsAutoRenamingEnabledCellTemplate}"/>
                             <DataGridTemplateColumn Header="Include FIT file"
-                                                    CellTemplate="{StaticResource ToggleButtonCellTemplate}" />
+                                                    CellTemplate="{StaticResource ToggleButtonIsIncludeFitFileEnabledCellTemplate}" />
                             <DataGridTextColumn Header="Batch Name"
                                                 ElementStyle="{StaticResource DataGridTextCellStyle}"
                                                 MinWidth="200"

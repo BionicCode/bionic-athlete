@@ -38,6 +38,7 @@ public class ObservableFileDescriptor : ViewModel
 
         Name = Path.GetFileName(filePath);
         Location = Path.GetDirectoryName(filePath) ?? string.Empty;
+        ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(Location, $"The argument '{nameof(filePath)}' does not contain a directory. Found: '{filePath}'", nameof(filePath));
         _isRenamingEnabled = isRenamingRequired;
         _originalName = Name;
         _newName = Name;
@@ -133,22 +134,4 @@ public class ObservableFileDescriptor : ViewModel
             }
         }
     }
-}
-
-public class FileDescriptorChangedEventArgs : EventArgs
-{
-    public FileDescriptorChangedEventArgs(string oldName, string newName, string oldFullPath, string newFullPath, string originalFullPath)
-    {
-        OldName = oldName;
-        NewName = newName;
-        OldFullPath = oldFullPath;
-        NewFullPath = newFullPath;
-        OriginalFullPath = originalFullPath;
-    }
-
-    public string OldName { get; }
-    public string NewName { get; }
-    public string OldFullPath { get; }
-    public string NewFullPath { get; }
-    public string OriginalFullPath { get; }
 }

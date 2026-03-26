@@ -73,7 +73,7 @@ public static partial class HelperExtensionsCommon
     public static void AddRow(this DataTable source, params object[] columnValues)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(source);
-        ArgumentNullExceptionAdvanced.ThrowIfNullOrEmpty(columnValues);
+        ArgumentExceptionAdvanced.ThrowIfNullOrEmpty(columnValues);
 
         DataRow rowModelWithCurrentColumns = source.NewRow();
         source.Rows.Add(rowModelWithCurrentColumns);
@@ -93,7 +93,7 @@ public static partial class HelperExtensionsCommon
     public static void AddRow(this DataTable source, IEnumerable<object> columnValues)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(source);
-        ArgumentNullExceptionAdvanced.ThrowIfNullOrEmpty(columnValues);
+        ArgumentExceptionAdvanced.ThrowIfNullOrEmpty(columnValues);
 
         DataRow rowModelWithCurrentColumns = source.NewRow();
         source.Rows.Add(rowModelWithCurrentColumns);
@@ -113,7 +113,7 @@ public static partial class HelperExtensionsCommon
     public static void AddRow(this DataTable source, params (int ColumnIndex, object ColumnValue)[] columnValues)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(source);
-        ArgumentNullExceptionAdvanced.ThrowIfNullOrEmpty(columnValues);
+        ArgumentExceptionAdvanced.ThrowIfNullOrEmpty(columnValues);
 
         DataRow rowModelWithCurrentColumns = source.NewRow();
         source.Rows.Add(rowModelWithCurrentColumns);
