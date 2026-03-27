@@ -3,18 +3,18 @@ namespace FitToCsvConverter.Data.Caching;
 using System.Security.Cryptography;
 using FitToCsvConverter.Data.Decoding;
 
-public sealed class CachingFitActivityDecoder : IFitActivityDecoder
+public sealed class CachingFitActivityDecoder : IFitActivityDecoder, ICachingFitActivityDecoder
 {
-    private readonly IFitActivityDecoder innerDecoder;
-    private readonly IFitActivityCache cache;
+    private readonly IFitActivityDecoder _innerDecoder;
+    private readonly IFitActivityCache _cache;
 
     public CachingFitActivityDecoder(IFitActivityDecoder innerDecoder, IFitActivityCache cache)
     {
         ArgumentNullException.ThrowIfNull(innerDecoder);
         ArgumentNullException.ThrowIfNull(cache);
 
-        this.innerDecoder = innerDecoder;
-        this.cache = cache;
+        _innerDecoder = innerDecoder;
+        _cache = cache;
     }
 
     public async Task<FitActivityDecodeResult> DecodeFileAsync(string filePath, CancellationToken cancellationToken = default)
@@ -41,16 +41,16 @@ public sealed class CachingFitActivityDecoder : IFitActivityDecoder
             });
 
         FitContentHash contentHash = await ComputeContentHashAsync(fitStream, cancellationToken).ConfigureAwait(false);
-        if (cache.TryGet(contentHash, source, out FitActivityDecodeResult cachedResult))
+        if (_cache.TryGet(contentHash, source, out FitActivityDecodeResult cachedResult))
         {
             return cachedResult;
         }
 
         fitStream.Position = 0;
-        FitActivityDecodeResult decodedResult = await innerDecoder.DecodeAsync(fitStream, source.DisplayName, cancellationToken).ConfigureAwait(false);
+        FitActivityDecodeResult decodedResult = await _innerDecoder.DecodeAsync(fitStream, source.DisplayName, cancellationToken).ConfigureAwait(false);
         FitActivityDecodeResult normalizedResult = NormalizeResultSource(decodedResult, source, isFromCache: false);
 
-        cache.Set(contentHash, normalizedResult);
+        _cache.Set(contentHash, normalizedResult);
         return normalizedResult;
     }
 
@@ -68,16 +68,16 @@ public sealed class CachingFitActivityDecoder : IFitActivityDecoder
                 contentLength: preparedStream.Length - preparedStream.Position);
 
             FitContentHash contentHash = await ComputeContentHashAsync(preparedStream, cancellationToken).ConfigureAwait(false);
-            if (cache.TryGet(contentHash, source, out FitActivityDecodeResult cachedResult))
+            if (_cache.TryGet(contentHash, source, out FitActivityDecodeResult cachedResult))
             {
                 return cachedResult;
             }
 
             preparedStream.Position = 0;
-            FitActivityDecodeResult decodedResult = await innerDecoder.DecodeAsync(preparedStream, source.DisplayName, cancellationToken).ConfigureAwait(false);
+            FitActivityDecodeResult decodedResult = await _innerDecoder.DecodeAsync(preparedStream, source.DisplayName, cancellationToken).ConfigureAwait(false);
             FitActivityDecodeResult normalizedResult = NormalizeResultSource(decodedResult, source, isFromCache: false);
 
-            cache.Set(contentHash, normalizedResult);
+            _cache.Set(contentHash, normalizedResult);
             return normalizedResult;
         }
         finally

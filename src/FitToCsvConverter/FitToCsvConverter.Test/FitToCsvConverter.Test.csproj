@@ -20,6 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\BionicCode.Utilities.Net\BionicCode.Utilities.Net.Common.csproj" />
     <ProjectReference Include="..\FitToCsvConverter.Data\FitToCsvConverter.Data.csproj" />
   </ItemGroup>
 

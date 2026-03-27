@@ -1,13 +1,22 @@
 ﻿namespace FitToCsvConverter.ViewModel;
 
 using System.Collections.Specialized;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using BionicCode.Utilities.Net;
+using FitToCsvConverter.Data.Activities;
+using FitToCsvConverter.Data.Caching;
+using FitToCsvConverter.Data.Decoding;
+using FitToCsvConverter.Data.Fields;
 
 public class ExportData : ViewModel
 {
     private readonly PropertyValidationDelegate<string> _filePathsValidator;
     private readonly HashSet<string> _newFilenames = [];
+    private readonly ObservableHashSet<DataField> _activityFields;
+    private readonly ObservableHashSet<DataField> _sessionFields;
+    private readonly ObservableHashSet<DataField> _recordFields;
+    private readonly ObservableHashSet<ObservableFileDescriptor> _selectedExtraFilePaths;
     private string _batchName;
     private bool _hasCorrectedDuplicateNewNames;
     private bool _isAutoRenamingEnabled;
@@ -16,20 +25,22 @@ public class ExportData : ViewModel
     private string? _fitFileNameWithoutExtension;
     private bool _isIncludeFitFileEnabled;
     private string _fitFilePath;
+    private readonly ICachingFitActivityDecoder _fitActivityDecoder;
 
     public ObservableFileDescriptor FitFileDescriptor { get; private set; }
 
     private readonly SetValueOptions _setValueOptions;
 
-    public ExportData(PropertyValidationDelegate<string> filePathsValidator)
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE0028:Simplify collection initialization", Justification = "Feature not available.")]
+    public ExportData(PropertyValidationDelegate<string> filePathsValidator,
+        ICachingFitActivityDecoder fitActivityDecoder)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(filePathsValidator);
+        ArgumentNullExceptionAdvanced.ThrowIfNull(fitActivityDecoder);
 
         _filePathsValidator = filePathsValidator;
-        SelectedExtraFilePaths = [];
-        SelectedExtraFilePaths.CollectionChanged += OnSelectedExtraFilePathsCollectionChanged;
+        _fitActivityDecoder = fitActivityDecoder;
         _newFilenames = [];
-        SelectedExtraFilePaths.CollectionChanged += ValidateOnItemAdded;
         _fitFilePath = string.Empty;
         _batchName = string.Empty;
         ExportedFilePath = string.Empty;
@@ -41,6 +52,25 @@ public class ExportData : ViewModel
             IsRejectEqualValuesEnabled = true,
             IsThrowExceptionOnValidationErrorEnabled = true,
         };
+
+        _selectedExtraFilePaths = [];
+        SelectedExtraFilePaths = new(_selectedExtraFilePaths);
+        SelectedExtraFilePaths.CollectionChanged += OnSelectedExtraFilePathsCollectionChanged;
+        SelectedExtraFilePaths.CollectionChanged += ValidateOnItemAdded;
+
+        var dataFieldComparer = EqualityComparer<DataField>.Create(IsDataFieldEqual, GetHashCodeForDataField);
+        _activityFields = new ObservableHashSet<DataField>(dataFieldComparer);
+        ActivityFields = new(_activityFields);
+        _sessionFields = new ObservableHashSet<DataField>(dataFieldComparer);
+        SessionFields = new(_sessionFields);
+        _recordFields = new ObservableHashSet<DataField>(dataFieldComparer);
+        RecordFields = new(_recordFields);
+    }
+
+    public async Task SetFitFileAsync(string fitFilePath, CancellationToken cancellationToken)
+    {
+        FitFilePath = fitFilePath;
+        await CreateDataViewsAsync(FitFilePath, cancellationToken);
     }
 
     public void AddExtraFilePaths(IEnumerable<string> filePaths, bool isRenamingRequired = false)
@@ -54,9 +84,79 @@ public class ExportData : ViewModel
             }
 
             var fileDescriptor = new ObservableFileDescriptor(filePath, isRenamingRequired);
-            _ = SelectedExtraFilePaths.Add(fileDescriptor);
+            _ = _selectedExtraFilePaths.Add(fileDescriptor);
         }
     }
+
+    public void RemoveExtraFilePath(ObservableFileDescriptor fileDescriptor)
+    {
+        ArgumentNullExceptionAdvanced.ThrowIfNull(fileDescriptor);
+
+        _ = _selectedExtraFilePaths.Remove(fileDescriptor);
+    }
+
+    private async Task CreateDataViewsAsync(string fitFilePath, CancellationToken cancellationToken)
+    {
+        FitActivityDecodeResult result = await _fitActivityDecoder.DecodeFileAsync(fitFilePath, cancellationToken);
+        Activity = result.GetActivityOrThrowIfDecodingFailed();
+
+        foreach (FitField field in Activity.Fields)
+        {
+            var dataField = new DataField(field);
+            if (IsFieldValid(dataField))
+            {
+                _ = _activityFields.Add(dataField);
+            }
+        }
+
+        foreach (FitSession session in Activity.Sessions)
+        {
+            foreach (FitField field in session.Fields)
+            {
+                var dataField = new DataField(field);
+                if (IsFieldValid(dataField))
+                {
+                    _ = _sessionFields.Add(dataField);
+                }
+            }
+
+            foreach (FitRecord record in session.Records)
+            {
+                foreach (FitField field in record.Fields)
+                {
+                    var dataField = new DataField(field);
+                    if (IsFieldValid(dataField))
+                    {
+                        _ = _recordFields.Add(dataField);
+                    }
+                }
+            }
+        }
+    }
+
+    private static bool IsFieldValid([NotNullWhen(true)] DataField? field) => field is not null
+        && !string.IsNullOrWhiteSpace(field.Name)
+        && !field.Name.Contains("unknown", StringComparison.OrdinalIgnoreCase);
+
+    private bool IsDataFieldEqual(DataField? field1, DataField? field2)
+    {
+        if (ReferenceEquals(field1, field2))
+        {
+            return true;
+        }
+
+        if (field1 is null || field2 is null)
+        {
+            return false;
+        }
+
+        return field1.Name.Equals(field2.Name, StringComparison.OrdinalIgnoreCase)
+            && field1.Id == field2.Id;
+    }
+
+    private int GetHashCodeForDataField(DataField? field) => field is null
+        ? 0
+        : HashCode.Combine(field.Name, field.Id);
 
     private void RenameFile(ObservableFileDescriptor fileDescriptor)
     {
@@ -186,7 +286,7 @@ public class ExportData : ViewModel
     public string FitFilePath
     {
         get => _fitFilePath;
-        init
+        private set
         {
             if (string.IsNullOrWhiteSpace(value))
             {
@@ -196,13 +296,13 @@ public class ExportData : ViewModel
             _fitFilePath = value;
             if (FitFileDescriptor is not null)
             {
-                _ = SelectedExtraFilePaths.Remove(FitFileDescriptor);
+                _ = _selectedExtraFilePaths.Remove(FitFileDescriptor);
             }
 
             FitFileDescriptor = new ObservableFileDescriptor(FitFilePath, isRenamingRequired: false);
             if (IsIncludeFitFileEnabled)
             {
-                _ = SelectedExtraFilePaths.Add(FitFileDescriptor);
+                _ = _selectedExtraFilePaths.Add(FitFileDescriptor);
             }
         }
     }
@@ -238,17 +338,22 @@ public class ExportData : ViewModel
             {
                 if (IsIncludeFitFileEnabled)
                 {
-                    _ = SelectedExtraFilePaths.Add(FitFileDescriptor);
+                    _ = _selectedExtraFilePaths.Add(FitFileDescriptor);
                 }
                 else
                 {
-                    _ = SelectedExtraFilePaths.Remove(FitFileDescriptor);
+                    _ = _selectedExtraFilePaths.Remove(FitFileDescriptor);
                 }
             }
         }
     }
 
+    internal FitActivity Activity { get; private set; }
     internal string ExportedFilePath { get; set; }
-    public ObservableHashSet<ObservableFileDescriptor> SelectedExtraFilePaths { get; }
+    public ReadOnlyObservableHashSet<DataField> ActivityFields { get; }
+    public ReadOnlyObservableHashSet<DataField> SessionFields { get; }
+    public ReadOnlyObservableHashSet<DataField> RecordFields { get; }
+
+    public ReadOnlyObservableHashSet<ObservableFileDescriptor> SelectedExtraFilePaths { get; }
     public string AutoRenameBatchName => _autoRenameBatchName ??= GetAutoRenameBatchName();
 }

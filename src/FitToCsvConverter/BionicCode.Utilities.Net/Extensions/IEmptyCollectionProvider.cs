@@ -17,4 +17,3 @@ public interface IEmptyCollectionProvider<out TCollection>
     /// <value>An empty collection of type <typeparamref name="TCollection"/>.</value>
     static abstract TCollection Empty { get; }
 }
-

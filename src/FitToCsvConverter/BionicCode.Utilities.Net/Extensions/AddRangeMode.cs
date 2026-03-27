@@ -17,4 +17,3 @@ public enum AddRangeMode
     /// </summary>
     SkipDuplicateKey,
 }
-

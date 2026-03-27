@@ -4,6 +4,9 @@ using System.Windows;
 using System.Windows.Threading;
 using FitToCsvConverter.Controls;
 using FitToCsvConverter.Data;
+using FitToCsvConverter.Data.Caching;
+using FitToCsvConverter.Data.Decoding;
+using FitToCsvConverter.Data.Decoding.Garmin;
 using FitToCsvConverter.ViewModel;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -26,6 +29,10 @@ public partial class App : Application
         _ = services.AddSingleton<ITemporaryFileManager, TemporaryFileManager>()
             .AddSingleton<IZipArchiveManager, ZipArchiveManager>()
             .AddSingleton<IGarminFitCsvToolConverter, GarminFitCsvToolConverter>()
+            .AddSingleton<IFitActivityDecoder, GarminFitActivityDecoder>()
+            .AddSingleton<IFitActivityCache, InMemoryFitActivityCache>()
+            .AddSingleton<ICachingFitActivityDecoder, CachingFitActivityDecoder>()
+            .AddFactory<ICachingFitActivityDecoder, CachingFitActivityDecoder>(ServiceLifetime.Singleton)
             .AddSingleton<MainViewModel>()
             .AddSingleton<MainWindow>();
 
@@ -35,7 +42,7 @@ public partial class App : Application
         mainWindow.Show();
     }
 
-    private void RecoveryCleanup()
+    private static void RecoveryCleanup()
     {
         // TODO::Implement recovery cleanup on next application startup to handle cases where the application may have been terminated unexpectedly,
         // leaving temporary files behind. This could involve checking for and deleting any temporary files

@@ -126,9 +126,9 @@ internal static class SetEqualityComparerHelpers
     }
 
     public static (bool isEqualByReference, bool isGenerallyEqual) IsSetOutlineEqual<TItem1, TItem2, TSet1Comparer, TSet2Comparer>(
-        ISet<TItem1>? set1, 
-        ISet<TItem2>? set2, 
-        Func<IEqualityComparer<TSet1Comparer>> set1ComparerProvider, 
+        ISet<TItem1>? set1,
+        ISet<TItem2>? set2,
+        Func<IEqualityComparer<TSet1Comparer>> set1ComparerProvider,
         Func<IEqualityComparer<TSet2Comparer>> set2ComparerProvider)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(set1ComparerProvider);

@@ -6,15 +6,12 @@ using System.IO.Compression;
 using System.Text;
 using BionicCode.Utilities.Net;
 using FitToCsvConverter.Data;
-using FitToCsvConverter.Data.Decoding;
-using FitToCsvConverter.Data.Decoding.Garmin;
+using FitToCsvConverter.Data.Caching;
 
 public class MainViewModel : ViewModel
 {
-    public const string DefaultDestinationFolder = @"C:\Temp\FitToCsvConverterOutput";
     private const string FitFileExtension = ".fit";
     private string _destinationFolder;
-    private ObservableFileSystemPathHashSet _selectedFitFilePaths;
     private ExportData? _selectedExportData;
     private string? _selectedFitFilePath;
     private readonly PropertyValidationDelegate<ObservableFileSystemPathHashSet> _fitFilePathsValidator;
@@ -24,22 +21,26 @@ public class MainViewModel : ViewModel
     private readonly IArchiveManager _zipArchiveManager;
     private readonly IFitToCsvConverter _garminFitCsvToolConverter;
     private readonly ITemporaryFileManager _temporaryFileManager;
+    private readonly Func<ICachingFitActivityDecoder> _cachingFitActivityDecoderFactory;
     private readonly string _allowedFileExtensions;
 
-    public MainViewModel(IZipArchiveManager zipArchiveManager, IGarminFitCsvToolConverter garminFitCsvToolConverter, ITemporaryFileManager temporaryFileManager)
+    public MainViewModel(IZipArchiveManager zipArchiveManager,
+        IGarminFitCsvToolConverter garminFitCsvToolConverter,
+        ITemporaryFileManager temporaryFileManager,
+        Func<ICachingFitActivityDecoder> cachingFitActivityDecoderFactory)
     {
         _fitFilePathsValidator = IsFitFilePathsValid();
         _filePathsValidator = IsFilePathsValid();
         _folderPathValidator = IsFolderPathValid();
         _setValueOptions = SetValueOptions.Default with { IsRejectInvalidValueEnabled = true, IsThrowExceptionOnValidationErrorEnabled = true, IsRejectEqualValuesEnabled = true };
-        _destinationFolder = DefaultDestinationFolder;
         ExportData = [];
-        _selectedFitFilePaths = [];
+        SelectedFitFilePaths = [];
         _selectedFitFilePath = string.Empty;
         _zipArchiveManager = zipArchiveManager;
         _garminFitCsvToolConverter = garminFitCsvToolConverter;
         _temporaryFileManager = temporaryFileManager;
-        DeleteExtraFileCommand = new RelayCommand<ObservableFileDescriptor>(fileDescriptor => SelectedExportData?.SelectedExtraFilePaths.Remove(fileDescriptor), (fileDescriptor) => SelectedExportData is not null && SelectedExportData.SelectedExtraFilePaths.Contains(fileDescriptor));
+        _cachingFitActivityDecoderFactory = cachingFitActivityDecoderFactory;
+        DeleteExtraFileCommand = new RelayCommand<ObservableFileDescriptor>(fileDescriptor => SelectedExportData?.RemoveExtraFilePath(fileDescriptor), (fileDescriptor) => SelectedExportData is not null && SelectedExportData.SelectedExtraFilePaths.Contains(fileDescriptor));
         ExportCommand = new AsyncRelayCommand(ExecuteExportCommandAsync, CanExecuteExportCommand);
         StartNewSessionCommand = new RelayCommand(ExecuteStartNewSessionCommand);
         _allowedFileExtensions = _zipArchiveManager.SupportedArchiveFileExtensions.Concat([FitFileExtension]).JoinToString();
@@ -101,18 +102,16 @@ public class MainViewModel : ViewModel
             if (_zipArchiveManager.IsFileTypeSupportedArchive(fitFilePath))
             {
                 IProgress<ProgressData> progressReporter = StartNewObservableProgressReporting(string.Empty, $"Extracting '{Path.GetFileName(fitFilePath)}'...");
-                await foreach (string extractedFIlePath in _zipArchiveManager.ExtractArchiveAsync(fitFilePath, progressReporter, cancellationToken).ConfigureAwait(true))
+                await foreach (string extractedFilePath in _zipArchiveManager.ExtractArchiveAsync(fitFilePath, progressReporter, cancellationToken).ConfigureAwait(true))
                 {
-                    AddFitFilePath(extractedFIlePath);
+                    _ = await AddFitFilePathAsync(extractedFilePath, cancellationToken);
                 }
 
                 RemoveAllObservableProgressData();
             }
             else
             {
-                await using FileStream stream = File.Open(fitFilePath, FileMode.Open);
-                FitActivityDecodeResult result = await new GarminFitActivityDecoder().DecodeAsync(stream, cancellationToken: cancellationToken);
-                AddFitFilePath(fitFilePath);
+                _ = await AddFitFilePathAsync(fitFilePath, cancellationToken);
             }
         }
     }
@@ -131,35 +130,38 @@ public class MainViewModel : ViewModel
         SelectedExportData.AddExtraFilePaths(filePaths);
     }
 
-    private void AddFitFilePath(string fitFilePath)
+    private async Task<bool> AddFitFilePathAsync(string fitFilePath, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(fitFilePath))
         {
-            return;
+            return false;
         }
 
         PropertyValidationResult filePathValidationResult = IsFitFilePathValid(fitFilePath);
-        if (filePathValidationResult.IsValid
-            && SelectedFitFilePaths.Add(fitFilePath))
+        if (!filePathValidationResult.IsValid
+            || !SelectedFitFilePaths.Add(fitFilePath))
         {
-            var exportData = new ExportData(_filePathsValidator)
-            {
-                FitFilePath = fitFilePath
-            };
-
-            string csvFileName = $"{exportData.FitFileNameWithoutExtension}.csv";
-            string temporaryDestinationFilePath = Path.Combine(Path.GetTempPath(), csvFileName);
-            if (File.Exists(temporaryDestinationFilePath))
-            {
-                string temporaryUniqueFileName = _temporaryFileManager.MakeFileNameUnique(csvFileName);
-                temporaryDestinationFilePath = Path.Combine(Path.GetTempPath(), temporaryUniqueFileName);
-            }
-
-            exportData.ExportedFilePath = temporaryDestinationFilePath;
-            exportData.AddExtraFilePaths([temporaryDestinationFilePath], isRenamingRequired: false);
-
-            ExportData.Add(exportData);
+            return false;
         }
+
+        var exportData = new ExportData(_filePathsValidator, _cachingFitActivityDecoderFactory.Invoke());
+        await exportData.SetFitFileAsync(fitFilePath, cancellationToken).ConfigureAwait(true);
+
+        string csvFileName = $"{exportData.FitFileNameWithoutExtension}.csv";
+        string temporaryDestinationFilePath = Path.Combine(Path.GetTempPath(), csvFileName);
+        if (File.Exists(temporaryDestinationFilePath))
+        {
+            string temporaryUniqueFileName = _temporaryFileManager.MakeFileNameUnique(csvFileName);
+            temporaryDestinationFilePath = Path.Combine(Path.GetTempPath(), temporaryUniqueFileName);
+        }
+
+        exportData.ExportedFilePath = temporaryDestinationFilePath;
+        exportData.AddExtraFilePaths([temporaryDestinationFilePath], isRenamingRequired: false);
+
+        ExportData.Add(exportData);
+        SelectedExportData ??= exportData;
+
+        return true;
     }
 
     private bool CanExecuteExportCommand() => ExportData.Any()
@@ -231,26 +233,7 @@ public class MainViewModel : ViewModel
         set => _ = TrySetValue(value, value => SelectedFitFilePaths.IsEmpty() || SelectedFitFilePaths.Contains(value) ? new PropertyValidationResult(true, []) : new PropertyValidationResult(false, ["Selected file is not in the list of fit files."]), ref _selectedFitFilePath, _setValueOptions);
     }
 
-    public ObservableFileSystemPathHashSet SelectedFitFilePaths
-    {
-        get => _selectedFitFilePaths;
-        private set
-        {
-            if (TrySetValue(value, _fitFilePathsValidator, ref _selectedFitFilePaths, _setValueOptions))
-            {
-                ExportData.Clear();
-                foreach (string fitFilePath in SelectedFitFilePaths)
-                {
-                    var exportData = new ExportData(_filePathsValidator)
-                    {
-                        FitFilePath = fitFilePath
-                    };
-
-                    ExportData.Add(exportData);
-                }
-            }
-        }
-    }
+    public ObservableFileSystemPathHashSet SelectedFitFilePaths { get; }
 
     public IRelayCommand<ObservableFileDescriptor> DeleteExtraFileCommand { get; }
     public IAsyncRelayCommand ExportCommand { get; }

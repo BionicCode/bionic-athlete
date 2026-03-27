@@ -5,9 +5,13 @@ using BionicCode.Utilities.Net;
 
 public sealed class TemporaryFileManager : ITemporaryFileManager
 {
+    public const string DefaultDestinationFolderName = "FitToCsvConverter";
     private static readonly ObservableFileSystemPathHashSet s_temporaryFilePaths = [];
+    private readonly string _temporaryDirectoryPath;
 
-    public string TemporaryDirectoryPath => Path.GetTempPath();
+    public string TemporaryDirectoryPath => _temporaryDirectoryPath;
+
+    public TemporaryFileManager() => _temporaryDirectoryPath = Path.Combine(Path.GetTempPath(), DefaultDestinationFolderName);
 
     public void RegisterTemporaryFilePath(string filePath)
     {

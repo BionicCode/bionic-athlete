@@ -272,6 +272,12 @@ public class ObservableHashSet<TItem> :
     /// elements.</returns>
     public TItem[] ToArray() => Items.ToArray();
     /// <summary>
+    /// Returns a read-only wrapper around the current set.
+    /// </summary>
+    /// <remarks>The returned <see cref="ReadOnlyObservableHashSet{TItem}"/> reflects all subsequent changes made to the current set and forwards the corresponding collection and property change notifications.</remarks>
+    /// <returns>A read-only wrapper over the current <see cref="ObservableHashSet{TItem}"/>.</returns>
+    public ReadOnlyObservableHashSet<TItem> AsReadOnly() => new(this);
+    /// <summary>
     /// Reduces the capacity of the <see cref="ObservableHashSet{TItem}"/> to match the actual number of elements, minimizing memory overhead.
     /// </summary>
     /// <remarks>Use this method to optimize memory usage after removing a significant number of elements from

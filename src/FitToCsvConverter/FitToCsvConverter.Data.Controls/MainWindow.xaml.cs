@@ -23,7 +23,6 @@ public partial class MainWindow : Window
         _openFolderDialog = new OpenFolderDialog
         {
             Title = "Select Destination Folder",
-            InitialDirectory = MainViewModel.DefaultDestinationFolder,
             Multiselect = false,
             AddToRecent = true
         };

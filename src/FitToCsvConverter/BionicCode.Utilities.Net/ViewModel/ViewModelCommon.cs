@@ -1220,6 +1220,7 @@ public abstract partial class ViewModelCommon : IViewModelCommon
     #endregion
 
     /// <inheritdoc />
+    [Obsolete]
     public event PropertyValueChangedEventHandler<object> PropertyValueChanged;
 
     private Dictionary<string, IList<object>> Errors { get; }

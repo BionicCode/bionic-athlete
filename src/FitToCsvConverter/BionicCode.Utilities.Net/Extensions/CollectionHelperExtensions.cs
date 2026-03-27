@@ -1257,4 +1257,3 @@ public static partial class HelperExtensionsCommon
         return set1.Contains(fullPath, equalityComparer);
     }
 }
-

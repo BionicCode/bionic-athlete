@@ -16,7 +16,7 @@ After:
 using BionicCode.Utilities.Net;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
-internal static class DependencyInjection
+public static class DependencyInjection
 {
     private static IList<Type> InitializableImplementations { get; } = [];
 

@@ -1,4 +1,4 @@
-﻿namespace FitToCsvConverter.Main;
+﻿namespace FitToCsvConverter.Controls;
 
 using System;
 using System.Globalization;
@@ -23,12 +23,12 @@ internal class SwitchIsCheckedToStringConverter : IValueConverter
     {
         if (value is not bool)
         {
-            throw new ArgumentException("Wrong conversion type. Only conversion from bool to srting supported.", nameof(value));
+            throw new ArgumentException("Wrong conversion type. Only conversion from bool to string supported.", nameof(value));
         }
 
         return (bool)value
-          ? Resources.SwitchStateToggled
-          : Resources.SwitchStateUntoggled;
+          ? Resources.Resources.SwitchStateToggled
+          : Resources.Resources.SwitchStateUntoggled;
     }
 
     /// <summary>

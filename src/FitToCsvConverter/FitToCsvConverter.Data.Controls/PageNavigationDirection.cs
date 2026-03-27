@@ -1,4 +1,4 @@
-﻿namespace FitToCsvConverter.Main;
+﻿namespace FitToCsvConverter.Controls;
 
 public enum PageNavigationDirection
 {

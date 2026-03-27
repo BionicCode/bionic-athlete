@@ -35,9 +35,9 @@ internal static class ExceptionMessages
 
     public static string GetHandlerDelegateSignatureMismatchExceptionMessage(EventInfo eventInfo, MethodInfo eventHandlerMethodInfo, string because)
     {
-            ArgumentNullExceptionAdvanced.ThrowIfNull(eventInfo);
-            ArgumentNullExceptionAdvanced.ThrowIfNull(eventHandlerMethodInfo);
-            ArgumentNullExceptionAdvanced.ThrowIfNull(because);
+        ArgumentNullExceptionAdvanced.ThrowIfNull(eventInfo);
+        ArgumentNullExceptionAdvanced.ThrowIfNull(eventHandlerMethodInfo);
+        ArgumentNullExceptionAdvanced.ThrowIfNull(because);
         return $"Event handler delegate signature mismatch. Expected signature as required by event source: '{eventInfo.EventHandlerType.FullName}'. Found signature on provided event handler: '{eventHandlerMethodInfo.Name}'. Because: {because}";
     }
 
