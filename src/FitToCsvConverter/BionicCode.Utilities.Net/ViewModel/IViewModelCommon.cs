@@ -32,7 +32,6 @@ public interface IViewModelCommon : INotifyPropertyChanged, INotifyDataErrorInfo
     /// <summary>
     /// PropertyChanged implementation that sends old value and new value of the change and raises the INotifyPropertyChanged event.
     /// </summary>
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1003:Use generic event handler instances", Justification = "<Pending>")]
-    [Obsolete]
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1003:Use generic event handler instances", Justification = "Adds clarity.")]
     event PropertyValueChangedEventHandler<object> PropertyValueChanged;
 }

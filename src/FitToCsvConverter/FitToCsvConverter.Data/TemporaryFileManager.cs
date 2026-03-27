@@ -1,17 +1,29 @@
 ﻿namespace FitToCsvConverter.Data;
 
+using System.Diagnostics;
 using System.IO;
 using BionicCode.Utilities.Net;
+using FitToCsvConverter.Shared.Logging;
 
-public sealed class TemporaryFileManager : ITemporaryFileManager
+public sealed partial class TemporaryFileManager : ITemporaryFileManager
 {
     public const string DefaultDestinationFolderName = "FitToCsvConverter";
     private static readonly ObservableFileSystemPathHashSet s_temporaryFilePaths = [];
     private readonly string _temporaryDirectoryPath;
+    private readonly IApplicationLogger<TemporaryFileManager> _logger;
 
     public string TemporaryDirectoryPath => _temporaryDirectoryPath;
 
-    public TemporaryFileManager() => _temporaryDirectoryPath = Path.Combine(Path.GetTempPath(), DefaultDestinationFolderName);
+    public TemporaryFileManager(IApplicationLogger<TemporaryFileManager> logger)
+    {
+        _temporaryDirectoryPath = Path.Combine(Path.GetTempPath(), DefaultDestinationFolderName);
+        if (!Directory.Exists(_temporaryDirectoryPath))
+        {
+            _ = Directory.CreateDirectory(_temporaryDirectoryPath);
+        }
+
+        _logger = logger;
+    }
 
     public void RegisterTemporaryFilePath(string filePath)
     {
@@ -34,12 +46,25 @@ public sealed class TemporaryFileManager : ITemporaryFileManager
             }
             catch (Exception ex)
             {
-                // Log the exception or handle it as needed
-                Console.WriteLine($"Failed to delete temporary file '{filePath}': {ex.Message}");
+                _logger.LogErrorMessage($"Failed to delete temporary file '{filePath}': {ex.Message}");
+                Debug.WriteLine($"Failed to delete temporary file '{filePath}': {ex.Message}");
             }
         }
 
         s_temporaryFilePaths.Clear();
+
+        if (Directory.Exists(_temporaryDirectoryPath))
+        {
+            try
+            {
+                Directory.Delete(_temporaryDirectoryPath, recursive: true);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogErrorMessage($"Failed to delete temporary file '{_temporaryDirectoryPath}': {ex.Message}");
+                Debug.WriteLine($"Failed to delete temporary directory '{_temporaryDirectoryPath}': {ex.Message}");
+            }
+        }
     }
 
     // Uses Path.GetFileName() to ensure that only the file name is combined with the temporary directory path, preventing any directory traversal issues.

@@ -3,7 +3,7 @@ namespace FitToCsvConverter.Data.Caching;
 using System.Security.Cryptography;
 using FitToCsvConverter.Data.Decoding;
 
-public sealed class CachingFitActivityDecoder : IFitActivityDecoder, ICachingFitActivityDecoder
+public sealed class CachingFitActivityDecoder : IFitActivityDecoder
 {
     private readonly IFitActivityDecoder _innerDecoder;
     private readonly IFitActivityCache _cache;

@@ -12,8 +12,8 @@ public class DataField : ViewModel
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(fitField);
 
-        Name = fitField.Original.OriginalName;
-        Id = fitField.Original.Key;
+        FitField = fitField;
+
         _isSelected = true;
         _setValueOptions = SetValueOptions.Default with
         {
@@ -23,8 +23,9 @@ public class DataField : ViewModel
         };
     }
 
-    public string Name { get; }
-    public FitFieldKey Id { get; }
+    internal FitField FitField { get; }
+    public string Name => FitField.State.DisplayName;
+    public FitFieldKey Id => FitField.Original.Key;
 
     public bool IsSelected
     {

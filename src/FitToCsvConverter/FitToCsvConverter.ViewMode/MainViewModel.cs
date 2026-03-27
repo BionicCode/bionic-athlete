@@ -7,6 +7,7 @@ using System.Text;
 using BionicCode.Utilities.Net;
 using FitToCsvConverter.Data;
 using FitToCsvConverter.Data.Caching;
+using FitToCsvConverter.Data.Decoding;
 
 public class MainViewModel : ViewModel
 {
@@ -21,13 +22,13 @@ public class MainViewModel : ViewModel
     private readonly IArchiveManager _zipArchiveManager;
     private readonly IFitToCsvConverter _garminFitCsvToolConverter;
     private readonly ITemporaryFileManager _temporaryFileManager;
-    private readonly Func<ICachingFitActivityDecoder> _cachingFitActivityDecoderFactory;
+    private readonly Func<IFitActivityDecoder> _cachingFitActivityDecoderFactory;
     private readonly string _allowedFileExtensions;
 
     public MainViewModel(IZipArchiveManager zipArchiveManager,
         IGarminFitCsvToolConverter garminFitCsvToolConverter,
         ITemporaryFileManager temporaryFileManager,
-        Func<ICachingFitActivityDecoder> cachingFitActivityDecoderFactory)
+        Func<IFitActivityDecoder> cachingFitActivityDecoderFactory)
     {
         _fitFilePathsValidator = IsFitFilePathsValid();
         _filePathsValidator = IsFilePathsValid();

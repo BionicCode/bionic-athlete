@@ -16,6 +16,7 @@ public class ExportData : ViewModel
     private readonly ObservableHashSet<DataField> _activityFields;
     private readonly ObservableHashSet<DataField> _sessionFields;
     private readonly ObservableHashSet<DataField> _recordFields;
+    private readonly ObservableHashSet<DataField> _lapFields;
     private readonly ObservableHashSet<ObservableFileDescriptor> _selectedExtraFilePaths;
     private string _batchName;
     private bool _hasCorrectedDuplicateNewNames;
@@ -25,7 +26,7 @@ public class ExportData : ViewModel
     private string? _fitFileNameWithoutExtension;
     private bool _isIncludeFitFileEnabled;
     private string _fitFilePath;
-    private readonly ICachingFitActivityDecoder _fitActivityDecoder;
+    private readonly IFitActivityDecoder _fitActivityDecoder;
 
     public ObservableFileDescriptor FitFileDescriptor { get; private set; }
 
@@ -33,7 +34,7 @@ public class ExportData : ViewModel
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE0028:Simplify collection initialization", Justification = "Feature not available.")]
     public ExportData(PropertyValidationDelegate<string> filePathsValidator,
-        ICachingFitActivityDecoder fitActivityDecoder)
+        IFitActivityDecoder fitActivityDecoder)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(filePathsValidator);
         ArgumentNullExceptionAdvanced.ThrowIfNull(fitActivityDecoder);
@@ -65,6 +66,8 @@ public class ExportData : ViewModel
         SessionFields = new(_sessionFields);
         _recordFields = new ObservableHashSet<DataField>(dataFieldComparer);
         RecordFields = new(_recordFields);
+        _lapFields = new ObservableHashSet<DataField>(dataFieldComparer);
+        LapFields = new(_lapFields);
     }
 
     public async Task SetFitFileAsync(string fitFilePath, CancellationToken cancellationToken)
@@ -128,6 +131,18 @@ public class ExportData : ViewModel
                     if (IsFieldValid(dataField))
                     {
                         _ = _recordFields.Add(dataField);
+                    }
+                }
+            }
+
+            foreach (FitLap lap in session.Laps)
+            {
+                foreach (FitField field in lap.Fields)
+                {
+                    var dataField = new DataField(field);
+                    if (IsFieldValid(dataField))
+                    {
+                        _ = _lapFields.Add(dataField);
                     }
                 }
             }
@@ -353,6 +368,7 @@ public class ExportData : ViewModel
     public ReadOnlyObservableHashSet<DataField> ActivityFields { get; }
     public ReadOnlyObservableHashSet<DataField> SessionFields { get; }
     public ReadOnlyObservableHashSet<DataField> RecordFields { get; }
+    public ReadOnlyObservableHashSet<DataField> LapFields { get; }
 
     public ReadOnlyObservableHashSet<ObservableFileDescriptor> SelectedExtraFilePaths { get; }
     public string AutoRenameBatchName => _autoRenameBatchName ??= GetAutoRenameBatchName();

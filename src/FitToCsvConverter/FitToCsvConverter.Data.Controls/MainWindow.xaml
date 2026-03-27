@@ -348,6 +348,7 @@
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
                         <StackPanel Grid.Column="0">
@@ -372,6 +373,14 @@
                             <TextBlock Text="Available Record Fields:"
                                        Style="{StaticResource LabelTextBlockStyle}" />
                             <ListBox ItemsSource="{Binding SelectedExportData.RecordFields}"
+                                     SelectedItem="{Binding SelectedExportData}"
+                                     Style="{StaticResource FieldListStyle}" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="3">
+                            <TextBlock Text="Available Lap Fields:"
+                                       Style="{StaticResource LabelTextBlockStyle}" />
+                            <ListBox ItemsSource="{Binding SelectedExportData.LapFields}"
                                      SelectedItem="{Binding SelectedExportData}"
                                      Style="{StaticResource FieldListStyle}" />
                         </StackPanel>

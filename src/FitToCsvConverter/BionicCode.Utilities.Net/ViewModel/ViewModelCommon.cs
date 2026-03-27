@@ -394,15 +394,9 @@ public abstract partial class ViewModelCommon : IViewModelCommon
 
     private async Task<bool> TrySetValueInternalAsync<TValue>(TValue newValue, TValue oldValue, PropertyValidationDelegateAsync<TValue> asyncValidationDelegate, SetBackingFieldDelegate<TValue> backingFieldSetterDelegate, SetValueOptions methodConfiguration = default, IEqualityComparer<TValue>? equalityComparer = null, [CallerMemberName] string propertyName = "")
     {
-        if (asyncValidationDelegate is null)
-        {
-            throw new ArgumentNullException(nameof(asyncValidationDelegate));
-        }
+        ArgumentNullException.ThrowIfNull(asyncValidationDelegate);
 
-        if (backingFieldSetterDelegate == null)
-        {
-            throw new ArgumentNullException(nameof(backingFieldSetterDelegate));
-        }
+        ArgumentNullException.ThrowIfNull(backingFieldSetterDelegate);
 
         bool isValueValid = await IsValueValidAsync(newValue, asyncValidationDelegate, propertyName).ConfigureAwait(false);
 
@@ -851,15 +845,9 @@ public abstract partial class ViewModelCommon : IViewModelCommon
 
     private async Task<bool> TrySetValueSilentInternalAsync<TValue>(TValue newValue, TValue oldValue, PropertyValidationDelegateAsync<TValue> asyncValidationDelegate, SetBackingFieldDelegate<TValue> backingFieldSetterDelegate, SetValueOptions methodConfiguration, IEqualityComparer<TValue>? equalityComparer, [CallerMemberName] string propertyName = "")
     {
-        if (asyncValidationDelegate == null)
-        {
-            throw new ArgumentNullException(nameof(asyncValidationDelegate));
-        }
+        ArgumentNullException.ThrowIfNull(asyncValidationDelegate);
 
-        if (backingFieldSetterDelegate == null)
-        {
-            throw new ArgumentNullException(nameof(backingFieldSetterDelegate));
-        }
+        ArgumentNullException.ThrowIfNull(backingFieldSetterDelegate);
 
         IsSilent = true;
         bool isSuccessful = await TrySetValueInternalAsync(
@@ -885,10 +873,7 @@ public abstract partial class ViewModelCommon : IViewModelCommon
     /// <remarks><para>When the <paramref name="propertyName"/> value is <c>null</c>, the <paramref name="value"/> is validated without generating an error. Validation errors are always related to a particular property.</para></remarks>
     protected virtual bool IsValueValid<TValue>(TValue value, PropertyValidationDelegate<TValue> validationDelegate, [CallerMemberName] string? propertyName = null)
     {
-        if (validationDelegate is null)
-        {
-            throw new ArgumentNullException(nameof(validationDelegate));
-        }
+        ArgumentNullException.ThrowIfNull(validationDelegate);
 
         if (propertyName == null)
         {
@@ -919,10 +904,7 @@ public abstract partial class ViewModelCommon : IViewModelCommon
     /// <remarks><para>When the <paramref name="propertyName"/> value is <c>null</c>, the <paramref name="value"/> is validated without generating an error. Validation errors are always related to a particular property.</para></remarks>
     protected virtual async Task<bool> IsValueValidAsync<TValue>(TValue value, PropertyValidationDelegateAsync<TValue> asyncValidationDelegate, [CallerMemberName] string? propertyName = null)
     {
-        if (asyncValidationDelegate is null)
-        {
-            throw new ArgumentNullException(nameof(asyncValidationDelegate));
-        }
+        ArgumentNullException.ThrowIfNull(asyncValidationDelegate);
 
         if (propertyName == null)
         {
@@ -1091,7 +1073,7 @@ public abstract partial class ViewModelCommon : IViewModelCommon
         : new List<object>();
 
     /// <inheritdoc />
-    public bool HasErrors => Errors.Any();
+    public bool HasErrors => Errors.Count != 0;
 
     /// <inheritdoc />
     public event EventHandler<DataErrorsChangedEventArgs> ErrorsChanged;
@@ -1220,7 +1202,6 @@ public abstract partial class ViewModelCommon : IViewModelCommon
     #endregion
 
     /// <inheritdoc />
-    [Obsolete]
     public event PropertyValueChangedEventHandler<object> PropertyValueChanged;
 
     private Dictionary<string, IList<object>> Errors { get; }
