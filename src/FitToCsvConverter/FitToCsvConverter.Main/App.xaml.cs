@@ -21,6 +21,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Serilog;
 using Serilog.Core;
+using Serilog.Events;
+using Serilog.Formatting.Json;
 
 /// <summary>
 /// Interaction logic for App.xaml
@@ -47,45 +49,102 @@ public partial class App : Application
         bool hasRemovedLeftovers = RecoveryCleanup();
 
         HostApplicationBuilder hostBuilder = Host.CreateApplicationBuilder();
-
-        string appDataDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "FitToCsvConverter");
-
-        string logDir = Path.Combine(appDataDir, "Logs");
-        if (!Directory.Exists(logDir))
-        {
-            _ = Directory.CreateDirectory(logDir);
-        }
+        _ = hostBuilder.Services.Configure<SeqOptions>(
+    hostBuilder.Configuration.GetSection(SeqOptions.SectionName));
+        _ = hostBuilder.Services.Configure<EmailOptions>(
+            hostBuilder.Configuration.GetSection(EmailOptions.SectionName));
 
         string seqUrl = hostBuilder.Configuration["Seq:ServerUrl"] ?? "http://localhost:5341";
         string? seqApiKey = hostBuilder.Configuration["Seq:ApiKey"];
 
         // Add logging with Serilog
-        string debugOutputTemplate = @$"[{{{LoggerProperties.Timestamp}:yyyy/MM/dd HH:mm:ss.fff zzz}}] [{{{LoggerProperties.Level}}}] [{{{LoggerProperties.SourceContext}:s}}] [{{{LoggerProperties.CallerMemberName}}}] [{{{LoggerProperties.CallerLineNumber}}}] [{{{LoggerProperties.Message}}}] [{{{LoggerProperties.NewLine}}}] [{{{LoggerProperties.Exception}}}]";
-        Logger logger = new LoggerConfiguration()
+        string debugOutputTemplate = @$"[{{{LoggerProperties.Timestamp}:yyyy/MM/dd HH:mm:ss.fff zzz}}] [{{{LoggerProperties.Level}}}] [{{{LoggerProperties.SourceContext}:s}}] [{{{LoggerProperties.CallerMemberName}}}] [{{{LoggerProperties.CallerLineNumber}}}] {{{LoggerProperties.Message}:lj}} {{{LoggerProperties.NewLine}}} {{{LoggerProperties.Exception}}}";
+        LoggerConfiguration loggerConfiguration = new LoggerConfiguration()
             .Enrich.WithThreadName()
             .Enrich.WithThreadId()
             .Enrich.FromLogContext()
+            .Enrich.WithProperty("Application", "FitToCsvConverter")
+            .Enrich.WithProperty("ApplicationVersion", GetType().Assembly.GetName().Version?.ToString() ?? "Unknown")
 
             .WriteTo.Async(action => action.Seq(seqUrl,
             apiKey: seqApiKey,
             restrictedToMinimumLevel: Serilog.Events.LogEventLevel.Information,
-            formatProvider: CultureInfo.CurrentCulture))
+            formatProvider: CultureInfo.CurrentCulture));
 
-            .WriteTo.Async(action => action.File("application_log_default.log",
+        string appDataDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "FitToCsvConverter");
+        string logDir = Path.Combine(appDataDir, "Logs");
+        _ = Directory.CreateDirectory(logDir);
+
+        string errorLogFilePath = Path.Combine(logDir, "application_log_error.log");
+        loggerConfiguration = loggerConfiguration.WriteTo.Async(action => action.File(errorLogFilePath,
             formatProvider: CultureInfo.CurrentCulture,
-            restrictedToMinimumLevel: Serilog.Events.LogEventLevel.Warning,
+            restrictedToMinimumLevel: LogEventLevel.Warning,
             encoding: Encoding.UTF8,
             outputTemplate: debugOutputTemplate,
             rollOnFileSizeLimit: true,
             rollingInterval: RollingInterval.Day,
-            fileSizeLimitBytes: 10 * 1024 * 1024,
+            fileSizeLimitBytes: 10 * 1024 * 1024, // 10MB
             retainedFileCountLimit: 14,
             buffered: true,
-            flushToDiskInterval: TimeSpan.FromSeconds(1))) // 10MB
+            flushToDiskInterval: TimeSpan.FromSeconds(1)));
+
+        string errorLogJsonPath = Path.Combine(logDir, "application_log_error.json");
+        loggerConfiguration = loggerConfiguration.WriteTo.Async(action => action.File(
+            new JsonFormatter(renderMessage: true),
+            errorLogJsonPath,
+            restrictedToMinimumLevel: LogEventLevel.Warning,
+            encoding: Encoding.UTF8,
+            rollOnFileSizeLimit: true,
+            rollingInterval: RollingInterval.Day,
+            fileSizeLimitBytes: 10 * 1024 * 1024, // 10MB
+            retainedFileCountLimit: 14,
+            buffered: true,
+            flushToDiskInterval: TimeSpan.FromSeconds(1)));
+
+        string debugLogFilePath = Path.Combine(logDir, "application_log_debug.log");
+        loggerConfiguration = loggerConfiguration.WriteTo.Async(action => action.File(debugLogFilePath,
+            formatProvider: CultureInfo.CurrentCulture,
+            restrictedToMinimumLevel: LogEventLevel.Debug,
+            encoding: Encoding.UTF8,
+            outputTemplate: debugOutputTemplate,
+            rollOnFileSizeLimit: true,
+            rollingInterval: RollingInterval.Day,
+            fileSizeLimitBytes: 10 * 1024 * 1024, // 10MB
+            retainedFileCountLimit: 14,
+            buffered: true,
+            flushToDiskInterval: TimeSpan.FromSeconds(1)));
+
+        string debugLogJsonPath = Path.Combine(logDir, "application_log_debug.json");
+        loggerConfiguration = loggerConfiguration.WriteTo.Async(action => action.File(
+            new JsonFormatter(renderMessage: true),
+            debugLogJsonPath,
+            restrictedToMinimumLevel: LogEventLevel.Debug,
+            encoding: Encoding.UTF8,
+            rollOnFileSizeLimit: true,
+            rollingInterval: RollingInterval.Day,
+            fileSizeLimitBytes: 10 * 1024 * 1024, // 10MB
+            retainedFileCountLimit: 14,
+            buffered: true,
+            flushToDiskInterval: TimeSpan.FromSeconds(1)));
+
+        string verboseLogFilePath = Path.Combine(logDir, "application_log_verbose.log");
+        Logger logger = loggerConfiguration.WriteTo.Async(action => action.File(verboseLogFilePath,
+            formatProvider: CultureInfo.CurrentCulture,
+            restrictedToMinimumLevel: LogEventLevel.Verbose,
+            encoding: Encoding.UTF8,
+            outputTemplate: debugOutputTemplate,
+            rollOnFileSizeLimit: true,
+            rollingInterval: RollingInterval.Day,
+            fileSizeLimitBytes: 10 * 1024 * 1024, // 10MB
+            retainedFileCountLimit: 14,
+            buffered: true,
+            flushToDiskInterval: TimeSpan.FromSeconds(1)))
 
             .CreateLogger();
+
+        // TODO::Dispatch logs or batches of logs to web server via HTTPS for relaying via email or other channels to avoid issues with credential storage.
 
         _ = hostBuilder.Services.AddLogging(loggingBuilder =>
             {

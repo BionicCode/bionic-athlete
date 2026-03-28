@@ -27,6 +27,18 @@ public partial class ApplicationLogger<TService> : ILogger<TService>, IApplicati
         LogUnhandledException(_logger, exception);
     }
 
+    public void LogInformationObject(object obj, [CallerMemberName] string? callerMemberName = null, [CallerLineNumber] int callerLineNumber = -1)
+    {
+        using IDisposable? scope = BeginCallerScope(callerMemberName, callerLineNumber);
+        LogInformationObject(_logger, obj?.GetType().FullName ?? string.Empty, obj);
+    }
+
+    public void LogErrorObject(object obj, [CallerMemberName] string? callerMemberName = null, [CallerLineNumber] int callerLineNumber = -1)
+    {
+        using IDisposable? scope = BeginCallerScope(callerMemberName, callerLineNumber);
+        LogErrorObject(_logger, obj?.GetType().FullName ?? string.Empty, obj);
+    }
+
     private IDisposable? BeginCallerScope(
     [CallerMemberName] string? callerMemberName = null,
     [CallerLineNumber] int callerLineNumber = -1)
@@ -43,16 +55,28 @@ public partial class ApplicationLogger<TService> : ILogger<TService>, IApplicati
     private static partial void LogUnhandledException(ILogger<TService> logger, Exception exception);
 
     [LoggerMessage(
-        EventId = 0,
+        EventId = 1,
         Level = LogLevel.Error,
         Message = "{Message}")]
     private static partial void LogError(ILogger<TService> logger, string message);
 
     [LoggerMessage(
-        EventId = 0,
+        EventId = 2,
         Level = LogLevel.Information,
         Message = "{Message}")]
     private static partial void LogInformation(ILogger<TService> logger, string message);
+
+    [LoggerMessage(
+        EventId = 3,
+        Level = LogLevel.Information,
+        Message = "Object {TypeName} dump:\n{@Obj}")]
+    private static partial void LogInformationObject(ILogger<TService> logger, string typeName, object obj);
+
+    [LoggerMessage(
+        EventId = 4,
+        Level = LogLevel.Error,
+        Message = "Object {TypeName} dump:\n{@Obj}")]
+    private static partial void LogErrorObject(ILogger<TService> logger, string typeName, object obj);
 
     public IDisposable? BeginScope<TState>(TState state) where TState : notnull => _logger.BeginScope(state);
     public bool IsEnabled(LogLevel logLevel) => _logger.IsEnabled(logLevel);
