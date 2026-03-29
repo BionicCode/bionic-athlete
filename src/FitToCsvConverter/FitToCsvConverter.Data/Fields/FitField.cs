@@ -48,7 +48,7 @@ public sealed class FitField
     {
         ArgumentNullException.ThrowIfNull(editedDecodedValues);
 
-        ImmutableArray<object?> editedValues = editedDecodedValues.ToImmutableArray();
+        var editedValues = editedDecodedValues.ToImmutableArray();
         if (editedValues.Length != Original.OriginalValues.Length)
         {
             throw new InvalidOperationException(

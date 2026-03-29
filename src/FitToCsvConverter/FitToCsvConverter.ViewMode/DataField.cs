@@ -30,6 +30,12 @@ public class DataField : ViewModel
     public bool IsSelected
     {
         get => _isSelected;
-        set => TrySetValue(value, ref _isSelected, _setValueOptions);
+        set
+        {
+            if (TrySetValue(value, ref _isSelected, _setValueOptions))
+            {
+                FitField.SetExportInclusion(value);
+            }
+        }
     }
 }

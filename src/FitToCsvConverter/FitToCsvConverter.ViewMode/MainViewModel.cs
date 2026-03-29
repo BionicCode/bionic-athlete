@@ -6,7 +6,6 @@ using System.IO.Compression;
 using System.Text;
 using BionicCode.Utilities.Net;
 using FitToCsvConverter.Data;
-using FitToCsvConverter.Data.Caching;
 using FitToCsvConverter.Data.Decoding;
 
 public class MainViewModel : ViewModel
@@ -130,6 +129,10 @@ public class MainViewModel : ViewModel
         SelectedExportData = exportData;
         SelectedExportData.AddExtraFilePaths(filePaths);
     }
+    public void SetAllActivityFieldsSelected(bool isSelected) => SelectedExportData?.SetAllActivityFieldsSelected(isSelected);
+    public void SetAllRecordFieldsSelected(bool isSelected) => SelectedExportData?.SetAllRecordFieldsSelected(isSelected);
+    public void SetAllSessionFieldsSelected(bool isSelected) => SelectedExportData?.SetAllSessionFieldsSelected(isSelected);
+    public void SetAllLapFieldsSelected(bool isSelected) => SelectedExportData?.SetAllLapFieldsSelected(isSelected);
 
     private async Task<bool> AddFitFilePathAsync(string fitFilePath, CancellationToken cancellationToken)
     {

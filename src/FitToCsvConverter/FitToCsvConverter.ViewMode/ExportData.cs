@@ -298,6 +298,38 @@ public class ExportData : ViewModel
         }
     }
 
+    internal void SetAllActivityFieldsSelected(bool isSelected)
+    {
+        foreach (DataField field in _activityFields)
+        {
+            field.IsSelected = isSelected;
+        }
+    }
+
+    internal void SetAllRecordFieldsSelected(bool isSelected)
+    {
+        foreach (DataField field in _recordFields)
+        {
+            field.IsSelected = isSelected;
+        }
+    }
+
+    internal void SetAllSessionFieldsSelected(bool isSelected)
+    {
+        foreach (DataField field in _sessionFields)
+        {
+            field.IsSelected = isSelected;
+        }
+    }
+
+    internal void SetAllLapFieldsSelected(bool isSelected)
+    {
+        foreach (DataField field in _lapFields)
+        {
+            field.IsSelected = isSelected;
+        }
+    }
+
     public string FitFilePath
     {
         get => _fitFilePath;

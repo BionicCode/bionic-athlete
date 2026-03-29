@@ -2,6 +2,7 @@
 
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using BionicCode.Utilities.Net;
 using FitToCsvConverter.ViewModel;
 using Microsoft.Win32;
@@ -13,6 +14,15 @@ public partial class MainWindow : Window
 {
     private readonly MainViewModel _viewModel;
     private readonly OpenFolderDialog _openFolderDialog;
+
+    public static readonly RoutedCommand SelectAllActivityFieldsCommand = new(nameof(SelectAllActivityFieldsCommand), typeof(MainWindow));
+    public static readonly RoutedCommand UnselectAllActivityFieldsCommand = new(nameof(UnselectAllActivityFieldsCommand), typeof(MainWindow));
+    public static readonly RoutedCommand SelectAllRecordFieldsCommand = new(nameof(SelectAllRecordFieldsCommand), typeof(MainWindow));
+    public static readonly RoutedCommand UnselectAllRecordFieldsCommand = new(nameof(UnselectAllRecordFieldsCommand), typeof(MainWindow));
+    public static readonly RoutedCommand SelectAllSessionFieldsCommand = new(nameof(SelectAllSessionFieldsCommand), typeof(MainWindow));
+    public static readonly RoutedCommand UnselectAllSessionFieldsCommand = new(nameof(UnselectAllSessionFieldsCommand), typeof(MainWindow));
+    public static readonly RoutedCommand SelectAllLapFieldsCommand = new(nameof(SelectAllLapFieldsCommand), typeof(MainWindow));
+    public static readonly RoutedCommand UnselectAllLapFieldsCommand = new(nameof(UnselectAllLapFieldsCommand), typeof(MainWindow));
 
     public MainWindow(MainViewModel viewModel)
     {
@@ -26,6 +36,50 @@ public partial class MainWindow : Window
             Multiselect = false,
             AddToRecent = true
         };
+
+        var selectAllActivitiesBinding = new CommandBinding(
+            SelectAllActivityFieldsCommand,
+            executed: (s, e) => _viewModel.SetAllActivityFieldsSelected(true),
+            canExecute: (s, e) => e.CanExecute = _viewModel.SelectedExportData?.ActivityFields.Any(field => !field.IsSelected) ?? false);
+        var unselectAllActivitiesBinding = new CommandBinding(
+            UnselectAllActivityFieldsCommand,
+            executed: (s, e) => _viewModel.SetAllActivityFieldsSelected(false),
+            canExecute: (s, e) => e.CanExecute = _viewModel.SelectedExportData?.ActivityFields.Any(field => field.IsSelected) ?? false);
+        _ = CommandBindings.Add(selectAllActivitiesBinding);
+        _ = CommandBindings.Add(unselectAllActivitiesBinding);
+
+        var selectAllRecordsBinding = new CommandBinding(
+            SelectAllRecordFieldsCommand,
+            executed: (s, e) => _viewModel.SetAllRecordFieldsSelected(true),
+            canExecute: (s, e) => e.CanExecute = _viewModel.SelectedExportData?.RecordFields.Any(field => !field.IsSelected) ?? false);
+        var unselectAllRecordsBinding = new CommandBinding(
+            UnselectAllRecordFieldsCommand,
+            executed: (s, e) => _viewModel.SetAllRecordFieldsSelected(false),
+            canExecute: (s, e) => e.CanExecute = _viewModel.SelectedExportData?.RecordFields.Any(field => field.IsSelected) ?? false);
+        _ = CommandBindings.Add(selectAllRecordsBinding);
+        _ = CommandBindings.Add(unselectAllRecordsBinding);
+
+        var selectAllSessionsBinding = new CommandBinding(
+            SelectAllSessionFieldsCommand,
+            executed: (s, e) => _viewModel.SetAllSessionFieldsSelected(true),
+            canExecute: (s, e) => e.CanExecute = _viewModel.SelectedExportData?.SessionFields.Any(field => !field.IsSelected) ?? false);
+        var unselectAllSessionsBinding = new CommandBinding(
+            UnselectAllSessionFieldsCommand,
+            executed: (s, e) => _viewModel.SetAllSessionFieldsSelected(false),
+            canExecute: (s, e) => e.CanExecute = _viewModel.SelectedExportData?.SessionFields.Any(field => field.IsSelected) ?? false);
+        _ = CommandBindings.Add(selectAllSessionsBinding);
+        _ = CommandBindings.Add(unselectAllSessionsBinding);
+
+        var selectAllLapsBinding = new CommandBinding(
+            SelectAllLapFieldsCommand,
+            executed: (s, e) => _viewModel.SetAllLapFieldsSelected(true),
+            canExecute: (s, e) => e.CanExecute = _viewModel.SelectedExportData?.LapFields.Any(field => !field.IsSelected) ?? false);
+        var unselectAllLapsBinding = new CommandBinding(
+            UnselectAllLapFieldsCommand,
+            executed: (s, e) => _viewModel.SetAllLapFieldsSelected(false),
+            canExecute: (s, e) => e.CanExecute = _viewModel.SelectedExportData?.LapFields.Any(field => field.IsSelected) ?? false);
+        _ = CommandBindings.Add(selectAllLapsBinding);
+        _ = CommandBindings.Add(unselectAllLapsBinding);
     }
 
     private async void OnFitFilesDropped(object sender, DragEventArgs e)

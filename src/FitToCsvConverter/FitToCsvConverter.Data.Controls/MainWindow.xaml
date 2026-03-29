@@ -16,6 +16,7 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/ViewRessources.xaml" />
                 <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/FlipSwitchToggleButtonStyle.xaml" />
+                <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/VerticalSeparatorStyle.xaml" />
                 <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/ScrollBarStyle.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
@@ -27,16 +28,59 @@
                         Value="14" />
                 <Setter Property="FontWeight"
                         Value="Bold" />
+                <Setter Property="HorizontalAlignment"
+                        Value="Left" />
+                <Setter Property="VerticalAlignment"
+                        Value="Top" />
             </Style>
             
             <Style  x:Key="FieldListStyle"
                     TargetType="ListBox">
+                <Style.Resources>
+                    <Style x:Key="FieldListItemStyle"
+                           TargetType="ListBoxItem">
+                        <Setter Property="Background"
+                                Value="Transparent" />
+                        <Setter Property="BorderBrush"
+                                Value="Transparent" />
+                        <Setter Property="BorderThickness"
+                                Value="0" />
+                        <Setter Property="FocusVisualStyle"
+                                Value="{x:Null}" />
+                        <Setter Property="Padding"
+                                Value="0" />
+                        <Setter Property="HorizontalContentAlignment"
+                                Value="Stretch" />
+                        <Setter Property="HorizontalAlignment"
+                                Value="Stretch" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ListBoxItem">
+                                    <Border Background="{TemplateBinding Background}"
+                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="{TemplateBinding BorderThickness}"
+                                            Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                                    </Border>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </Style.Resources>
+
+                <Setter Property="ItemContainerStyle"
+                        Value="{StaticResource FieldListItemStyle}" />
                 <Setter Property="Height"
                         Value="200" />
                 <Setter Property="Width"
-                        Value="200" />
+                        Value="230" />
                 <Setter Property="BorderThickness"
                         Value="0" />
+                <Setter Property="HorizontalContentAlignment"
+                        Value="Stretch" />
+                <Setter Property="HorizontalAlignment"
+                        Value="Stretch" />
                 <Setter Property="ItemTemplate">
                     <Setter.Value>
                         <DataTemplate DataType="{x:Type viewModel:DataField}">
@@ -54,180 +98,49 @@
                 <Setter Property="Padding"
                         Value="50" />
             </Style>
+            
+            <TextBlock x:Key="DropTargetIcon" 
+                       x:Shared="False"
+                       Text="&#xe8e5;"
+                       ToolTip="Drag and drop FIT files here, either raw or as ZIP files."
+                       FontFamily="{StaticResource SegoeMDL2Assets}"
+                       Foreground="Gray"
+                       FontSize="68"
+                       Opacity="0.5"
+                       IsHitTestVisible="False"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center" />
 
-            <Style x:Key="DataGridTextCellStyle"
-                   TargetType="TextBlock">
-                <Setter Property="VerticalAlignment"
-                        Value="Center" />
-            </Style>
+            <ContextMenu x:Key="ActivityFieldContextMenu" DataContext="{Binding RelativeSource={RelativeSource Self}, Path=PlacementTarget.DataContext}">
+                <MenuItem Header="Select all"
+                          Command="{x:Static local:MainWindow.SelectAllActivityFieldsCommand}" />
+                <MenuItem Header="Deselect all"
+                          Command="{x:Static local:MainWindow.UnselectAllActivityFieldsCommand}" />
+            </ContextMenu>
 
-            <Style x:Key="DataGridCheckBoxCellStyle"
-                   TargetType="CheckBox">
-                <Setter Property="VerticalAlignment"
-                        Value="Center" />
-                <Setter Property="HorizontalAlignment"
-                        Value="Center" />
-            </Style>
+            <ContextMenu x:Key="RecordFieldContextMenu"
+                         DataContext="{Binding RelativeSource={RelativeSource Self}, Path=PlacementTarget.DataContext}">
+                <MenuItem Header="Select all"
+                          Command="{x:Static local:MainWindow.SelectAllRecordFieldsCommand}" />
+                <MenuItem Header="Deselect all"
+                          Command="{x:Static local:MainWindow.UnselectAllRecordFieldsCommand}" />
+            </ContextMenu>
 
-            <DataTemplate x:Key="ExtraZipFileContentTemplate">
-                <Grid>
-                    <TextBlock Text="&#xe8e5;"
-                               ToolTip="Drag and drop FIT files here, either raw or as ZIP files."
-                               FontFamily="{StaticResource SegoeMDL2Assets}"
-                               Foreground="Gray"
-                               FontSize="68"
-                               Opacity="0.5"
-                               IsHitTestVisible="False"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center" />
-                    <ListBox ItemsSource="{Binding SelectedExtraFilePaths}"
-                             SelectedItem="{Binding SelectedExtraFilePath}"
-                             AllowDrop="True"
-                             Drop="OnExtraZipFileContentDropped"
-                             Background="Transparent"
-                             ToolTip="Drag and drop FIT files here, either raw or as ZIP files.">
-                        <!--<ListBox.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <WrapPanel Orientation="Horizontal" />
-                        </ItemsPanelTemplate>
-                    </ListBox.ItemsPanel>-->
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0"
-                                               Text="{Binding Name}"
-                                               VerticalAlignment="Center"
-                                               HorizontalAlignment="Stretch" />
-                                    <CheckBox x:Name="ManualRenameCheckBox"
-                                              Grid.Column="1"
-                                              IsChecked="{Binding IsRenamingEnabled}"
-                                              Foreground="{StaticResource TextBrush}"
-                                              Content="Rename"
-                                              Margin="5,0,20,0"
-                                              VerticalAlignment="Center"
-                                              ToolTip="Manually rename file to use the batch name." />
-                                    <Button Grid.Column="2"
-                                            Content="&#xe74d;"
-                                            Command="{Binding DataContext.DeleteExtraFileCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                            CommandParameter="{Binding}"
-                                            FontFamily="{StaticResource SegoeMDL2Assets}"
-                                            ToolTip="Remove file"
-                                            Margin="5,0"
-                                            Padding="3"
-                                            FontSize="10" />
-                                </Grid>
+            <ContextMenu x:Key="SessionFieldContextMenu"
+                         DataContext="{Binding RelativeSource={RelativeSource Self}, Path=PlacementTarget.DataContext}">
+                <MenuItem Header="Select all"
+                          Command="{x:Static local:MainWindow.SelectAllSessionFieldsCommand}" />
+                <MenuItem Header="Deselect all"
+                          Command="{x:Static local:MainWindow.UnselectAllSessionFieldsCommand}" />
+            </ContextMenu>
 
-                                <DataTemplate.Triggers>
-                                    <DataTrigger Binding="{Binding ElementName=ManualRenameCheckBox, Path=IsMouseOver}"
-                                                 Value="True">
-                                        <DataTrigger.EnterActions>
-                                            <BeginStoryboard>
-                                                <Storyboard>
-                                                    <ColorAnimation Storyboard.TargetName="ManualRenameCheckBox"
-                                                                    Storyboard.TargetProperty="(Foreground).(SolidColorBrush.Color)"
-                                                                    To="{StaticResource MouseOverTextColor}"
-                                                                    Duration="{StaticResource MouseOverAnimationDuration}" />
-                                                </Storyboard>
-                                            </BeginStoryboard>
-                                        </DataTrigger.EnterActions>
-                                        <DataTrigger.ExitActions>
-                                            <BeginStoryboard>
-                                                <Storyboard>
-                                                    <ColorAnimation Storyboard.TargetName="ManualRenameCheckBox"
-                                                                    Storyboard.TargetProperty="(Foreground).(SolidColorBrush.Color)"
-                                                                    To="{StaticResource TextColor}"
-                                                                    Duration="{StaticResource MouseOverAnimationDuration}" />
-                                                </Storyboard>
-                                            </BeginStoryboard>
-                                        </DataTrigger.ExitActions>
-                                    </DataTrigger>
-                                </DataTemplate.Triggers>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                        <ListBox.ItemContainerStyle>
-                            <Style TargetType="ListBoxItem">
-                                <Setter Property="Background"
-                                        Value="{StaticResource ExtraFileItemDefaultBackgroundBrush}" />
-                                <Setter Property="BorderThickness"
-                                        Value="1" />
-                                <Setter Property="BorderBrush"
-                                        Value="Gray" />
-                                <Setter Property="Margin"
-                                        Value="5,0" />
-                                <Setter Property="Padding"
-                                        Value="5,2" />
-                                <Setter Property="IsHitTestVisible"
-                                        Value="True" />
-                                <Setter Property="HorizontalContentAlignment"
-                                        Value="Stretch" />
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="ListBoxItem">
-                                            <Border Background="{TemplateBinding Background}"
-                                                    BorderBrush="{TemplateBinding BorderBrush}"
-                                                    BorderThickness="{TemplateBinding BorderThickness}"
-                                                    Padding="{TemplateBinding Padding}"
-                                                    CornerRadius="6">
-                                                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
-                                            </Border>
-
-                                            <ControlTemplate.Triggers>
-                                                <DataTrigger Binding="{Binding IsRenamingEnabled}"
-                                                             Value="True">
-                                                    <Setter Property="Background"
-                                                            Value="{StaticResource FileItemManualRenamingEnabledBackgroundBrush}" />
-                                                </DataTrigger>
-                                                <MultiDataTrigger>
-                                                    <MultiDataTrigger.Conditions>
-                                                        <Condition Binding="{Binding IsRenamingEnabled}"
-                                                                   Value="False" />
-                                                        <Condition Binding="{Binding DataContext.IsAutoRenamingEnabled, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                                                   Value="True" />
-                                                    </MultiDataTrigger.Conditions>
-                                                    <Setter Property="Background"
-                                                            Value="{StaticResource FileItemAutoRenamingEnabledBackgroundBrush}" />
-                                                </MultiDataTrigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                        </ListBox.ItemContainerStyle>
-                    </ListBox>
-                </Grid>
-            </DataTemplate>
-
-            <DataTemplate x:Key="RemoveRowCellTemplate">
-                <Button Content="&#xe74d;"
-                        FontFamily="{StaticResource SegoeMDL2Assets}"
-                        Foreground="Red"
-                        Background="Transparent"
-                        BorderBrush="Transparent"
-                        ToolTip="Remove row"
-                        Width="50"
-                        Height="50"
-                        Margin="5" />
-            </DataTemplate>
-
-            <DataTemplate x:Key="ToggleButtonIsAutoRenamingEnabledCellTemplate">
-                <ToggleButton IsChecked="{Binding IsAutoRenamingEnabled, UpdateSourceTrigger=PropertyChanged}"
-                              Style="{StaticResource FlipSwitchToggleButtonStyle}"
-                              HorizontalAlignment="Center"
-                              VerticalAlignment="Center" />
-            </DataTemplate>
-
-            <DataTemplate x:Key="ToggleButtonIsIncludeFitFileEnabledCellTemplate">
-                <ToggleButton IsChecked="{Binding IsIncludeFitFileEnabled, UpdateSourceTrigger=PropertyChanged}"
-                              Style="{StaticResource FlipSwitchToggleButtonStyle}"
-                              HorizontalAlignment="Center"
-                              VerticalAlignment="Center" />
-            </DataTemplate>
+            <ContextMenu x:Key="LapFieldContextMenu"
+                         DataContext="{Binding RelativeSource={RelativeSource Self}, Path=PlacementTarget.DataContext}">
+                <MenuItem Header="Select all"
+                          Command="{x:Static local:MainWindow.SelectAllLapFieldsCommand}" />
+                <MenuItem Header="Deselect all"
+                          Command="{x:Static local:MainWindow.UnselectAllLapFieldsCommand}" />
+            </ContextMenu>
         </ResourceDictionary>
     </Window.Resources>
 
@@ -286,15 +199,7 @@
                                         AllowDrop="True">
                                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                                         <Grid>
-                                            <TextBlock Text="&#xe8e5;"
-                                                       ToolTip="{TemplateBinding ToolTip}"
-                                                       FontFamily="{StaticResource SegoeMDL2Assets}"
-                                                       Foreground="Gray"
-                                                       FontSize="68"
-                                                       Opacity="0.5"
-                                                       IsHitTestVisible="False"
-                                                       HorizontalAlignment="Center"
-                                                       VerticalAlignment="Center" />
+                                            <ContentControl Content="{StaticResource DropTargetIcon}" />
                                             <ItemsPresenter />
                                         </Grid>
                                     </ScrollViewer>
@@ -343,7 +248,12 @@
                                   VerticalAlignment="Stretch" />
 
                     <Grid Grid.Row="0"
-                          Grid.Column="2">
+                          Grid.Column="2"
+                          Margin="10,0,0,10">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
@@ -355,8 +265,8 @@
                             <TextBlock Text="Available Activity Fields:"
                                        Style="{StaticResource LabelTextBlockStyle}" />
                             <ListBox ItemsSource="{Binding SelectedExportData.ActivityFields}"
-                                     SelectedItem="{Binding SelectedExportData}"
-                                     Style="{StaticResource FieldListStyle}" />
+                                     Style="{StaticResource FieldListStyle}"
+                                     ContextMenu="{StaticResource ActivityFieldContextMenu}" />
 
                         </StackPanel>
 
@@ -365,58 +275,263 @@
                             <TextBlock Text="Available Session Fields:"
                                        Style="{StaticResource LabelTextBlockStyle}" />
                             <ListBox ItemsSource="{Binding SelectedExportData.SessionFields}"
-                                     SelectedItem="{Binding SelectedExportData}"
-                                     Style="{StaticResource FieldListStyle}" />
+                                     Style="{StaticResource FieldListStyle}"
+                                     ContextMenu="{StaticResource SessionFieldContextMenu}" />
                         </StackPanel>
 
                         <StackPanel Grid.Column="2">
                             <TextBlock Text="Available Record Fields:"
                                        Style="{StaticResource LabelTextBlockStyle}" />
                             <ListBox ItemsSource="{Binding SelectedExportData.RecordFields}"
-                                     SelectedItem="{Binding SelectedExportData}"
-                                     Style="{StaticResource FieldListStyle}" />
+                                     Style="{StaticResource FieldListStyle}"
+                                     ContextMenu="{StaticResource RecordFieldContextMenu}" />
                         </StackPanel>
 
                         <StackPanel Grid.Column="3">
                             <TextBlock Text="Available Lap Fields:"
                                        Style="{StaticResource LabelTextBlockStyle}" />
                             <ListBox ItemsSource="{Binding SelectedExportData.LapFields}"
-                                     SelectedItem="{Binding SelectedExportData}"
-                                     Style="{StaticResource FieldListStyle}" />
+                                     Style="{StaticResource FieldListStyle}"
+                                     ContextMenu="{StaticResource LapFieldContextMenu}" />
                         </StackPanel>
+                        
+                        <Separator Grid.Row="1"
+                                   Grid.Column="0"
+                                   Grid.ColumnSpan="4"
+                                   Margin="0,10" />
                     </Grid>
 
-                    <StackPanel Grid.Column="2"
-                                Grid.Row="1">
-                        <TextBlock Text="ZIP File Data:"
+                    <Grid Grid.Column="2"
+                          Grid.Row="1"
+                          Margin="10,0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        
+                        <ContentControl Grid.Column="0"
+                                        Grid.Row="2"
+                                        Grid.RowSpan="3"
+                                        Content="{StaticResource DropTargetIcon}" />
+                        
+                        <TextBlock Grid.Row="0"
+                                   Text="ZIP File Data:"
                                    Style="{StaticResource LabelTextBlockStyle}" />
-                        <DataGrid AutoGenerateColumns="False"
-                                  ItemsSource="{Binding ExportData, Mode=OneTime}"
-                                  SelectedItem="{Binding SelectedExportData, Mode=OneWay}">
-                            <DataGrid.Resources>
-                                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}"
-                                                 Color="Transparent" />
-                                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}"
-                                                 Color="Black" />
-                            </DataGrid.Resources>
-                            <DataGrid.Columns>
-                                <DataGridTemplateColumn Header="Additional Files"
-                                                        CellTemplate="{StaticResource ExtraZipFileContentTemplate}"
-                                                        MinWidth="500" />
-                                <DataGridTemplateColumn Header="Auto-rename"
-                                                        CellTemplate="{StaticResource ToggleButtonIsAutoRenamingEnabledCellTemplate}" />
-                                <DataGridTemplateColumn Header="Include FIT file"
-                                                        CellTemplate="{StaticResource ToggleButtonIsIncludeFitFileEnabledCellTemplate}" />
-                                <DataGridTextColumn Header="Batch Name"
-                                                    ElementStyle="{StaticResource DataGridTextCellStyle}"
-                                                    MinWidth="200"
-                                                    Binding="{Binding BatchName, UpdateSourceTrigger=PropertyChanged}" />
-                                <DataGridTemplateColumn Header="Remove"
-                                                        CellTemplate="{StaticResource RemoveRowCellTemplate}"
-                                                        CellStyle="{StaticResource DataGridCellStyle}" />
-                            </DataGrid.Columns>
-                        </DataGrid>
-                    </StackPanel>
+                        <Separator Grid.Row="1"
+                                   Grid.Column="0"
+                                   Margin="0,2,0,8" />
+                        <ListBox Grid.Row="2"
+                                 Grid.Column="0"
+                                 ItemsSource="{Binding SelectedExportData.SelectedExtraFilePaths}"
+                                 SelectedItem="{Binding SelectedExtraFilePath}"
+                                 BorderThickness="0"
+                                 AllowDrop="True"
+                                 Drop="OnExtraZipFileContentDropped"
+                                 Background="Transparent"
+                                 ToolTip="Drag and drop FIT files here, either raw or as ZIP files.">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0"
+                                                   Text="{Binding Name}"
+                                                   VerticalAlignment="Center"
+                                                   HorizontalAlignment="Stretch" />
+                                        <CheckBox x:Name="ManualRenameCheckBox"
+                                                  Grid.Column="1"
+                                                  IsChecked="{Binding IsRenamingEnabled}"
+                                                  Foreground="{StaticResource TextBrush}"
+                                                  Content="Rename"
+                                                  Margin="5,0,20,0"
+                                                  VerticalAlignment="Center"
+                                                  ToolTip="Manually rename file to use the batch name." />
+                                        <Button Grid.Column="2"
+                                                Content="&#xe74d;"
+                                                Command="{Binding DataContext.DeleteExtraFileCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}"
+                                                FontFamily="{StaticResource SegoeMDL2Assets}"
+                                                ToolTip="Remove file"
+                                                Margin="5,0"
+                                                Padding="3"
+                                                FontSize="10" />
+                                    </Grid>
+
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding ElementName=ManualRenameCheckBox, Path=IsMouseOver}"
+                                                     Value="True">
+                                            <DataTrigger.EnterActions>
+                                                <BeginStoryboard>
+                                                    <Storyboard>
+                                                        <ColorAnimation Storyboard.TargetName="ManualRenameCheckBox"
+                                                                        Storyboard.TargetProperty="(Foreground).(SolidColorBrush.Color)"
+                                                                        To="{StaticResource MouseOverTextColor}"
+                                                                        Duration="{StaticResource MouseOverAnimationDuration}" />
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </DataTrigger.EnterActions>
+                                            <DataTrigger.ExitActions>
+                                                <BeginStoryboard>
+                                                    <Storyboard>
+                                                        <ColorAnimation Storyboard.TargetName="ManualRenameCheckBox"
+                                                                        Storyboard.TargetProperty="(Foreground).(SolidColorBrush.Color)"
+                                                                        To="{StaticResource TextColor}"
+                                                                        Duration="{StaticResource MouseOverAnimationDuration}" />
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </DataTrigger.ExitActions>
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem">
+                                    <Setter Property="Background"
+                                            Value="{StaticResource ExtraFileItemDefaultBackgroundBrush}" />
+                                    <Setter Property="BorderThickness"
+                                            Value="1" />
+                                    <Setter Property="BorderBrush"
+                                            Value="Gray" />
+                                    <Setter Property="Margin"
+                                            Value="5,0" />
+                                    <Setter Property="Padding"
+                                            Value="5,2" />
+                                    <Setter Property="IsHitTestVisible"
+                                            Value="True" />
+                                    <Setter Property="HorizontalContentAlignment"
+                                            Value="Stretch" />
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="ListBoxItem">
+                                                <Border Background="{TemplateBinding Background}"
+                                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                                        Padding="{TemplateBinding Padding}"
+                                                        CornerRadius="6">
+                                                    <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                                                </Border>
+
+                                                <ControlTemplate.Triggers>
+                                                    <DataTrigger Binding="{Binding IsRenamingEnabled}"
+                                                                 Value="True">
+                                                        <Setter Property="Background"
+                                                                Value="{StaticResource FileItemManualRenamingEnabledBackgroundBrush}" />
+                                                    </DataTrigger>
+                                                    <MultiDataTrigger>
+                                                        <MultiDataTrigger.Conditions>
+                                                            <Condition Binding="{Binding IsRenamingEnabled}"
+                                                                       Value="False" />
+                                                            <Condition Binding="{Binding DataContext.IsAutoRenamingEnabled, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                                       Value="True" />
+                                                        </MultiDataTrigger.Conditions>
+                                                        <Setter Property="Background"
+                                                                Value="{StaticResource FileItemAutoRenamingEnabledBackgroundBrush}" />
+                                                    </MultiDataTrigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </ListBox.ItemContainerStyle>
+                        </ListBox>
+
+                        <Separator Grid.Row="0"
+                                   Grid.RowSpan="3"
+                                   Grid.Column="1" 
+                                   Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}"
+                                   Margin="10,0"/>
+
+                        <TextBlock Grid.Row="0"
+                                   Grid.Column="2"
+                                   Text="Auto Rename:"
+                                   Style="{StaticResource LabelTextBlockStyle}"
+                                   Margin="10,0" />
+                        <Separator Grid.Row="1"
+                                   Grid.Column="2"
+                                   Margin="0,2,0,8" />
+                        <ToggleButton Grid.Row="2"
+                                      Grid.Column="2"
+                                      IsChecked="{Binding IsAutoRenamingEnabled, UpdateSourceTrigger=PropertyChanged}"
+                                      Style="{StaticResource FlipSwitchToggleButtonStyle}"
+                                      HorizontalAlignment="Left"
+                                      VerticalAlignment="Center" />
+
+                        <Separator Grid.Row="0"
+                                   Grid.RowSpan="3"
+                                   Grid.Column="3"
+                                   Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}"
+                                   Margin="10,0" />
+
+                        <TextBlock Grid.Row="0"
+                                   Grid.Column="4"
+                                   Text="Include in FIT file export:"
+                                   Style="{StaticResource LabelTextBlockStyle}" />
+                        <Separator Grid.Row="1"
+                                   Grid.Column="4"
+                                   Margin="0,2,0,8" />
+                        <ToggleButton Grid.Row="2"
+                                      Grid.Column="4"
+                                      IsChecked="{Binding IsIncludeFitFileEnabled, UpdateSourceTrigger=PropertyChanged}"
+                                      Style="{StaticResource FlipSwitchToggleButtonStyle}"
+                                      HorizontalAlignment="Left"
+                                      VerticalAlignment="Center" />
+
+                        <Separator Grid.Row="0"
+                                   Grid.RowSpan="3"
+                                   Grid.Column="5"
+                                   Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}"
+                                   Margin="10,0" />
+
+                        <TextBlock Grid.Row="0"
+                                   Grid.Column="6"
+                                   Text="Batch Name:"
+                                   Style="{StaticResource LabelTextBlockStyle}" />
+                        <Separator Grid.Row="1"
+                                   Grid.Column="6"
+                                   Margin="0,2,0,8" />
+                        <TextBox Grid.Row="2"
+                                 Grid.Column="6"
+                                 Text="{Binding BatchName, UpdateSourceTrigger=PropertyChanged}"
+                                 HorizontalAlignment="Stretch"
+                                 VerticalAlignment="Center"
+                                 Width="150"
+                                 Padding="10"
+                                 Margin="0" />
+
+                        <Separator Grid.Row="0"
+                                   Grid.RowSpan="3"
+                                   Grid.Column="7"
+                                   Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}"
+                                   Margin="10,0" />
+
+                        <Button Grid.Row="2"
+                                Grid.Column="8"
+                                Content="&#xe74d;"
+                                FontFamily="{StaticResource SegoeMDL2Assets}"
+                                Foreground="Red"
+                                Background="Transparent"
+                                BorderBrush="Transparent"
+                                ToolTip="Remove all"
+                                Width="50"
+                                Height="50"
+                                Margin="5" />
+                    </Grid>
                 </Grid>
 
                 <Separator Grid.Row="4"

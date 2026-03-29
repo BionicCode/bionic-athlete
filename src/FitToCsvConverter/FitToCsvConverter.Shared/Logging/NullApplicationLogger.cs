@@ -53,5 +53,8 @@ public class NullApplicationLogger<T> : IApplicationLogger<T>
     public void LogErrorMessage(string message, [CallerMemberName] string? callerMemberName = null, [CallerLineNumber] int callerLineNumber = -1) { }
     public void LogException(Exception exception, [CallerMemberName] string? callerMemberName = null, [CallerLineNumber] int callerLineNumber = -1) { }
     public void LogInformationMessage(string message, [CallerMemberName] string? callerMemberName = null, [CallerLineNumber] int callerLineNumber = -1) { }
+
+    public void LogInformationObject(object obj, [CallerMemberName] string? callerMemberName = null, [CallerLineNumber] int callerLineNumber = -1) { }
+    public void LogErrorObject(object obj, [CallerMemberName] string? callerMemberName = null, [CallerLineNumber] int callerLineNumber = -1) { }
 }
 
