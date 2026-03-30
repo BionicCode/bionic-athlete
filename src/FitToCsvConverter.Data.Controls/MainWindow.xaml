@@ -17,6 +17,7 @@
                 <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/FlipSwitchToggleButtonStyle.xaml" />
                 <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/ScrollBarStyle.xaml" />
                 <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/WatermarkTextBoxStyle.xaml" />
+                <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/ProgressbarStyle.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
             <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
@@ -159,7 +160,7 @@
                    Grid.Column="0"
                    Grid.ColumnSpan="2"
                    Margin="0,10" />
-        
+
         <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Auto">
             <Grid>
                 <Grid.RowDefinitions>
@@ -573,24 +574,21 @@
                 </StackPanel>
 
                 <StackPanel Grid.Row="6"
-                            Margin="0,10,0,0"
+                            Margin="0,20,0,0"
                             Visibility="{Binding IsReportingProgress, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Separator Margin="0,20" />
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="{Binding ProgressDataCollection[0].OperationTitle}" />
                         <TextBlock Text=":" />
                     </StackPanel>
-                    <Grid>
-                        <ProgressBar Minimum="0"
-                                     Maximum="1"
-                                     Value="{Binding ProgressDataCollection[0].Progress, Mode=OneWay}"
-                                     Height="20"
-                                     HorizontalAlignment="Stretch" />
-                        <TextBlock Text="{Binding ProgressDataCollection[0].Progress, StringFormat={}{0:P0}}"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Center"
-                                   Foreground="Black"
-                                   FontWeight="Bold" />
-                    </Grid>
+                    <local:AdvancedProgressBar Maximum="1"
+                                               Height="42"
+                                               CornerRadius="4"
+                                               ProgressTextAlignment="BottomCenter"
+                                               ProgressTextSize="18"
+                                               Value="{Binding ProgressDataCollection[0].Progress, Mode=OneWay}"
+                                               HorizontalAlignment="Stretch"
+                                               IsIndeterminate="false" />
                     <TextBlock Text="{Binding ProgressDataCollection[0].Message}"
                                HorizontalAlignment="Left"
                                VerticalAlignment="Center"
@@ -599,24 +597,21 @@
                 </StackPanel>
 
                 <StackPanel Grid.Row="7"
-                            Margin="0,10,0,0"
+                            Margin="0,0,0,20"
                             Visibility="{Binding IsReportingProgress, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Separator Margin="50,20" />
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="{Binding ProgressDataCollection[1].OperationTitle}" />
                         <TextBlock Text=":" />
                     </StackPanel>
-                    <Grid>
-                        <ProgressBar Minimum="0"
-                                     Maximum="1"
-                                     Value="{Binding ProgressDataCollection[1].Progress, Mode=OneWay}"
-                                     Height="20"
-                                     HorizontalAlignment="Stretch" />
-                        <TextBlock Text="{Binding ProgressDataCollection[1].Progress, StringFormat={}{0:P0}}"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Center"
-                                   Foreground="Black"
-                                   FontWeight="Bold" />
-                    </Grid>
+                    <local:AdvancedProgressBar Maximum="1"
+                                               Height="42"
+                                               CornerRadius="4"
+                                               ProgressTextAlignment="BottomCenter"
+                                               ProgressTextSize="18"
+                                               Value="{Binding ProgressDataCollection[1].Progress, Mode=OneWay}"
+                                               HorizontalAlignment="Stretch"
+                                               IsIndeterminate="false" />
                     <TextBlock Text="{Binding ProgressDataCollection[1].Message}"
                                HorizontalAlignment="Left"
                                VerticalAlignment="Center"
