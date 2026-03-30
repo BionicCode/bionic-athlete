@@ -5,6 +5,6 @@
   <Project Path="FitToCsvConverter.Data/FitToCsvConverter.Data.csproj" Id="1389a9c6-e976-42f0-821f-adfa93806686" />
   <Project Path="FitToCsvConverter.Main/FitToCsvConverter.Main.csproj" />
   <Project Path="FitToCsvConverter.Shared/FitToCsvConverter.Shared.csproj" Id="5379f4eb-ed6c-42ff-98a0-19fe178d6d72" />
-  <Project Path="FitToCsvConverter.Test/FitToCsvConverter.Test.csproj" Id="dd37f401-590b-48d6-b6e4-6962a05e8dca" />
+  <Project Path="../test/FitToCsvConverter.Test/FitToCsvConverter.Test.csproj" Id="dd37f401-590b-48d6-b6e4-6962a05e8dca" />
   <Project Path="FitToCsvConverter.ViewMode/FitToCsvConverter.ViewModel.csproj" />
 </Solution>

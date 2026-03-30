@@ -4,10 +4,9 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:FitToCsvConverter.Controls"
-        xmlns:controls="clr-namespace:FitToCsvConverter.Controls;assembly=FitToCsvConverter.Controls"
         xmlns:viewModel="clr-namespace:FitToCsvConverter.ViewModel;assembly=FitToCsvConverter.ViewModel"
         mc:Ignorable="d"
-        Title="MainWindow" Height="500" Width="1220">
+        Title="MainWindow" Height="900" SizeToContent="Width">
     <d:DesignerProperties.DataContext>
         <viewModel:MainViewModel />
     </d:DesignerProperties.DataContext>
@@ -16,8 +15,8 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/ViewRessources.xaml" />
                 <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/FlipSwitchToggleButtonStyle.xaml" />
-                <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/VerticalSeparatorStyle.xaml" />
                 <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/ScrollBarStyle.xaml" />
+                <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/WatermarkTextBoxStyle.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
             <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
@@ -307,6 +306,7 @@
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
                         <Grid.ColumnDefinitions>
@@ -323,7 +323,7 @@
                         
                         <ContentControl Grid.Column="0"
                                         Grid.Row="2"
-                                        Grid.RowSpan="3"
+                                        Grid.RowSpan="2"
                                         Content="{StaticResource DropTargetIcon}" />
                         
                         <TextBlock Grid.Row="0"
@@ -333,10 +333,12 @@
                                    Grid.Column="0"
                                    Margin="0,2,0,8" />
                         <ListBox Grid.Row="2"
+                                 Grid.RowSpan="2"
                                  Grid.Column="0"
                                  ItemsSource="{Binding SelectedExportData.SelectedExtraFilePaths}"
                                  SelectedItem="{Binding SelectedExtraFilePath}"
                                  BorderThickness="0"
+                                 Width="500"
                                  AllowDrop="True"
                                  Drop="OnExtraZipFileContentDropped"
                                  Background="Transparent"
@@ -452,7 +454,7 @@
                         </ListBox>
 
                         <Separator Grid.Row="0"
-                                   Grid.RowSpan="3"
+                                   Grid.RowSpan="4"
                                    Grid.Column="1" 
                                    Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}"
                                    Margin="10,0"/>
@@ -460,17 +462,16 @@
                         <TextBlock Grid.Row="0"
                                    Grid.Column="2"
                                    Text="Auto Rename:"
-                                   Style="{StaticResource LabelTextBlockStyle}"
-                                   Margin="10,0" />
+                                   Style="{StaticResource LabelTextBlockStyle}" />
                         <Separator Grid.Row="1"
                                    Grid.Column="2"
                                    Margin="0,2,0,8" />
                         <ToggleButton Grid.Row="2"
                                       Grid.Column="2"
-                                      IsChecked="{Binding IsAutoRenamingEnabled, UpdateSourceTrigger=PropertyChanged}"
+                                      IsChecked="{Binding SelectedExportData.IsAutoRenamingEnabled, UpdateSourceTrigger=PropertyChanged}"
                                       Style="{StaticResource FlipSwitchToggleButtonStyle}"
                                       HorizontalAlignment="Left"
-                                      VerticalAlignment="Center" />
+                                      VerticalAlignment="Top" />
 
                         <Separator Grid.Row="0"
                                    Grid.RowSpan="3"
@@ -480,17 +481,17 @@
 
                         <TextBlock Grid.Row="0"
                                    Grid.Column="4"
-                                   Text="Include in FIT file export:"
+                                   Text="Include FIT file:"
                                    Style="{StaticResource LabelTextBlockStyle}" />
                         <Separator Grid.Row="1"
                                    Grid.Column="4"
                                    Margin="0,2,0,8" />
                         <ToggleButton Grid.Row="2"
                                       Grid.Column="4"
-                                      IsChecked="{Binding IsIncludeFitFileEnabled, UpdateSourceTrigger=PropertyChanged}"
+                                      IsChecked="{Binding SelectedExportData.IsIncludeFitFileEnabled, UpdateSourceTrigger=PropertyChanged}"
                                       Style="{StaticResource FlipSwitchToggleButtonStyle}"
                                       HorizontalAlignment="Left"
-                                      VerticalAlignment="Center" />
+                                      VerticalAlignment="Top" />
 
                         <Separator Grid.Row="0"
                                    Grid.RowSpan="3"
@@ -505,14 +506,16 @@
                         <Separator Grid.Row="1"
                                    Grid.Column="6"
                                    Margin="0,2,0,8" />
-                        <TextBox Grid.Row="2"
-                                 Grid.Column="6"
-                                 Text="{Binding BatchName, UpdateSourceTrigger=PropertyChanged}"
-                                 HorizontalAlignment="Stretch"
-                                 VerticalAlignment="Center"
-                                 Width="150"
-                                 Padding="10"
-                                 Margin="0" />
+                        <local:WatermarkTextBox Grid.Row="2"
+                                                Watermark="Enter batch name..."
+                                                Grid.Column="6"
+                                                Text="{Binding SelectedExportData.BatchName, UpdateSourceTrigger=PropertyChanged}"
+                                                TextWrapping="Wrap"
+                                                HorizontalAlignment="Stretch"
+                                                VerticalAlignment="Top"
+                                                Width="250"
+                                                Padding="4"
+                                                Margin="0" />
 
                         <Separator Grid.Row="0"
                                    Grid.RowSpan="3"
@@ -522,6 +525,7 @@
 
                         <Button Grid.Row="2"
                                 Grid.Column="8"
+                                VerticalAlignment="Top"
                                 Content="&#xe74d;"
                                 FontFamily="{StaticResource SegoeMDL2Assets}"
                                 Foreground="Red"
@@ -530,7 +534,7 @@
                                 ToolTip="Remove all"
                                 Width="50"
                                 Height="50"
-                                Margin="5" />
+                                Margin="5,0" />
                     </Grid>
                 </Grid>
 
@@ -549,26 +553,22 @@
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <TextBox x:Name="DestinationFolderTextBox"
-                                 Grid.Column="0"
-                                 Text="{Binding DestinationFolder}"
-                                 Margin="0,0,0,0"
-                                 Padding="5"
-                                 HorizontalAlignment="Stretch"
-                                 VerticalAlignment="Top" />
+                        <local:WatermarkTextBox x:Name="DestinationFolderTextBox"
+                                                Grid.Column="0"
+                                                Watermark="Select destination folder..."
+                                                Text="{Binding DestinationFolder}"
+                                                Margin="0,0,0,0"
+                                                Padding="4"
+                                                HorizontalAlignment="Stretch"
+                                                VerticalAlignment="Top" />
                         <Button Grid.Column="1"
                                 Margin="10,0,0,0"
                                 VerticalAlignment="Top"
                                 Height="{Binding ElementName=DestinationFolderTextBox, Path=ActualHeight}"
                                 Width="80"
-                                Click="SelectDestinationFolderButton_Click">
-                            <TextBlock Text="&#xe721;"
-                                       FontFamily="{StaticResource SegoeMDL2Assets}"
-                                       Foreground="Gray"
-                                       Opacity="1"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center" />
-                        </Button>
+                                Content="{StaticResource SearchIcon}"
+                                Click="SelectDestinationFolderButton_Click" />
+
                     </Grid>
                 </StackPanel>
 
@@ -629,9 +629,7 @@
                         VerticalAlignment="Top"
                         Height="{Binding ElementName=DestinationFolderTextBox, Path=ActualHeight}"
                         Width="80"
-                        Content="&#xe724;"
-                        FontFamily="{StaticResource SegoeMDL2Assets}"
-                        Foreground="Gray"
+                        Content="{StaticResource SendIcon}"
                         Opacity="1"
                         HorizontalAlignment="Right"
                         HorizontalContentAlignment="Center"

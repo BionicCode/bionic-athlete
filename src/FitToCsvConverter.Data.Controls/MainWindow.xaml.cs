@@ -125,8 +125,7 @@ public partial class MainWindow : Window
 
     private void OnExtraZipFileContentDropped(object sender, DragEventArgs e)
     {
-        var listBox = sender as ListBox;
-        var exportData = listBox!.DataContext as ExportData;
+        ExportData? exportData = _viewModel.SelectedExportData;
         string[] filePaths = (string[])e.Data.GetData(DataFormats.FileDrop, false) ?? [];
         _viewModel.AddExtraFilePaths(exportData!, filePaths);
     }

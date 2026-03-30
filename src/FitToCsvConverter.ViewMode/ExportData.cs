@@ -372,7 +372,13 @@ public class ExportData : ViewModel
     public bool IsAutoRenamingEnabled
     {
         get => _isAutoRenamingEnabled;
-        set => TrySetValue(value, ref _isAutoRenamingEnabled, _setValueOptions);
+        set
+        {
+            if (TrySetValue(value, ref _isAutoRenamingEnabled, _setValueOptions))
+            {
+                RenameAllFiles();
+            }
+        }
     }
 
     public bool IsIncludeFitFileEnabled

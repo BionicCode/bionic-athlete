@@ -7,8 +7,9 @@
   <ResourceDictionary.MergedDictionaries>
     <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/BionicSwipePageStyle.xaml" />
     <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/FrameHeaderStyle.xaml" />
-    <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/BionicSwipePageFrameStyle.xaml" />
-  </ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/BionicSwipePageFrameStyle.xaml" />
+        <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/WatermarkTextBoxStyle.xaml" />
+    </ResourceDictionary.MergedDictionaries>
   <!--<Viewbox x:Key="ChevronRightIcon"
            Stretch="Uniform"
            x:Shared="False"
