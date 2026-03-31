@@ -965,22 +965,59 @@ public class ArgumentOutOfRangeExceptionAdvanced : System.ArgumentOutOfRangeExce
         }
     }
 
-    public static void ThrowIfIndexOutOfRange(int index, Range range, string? message = null, [CallerArgumentExpression(nameof(index))] string? paramName = null)
+    /// <summary>
+    /// Throws an <see cref="ArgumentOutOfRangeException"/> if the specified index is outside the valid range of indices for the given enumerable.
+    /// </summary>
+    /// <remarks>This method can be expensive for large or non-collection enumerables because it may need to iterate through the entire enumerable to determine the count. 
+    /// <br/>This means, if the <paramref name="enumerable"/> is not an <see cref="ICollection{T}"/>, the operation could be costly since the count is provided  by <see cref="Enumerable.Count{TSource}(IEnumerable{TSource})"/>.</remarks>
+    /// <typeparam name="TItem">The type of the elements in the enumerable.</typeparam>
+    /// <param name="index">The index to validate. Must be within the range of valid indices for the enumerable.</param>
+    /// <param name="enumerable">The enumerable to check the index against.</param>
+    /// <param name="message">An optional custom message to include in the exception. If <see langword="null"/>, a default message is used.</param>
+    /// <param name="paramName">The name of the parameter representing <paramref name="index"/>. Used in the exception message. This
+    /// parameter is typically supplied automatically and should not be set manually.</param>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="index"/> is outside the valid range of indices for <paramref name="enumerable"/>.</exception>
+    public static void ThrowIfIndexOutOfRange<TItem>(int index, [NotNull] IEnumerable<TItem> enumerable, string? message = null, [CallerArgumentExpression(nameof(index))] string? paramName = null)
     {
-        if (index < range.Start.Value)
+        ArgumentNullException.ThrowIfNull(enumerable);
+
+        int endIndex = enumerable is ICollection<TItem> collection
+            ? collection.Count - 1
+            : enumerable.Count() - 1;
+
+        if (index < 0)
         {
             throw new ArgumentOutOfRangeException(
                 paramName,
                 index,
-                message ?? $"The argument '{paramName}' is out of the allowed range '{range}'. Reason: '{index}' is less than '{range.Start.Value}'.");
+                message ?? $"The argument '{paramName}' is out of the allowed range for '{nameof(enumerable)}'. Reason: '{index}' is less than '0'.");
         }
 
-        if (index > range.End.Value)
+        if (index > endIndex)
         {
             throw new ArgumentOutOfRangeException(
                 paramName,
                 index,
-                message ?? $"The argument '{paramName}' is out of the allowed range '{range}'. Reason: '{index}' is greater than '{range.End.Value}'.");
+                message ?? $"The argument '{paramName}' is out of the allowed range for '{nameof(enumerable)}'. Reason: '{index}' is greater than '{endIndex}'.");
+        }
+    }
+
+    public static void ThrowIfIndexOutOfRange(int index, int startIndex, int endIndex, string? message = null, [CallerArgumentExpression(nameof(index))] string? paramName = null)
+    {
+        if (index < startIndex)
+        {
+            throw new ArgumentOutOfRangeException(
+                paramName,
+                index,
+                message ?? $"The argument '{paramName}' is out of the allowed range. Reason: '{index}' is less than '{startIndex}'.");
+        }
+
+        if (index > endIndex)
+        {
+            throw new ArgumentOutOfRangeException(
+                paramName,
+                index,
+                message ?? $"The argument '{paramName}' is out of the allowed range. Reason: '{index}' is greater than '{endIndex}'.");
         }
     }
 }

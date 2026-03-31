@@ -1,7 +1,6 @@
 ﻿namespace FitToCsvConverter.Controls;
 
 using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Input;
 using BionicCode.Utilities.Net;
 using FitToCsvConverter.ViewModel;
@@ -10,10 +9,15 @@ using Microsoft.Win32;
 /// <summary>
 /// Interaction logic for MainWindow.xaml
 /// </summary>
-public partial class MainWindow : Window
+public partial class MainWindow : Window, IDisposableAdvanced
 {
     private readonly MainViewModel _viewModel;
     private readonly OpenFolderDialog _openFolderDialog;
+    private CancellationTokenSource _addFitFilesCancellationTokenSource;
+    private readonly SemaphoreSlim _addFitFilesSemaphore;
+    private bool? _isFitFileDropAllowed;
+
+    public bool IsDisposed { get; private set; }
 
     public static readonly RoutedCommand SelectAllActivityFieldsCommand = new(nameof(SelectAllActivityFieldsCommand), typeof(MainWindow));
     public static readonly RoutedCommand UnselectAllActivityFieldsCommand = new(nameof(UnselectAllActivityFieldsCommand), typeof(MainWindow));
@@ -42,6 +46,8 @@ public partial class MainWindow : Window
             Multiselect = false,
             AddToRecent = true
         };
+        _addFitFilesSemaphore = new SemaphoreSlim(1, 1);
+        _addFitFilesCancellationTokenSource = new CancellationTokenSource();
 
         var selectAllActivitiesCommandBinding = new CommandBinding(
             SelectAllActivityFieldsCommand,
@@ -132,9 +138,14 @@ public partial class MainWindow : Window
             },
             canExecute: (s, e) => e.CanExecute = e.Parameter is string filePath && (_viewModel.FitFilePaths?.Contains(filePath) ?? false));
         _ = CommandBindings.Add(removeFitFileCommandBinding);
+
+        var addFitFileCommandBinding = new CommandBinding(
+            AddFitFileCommand,
+            executed: async (s, e) => await OnExecutedAddFitFileCommandAsync(s, e));
+        _ = CommandBindings.Add(addFitFileCommandBinding);
     }
 
-    private void OnExecutedAddFitFileCommand(object sender, ExecutedRoutedEventArgs e)
+    private async Task OnExecutedAddFitFileCommandAsync(object sender, ExecutedRoutedEventArgs e)
     {
         var openFileDialog = new OpenFileDialog
         {
@@ -146,8 +157,20 @@ public partial class MainWindow : Window
         bool? result = openFileDialog.ShowDialog();
         if (result == true)
         {
-            _viewModel.ProgressChanged += OnAddFitFileProgressChanged;
-            _ = _viewModel.AddFitFilePathsAsync(openFileDialog.FileNames, CancellationToken.None);
+            try
+            {
+                await _addFitFilesSemaphore.WaitAsync(_addFitFilesCancellationTokenSource.Token);
+                await _viewModel.AddFitFilePathsAsync(openFileDialog.FileNames, _addFitFilesCancellationTokenSource.Token);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            finally
+            {
+                _addFitFilesCancellationTokenSource.Dispose();
+                _addFitFilesCancellationTokenSource = new CancellationTokenSource();
+                _ = _addFitFilesSemaphore.Release();
+            }
         }
     }
 
@@ -156,31 +179,21 @@ public partial class MainWindow : Window
         string[] filePaths = (string[])e.Data.GetData(DataFormats.FileDrop, false) ?? [];
         if (_isFitFileDropAllowed.GetValueOrDefault() && filePaths.Length > 0)
         {
-            _viewModel.ProgressChanged += OnAddFitFileProgressChanged;
-            await _viewModel.AddFitFilePathsAsync(filePaths, CancellationToken.None);
-        }
-    }
-
-    private Window? _progressDialog;
-    private void OnAddFitFileProgressChanged(object sender, ObservableProgressChangedEventArgs e)
-    {
-        _progressDialog ??= new Window()
-        {
-            Title = "Adding FIT Files",
-            Content = new ProgressBar
+            try
             {
-                IsIndeterminate = e.IsIndeterminate,
-                Minimum = 0,
-                Maximum = e.ProgressData.MaxValue,
-                Width = 300,
-                Height = 30
-            },
-            SizeToContent = SizeToContent.WidthAndHeight,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            Owner = this
-        };
-        //_ = (_progressDialog.Content as ProgressBar)!.SetBinding(ProgressBar.ValueProperty, new System.Windows.Data.Binding(nameof(MainViewModel.SelectedProgress.ProgressValue)) { Source = _viewModel });
-        _progressDialog.Show();
+                await _addFitFilesSemaphore.WaitAsync(_addFitFilesCancellationTokenSource.Token);
+                await _viewModel.AddFitFilePathsAsync(filePaths, _addFitFilesCancellationTokenSource.Token);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            finally
+            {
+                _addFitFilesCancellationTokenSource.Dispose();
+                _addFitFilesCancellationTokenSource = new CancellationTokenSource();
+                _ = _addFitFilesSemaphore.Release();
+            }
+        }
     }
 
     private void SelectDestinationFolderButton_Click(object sender, RoutedEventArgs e)
@@ -199,7 +212,6 @@ public partial class MainWindow : Window
         _viewModel.AddExtraFilePaths(exportData!, filePaths);
     }
 
-    private bool? _isFitFileDropAllowed;
     private void ProvideFitFileDropTargetFeedBack(object sender, DragEventArgs e)
     {
         if (_isFitFileDropAllowed == false)
@@ -225,11 +237,34 @@ public partial class MainWindow : Window
         _isFitFileDropAllowed = filePaths.Any(path => _viewModel.IsFitFilePathValid(path).IsValid);
     }
 
-    private void ProvideFitFileDropTargetFeedBack(object sender, GiveFeedbackEventArgs e)
+    protected virtual void Dispose(bool disposing)
     {
-        //if (_isFitFileDropAllowed == false)
-        //{
-        //    Cursor = Cursors.No;
-        //}
+        if (!IsDisposed)
+        {
+            if (disposing)
+            {
+                _addFitFilesCancellationTokenSource.Cancel();
+                _addFitFilesCancellationTokenSource.Dispose();
+                _addFitFilesSemaphore.Dispose();
+            }
+
+            // TODO: free unmanaged resources (unmanaged objects) and override finalizer
+            // TODO: set large fields to null
+            IsDisposed = true;
+        }
+    }
+
+    // // TODO: override finalizer only if 'Dispose(bool disposing)' has code to free unmanaged resources
+    // ~MainWindow()
+    // {
+    //     // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+    //     Dispose(disposing: false);
+    // }
+
+    public void Dispose()
+    {
+        // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
     }
 }

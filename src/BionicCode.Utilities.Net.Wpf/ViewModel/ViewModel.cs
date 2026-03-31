@@ -43,7 +43,7 @@ public abstract class ViewModel : ViewModelCommon, IViewModel
         get => _selectedProgressIndex;
         private set
         {
-            ArgumentOutOfRangeExceptionAdvanced.ThrowIfIndexOutOfRange(value, -1.._progressDataCollectionInternal.Count);
+            ArgumentOutOfRangeExceptionAdvanced.ThrowIfIndexOutOfRange(value, _progressDataCollectionInternal);
 
             if (TrySetValue(value, ref _selectedProgressIndex))
             {
@@ -145,7 +145,7 @@ public abstract class ViewModel : ViewModelCommon, IViewModel
 
     public ObservableProgressData RemoveObservableProgressData(int index)
     {
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfIndexOutOfRange(index, 0.._progressDataCollectionInternal.Count);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfIndexOutOfRange(index, _progressDataCollectionInternal);
 
         ObservableProgressData progressData = _progressDataCollectionInternal[index];
         _progressDataCollectionInternal.RemoveAt(index);
