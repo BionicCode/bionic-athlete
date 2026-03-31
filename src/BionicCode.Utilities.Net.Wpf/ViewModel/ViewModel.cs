@@ -14,17 +14,50 @@ public abstract class ViewModel : ViewModelCommon, IViewModel
     {
         _progressDataCollectionInternal = [];
         ProgressDataCollection = new ReadOnlyObservableCollection<ObservableProgressData>(_progressDataCollectionInternal);
+        SelectedProgressIndex = 0;
     }
 
     #region IProgressReporter
     public ReadOnlyObservableCollection<ObservableProgressData> ProgressDataCollection { get; }
+    public bool HasProgressDataCollectionItems => ProgressDataCollection.Count > 0;
+    public bool IsProgressDataCollectionEmpty => ProgressDataCollection.Count == 0;
+    public bool HasProgressData => HasProgressDataCollectionItems || SelectedProgress is not null;
     private readonly ObservableCollection<ObservableProgressData> _progressDataCollectionInternal;
-    private ObservableProgressData _selectedProgress;
+    private ObservableProgressData? _selectedProgress;
+    private int _selectedProgressIndex;
 
-    public virtual ObservableProgressData SelectedProgress
+    public virtual ObservableProgressData? SelectedProgress
     {
         get => _selectedProgress;
-        protected set => TrySetValue(value, ref _selectedProgress);
+        private set => TrySetValue(value, ref _selectedProgress);
+    }
+
+    /// <summary>
+    /// Sets the selected <see cref="ObservableProgressData"/> item in the <see cref="ProgressDataCollection"/> by the specified index and assigns it to the <see cref="SelectedProgress"/> property."/>
+    /// </summary>
+    /// <remarks>Setting this property will update the <see cref="SelectedProgress"/> property and raise the <see cref="HasProgressData"/> property changed notification.
+    /// <para/>The index specifies the default position that is mapped to the <see cref="SelectedProgress"/>. For example, if an items gets removed from or added to the <see cref="ProgressDataCollection"/> at the current <see cref="SelectedProgressIndex"/> index, the new item will be selected automatically based on that index.</remarks>
+    /// <value>The index of the selected progress data item in the <see cref="ProgressDataCollection"/>. A value of -1 indicates that no item is selected and <see langword="null" /> is assigned to the <see cref="SelectedProgress"/> property. The default value is 0 resulting in always the first item being selected if available.</value>
+    public virtual int SelectedProgressIndex
+    {
+        get => _selectedProgressIndex;
+        private set
+        {
+            ArgumentOutOfRangeExceptionAdvanced.ThrowIfIndexOutOfRange(value, -1.._progressDataCollectionInternal.Count);
+
+            if (TrySetValue(value, ref _selectedProgressIndex))
+            {
+                SetSelectedProgress(value);
+            }
+        }
+    }
+
+    private void SetSelectedProgress(int progressDataIndex)
+    {
+        SelectedProgress = progressDataIndex < 0
+            ? null
+            : _progressDataCollectionInternal[progressDataIndex];
+        OnPropertyChanged(nameof(HasProgressData));
     }
 
     /// <summary>
@@ -56,8 +89,8 @@ public abstract class ViewModel : ViewModelCommon, IViewModel
     public IProgress<ProgressData> StartNewObservableProgressReporting(string initialMessage = "", string operationTitle = "", double maxValue = 100, bool isIndeterminate = false)
     {
         var progressData = new ObservableProgressData(0, maxValue, initialMessage, operationTitle) { IsIndeterminate = isIndeterminate };
-        SelectedProgress = progressData;
         _progressDataCollectionInternal.Add(progressData);
+        UpdateSelectedProgressData();
 
         var reporter = new ObservableProgressReporter(OnProgress, progressData);
         reporter.ProgressReported += OnObservableProgressReporterProgressReported;
@@ -112,9 +145,25 @@ public abstract class ViewModel : ViewModelCommon, IViewModel
 
     public ObservableProgressData RemoveObservableProgressData(int index)
     {
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfIndexOutOfRange(index, 0.._progressDataCollectionInternal.Count);
+
         ObservableProgressData progressData = _progressDataCollectionInternal[index];
         _progressDataCollectionInternal.RemoveAt(index);
+        UpdateSelectedProgressData();
+
         return progressData;
+    }
+
+    private void UpdateSelectedProgressData()
+    {
+        if (_progressDataCollectionInternal.Count > SelectedProgressIndex)
+        {
+            SetSelectedProgress(SelectedProgressIndex);
+        }
+        else
+        {
+            SetSelectedProgress(-1);
+        }
     }
 
     public void RemoveAllCompletedObservableProgressData()
@@ -125,10 +174,14 @@ public abstract class ViewModel : ViewModelCommon, IViewModel
             _ = _progressDataCollectionInternal.Remove(progressData);
         }
 
-        SelectedProgress = new ObservableProgressData(0, -1, string.Empty, string.Empty);
+        UpdateSelectedProgressData();
     }
 
-    public void RemoveAllObservableProgressData() => _progressDataCollectionInternal.Clear();
+    public void RemoveAllObservableProgressData()
+    {
+        _progressDataCollectionInternal.Clear();
+        UpdateSelectedProgressData();
+    }
 
     /// <summary>
     /// When overridden, handles the <see cref="IProgress{ObservableProgressData}.Report(ObservableProgressData)"/> 

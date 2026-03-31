@@ -24,6 +24,9 @@ public interface IProgressReporter : INotifyPropertyChanged
     IProgress<ProgressData> CreateProgressReporterFromUiThread();
 
     ReadOnlyObservableCollection<ObservableProgressData> ProgressDataCollection { get; }
+    bool HasProgressDataCollectionItems { get; }
+    bool IsProgressDataCollectionEmpty { get; }
+    bool HasProgressData { get; }
 
     ObservableProgressData SelectedProgress { get; }
 

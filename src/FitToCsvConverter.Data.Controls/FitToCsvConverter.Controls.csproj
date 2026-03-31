@@ -8,6 +8,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="System.Linq.Dynamic.Core" Version="1.7.1" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\BionicCode.Utilities.Net\BionicCode.Utilities.Net.Common.csproj" />
     <ProjectReference Include="..\FitToCsvConverter.ViewMode\FitToCsvConverter.ViewModel.csproj" />
   </ItemGroup>

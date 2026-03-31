@@ -964,4 +964,23 @@ public class ArgumentOutOfRangeExceptionAdvanced : System.ArgumentOutOfRangeExce
                 message ?? $"The argument '{paramName}' is less than or equal to the disallowed value. Allowed: {paramName} > {other}, Found: '{value}'");
         }
     }
+
+    public static void ThrowIfIndexOutOfRange(int index, Range range, string? message = null, [CallerArgumentExpression(nameof(index))] string? paramName = null)
+    {
+        if (index < range.Start.Value)
+        {
+            throw new ArgumentOutOfRangeException(
+                paramName,
+                index,
+                message ?? $"The argument '{paramName}' is out of the allowed range '{range}'. Reason: '{index}' is less than '{range.Start.Value}'.");
+        }
+
+        if (index > range.End.Value)
+        {
+            throw new ArgumentOutOfRangeException(
+                paramName,
+                index,
+                message ?? $"The argument '{paramName}' is out of the allowed range '{range}'. Reason: '{index}' is greater than '{range.End.Value}'.");
+        }
+    }
 }

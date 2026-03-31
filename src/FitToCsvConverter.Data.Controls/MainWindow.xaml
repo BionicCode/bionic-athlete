@@ -580,7 +580,7 @@
 
                 <StackPanel Grid.Row="6"
                             Margin="0,20,0,0"
-                            Visibility="{Binding IsReportingProgress, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            Visibility="{Binding HasProgressData, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <Separator Margin="0,20" />
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="{Binding ProgressDataCollection[0].OperationTitle}" />
@@ -603,7 +603,7 @@
 
                 <StackPanel Grid.Row="7"
                             Margin="0,0,0,20"
-                            Visibility="{Binding IsReportingProgress, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            Visibility="{Binding HasProgressData, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <Separator Margin="50,20" />
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="{Binding ProgressDataCollection[1].OperationTitle}" />
