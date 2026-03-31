@@ -1,16 +1,21 @@
 ﻿namespace BionicCode.Utilities.Net;
 
 using System;
+using System.ComponentModel;
 
 /// <summary>
 /// Event args for the <see cref="ProgressChangedEventHandler"/>.
 /// </summary>
+[Obsolete("This class is deprecated. Use the 'ObservableProgressChangedEventArgs' class instead to provide more detailed progress information including percentage and indeterminate state.", error: false)]
+[EditorBrowsable(EditorBrowsableState.Never)]
 public class ProgressChangedEventArgs : EventArgs
 {
     /// <summary>
     /// MemberConstructor.
     /// </summary>
-    public ProgressChangedEventArgs() : this(-1, -1, -1, string.Empty)
+    [Obsolete("This class is deprecated. Use the 'ObservableProgressChangedEventArgs' class instead to provide more detailed progress information including percentage and indeterminate state.", error: false)]
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    public ProgressChangedEventArgs() : this(-1, -1, string.Empty)
     {
     }
 
@@ -19,8 +24,9 @@ public class ProgressChangedEventArgs : EventArgs
     /// </summary>
     /// <param name="oldValue">The old progress value before the change.</param>
     /// <param name="newValue">The new progress value after the change.</param>
-    [Obsolete("This constructor is deprecated. Use the constructor that includes the 'maxValue' parameter to enable a calculated value for 'ProgressPercentage'.", true)]
-    public ProgressChangedEventArgs(double oldValue, double newValue) : this(oldValue, newValue, -1, string.Empty)
+    [Obsolete("This class is deprecated. Use the 'ObservableProgressChangedEventArgs' class instead to provide more detailed progress information including percentage and indeterminate state.", error: false)]
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    public ProgressChangedEventArgs(double oldValue, double newValue) : this(oldValue, newValue, string.Empty)
     {
     }
 
@@ -30,33 +36,12 @@ public class ProgressChangedEventArgs : EventArgs
     /// <param name="oldValue">The old progress value before the change.</param>
     /// <param name="newValue">The new progress value after the change.</param>
     /// <param name="progressText">A text message to summarize the progress.</param>
-    [Obsolete("This constructor is deprecated. Use the constructor that includes the 'maxValue' parameter to enable a calculated value for 'ProgressPercentage'.", true)]
-    public ProgressChangedEventArgs(double oldValue, double newValue, string progressText) : this(oldValue, newValue, -1, progressText)
-    {
-    }
-
-    /// <summary>
-    /// MemberConstructor.
-    /// </summary>
-    /// <param name="oldValue">The old progress value before the change.</param>
-    /// <param name="newValue">The new progress value after the change.</param>
-    /// <param name="maxValue">The maximum progress value that corresponds to 100% progress. This parameter is used to calculate the percentage value for the <see cref="ProgressPercentage"/> property.</param>
-    public ProgressChangedEventArgs(double oldValue, double newValue, double maxValue) : this(oldValue, newValue, maxValue, string.Empty)
-    {
-    }
-
-    /// <summary>
-    /// MemberConstructor.
-    /// </summary>
-    /// <param name="oldValue">The old progress value before the change.</param>
-    /// <param name="newValue">The new progress value after the change.</param>
-    /// <param name="maxValue">The maximum progress value that corresponds to 100% progress. This parameter is used to calculate the percentage value for the <see cref="ProgressPercentage"/> property.</param>
-    /// <param name="progressText">A text message to summarize the progress.</param>
-    public ProgressChangedEventArgs(double oldValue, double newValue, double maxValue, string progressText)
+    [Obsolete("This class is deprecated. Use the 'ObservableProgressChangedEventArgs' class instead to provide more detailed progress information including percentage and indeterminate state.", error: false)]
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    public ProgressChangedEventArgs(double oldValue, double newValue, string progressText)
     {
         OldValue = oldValue;
         NewValue = newValue;
-        MaxValue = maxValue;
         ProgressText = progressText;
     }
 
@@ -68,10 +53,6 @@ public class ProgressChangedEventArgs : EventArgs
     /// The new progress value after the change.
     /// </summary>
     public double NewValue { get; }
-    public double MaxValue { get; }
-    public double ProgressPercentage => (MaxValue > 0)
-        ? NewValue / MaxValue * 100.0
-        : 0.0;
     /// <summary>
     /// A text message to summarize the progress.
     /// </summary>
@@ -79,5 +60,4 @@ public class ProgressChangedEventArgs : EventArgs
     /// <summary>
     /// Indicates that the progress is indeterminate what would characterize the progress values of <see cref="OldValue"/> and <see cref="NewValue"/> just random progress e.g. bytes transferred instead of an abslote value of a fixed value range.
     /// </summary>
-    public bool IsIndeterminate { get; }
 }

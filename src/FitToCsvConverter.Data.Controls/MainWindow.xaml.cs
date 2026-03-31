@@ -23,6 +23,12 @@ public partial class MainWindow : Window
     public static readonly RoutedCommand UnselectAllSessionFieldsCommand = new(nameof(UnselectAllSessionFieldsCommand), typeof(MainWindow));
     public static readonly RoutedCommand SelectAllLapFieldsCommand = new(nameof(SelectAllLapFieldsCommand), typeof(MainWindow));
     public static readonly RoutedCommand UnselectAllLapFieldsCommand = new(nameof(UnselectAllLapFieldsCommand), typeof(MainWindow));
+    public static readonly RoutedCommand RemoveAllExtraFilesCommand = new(nameof(RemoveAllExtraFilesCommand), typeof(MainWindow));
+    public static readonly RoutedCommand RemoveExtraFileCommand = new(nameof(RemoveExtraFileCommand), typeof(MainWindow));
+    public static readonly RoutedCommand SelectAllExtraFilesForRenameCommand = new(nameof(SelectAllExtraFilesForRenameCommand), typeof(MainWindow));
+    public static readonly RoutedCommand UnselectAllExtraFilesForRenameCommand = new(nameof(UnselectAllExtraFilesForRenameCommand), typeof(MainWindow));
+    public static readonly RoutedCommand AddFitFileCommand = new(nameof(AddFitFileCommand), typeof(MainWindow));
+    public static readonly RoutedCommand RemoveFitFileCommand = new(nameof(RemoveFitFileCommand), typeof(MainWindow));
 
     public MainWindow(MainViewModel viewModel)
     {
@@ -37,49 +43,112 @@ public partial class MainWindow : Window
             AddToRecent = true
         };
 
-        var selectAllActivitiesBinding = new CommandBinding(
+        var selectAllActivitiesCommandBinding = new CommandBinding(
             SelectAllActivityFieldsCommand,
             executed: (s, e) => _viewModel.SetAllActivityFieldsSelected(true),
             canExecute: (s, e) => e.CanExecute = _viewModel.SelectedExportData?.ActivityFields.Any(field => !field.IsSelected) ?? false);
-        var unselectAllActivitiesBinding = new CommandBinding(
+        _ = CommandBindings.Add(selectAllActivitiesCommandBinding);
+
+        var unselectAllActivitiesCommandBinding = new CommandBinding(
             UnselectAllActivityFieldsCommand,
             executed: (s, e) => _viewModel.SetAllActivityFieldsSelected(false),
             canExecute: (s, e) => e.CanExecute = _viewModel.SelectedExportData?.ActivityFields.Any(field => field.IsSelected) ?? false);
-        _ = CommandBindings.Add(selectAllActivitiesBinding);
-        _ = CommandBindings.Add(unselectAllActivitiesBinding);
+        _ = CommandBindings.Add(unselectAllActivitiesCommandBinding);
 
-        var selectAllRecordsBinding = new CommandBinding(
+        var selectAllRecordsCommandBinding = new CommandBinding(
             SelectAllRecordFieldsCommand,
             executed: (s, e) => _viewModel.SetAllRecordFieldsSelected(true),
             canExecute: (s, e) => e.CanExecute = _viewModel.SelectedExportData?.RecordFields.Any(field => !field.IsSelected) ?? false);
-        var unselectAllRecordsBinding = new CommandBinding(
+        _ = CommandBindings.Add(selectAllRecordsCommandBinding);
+
+        var unselectAllRecordsCommandBinding = new CommandBinding(
             UnselectAllRecordFieldsCommand,
             executed: (s, e) => _viewModel.SetAllRecordFieldsSelected(false),
             canExecute: (s, e) => e.CanExecute = _viewModel.SelectedExportData?.RecordFields.Any(field => field.IsSelected) ?? false);
-        _ = CommandBindings.Add(selectAllRecordsBinding);
-        _ = CommandBindings.Add(unselectAllRecordsBinding);
+        _ = CommandBindings.Add(unselectAllRecordsCommandBinding);
 
-        var selectAllSessionsBinding = new CommandBinding(
+        var selectAllSessionsCommandBinding = new CommandBinding(
             SelectAllSessionFieldsCommand,
             executed: (s, e) => _viewModel.SetAllSessionFieldsSelected(true),
             canExecute: (s, e) => e.CanExecute = _viewModel.SelectedExportData?.SessionFields.Any(field => !field.IsSelected) ?? false);
-        var unselectAllSessionsBinding = new CommandBinding(
+        _ = CommandBindings.Add(selectAllSessionsCommandBinding);
+
+        var unselectAllSessionsCommandBinding = new CommandBinding(
             UnselectAllSessionFieldsCommand,
             executed: (s, e) => _viewModel.SetAllSessionFieldsSelected(false),
             canExecute: (s, e) => e.CanExecute = _viewModel.SelectedExportData?.SessionFields.Any(field => field.IsSelected) ?? false);
-        _ = CommandBindings.Add(selectAllSessionsBinding);
-        _ = CommandBindings.Add(unselectAllSessionsBinding);
+        _ = CommandBindings.Add(unselectAllSessionsCommandBinding);
 
-        var selectAllLapsBinding = new CommandBinding(
+        var selectAllLapsCommandBinding = new CommandBinding(
             SelectAllLapFieldsCommand,
             executed: (s, e) => _viewModel.SetAllLapFieldsSelected(true),
             canExecute: (s, e) => e.CanExecute = _viewModel.SelectedExportData?.LapFields.Any(field => !field.IsSelected) ?? false);
-        var unselectAllLapsBinding = new CommandBinding(
+        _ = CommandBindings.Add(selectAllLapsCommandBinding);
+
+        var unselectAllLapsCommandBinding = new CommandBinding(
             UnselectAllLapFieldsCommand,
             executed: (s, e) => _viewModel.SetAllLapFieldsSelected(false),
             canExecute: (s, e) => e.CanExecute = _viewModel.SelectedExportData?.LapFields.Any(field => field.IsSelected) ?? false);
-        _ = CommandBindings.Add(selectAllLapsBinding);
-        _ = CommandBindings.Add(unselectAllLapsBinding);
+        _ = CommandBindings.Add(unselectAllLapsCommandBinding);
+
+        var removeAllExtraFilesCommandBinding = new CommandBinding(
+            RemoveAllExtraFilesCommand,
+            executed: (s, e) => _viewModel.SelectedExportData?.ClearExtraFilePaths(),
+            canExecute: (s, e) => e.CanExecute = _viewModel.SelectedExportData?.SelectedExtraFilePaths?.Any() ?? false);
+        _ = CommandBindings.Add(removeAllExtraFilesCommandBinding);
+
+        var removeExtraFileCommandBinding = new CommandBinding(
+            RemoveExtraFileCommand,
+            executed: (s, e) =>
+            {
+                if (e.Parameter is ObservableFileDescriptor fileDescriptor)
+                {
+                    _viewModel.SelectedExportData?.RemoveExtraFilePath(fileDescriptor);
+                }
+            },
+            canExecute: (s, e) => e.CanExecute = e.Parameter is ObservableFileDescriptor fileDescriptor && (_viewModel.SelectedExportData?.SelectedExtraFilePaths?.Contains(fileDescriptor) ?? false));
+        _ = CommandBindings.Add(removeExtraFileCommandBinding);
+
+        var selectAllExtraFilesForRenameCommandBinding = new CommandBinding(
+            SelectAllExtraFilesForRenameCommand,
+            executed: (s, e) => _viewModel.SelectedExportData?.SetRenameAllExtraFiles(true),
+            canExecute: (s, e) => e.CanExecute = _viewModel.SelectedExportData?.SelectedExtraFilePaths?.Any(file => !file.IsRenamingEnabled) ?? false);
+        _ = CommandBindings.Add(selectAllExtraFilesForRenameCommandBinding);
+
+        var unselectAllExtraFilesForRenameCommandBinding = new CommandBinding(
+            UnselectAllExtraFilesForRenameCommand,
+            executed: (s, e) => _viewModel.SelectedExportData?.SetRenameAllExtraFiles(false),
+            canExecute: (s, e) => e.CanExecute = _viewModel.SelectedExportData?.SelectedExtraFilePaths?.Any(file => file.IsRenamingEnabled) ?? false);
+        _ = CommandBindings.Add(unselectAllExtraFilesForRenameCommandBinding);
+
+        var removeFitFileCommandBinding = new CommandBinding(
+            RemoveFitFileCommand,
+            executed: (s, e) =>
+            {
+                if (e.Parameter is string filePath)
+                {
+                    _viewModel.RemoveFitFilePath(filePath);
+                }
+            },
+            canExecute: (s, e) => e.CanExecute = e.Parameter is string filePath && (_viewModel.FitFilePaths?.Contains(filePath) ?? false));
+        _ = CommandBindings.Add(removeFitFileCommandBinding);
+    }
+
+    private void OnExecutedAddFitFileCommand(object sender, ExecutedRoutedEventArgs e)
+    {
+        var openFileDialog = new OpenFileDialog
+        {
+            Title = "Select FIT Files",
+            Filter = "FIT Files|*.fit|ZIP Files|*.zip|All Files|*.fit;*.zip",
+            Multiselect = true,
+            AddToRecent = true
+        };
+        bool? result = openFileDialog.ShowDialog();
+        if (result == true)
+        {
+            _viewModel.ProgressChanged += OnAddFitFileProgressChanged;
+            _ = _viewModel.AddFitFilePathsAsync(openFileDialog.FileNames, CancellationToken.None);
+        }
     }
 
     private async void OnFitFilesDropped(object sender, DragEventArgs e)
@@ -93,7 +162,7 @@ public partial class MainWindow : Window
     }
 
     private Window? _progressDialog;
-    private void OnAddFitFileProgressChanged(object sender, ProgressChangedEventArgs e)
+    private void OnAddFitFileProgressChanged(object sender, ObservableProgressChangedEventArgs e)
     {
         _progressDialog ??= new Window()
         {
@@ -102,7 +171,7 @@ public partial class MainWindow : Window
             {
                 IsIndeterminate = e.IsIndeterminate,
                 Minimum = 0,
-                Maximum = e.MaxValue,
+                Maximum = e.ProgressData.MaxValue,
                 Width = 300,
                 Height = 30
             },
@@ -110,7 +179,7 @@ public partial class MainWindow : Window
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             Owner = this
         };
-        _ = (_progressDialog.Content as ProgressBar)!.SetBinding(ProgressBar.ValueProperty, new System.Windows.Data.Binding(nameof(MainViewModel.SelectedProgress)) { Source = _viewModel });
+        //_ = (_progressDialog.Content as ProgressBar)!.SetBinding(ProgressBar.ValueProperty, new System.Windows.Data.Binding(nameof(MainViewModel.SelectedProgress.ProgressValue)) { Source = _viewModel });
         _progressDialog.Show();
     }
 

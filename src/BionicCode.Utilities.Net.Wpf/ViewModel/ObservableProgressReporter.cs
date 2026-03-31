@@ -39,6 +39,8 @@ internal class ObservableProgressReporter : IProgress<ProgressData>
 
     void IProgress<ProgressData>.Report(ProgressData value) => OnReport(value);
 
-    protected virtual void OnProgressReported(double oldProgress, double newProgress, string message) => ProgressReported?.Invoke(this, new ObservableProgressChangedEventArgs(oldProgress, newProgress, message, _observableProgressData));
+    protected virtual void OnProgressReported(double oldProgress, double newProgress, string message) => ProgressReported?.Invoke(this, new ObservableProgressChangedEventArgs(oldProgress, _observableProgressData));
+    protected virtual void OnCompleted() => Completed?.Invoke(this, EventArgs.Empty);
     public event EventHandler<ObservableProgressChangedEventArgs>? ProgressReported;
+    public event EventHandler? Completed;
 }

@@ -10,7 +10,7 @@ public class ObservableProgressChangedEventArgs : EventArgs
     /// <summary>
     /// MemberConstructor.
     /// </summary>
-    public ObservableProgressChangedEventArgs() : this(-1, -1, string.Empty, new ObservableProgressData(0.0, 0.0, string.Empty, string.Empty))
+    public ObservableProgressChangedEventArgs() : this(-1, new ObservableProgressData(0.0, 0.0, string.Empty, string.Empty))
     {
     }
 
@@ -18,22 +18,10 @@ public class ObservableProgressChangedEventArgs : EventArgs
     /// MemberConstructor.
     /// </summary>
     /// <param name="oldValue">The old progress value before the change.</param>
-    /// <param name="newValue">The new progress value after the change.</param>
-    public ObservableProgressChangedEventArgs(double oldValue, double newValue, ObservableProgressData progressData) : this(oldValue, newValue, string.Empty, progressData)
-    {
-    }
-
-    /// <summary>
-    /// MemberConstructor.
-    /// </summary>
-    /// <param name="oldValue">The old progress value before the change.</param>
-    /// <param name="newValue">The new progress value after the change.</param>
-    /// <param name="progressText">A text message to summarize the progress.</param>
-    public ObservableProgressChangedEventArgs(double oldValue, double newValue, string progressText, ObservableProgressData progressData)
+    /// <param name="progressData">The new progress data after the change.</param>
+    public ObservableProgressChangedEventArgs(double oldValue, ObservableProgressData progressData)
     {
         OldValue = oldValue;
-        NewValue = newValue;
-        ProgressText = progressText;
         ProgressData = progressData;
     }
 
@@ -44,15 +32,15 @@ public class ObservableProgressChangedEventArgs : EventArgs
     /// <summary>
     /// The new progress value after the change.
     /// </summary>
-    public double NewValue { get; }
+    public double NewValue => ProgressData.Progress;
     /// <summary>
     /// A text message to summarize the progress.
     /// </summary>
-    public string ProgressText { get; }
+    public string ProgressText => ProgressData.Message;
     /// <summary>
     /// Indicates that the progress is indeterminate what would characterize the progress values of <see cref="OldValue"/> and <see cref="NewValue"/> just random progress e.g. bytes transferred instead of an abslote value of a fixed value range.
     /// </summary>
-    public bool IsIndeterminate { get; }
+    public bool IsIndeterminate => ProgressData.IsIndeterminate;
 
     public ObservableProgressData ProgressData { get; }
 }

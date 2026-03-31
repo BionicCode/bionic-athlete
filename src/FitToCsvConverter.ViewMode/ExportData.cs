@@ -5,7 +5,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using BionicCode.Utilities.Net;
 using FitToCsvConverter.Data.Activities;
-using FitToCsvConverter.Data.Caching;
 using FitToCsvConverter.Data.Decoding;
 using FitToCsvConverter.Data.Fields;
 
@@ -68,6 +67,10 @@ public class ExportData : ViewModel
         RecordFields = new(_recordFields);
         _lapFields = new ObservableHashSet<DataField>(dataFieldComparer);
         LapFields = new(_lapFields);
+
+        DeleteExtraFileCommand = new RelayCommand<ObservableFileDescriptor>(
+            execute: RemoveExtraFilePath,
+            canExecute: SelectedExtraFilePaths.Contains);
     }
 
     public async Task SetFitFileAsync(string fitFilePath, CancellationToken cancellationToken)
@@ -329,6 +332,18 @@ public class ExportData : ViewModel
             field.IsSelected = isSelected;
         }
     }
+
+    public void ClearExtraFilePaths() => _selectedExtraFilePaths.Clear();
+
+    public void SetRenameAllExtraFiles(bool isRenamingEnabled)
+    {
+        foreach (ObservableFileDescriptor fileDescriptor in _selectedExtraFilePaths)
+        {
+            fileDescriptor.IsRenamingEnabled = isRenamingEnabled;
+        }
+    }
+
+    public IRelayCommand<ObservableFileDescriptor> DeleteExtraFileCommand { get; }
 
     public string FitFilePath
     {

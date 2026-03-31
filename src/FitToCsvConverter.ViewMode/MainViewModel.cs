@@ -34,13 +34,12 @@ public class MainViewModel : ViewModel
         _folderPathValidator = IsFolderPathValid();
         _setValueOptions = SetValueOptions.Default with { IsRejectInvalidValueEnabled = true, IsThrowExceptionOnValidationErrorEnabled = true, IsRejectEqualValuesEnabled = true };
         ExportData = [];
-        SelectedFitFilePaths = [];
+        FitFilePaths = [];
         _selectedFitFilePath = string.Empty;
         _zipArchiveManager = zipArchiveManager;
         _garminFitCsvToolConverter = garminFitCsvToolConverter;
         _temporaryFileManager = temporaryFileManager;
         _cachingFitActivityDecoderFactory = cachingFitActivityDecoderFactory;
-        DeleteExtraFileCommand = new RelayCommand<ObservableFileDescriptor>(fileDescriptor => SelectedExportData?.RemoveExtraFilePath(fileDescriptor), (fileDescriptor) => SelectedExportData is not null && SelectedExportData.SelectedExtraFilePaths.Contains(fileDescriptor));
         ExportCommand = new AsyncRelayCommand(ExecuteExportCommandAsync, CanExecuteExportCommand);
         StartNewSessionCommand = new RelayCommand(ExecuteStartNewSessionCommand);
         _allowedFileExtensions = _zipArchiveManager.SupportedArchiveFileExtensions.Concat([FitFileExtension]).JoinToString();
@@ -53,12 +52,11 @@ public class MainViewModel : ViewModel
 
     public void StartNewSession()
     {
-        SelectedFitFilePaths.Clear();
+        FitFilePaths.Clear();
         SelectedFitFilePath = string.Empty;
         ExportData.Clear();
         SelectedExportData = null;
         RemoveAllObservableProgressData();
-        IsReportingProgress = false;
     }
 
     public PropertyValidationResult IsFitFilePathValid(string fitFilePath)
@@ -97,11 +95,12 @@ public class MainViewModel : ViewModel
     {
         ArgumentExceptionAdvanced.ThrowIfNullOrEmpty(fitFilePaths);
 
+        IProgress<ProgressData> progressReporter = StartNewObservableProgressReporting(string.Empty, $"Adding files...", isIndeterminate: true);
         foreach (string fitFilePath in fitFilePaths)
         {
+            progressReporter.Report(new ProgressData { Message = $"Adding '{Path.GetFileName(fitFilePath)}'..." });
             if (_zipArchiveManager.IsFileTypeSupportedArchive(fitFilePath))
             {
-                IProgress<ProgressData> progressReporter = StartNewObservableProgressReporting(string.Empty, $"Extracting '{Path.GetFileName(fitFilePath)}'...");
                 await foreach (string extractedFilePath in _zipArchiveManager.ExtractArchiveAsync(fitFilePath, progressReporter, cancellationToken).ConfigureAwait(true))
                 {
                     _ = await AddFitFilePathAsync(extractedFilePath, cancellationToken);
@@ -113,6 +112,18 @@ public class MainViewModel : ViewModel
             {
                 _ = await AddFitFilePathAsync(fitFilePath, cancellationToken);
             }
+        }
+    }
+
+    public void RemoveFitFilePath(string filePath)
+    {
+        if (FitFilePaths.Contains(filePath))
+        {
+            _ = FitFilePaths.Remove(filePath);
+        }
+        else
+        {
+            throw new InvalidOperationException($"File path '{filePath}' not found in collection '{nameof(FitFilePaths)}'.");
         }
     }
 
@@ -143,7 +154,7 @@ public class MainViewModel : ViewModel
 
         PropertyValidationResult filePathValidationResult = IsFitFilePathValid(fitFilePath);
         if (!filePathValidationResult.IsValid
-            || !SelectedFitFilePaths.Add(fitFilePath))
+            || !FitFilePaths.Add(fitFilePath))
         {
             return false;
         }
@@ -170,11 +181,10 @@ public class MainViewModel : ViewModel
 
     private bool CanExecuteExportCommand() => ExportData.Any()
         && !string.IsNullOrEmpty(DestinationFolder)
-        && SelectedFitFilePaths.Any();
+        && FitFilePaths.Any();
 
     private async Task ExecuteExportCommandAsync()
     {
-        IsReportingProgress = true;
         IEnumerable<ConversionInfo> conversionInfoEnumerable = EnumerateConversionInfo();
         IProgress<ProgressData> exportProgressReporter = StartNewObservableProgressReporting(string.Empty, "Export FIT to CSV");
         await _garminFitCsvToolConverter.ExportToCsvAsync(conversionInfoEnumerable, ExportData.Count, exportProgressReporter);
@@ -234,12 +244,10 @@ public class MainViewModel : ViewModel
     public string? SelectedFitFilePath
     {
         get => _selectedFitFilePath;
-        set => _ = TrySetValue(value, value => SelectedFitFilePaths.IsEmpty() || SelectedFitFilePaths.Contains(value) ? new PropertyValidationResult(true, []) : new PropertyValidationResult(false, ["Selected file is not in the list of fit files."]), ref _selectedFitFilePath, _setValueOptions);
+        set => _ = TrySetValue(value, value => FitFilePaths.IsEmpty() || FitFilePaths.Contains(value) ? new PropertyValidationResult(true, []) : new PropertyValidationResult(false, ["Selected file is not in the list of fit files."]), ref _selectedFitFilePath, _setValueOptions);
     }
 
-    public ObservableFileSystemPathHashSet SelectedFitFilePaths { get; }
-
-    public IRelayCommand<ObservableFileDescriptor> DeleteExtraFileCommand { get; }
+    public ObservableFileSystemPathHashSet FitFilePaths { get; }
     public IAsyncRelayCommand ExportCommand { get; }
     public IRelayCommand StartNewSessionCommand { get; }
 

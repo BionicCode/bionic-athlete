@@ -24,6 +24,13 @@
                Opacity="1"
                HorizontalAlignment="Center"
                VerticalAlignment="Center" />
+    <TextBlock x:Key="DeleteIcon"
+               x:Shared="False"
+               Text="&#xe74d;"
+               FontFamily="{StaticResource SegoeMDL2Assets}"
+               Opacity="1"
+               HorizontalAlignment="Center"
+               VerticalAlignment="Center" />
 
     <Duration x:Key="MouseOverAnimationDuration">0:0:0.2</Duration>
 

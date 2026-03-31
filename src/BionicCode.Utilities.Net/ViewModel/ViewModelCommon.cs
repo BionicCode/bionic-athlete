@@ -1023,7 +1023,7 @@ public abstract partial class ViewModelCommon : IViewModelCommon
     /// <summary>
     /// Event fired whenever a child property changes its value.
     /// </summary>
-    public event PropertyChangedEventHandler PropertyChanged;
+    public event PropertyChangedEventHandler? PropertyChanged;
 
     /// <summary>
     /// Method called to fire a <see cref="PropertyChanged"/> event.
@@ -1087,24 +1087,31 @@ public abstract partial class ViewModelCommon : IViewModelCommon
     /// <param name="progress">The progress argument.</param>
     /// <remarks>The default implementation provides the following logic: a value of <see cref="double.NegativeInfinity"/> or <see cref="ViewModelCommon.DisableIndeterminateMode"/> will automatically set the <see cref="ViewModelCommon.IsIndeterminate"/> property to <see langword="false"/>. A value of <see cref="double.PositiveInfinity"/> or <see cref="ViewModelCommon.EnableIndeterminateMode"/> will automatically set the <see cref="ViewModelCommon.IsIndeterminate"/> property to <see langword="true"/>.
     /// </remarks>
-    [Obsolete("Deprecated API")]
+    [Obsolete("Deprecated API. Use 'ObservableProgressData' infrastructure of the 'BionicCode.Utilities.Net.Wpf' assembly instead.", error: false)]
+    [EditorBrowsable(EditorBrowsableState.Never)]
     protected virtual void OnProgress(ProgressData progress)
     {
         ProgressText = progress.Message;
         IsIndeterminate = progress.Progress == ViewModelCommon.EnableIndeterminateMode || IsIndeterminate;
         double oldValue = ProgressValue;
         ProgressValue = progress.Progress;
-        OnProgressChanged(oldValue, ProgressValue, progress.MaxValue, ProgressText);
+        OnProgressChanged(oldValue, ProgressValue, ProgressText);
     }
 
     /// <summary>
     /// Constant representing value of <see cref="double.PositiveInfinity"/>. When assigned to <see cref="ProgressData.Progress"/> and when calling the default implementation of <see cref="OnProgress(ProgressData)"/> the value will automatically set <see cref="ViewModelCommon.IsIndeterminate"/> to <see langword="true"/>.
     /// </summary>
+    [Obsolete("Deprecated API. Use 'ObservableProgressData' infrastructure of the 'BionicCode.Utilities.Net.Wpf' assembly instead.", error: false)]
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    [Browsable(false)]
     public const double EnableIndeterminateMode = double.PositiveInfinity;
 
     /// <summary>
     /// Constant representing value of <see cref="double.NegativeInfinity"/>. When assigned to <see cref="ProgressData.Progress"/> and when calling the default implementation of <see cref="OnProgress(ProgressData)"/> the value will automatically set <see cref="ViewModelCommon.IsIndeterminate"/> to <see langword="false"/>.
     /// </summary>
+    [Obsolete("Deprecated API. Use 'ObservableProgressData' infrastructure of the 'BionicCode.Utilities.Net.Wpf' assembly instead.", error: false)]
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    [Browsable(false)]
     public const double DisableIndeterminateMode = double.NegativeInfinity;
 
     /// <summary>
@@ -1113,35 +1120,24 @@ public abstract partial class ViewModelCommon : IViewModelCommon
     /// </summary>
     /// <remarks>To create a <see cref="IProgress{T}"/> instance that is associated with the application's primary dispatcher thread of a Windows targeting application, for example to update properties that bind to a <c>DispatcherObject</c>, call <c>CreateProgressReporterFromUiThread</c>.</remarks>
     /// <returns>A <see cref="IProgress{ProgressData}"/> instance that posts progress to the thread <see cref="CreateProgressReporterFromCurrentThread"/> was called from.</returns>
-    [Obsolete("Deprecated API")]
+    [Obsolete("Deprecated API. Use 'ObservableProgressData' infrastructure of the 'BionicCode.Utilities.Net.Wpf' assembly instead.", error: false)]
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public IProgress<ProgressData> CreateProgressReporterFromCurrentThread() => new Progress<ProgressData>(OnProgress);
 
-    /// <summary>
-    /// 
-    /// Raises the <see cref="IProgressReporterCommon.ProgressChanged"/> event.
-    /// </summary>
-    /// <param name="oldValue">The old progress value.</param>
-    /// <param name="newValue">The new progress value.</param>
-    /// <param name="maxValue">The maximum progress value.</param>
-    protected virtual void OnProgressChanged(double oldValue, double newValue, double maxValue) => OnProgressChanged(oldValue, newValue, maxValue, string.Empty);
+    [Obsolete("Deprecated API. Use 'ObservableProgressData' infrastructure of the 'BionicCode.Utilities.Net.Wpf' assembly instead.", error: false)]
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    protected virtual void OnProgressChanged(double oldValue, double newValue) => OnProgressChanged(oldValue, newValue, string.Empty);
 
-    [Obsolete("Use OnProgressChanged(double oldValue, double newValue, double maxValue, string progressText) instead.", false)]
-    protected virtual void OnProgressChanged(double oldValue, double newValue) => OnProgressChanged(oldValue, newValue, -1, string.Empty);
-
-    /// <summary>
-    /// Raises the <see cref="IProgressReporterCommon.ProgressChanged"/> event.
-    /// </summary>
-    /// <param name="oldValue">The old progress value.</param>
-    /// <param name="newValue">The new progress value.</param>
-    /// <param name="maxValue">The maximum progress value.</param>
-    /// <param name="progressText">The progress message.</param>
-    protected virtual void OnProgressChanged(double oldValue, double newValue, double maxValue, string progressText) => ProgressChanged?.Invoke(this, new ProgressChangedEventArgs(oldValue, newValue, maxValue, progressText));
-
-    [Obsolete("Use OnProgressChanged(double oldValue, double newValue, double maxValue, string progressText) instead.", false)]
-    protected virtual void OnProgressChanged(double oldValue, double newValue, string progressText) => ProgressChanged?.Invoke(this, new ProgressChangedEventArgs(oldValue, newValue, -1, progressText));
+    [Obsolete("Deprecated API. Use 'ObservableProgressData' infrastructure of the 'BionicCode.Utilities.Net.Wpf' assembly instead.", error: false)]
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    protected virtual void OnProgressChanged(double oldValue, double newValue, string progressText) => ProgressChanged?.Invoke(this, new ProgressChangedEventArgs(oldValue, newValue, progressText));
 
     private bool _isReportingProgress;
     /// <inheritdoc/>
+
+    [Obsolete("Deprecated API. Use 'ObservableProgressData' infrastructure of the 'BionicCode.Utilities.Net.Wpf' assembly instead.", error: false)]
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    [Browsable(false)]
     public bool IsReportingProgress
     {
         get => _isReportingProgress;
@@ -1151,7 +1147,9 @@ public abstract partial class ViewModelCommon : IViewModelCommon
     private bool _isIndeterminate;
 
     /// <inheritdoc/>
-    [Obsolete("This property is deprecated. Use 'ObservableProgressData.IsIndeterminate' instead.")]
+    [Obsolete("This property is deprecated. Use 'ObservableProgressData' infrastructure of the 'BionicCode.Utilities.Net.Wpf' assembly instead. The ViewModel base class now exposes a 'SelectedProgress' property. The returned 'ObservableProgressData' exposes a 'IsIndeterminate' property.", error: false)]
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    [Browsable(false)]
     public bool IsIndeterminate
     {
         get => _isIndeterminate;
@@ -1166,7 +1164,9 @@ public abstract partial class ViewModelCommon : IViewModelCommon
     private string _progressText;
 
     /// <inheritdoc/>
-    [Obsolete("This property is deprecated. Use 'ObservableProgressData.Message' instead.")]
+    [Obsolete("This property is deprecated. Use 'ObservableProgressData' infrastructure of the 'BionicCode.Utilities.Net.Wpf' assembly instead. The ViewModel base class now exposes a 'SelectedProgress' property. The returned 'ObservableProgressData' exposes a 'ProgressText' property.", error: false)]
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    [Browsable(false)]
     public string ProgressText
     {
         get => _progressText;
@@ -1182,7 +1182,9 @@ public abstract partial class ViewModelCommon : IViewModelCommon
     private double _progressValue;
 
     /// <inheritdoc/>
-    [Obsolete("This property is deprecated. Use 'ObservableProgressData.Progress' instead.")]
+    [Obsolete($"This property is deprecated. Use 'ObservableProgressData' infrastructure of the 'BionicCode.Utilities.Net.Wpf' assembly instead.", error: false)]
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    [Browsable(false)]
     public double ProgressValue
     {
         get => _progressValue;
@@ -1197,6 +1199,9 @@ public abstract partial class ViewModelCommon : IViewModelCommon
     }
 
     /// <inheritdoc/>
+    [Obsolete($"This property is deprecated. Use 'ViewModel' infrastructure of the 'BionicCode.Utilities.Net.Wpf' assembly instead.", error: false)]
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    [Browsable(false)]
     public event ProgressChangedEventHandler ProgressChanged;
 
     #endregion

@@ -73,8 +73,8 @@
                         Value="{StaticResource FieldListItemStyle}" />
                 <Setter Property="Height"
                         Value="200" />
-                <Setter Property="Width"
-                        Value="230" />
+                <!--<Setter Property="Width"
+                        Value="230" />-->
                 <Setter Property="BorderThickness"
                         Value="0" />
                 <Setter Property="HorizontalContentAlignment"
@@ -89,6 +89,57 @@
                                       VerticalAlignment="Center"
                                       Margin="0,0,5,0" />
                         </DataTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style TargetType="ListBoxItem">
+                <Setter Property="Background"
+                        Value="{StaticResource ExtraFileItemDefaultBackgroundBrush}" />
+                <Setter Property="BorderThickness"
+                        Value="1" />
+                <Setter Property="BorderBrush"
+                        Value="Gray" />
+                <Setter Property="Margin"
+                        Value="5,0" />
+                <Setter Property="Padding"
+                        Value="5,2" />
+                <Setter Property="IsHitTestVisible"
+                        Value="True" />
+                <Setter Property="HorizontalContentAlignment"
+                        Value="Stretch" />
+                <Setter Property="ToolTip"
+                        Value="{Binding RelativeSource={RelativeSource Self}, Path=Content}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ListBoxItem">
+                            <Border Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    Padding="{TemplateBinding Padding}"
+                                    CornerRadius="6">
+                                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                            </Border>
+
+                            <ControlTemplate.Triggers>
+                                <DataTrigger Binding="{Binding IsRenamingEnabled}"
+                                             Value="True">
+                                    <Setter Property="Background"
+                                            Value="{StaticResource FileItemManualRenamingEnabledBackgroundBrush}" />
+                                </DataTrigger>
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding IsRenamingEnabled}"
+                                                   Value="False" />
+                                        <Condition Binding="{Binding DataContext.IsAutoRenamingEnabled, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                   Value="True" />
+                                    </MultiDataTrigger.Conditions>
+                                    <Setter Property="Background"
+                                            Value="{StaticResource FileItemAutoRenamingEnabledBackgroundBrush}" />
+                                </MultiDataTrigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
                     </Setter.Value>
                 </Setter>
             </Style>
@@ -141,6 +192,26 @@
                 <MenuItem Header="Deselect all"
                           Command="{x:Static local:MainWindow.UnselectAllLapFieldsCommand}" />
             </ContextMenu>
+
+            <ContextMenu x:Key="ZipFilesContextMenu"
+                         DataContext="{Binding RelativeSource={RelativeSource Self}, Path=PlacementTarget.DataContext}">
+                <MenuItem Header="Select all for rename"
+                          Command="{x:Static local:MainWindow.SelectAllExtraFilesForRenameCommand}"
+                          CommandParameter="{Binding}"/>
+                <MenuItem Header="Deselect all for rename"
+                          Command="{x:Static local:MainWindow.UnselectAllExtraFilesForRenameCommand}"
+                          CommandParameter=""/>
+            </ContextMenu>
+
+            <ContextMenu x:Key="FitFileListContextMenu"
+                         DataContext="{Binding RelativeSource={RelativeSource Self}, Path=PlacementTarget.DataContext}">
+                <MenuItem Header="Remove FIT file"
+                          Command="{x:Static local:MainWindow.RemoveFitFileCommand}"
+                          CommandParameter="{Binding}" />
+                <MenuItem Header="Add FIT file"
+                          Command="{x:Static local:MainWindow.AddFitFileCommand}"
+                          CommandParameter="{Binding}" />
+            </ContextMenu>
         </ResourceDictionary>
     </Window.Resources>
 
@@ -181,19 +252,22 @@
                             Margin="5">
                     <TextBlock Text="FIT File:"
                                Style="{StaticResource LabelTextBlockStyle}" />
-                    <ListBox ItemsSource="{Binding SelectedFitFilePaths}"
+                    <ListBox ItemsSource="{Binding FitFilePaths}"
                              SelectedItem="{Binding SelectedFitFilePath}"
+                             BorderThickness="0"
                              AllowDrop="True"
                              ToolTip="Drag and drop FIT files here, either raw or as ZIP files."
                              Drop="OnFitFilesDropped"
                              DragEnter="PrepareFitFileDropTargetFeedBack"
                              DragOver="ProvideFitFileDropTargetFeedBack"
-                             DragLeave="ClearFitFileDropTargetFeedBack">
+                             DragLeave="ClearFitFileDropTargetFeedBack"
+                             ContextMenu="{StaticResource FitFileListContextMenu}">
                         <ListBox.Template>
                             <ControlTemplate TargetType="ListBox">
                                 <Border BorderBrush="Gray"
                                         BorderThickness="1"
                                         Height="100"
+                                        Padding="0,5"
                                         Background="Transparent"
                                         IsHitTestVisible="True"
                                         AllowDrop="True">
@@ -229,7 +303,7 @@
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
                     <StackPanel Grid.Row="0"
@@ -239,7 +313,10 @@
                                    Style="{StaticResource LabelTextBlockStyle}" />
                         <ListBox ItemsSource="{Binding ExportData, Mode=OneTime}"
                                  SelectedItem="{Binding SelectedExportData}"
-                                 DisplayMemberPath="FitFileName" />
+                                 DisplayMemberPath="FitFileName"
+                                 BorderThickness="0"
+                                 Padding="0,5"
+                                 Width="Auto" />
                     </StackPanel>
                     <GridSplitter Grid.Column="1"
                                   Grid.RowSpan="2"
@@ -255,10 +332,10 @@
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
 
                         <StackPanel Grid.Column="0">
@@ -318,8 +395,6 @@
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         
                         <ContentControl Grid.Column="0"
@@ -339,7 +414,6 @@
                                  ItemsSource="{Binding SelectedExportData.SelectedExtraFilePaths}"
                                  SelectedItem="{Binding SelectedExtraFilePath}"
                                  BorderThickness="0"
-                                 Width="500"
                                  AllowDrop="True"
                                  Drop="OnExtraZipFileContentDropped"
                                  Background="Transparent"
@@ -365,8 +439,8 @@
                                                   VerticalAlignment="Center"
                                                   ToolTip="Manually rename file to use the batch name." />
                                         <Button Grid.Column="2"
-                                                Content="&#xe74d;"
-                                                Command="{Binding DataContext.DeleteExtraFileCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                Content="{StaticResource DeleteIcon}"
+                                                Command="{Binding DeleteExtraFileCommand}"
                                                 CommandParameter="{Binding}"
                                                 FontFamily="{StaticResource SegoeMDL2Assets}"
                                                 ToolTip="Remove file"
@@ -402,56 +476,6 @@
                                     </DataTemplate.Triggers>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
-                            <ListBox.ItemContainerStyle>
-                                <Style TargetType="ListBoxItem">
-                                    <Setter Property="Background"
-                                            Value="{StaticResource ExtraFileItemDefaultBackgroundBrush}" />
-                                    <Setter Property="BorderThickness"
-                                            Value="1" />
-                                    <Setter Property="BorderBrush"
-                                            Value="Gray" />
-                                    <Setter Property="Margin"
-                                            Value="5,0" />
-                                    <Setter Property="Padding"
-                                            Value="5,2" />
-                                    <Setter Property="IsHitTestVisible"
-                                            Value="True" />
-                                    <Setter Property="HorizontalContentAlignment"
-                                            Value="Stretch" />
-                                    <Setter Property="Template">
-                                        <Setter.Value>
-                                            <ControlTemplate TargetType="ListBoxItem">
-                                                <Border Background="{TemplateBinding Background}"
-                                                        BorderBrush="{TemplateBinding BorderBrush}"
-                                                        BorderThickness="{TemplateBinding BorderThickness}"
-                                                        Padding="{TemplateBinding Padding}"
-                                                        CornerRadius="6">
-                                                    <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
-                                                </Border>
-
-                                                <ControlTemplate.Triggers>
-                                                    <DataTrigger Binding="{Binding IsRenamingEnabled}"
-                                                                 Value="True">
-                                                        <Setter Property="Background"
-                                                                Value="{StaticResource FileItemManualRenamingEnabledBackgroundBrush}" />
-                                                    </DataTrigger>
-                                                    <MultiDataTrigger>
-                                                        <MultiDataTrigger.Conditions>
-                                                            <Condition Binding="{Binding IsRenamingEnabled}"
-                                                                       Value="False" />
-                                                            <Condition Binding="{Binding DataContext.IsAutoRenamingEnabled, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                                                       Value="True" />
-                                                        </MultiDataTrigger.Conditions>
-                                                        <Setter Property="Background"
-                                                                Value="{StaticResource FileItemAutoRenamingEnabledBackgroundBrush}" />
-                                                    </MultiDataTrigger>
-                                                </ControlTemplate.Triggers>
-                                            </ControlTemplate>
-                                        </Setter.Value>
-                                    </Setter>
-                                </Style>
-                            </ListBox.ItemContainerStyle>
                         </ListBox>
 
                         <Separator Grid.Row="0"
@@ -517,25 +541,6 @@
                                                 Width="250"
                                                 Padding="4"
                                                 Margin="0" />
-
-                        <Separator Grid.Row="0"
-                                   Grid.RowSpan="3"
-                                   Grid.Column="7"
-                                   Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}"
-                                   Margin="10,0" />
-
-                        <Button Grid.Row="2"
-                                Grid.Column="8"
-                                VerticalAlignment="Top"
-                                Content="&#xe74d;"
-                                FontFamily="{StaticResource SegoeMDL2Assets}"
-                                Foreground="Red"
-                                Background="Transparent"
-                                BorderBrush="Transparent"
-                                ToolTip="Remove all"
-                                Width="50"
-                                Height="50"
-                                Margin="5,0" />
                     </Grid>
                 </Grid>
 
@@ -626,7 +631,7 @@
                         Width="80"
                         Content="{StaticResource SendIcon}"
                         Opacity="1"
-                        HorizontalAlignment="Right"
+                        HorizontalAlignment="Left"
                         HorizontalContentAlignment="Center"
                         VerticalContentAlignment="Center"
                         Command="{Binding ExportCommand}">

@@ -1,6 +1,7 @@
 ﻿namespace BionicCode.Utilities.Net;
 
 using System;
+using System.ComponentModel;
 
 public readonly struct ProgressData : IEquatable<ProgressData>
 {
@@ -9,12 +10,15 @@ public readonly struct ProgressData : IEquatable<ProgressData>
     /// </summary>
     /// <param name="message">A progress message.</param>
     /// <param name="progress">The progress value.</param>
-    [Obsolete("This constructor is deprecated. Use the constructor that includes the 'maxValue' parameter to enable a calculated value for 'ProgressPercentage'.", true)]
-    public ProgressData(string message, double progress)
+    /// <param name="isIndeterminate">Indicates whether the progress operation is indeterminate.</param>
+    [Obsolete("This constructor is deprecated. Use the constructor that includes the 'maxValue' parameter to enable a calculated value for 'ProgressPercentage'.", error: false)]
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    public ProgressData(string message, double progress, bool isIndeterminate = false)
     {
         Message = message;
         Progress = progress;
-        MaxValue = -1;
+        MaxValue = 1;
+        IsIndeterminate = isIndeterminate;
     }
     /// <summary>
     /// Data model to report progress to a implementation of <see cref="IProgressReporterCommon"/>. When using the <see cref="IProgress{T}"/> returned from the <see cref="IProgressReporterCommon.CreateProgressReporterFromCurrentThread"/> method, the <see cref="ProgressData"/> serves as the argument.
@@ -22,11 +26,13 @@ public readonly struct ProgressData : IEquatable<ProgressData>
     /// <param name="message">A progress message.</param>
     /// <param name="progress">The progress value.</param>
     /// <param name="maxValue">The maximum progress value that corresponds to 100% progress. This parameter is used to calculate the percentage value for the <see cref="ProgressPercentage"/> property.</param>
-    public ProgressData(double progress, double maxValue, string message)
+    /// <param name="isIndeterminate">Indicates whether the progress operation is indeterminate.</param>
+    public ProgressData(double progress, double maxValue, string message, bool isIndeterminate = false)
     {
         Message = message;
         Progress = progress;
         MaxValue = maxValue;
+        IsIndeterminate = isIndeterminate;
     }
 
     /// <summary>
@@ -37,6 +43,8 @@ public readonly struct ProgressData : IEquatable<ProgressData>
     /// The progress value.
     /// </summary>
     public double Progress { get; init; }
+
+    public bool IsIndeterminate { get; init; }
 
     /// <summary>
     /// Gets the current progress as a percentage of the maximum value defined by the <see cref="MaxValue"/> property.
@@ -51,12 +59,13 @@ public readonly struct ProgressData : IEquatable<ProgressData>
     public double MaxValue { get; init; }
     public override bool Equals(object? obj) => obj is ProgressData other && Equals(other);
 
-    public override int GetHashCode() => HashCode.Combine(Message, Progress, MaxValue);
+    public override int GetHashCode() => HashCode.Combine(Message, Progress, MaxValue, IsIndeterminate);
     public static bool operator ==(ProgressData left, ProgressData right) => left.Equals(right);
 
     public static bool operator !=(ProgressData left, ProgressData right) => !(left == right);
 
     public bool Equals(ProgressData other) => Message.Equals(other.Message, StringComparison.Ordinal)
         && Progress.Equals(other.Progress)
-        && MaxValue.Equals(other.MaxValue);
+        && MaxValue.Equals(other.MaxValue)
+        && IsIndeterminate.Equals(other.IsIndeterminate);
 }

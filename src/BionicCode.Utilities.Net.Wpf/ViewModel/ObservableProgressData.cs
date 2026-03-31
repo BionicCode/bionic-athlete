@@ -26,6 +26,7 @@ public class ObservableProgressData : ViewModel
         Progress = value.Progress;
         MaxValue = value.MaxValue;
         Message = value.Message;
+        IsIndeterminate = value.IsIndeterminate;
     }
 
     /// <summary>
