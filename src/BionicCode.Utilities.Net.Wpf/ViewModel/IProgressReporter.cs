@@ -28,7 +28,7 @@ public interface IProgressReporter : INotifyPropertyChanged
     bool IsProgressDataCollectionEmpty { get; }
     bool HasProgressData { get; }
 
-    ObservableProgressData SelectedProgress { get; }
+    ObservableProgressData? SelectedProgress { get; }
 
     /// <summary>
     /// Raised when <see cref="SelectedProgress"/> has a changed value.

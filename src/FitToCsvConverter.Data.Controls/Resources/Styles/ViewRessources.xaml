@@ -3,7 +3,8 @@
                     xmlns:local="clr-namespace:FitToCsvConverter.Controls">
 
     <FontFamily x:Key="SegoeMDL2Assets">Segoe Fluent Icons</FontFamily>
-    <TextBlock x:Key="SearchIcon" 
+    <!--#region Icons -->
+    <TextBlock x:Key="SearchIcon"
                x:Shared="False"
                Text="&#xe721;"
                FontFamily="{StaticResource SegoeMDL2Assets}"
@@ -31,6 +32,18 @@
                Opacity="1"
                HorizontalAlignment="Center"
                VerticalAlignment="Center" />
+    <TextBlock x:Key="DropTargetIcon"
+               x:Shared="False"
+               Text="&#xe8e5;"
+               ToolTip="Drag and drop FIT files here, either raw or as ZIP files."
+               FontFamily="{StaticResource SegoeMDL2Assets}"
+               Foreground="Gray"
+               FontSize="68"
+               Opacity="0.5"
+               IsHitTestVisible="False"
+               HorizontalAlignment="Center"
+               VerticalAlignment="Center" />
+    <!--#endregion Icons-->
 
     <Duration x:Key="MouseOverAnimationDuration">0:0:0.2</Duration>
 

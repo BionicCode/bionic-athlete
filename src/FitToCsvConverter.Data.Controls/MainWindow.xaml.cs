@@ -13,8 +13,8 @@ public partial class MainWindow : Window, IDisposableAdvanced
 {
     private readonly MainViewModel _viewModel;
     private readonly OpenFolderDialog _openFolderDialog;
-    private CancellationTokenSource _addFitFilesCancellationTokenSource;
-    private readonly SemaphoreSlim _addFitFilesSemaphore;
+    private readonly List<CancellationTokenSource> _addFitFilesCancellationTokenSources;
+    private readonly object _cancellationTokenSourceQueueSyncLock;
     private bool? _isFitFileDropAllowed;
 
     public bool IsDisposed { get; private set; }
@@ -46,8 +46,8 @@ public partial class MainWindow : Window, IDisposableAdvanced
             Multiselect = false,
             AddToRecent = true
         };
-        _addFitFilesSemaphore = new SemaphoreSlim(1, 1);
-        _addFitFilesCancellationTokenSource = new CancellationTokenSource();
+        _addFitFilesCancellationTokenSources = [];
+        _cancellationTokenSourceQueueSyncLock = new object();
 
         var selectAllActivitiesCommandBinding = new CommandBinding(
             SelectAllActivityFieldsCommand,
@@ -141,7 +141,8 @@ public partial class MainWindow : Window, IDisposableAdvanced
 
         var addFitFileCommandBinding = new CommandBinding(
             AddFitFileCommand,
-            executed: async (s, e) => await OnExecutedAddFitFileCommandAsync(s, e));
+            executed: async (s, e) => await OnExecutedAddFitFileCommandAsync(s, e),
+            canExecute: (s, e) => e.CanExecute = true);
         _ = CommandBindings.Add(addFitFileCommandBinding);
     }
 
@@ -157,20 +158,7 @@ public partial class MainWindow : Window, IDisposableAdvanced
         bool? result = openFileDialog.ShowDialog();
         if (result == true)
         {
-            try
-            {
-                await _addFitFilesSemaphore.WaitAsync(_addFitFilesCancellationTokenSource.Token);
-                await _viewModel.AddFitFilePathsAsync(openFileDialog.FileNames, _addFitFilesCancellationTokenSource.Token);
-            }
-            catch (OperationCanceledException)
-            {
-            }
-            finally
-            {
-                _addFitFilesCancellationTokenSource.Dispose();
-                _addFitFilesCancellationTokenSource = new CancellationTokenSource();
-                _ = _addFitFilesSemaphore.Release();
-            }
+            await AddFitFilePathsAsync(openFileDialog.FileNames);
         }
     }
 
@@ -179,19 +167,42 @@ public partial class MainWindow : Window, IDisposableAdvanced
         string[] filePaths = (string[])e.Data.GetData(DataFormats.FileDrop, false) ?? [];
         if (_isFitFileDropAllowed.GetValueOrDefault() && filePaths.Length > 0)
         {
-            try
+            await AddFitFilePathsAsync(filePaths);
+        }
+    }
+
+    private async Task AddFitFilePathsAsync(string[] filePaths)
+    {
+        CancellationTokenSource? cancellationTokenSource = null;
+        try
+        {
+            lock (_cancellationTokenSourceQueueSyncLock)
             {
-                await _addFitFilesSemaphore.WaitAsync(_addFitFilesCancellationTokenSource.Token);
-                await _viewModel.AddFitFilePathsAsync(filePaths, _addFitFilesCancellationTokenSource.Token);
+                // Add to the end and remove expired from the front.
+                // The uncancelled global token source is always at the end of the list.
+                // Therefore, we must always expose the last token source in the list to the view model for cancellation
+                // and only add a new token source when the last token source is already cancelled.
+                cancellationTokenSource = _addFitFilesCancellationTokenSources.LastOrDefault();
+                if (cancellationTokenSource is null
+                    || cancellationTokenSource.IsCancellationRequested)
+                {
+                    cancellationTokenSource = new CancellationTokenSource()!;
+                    _addFitFilesCancellationTokenSources.Add(cancellationTokenSource);
+                }
             }
-            catch (OperationCanceledException)
+
+            await _viewModel.AddFitFilePathsAsync(filePaths, cancellationTokenSource.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            lock (_cancellationTokenSourceQueueSyncLock)
             {
-            }
-            finally
-            {
-                _addFitFilesCancellationTokenSource.Dispose();
-                _addFitFilesCancellationTokenSource = new CancellationTokenSource();
-                _ = _addFitFilesSemaphore.Release();
+                if (cancellationTokenSource is not null
+                    && _addFitFilesCancellationTokenSources.Remove(cancellationTokenSource
+                    ))
+                {
+                    cancellationTokenSource.Dispose();
+                }
             }
         }
     }
@@ -243,9 +254,15 @@ public partial class MainWindow : Window, IDisposableAdvanced
         {
             if (disposing)
             {
-                _addFitFilesCancellationTokenSource.Cancel();
-                _addFitFilesCancellationTokenSource.Dispose();
-                _addFitFilesSemaphore.Dispose();
+                lock (_cancellationTokenSourceQueueSyncLock)
+                {
+                    _addFitFilesCancellationTokenSources.ForEach(cancellationTokenSource =>
+                            {
+                                cancellationTokenSource.Cancel();
+                                cancellationTokenSource.Dispose();
+                            });
+                    _addFitFilesCancellationTokenSources.Clear();
+                }
             }
 
             // TODO: free unmanaged resources (unmanaged objects) and override finalizer

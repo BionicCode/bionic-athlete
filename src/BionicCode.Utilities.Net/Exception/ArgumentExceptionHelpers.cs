@@ -985,6 +985,14 @@ public class ArgumentOutOfRangeExceptionAdvanced : System.ArgumentOutOfRangeExce
             ? collection.Count - 1
             : enumerable.Count() - 1;
 
+        bool isEmpty = endIndex < 0;
+        if (isEmpty)
+        {
+            throw new ArgumentException(
+                message ?? $"The enumerable '{nameof(enumerable)}' is empty, so any index is out of range.",
+                nameof(enumerable));
+        }
+
         if (index < 0)
         {
             throw new ArgumentOutOfRangeException(

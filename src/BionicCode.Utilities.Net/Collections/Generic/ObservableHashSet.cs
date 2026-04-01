@@ -16,6 +16,7 @@ public class ObservableHashSet<TItem> :
     IEnumerable<TItem>,
     IReadOnlyCollection<TItem>,
     ISet<TItem>,
+    IList<TItem>,
     IEnumerable,
     IReadOnlySet<TItem>,
     IDeserializationCallback,
@@ -28,6 +29,10 @@ public class ObservableHashSet<TItem> :
     /// <inheritdoc/>
     public event NotifyCollectionChangedEventHandler? CollectionChanged;
     protected HashSet<TItem> Items { get; }
+    private readonly Dictionary<TItem, int> _indexTable = [];
+    private readonly Dictionary<int, TItem> _reverseIndexTable = [];
+    private readonly List<TItem> _listProjection = [];
+    private int _blockReentrancyCount;
 
     public ObservableHashSet() => Items = [];
 
@@ -36,28 +41,48 @@ public class ObservableHashSet<TItem> :
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(collection);
         Items = new(collection);
+        _listProjection = new(collection);
+        _indexTable = new(Items.Comparer);
+        _reverseIndexTable = new(EqualityComparer<int>.Default);
+        BuildIndex();
     }
 
     [SuppressMessage("Style", "IDE0028:Simplify collection initialization", Justification = "<Pending>")]
-    public ObservableHashSet(IEqualityComparer<TItem>? comparer) => Items = new(comparer);
+    public ObservableHashSet(IEqualityComparer<TItem>? comparer)
+    {
+        Items = new(comparer);
+        _listProjection = new();
+        _indexTable = new(Items.Comparer);
+        _reverseIndexTable = new(EqualityComparer<int>.Default);
+    }
 
     [SuppressMessage("Style", "IDE0028:Simplify collection initialization", Justification = "<Pending>")]
     public ObservableHashSet(int capacity)
     {
         ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(capacity);
         Items = new(capacity);
+        _listProjection = new(capacity);
+        _indexTable = new(capacity, Items.Comparer);
+        _reverseIndexTable = new(capacity, EqualityComparer<int>.Default);
     }
 
     public ObservableHashSet(IEnumerable<TItem> collection, IEqualityComparer<TItem>? comparer)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(collection);
         Items = new HashSet<TItem>(collection, comparer);
+        _listProjection = [with(collection)];
+        _indexTable = [with(Items.Comparer)];
+        _reverseIndexTable = [with(EqualityComparer<int>.Default)];
+        BuildIndex();
     }
 
     public ObservableHashSet(int capacity, IEqualityComparer<TItem>? comparer)
     {
         ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(capacity);
         Items = new HashSet<TItem>(capacity, comparer);
+        _listProjection = [with(capacity)];
+        _indexTable = new(capacity, Items.Comparer);
+        _reverseIndexTable = new(capacity, EqualityComparer<int>.Default);
     }
 
     public int Capacity => Items.Capacity;
@@ -70,20 +95,27 @@ public class ObservableHashSet<TItem> :
     public int Count => Items.Count;
 
     int ICollection<TItem>.Count => Count;
-    bool ICollection<TItem>.IsReadOnly { get; } = false;
+    bool ICollection<TItem>.IsReadOnly { get; }
 
     /// <summary>Adds an item to the <see cref="ObservableHashSet{T}"/> if it is not already present.</summary>
     /// <param name="item">The item to add to the set. The value can be <see langword="null"/> for reference types.</param>
     /// <remarks>Use this method to add an item to the set. If the item is already present, the set remains unchanged and the method returns <see langword="false"/>; otherwise, the item is added and the method returns <see langword="true"/>.
-    /// <para/>This method raises the <see cref="CollectionChanged"/> event with <see cref="NotifyCollectionChangedAction.Add"/> action where the change index is always '-1'.
+    /// <para/>This method raises the <see cref="CollectionChanged"/> event with <see cref="NotifyCollectionChangedAction.Add"/> action and the start index of the changes to support the <see cref="IList{T}"/> API surface.
     /// <para/>This method raises the <see cref="PropertyChanged"/> event for the <see cref="Count"/> property.</remarks>
     /// <returns><see langword="true"/> if the item was added to the set; <see langword="false"/> if the item was already present.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when called from an <see cref="CollectionChanged"/> event  handler.</exception>
     public bool Add(TItem item)
     {
+        CheckReentrancy();
+
+        int newIndex = _listProjection.Count;
         if (AddItem(item))
         {
+            RegisterItem(item);
+
             OnCountChanged();
-            OnCollectionChanged(NotifyCollectionChangedAction.Add, item);
+            OnIndexerChanged();
+            OnCollectionChanged(NotifyCollectionChangedAction.Add, item, newIndex);
 
             return true;
         }
@@ -102,23 +134,29 @@ public class ObservableHashSet<TItem> :
     /// </summary>
     /// <remarks>Only items that are successfully added are included in the operation. Duplicate or invalid
     /// items may be ignored depending on the collection's rules.
-    /// <para/>This method raises the <see cref="CollectionChanged"/> event with <see cref="NotifyCollectionChangedAction.Add"/> action where the change index is always '-1'.
+    /// <para/>This method raises the <see cref="CollectionChanged"/> event with <see cref="NotifyCollectionChangedAction.Add"/> action and the start index of the changes to support the <see cref="IList{T}"/> API surface.
     /// <para/>This method raises the <see cref="PropertyChanged"/> event for the <see cref="Count"/> property.</remarks>
     /// <param name="items">The collection of items to add. Cannot be <see langword="null"/>.</param>
     public void AddRange(IEnumerable<TItem> items)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(items);
 
+        CheckReentrancy();
+
         var addedItems = new List<TItem>();
+        int changeStartIndex = _listProjection.Count;
         foreach (TItem item in items)
         {
             if (AddItem(item))
             {
+                RegisterItem(item);
                 addedItems.Add(item);
             }
         }
 
-        PublishDelta(new ReadOnlyCollection<TItem>(addedItems), ReadOnlyCollection<TItem>.Empty);
+        OnCountChanged();
+        OnIndexerChanged();
+        OnCollectionChanged(NotifyCollectionChangedAction.Add, addedItems, changeStartIndex);
     }
 
     /// <summary>
@@ -148,14 +186,20 @@ public class ObservableHashSet<TItem> :
     /// <param name="item">The item to remove from the set. The value can be <see langword="null"/> for reference types.</param>
     /// <returns><see langword="true"/> if the item was successfully removed; otherwise, <see langword="false"/>.</returns>
     /// <remarks>Use this method to remove the item <paramref name="item"/> from the set and return a value indicating whether the removal was successful.
-    /// <para/>This method raises the <see cref="CollectionChanged"/> event with <see cref="NotifyCollectionChangedAction.Remove"/> action where the change index is always '-1'.
+    /// <para/>This method raises the <see cref="CollectionChanged"/> event with <see cref="NotifyCollectionChangedAction.Remove"/> action and a change index for the <see cref="IList{T}"/> API surface.
     /// <para/>This method raises the <see cref="PropertyChanged"/> event for the <see cref="Count"/> property.</remarks>
     public bool Remove(TItem item)
     {
-        if (RemoveItem(item))
+        CheckReentrancy();
+
+        if (RemoveItem(item)
+            && _indexTable.TryGetValue(item, out int removeIndex))
         {
+            UnregisterItem(item, isRebuildIndexRequired: true);
+
             OnCountChanged();
-            OnCollectionChanged(NotifyCollectionChangedAction.Remove, item);
+            OnIndexerChanged();
+            OnCollectionChanged(NotifyCollectionChangedAction.Remove, item, removeIndex);
 
             return true;
         }
@@ -168,23 +212,28 @@ public class ObservableHashSet<TItem> :
     /// </summary>
     /// <remarks>Only items that exist in the collection are removed. The method has no effect for items that
     /// are not present.
-    /// <para/>This method raises the <see cref="CollectionChanged"/> event with <see cref="NotifyCollectionChangedAction.Remove"/> action where the change index is always '-1'.
+    /// <para/>This method raises the <see cref="CollectionChanged"/> event with <see cref="NotifyCollectionChangedAction.Reset"/> action.
     /// <para/>This method raises the <see cref="PropertyChanged"/> event for the <see cref="Count"/> property.</remarks>
     /// <param name="items">The collection of items to remove from the collection. Cannot be null.</param>
     public void RemoveRange(IEnumerable<TItem> items)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(items);
 
-        var removedItems = new List<TItem>();
+        CheckReentrancy();
+
         foreach (TItem item in items)
         {
             if (RemoveItem(item))
             {
-                removedItems.Add(item);
+                UnregisterItem(item, isRebuildIndexRequired: false);
             }
         }
 
-        PublishDelta(ReadOnlyCollection<TItem>.Empty, new ReadOnlyCollection<TItem>(removedItems));
+        BuildIndex();
+
+        OnCountChanged();
+        OnIndexerChanged();
+        OnCollectionChangedReset();
     }
 
     /// <summary>
@@ -200,7 +249,7 @@ public class ObservableHashSet<TItem> :
     /// </summary>
     /// <remarks>If one or more elements are removed, the collection raises change notifications. Use this
     /// method to efficiently remove multiple items based on custom criteria.
-    /// <para/>This method raises the <see cref="CollectionChanged"/> event with <see cref="NotifyCollectionChangedAction.Remove"/> action including the set of removed items where the change index is always '-1'.
+    /// <para/>This method raises the <see cref="CollectionChanged"/> event with <see cref="NotifyCollectionChangedAction.Reset"/> action.
     /// <para/>This method raises the <see cref="PropertyChanged"/> event for the <see cref="Count"/> property.</remarks>
     /// <param name="match">A delegate that defines the conditions of the elements to remove. Cannot be <see langword="null"/>.</param>
     /// <returns>The number of elements removed from the collection.</returns>
@@ -208,9 +257,24 @@ public class ObservableHashSet<TItem> :
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(match);
 
-        var oldState = new HashSet<TItem>(Items, Comparer);
-        int removedCount = RemoveItemWhere(match);
-        PublishDelta(oldState, DeltaType.Remove);
+        CheckReentrancy();
+
+        int removedCount = 0;
+        foreach (TItem item in Items)
+        {
+            if (match.Invoke(item)
+                && RemoveItem(item))
+            {
+                removedCount++;
+                UnregisterItem(item, isRebuildIndexRequired: false);
+            }
+        }
+
+        BuildIndex();
+
+        OnCountChanged();
+        OnIndexerChanged();
+        OnCollectionChangedReset();
 
         return removedCount;
     }
@@ -230,10 +294,17 @@ public class ObservableHashSet<TItem> :
     /// <para/>This method raises the <see cref="PropertyChanged"/> event for the <see cref="Count"/> property.</remarks>
     public void Clear()
     {
+        CheckReentrancy();
+
         if (Count > 0)
         {
             ClearItems();
+            _indexTable.Clear();
+            _reverseIndexTable.Clear();
+            _listProjection.Clear();
+
             OnCountChanged();
+            OnIndexerChanged();
             OnCollectionChangedReset();
         }
     }
@@ -316,22 +387,30 @@ public class ObservableHashSet<TItem> :
 
         return newCapacity;
     }
+
     /// <summary>
     /// Removes all elements in the specified collection from the current set.
     /// </summary>
     /// <remarks>If the specified collection contains elements that are not present in the set, those elements
     /// are ignored. The operation modifies the current set and does not return a value.
-    /// <para/>This method raises the <see cref="CollectionChanged"/> event with <see cref="NotifyCollectionChangedAction.Add"/> or <see cref="NotifyCollectionChangedAction.Remove"/> action including the set of removed and added items where the change index is always '-1'.
+    /// <para/>This method raises the <see cref="CollectionChanged"/> event with <see cref="NotifyCollectionChangedAction.Reset"/> action.
     /// <para/>This method raises the <see cref="PropertyChanged"/> event for the <see cref="Count"/> property.</remarks>
     /// <param name="other">The collection of elements to remove from the set. Cannot be <see langword="null"/>.</param>
     public void ExceptWith(IEnumerable<TItem> other)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(other);
 
-        var oldState = new HashSet<TItem>(Items, Comparer);
+        CheckReentrancy();
+
+        HashSet<TItem> oldState = TakeSnapshot();
         Items.ExceptWith(other);
 
-        PublishDelta(oldState);
+        HashSetDelta<TItem> hashSetDelta = GetDelta(oldState, DeltaType.Remove);
+        UnregisterItems(hashSetDelta.RemovedItems);
+
+        OnCountChanged();
+        OnIndexerChanged();
+        OnCollectionChangedReset();
     }
 
     /// <summary>
@@ -348,23 +427,31 @@ public class ObservableHashSet<TItem> :
     /// Returns an enumerator that iterates through the collection.
     /// </summary>
     /// <returns>An enumerator that can be used to iterate through the items in the collection.</returns>
-    public Enumerator GetEnumerator() => new(Items);
+    public Enumerator GetEnumerator() => new(_listProjection);
     /// <summary>
     /// Modifies the current set to contain only elements that are also in the specified collection.
     /// </summary>
     /// <remarks>This method removes any elements from the current set that are not present in the specified
     /// collection. The operation does not preserve the order of elements.
-    /// <para/>This method raises the <see cref="CollectionChanged"/> event with <see cref="NotifyCollectionChangedAction.Add"/> or <see cref="NotifyCollectionChangedAction.Remove"/> action including the set of removed and added items where the change index is always '-1'.
+    /// <para/>This method raises the <see cref="CollectionChanged"/> event with <see cref="NotifyCollectionChangedAction.Reset"/> action.
     /// <para/>This method raises the <see cref="PropertyChanged"/> event for the <see cref="Count"/> property.</remarks>
     /// <param name="other">The collection to compare to the current set. Cannot be null.</param>
     public void IntersectWith(IEnumerable<TItem> other)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(other);
 
-        var oldState = new HashSet<TItem>(Items, Comparer);
+        CheckReentrancy();
+
+        HashSet<TItem> oldState = TakeSnapshot();
         Items.IntersectWith(other);
 
-        PublishDelta(oldState);
+        HashSetDelta<TItem> hashSetDelta = GetDelta(oldState, DeltaType.AddAndRemove);
+        UnregisterItems(hashSetDelta.RemovedItems);
+        RegisterItems(hashSetDelta.AddedItems);
+
+        OnCountChanged();
+        OnIndexerChanged();
+        OnCollectionChangedReset();
     }
 
     /// <summary>
@@ -427,17 +514,25 @@ public class ObservableHashSet<TItem> :
     /// the specified collection, and adds elements that appear in either set but not both. If the specified collection
     /// contains duplicate elements, only unique elements are considered. This method does not return a value; it
     /// modifies the current set in place.
-    /// <para/>This method raises the <see cref="CollectionChanged"/> event with <see cref="NotifyCollectionChangedAction.Add"/> or <see cref="NotifyCollectionChangedAction.Remove"/> action including the set of removed and added items where the change index is always '-1'.
+    /// <para/>This method raises the <see cref="CollectionChanged"/> event with <see cref="NotifyCollectionChangedAction.Reset"/> action.
     /// <para/>This method raises the <see cref="PropertyChanged"/> event for the <see cref="Count"/> property.</remarks>
     /// <param name="other">The collection whose symmetric difference with the current set is to be computed. Cannot be <see langword="null"/>.</param>
     public void SymmetricExceptWith(IEnumerable<TItem> other)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(other);
 
-        var oldState = new HashSet<TItem>(Items, Comparer);
+        CheckReentrancy();
+
+        HashSet<TItem> oldState = TakeSnapshot();
         Items.SymmetricExceptWith(other);
 
-        PublishDelta(oldState);
+        HashSetDelta<TItem> hashSetDelta = GetDelta(oldState, DeltaType.AddAndRemove);
+        UnregisterItems(hashSetDelta.RemovedItems);
+        RegisterItems(hashSetDelta.AddedItems);
+
+        OnCountChanged();
+        OnIndexerChanged();
+        OnCollectionChangedReset();
     }
 
     /// <summary>
@@ -452,16 +547,99 @@ public class ObservableHashSet<TItem> :
     /// </summary>
     /// <remarks>Duplicate elements in the specified collection are ignored. The set will contain each unique
     /// element from both the original set and the specified collection after the operation completes.
-    /// <para/>This method raises the <see cref="CollectionChanged"/> event with <see cref="NotifyCollectionChangedAction.Add"/> or <see cref="NotifyCollectionChangedAction.Remove"/> action including the set of removed and added items where the change index is always '-1'.
+    /// <para/>This method raises the <see cref="CollectionChanged"/> event with <see cref="NotifyCollectionChangedAction.Add"/> action and the start index of the changes to support the <see cref="IList{T}"/> API surface.
     /// <para/>This method raises the <see cref="PropertyChanged"/> event for the <see cref="Count"/> property.</remarks>
     /// <param name="other">The collection whose elements are to be added to the set. Cannot be <see langword="null"/>.</param>
     public void UnionWith(IEnumerable<TItem> other)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(other);
 
-        var oldState = new HashSet<TItem>(Items, Comparer);
-        Items.UnionWith(other);
-        PublishDelta(oldState);
+        CheckReentrancy();
+
+        int changeStartIndex = _listProjection.Count;
+        List<TItem> addedItems = [];
+        foreach (TItem item in other)
+        {
+            if (Items.Add(item))
+            {
+                RegisterItem(item);
+                addedItems.Add(item);
+            }
+        }
+
+        OnCountChanged();
+        OnIndexerChanged();
+        OnCollectionChanged(NotifyCollectionChangedAction.Add, addedItems, changeStartIndex);
+    }
+
+    private void RegisterItems(IEnumerable<TItem> removedItems)
+    {
+        foreach (TItem removedItem in removedItems)
+        {
+            RegisterItem(removedItem);
+        }
+    }
+
+    private void RegisterItem(TItem item)
+    {
+        _listProjection.Add(item);
+        int newIndex = _listProjection.Count - 1;
+        _indexTable[item] = newIndex;
+        _reverseIndexTable[newIndex] = item;
+    }
+
+    private void UpdateItemAt(TItem newItem, TItem oldItem, int index)
+    {
+        _listProjection[index] = newItem;
+        _ = _indexTable.Remove(oldItem);
+        _indexTable[newItem] = index;
+        _reverseIndexTable[index] = newItem;
+    }
+
+    private void RegisterItem(TItem item, int index, bool isRebuildIndexRequired)
+    {
+        _listProjection.Insert(index, item);
+        if (isRebuildIndexRequired)
+        {
+            BuildIndex();
+        }
+    }
+
+    private void UnregisterItems(IEnumerable<TItem> removedItems)
+    {
+        foreach (TItem removedItem in removedItems)
+        {
+            UnregisterItem(removedItem, isRebuildIndexRequired: false);
+        }
+
+        BuildIndex();
+    }
+
+    private void UnregisterItem(TItem item, bool isRebuildIndexRequired)
+    {
+        if (_indexTable.TryGetValue(item, out int itemIndex))
+        {
+            _ = _indexTable.Remove(item);
+            _ = _reverseIndexTable.Remove(itemIndex);
+            _listProjection.RemoveAt(itemIndex);
+            if (isRebuildIndexRequired)
+            {
+                BuildIndex();
+            }
+        }
+    }
+
+    private void BuildIndex()
+    {
+        _indexTable.Clear();
+        _reverseIndexTable.Clear();
+
+        for (int index = 0; index < _listProjection.Count; index++)
+        {
+            TItem indexedItem = _listProjection[index];
+            _indexTable[indexedItem] = index;
+            _reverseIndexTable[index] = indexedItem;
+        }
     }
 
     #region ISerializable
@@ -483,48 +661,6 @@ public class ObservableHashSet<TItem> :
     /// </summary>
     /// <returns>An enumerator for the collection of items.</returns>
     IEnumerator<TItem> IEnumerable<TItem>.GetEnumerator() => ((IEnumerable<TItem>)Items).GetEnumerator();
-
-    private void PublishDelta(HashSet<TItem> oldState, DeltaType deltaType = DeltaType.AddAndRemove)
-    {
-        HashSetDelta<TItem> hashSetDelta = GetDelta(oldState, deltaType);
-        if (!hashSetDelta.HasChanges)
-        {
-            return;
-        }
-
-        if (Items.Count != oldState.Count)
-        {
-            OnCountChanged();
-        }
-
-        if ((deltaType & DeltaType.Remove) == DeltaType.Remove && hashSetDelta.RemovedItems.Count > 0)
-        {
-            OnCollectionChanged(NotifyCollectionChangedAction.Remove, hashSetDelta.RemovedItems);
-        }
-
-        if ((deltaType & DeltaType.Add) == DeltaType.Add && hashSetDelta.AddedItems.Count > 0)
-        {
-            OnCollectionChanged(NotifyCollectionChangedAction.Add, hashSetDelta.AddedItems);
-        }
-    }
-
-    private void PublishDelta(ReadOnlyCollection<TItem> addedItems, ReadOnlyCollection<TItem> removedItems)
-    {
-        if (addedItems.Count != removedItems.Count)
-        {
-            OnCountChanged();
-        }
-
-        if (removedItems.Any())
-        {
-            OnCollectionChanged(NotifyCollectionChangedAction.Remove, removedItems);
-        }
-
-        if (addedItems.Any())
-        {
-            OnCollectionChanged(NotifyCollectionChangedAction.Add, addedItems);
-        }
-    }
 
     private HashSetDelta<TItem> GetDelta(HashSet<TItem> oldState, DeltaType deltaType = DeltaType.AddAndRemove)
     {
@@ -555,19 +691,67 @@ public class ObservableHashSet<TItem> :
             }
         }
 
-        bool hasChanges = removedItems.Any() || addedItems.Any();
+        bool hasChanges = removedItems.Count != 0 || addedItems.Count != 0;
         return new(removedItems.AsReadOnly(), addedItems.AsReadOnly(), hasChanges);
     }
 
-    private void OnCollectionChanged(NotifyCollectionChangedAction action, TItem item)
-        => CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(action, item, -1));
+    /// <summary> Check and assert for reentrant attempts to change this collection. </summary>
+    /// <exception cref="InvalidOperationException"> raised when changing the collection
+    /// while another collection change is still being notified to other listeners </exception>
+    protected void CheckReentrancy()
+    {
+        if (_blockReentrancyCount > 0)
+        {
+            // we can allow changes if there's only one listener - the problem
+            // only arises if reentrant changes make the original event args
+            // invalid for later listeners.  This keeps existing code working
+            // (e.g. Selector.SelectedItems).
+            NotifyCollectionChangedEventHandler? handler = CollectionChanged;
+            if (handler != null && !handler.HasSingleTarget)
+            {
+                throw new InvalidOperationException("Cannot modify the collection during a collection change notification.");
+            }
+        }
+    }
+    /// <summary>
+    /// Disallow reentrant attempts to change this collection. E.g. an event handler
+    /// of the CollectionChanged event is not allowed to make changes to this collection.
+    /// </summary>
+    /// <remarks>
+    /// typical usage is to wrap e.g. a OnCollectionChanged call with a using() scope or using expression:
+    /// <code>
+    ///         using var monitor = BlockReentrancy()
+    ///         CollectionChanged(this, new NotifyCollectionChangedEventArgs(action, item, index));
+    /// </code>
+    /// </remarks>
+    protected IDisposable BlockReentrancy()
+    {
+        _blockReentrancyCount++;
+        return new ReentrancyMonitor(this);
+    }
 
-    private void OnCollectionChanged(NotifyCollectionChangedAction action, IList changedItems)
-        => CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(action, changedItems));
+    private HashSet<TItem> TakeSnapshot() => new(Items, Comparer);
 
-    private void OnCollectionChangedReset() => CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+    private void OnCollectionChanged(NotifyCollectionChangedAction action, TItem item, int index)
+    {
+        using IDisposable monitor = BlockReentrancy();
+        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(action, item, index));
+    }
+
+    private void OnCollectionChanged(NotifyCollectionChangedAction action, IList changedItems, int startingIndex)
+    {
+        using IDisposable monitor = BlockReentrancy();
+        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(action, changedItems, startingIndex));
+    }
+
+    private void OnCollectionChangedReset()
+    {
+        using IDisposable monitor = BlockReentrancy();
+        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+    }
 
     private void OnCountChanged() => OnPropertyChanged(nameof(Count));
+    private void OnIndexerChanged() => OnPropertyChanged("Item[]");
 
     private void OnCapacityChanged() => OnPropertyChanged(nameof(Capacity));
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
@@ -581,11 +765,76 @@ public class ObservableHashSet<TItem> :
     /// <param name="item">The item to add to the collection. Cannot be null if the collection does not accept null values.</param>
     void ICollection<TItem>.Add(TItem item) => Add(item);
 
+    #region IList<T>
+    [SuppressMessage("Design", "CA1033:Interface methods should be callable by child types", Justification = "Not overridable behavior. IList<T> implementation only exist to add performance boost for WPF data binding aupport.")]
+    int IList<TItem>.IndexOf(TItem item) => _indexTable.TryGetValue(item, out int index)
+        ? index
+        : -1;
+
+    [SuppressMessage("Design", "CA1033:Interface methods should be callable by child types", Justification = "Not overridable behavior. IList<T> implementation only exist to add performance boost for WPF data binding aupport.")]
+    void IList<TItem>.Insert(int index, TItem item)
+    {
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfIndexOutOfRange(index, _listProjection);
+
+        if (AddItem(item))
+        {
+            RegisterItem(item, index, isRebuildIndexRequired: true);
+
+            OnCountChanged();
+            OnIndexerChanged();
+            OnCollectionChanged(NotifyCollectionChangedAction.Add, item, index);
+        }
+    }
+
+    [SuppressMessage("Design", "CA1033:Interface methods should be callable by child types", Justification = "Not overridable behavior. IList<T> implementation only exist to add performance boost for WPF data binding aupport.")]
+    void IList<TItem>.RemoveAt(int index)
+    {
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfIndexOutOfRange(index, _listProjection);
+
+        if (_reverseIndexTable.TryGetValue(index, out TItem? item))
+        {
+            if (RemoveItem(item))
+            {
+                UnregisterItem(item, isRebuildIndexRequired: true);
+
+                OnCountChanged();
+                OnIndexerChanged();
+                OnCollectionChanged(NotifyCollectionChangedAction.Remove, item, index);
+            }
+        }
+    }
+
+    TItem IList<TItem>.this[int index]
+    {
+        [SuppressMessage("Design", "CA1033:Interface methods should be callable by child types", Justification = "Not overridable behavior. IList<T> implementation only exist to add performance boost for WPF data binding aupport.")]
+        get
+        {
+            ArgumentOutOfRangeExceptionAdvanced.ThrowIfIndexOutOfRange(index, _listProjection);
+
+            return _listProjection[index];
+        }
+
+        [SuppressMessage("Design", "CA1033:Interface methods should be callable by child types", Justification = "Not overridable behavior. IList<T> implementation only exist to add performance boost for WPF data binding aupport.")]
+        set
+        {
+            ArgumentOutOfRangeExceptionAdvanced.ThrowIfIndexOutOfRange(index, _listProjection);
+
+            if (_reverseIndexTable.TryGetValue(index, out TItem? existingItem))
+            {
+                UpdateItemAt(value, existingItem, index);
+
+                OnIndexerChanged();
+                OnCollectionChanged(NotifyCollectionChangedAction.Replace, value, index);
+            }
+        }
+    }
+    #endregion IList<T>
+
     #region Enumerator
     public struct Enumerator : IEnumerator<TItem>
     {
-        private HashSet<TItem>.Enumerator _enumerator;
-        internal Enumerator(HashSet<TItem> hashSet)
+        private List<TItem>.Enumerator _enumerator;
+        internal Enumerator(List<TItem> hashSet)
         {
             ArgumentNullExceptionAdvanced.ThrowIfNull(hashSet);
             _enumerator = hashSet.GetEnumerator();
@@ -598,6 +847,31 @@ public class ObservableHashSet<TItem> :
         public void Reset() => throw new NotSupportedException();
     }
     #endregion Enumerator
+
+    private sealed class ReentrancyMonitor : IDisposableAdvanced
+    {
+        private ObservableHashSet<TItem> _owner;
+
+        public ReentrancyMonitor(ObservableHashSet<TItem> owner)
+        {
+            ArgumentNullExceptionAdvanced.ThrowIfNull(owner);
+            _owner = owner;
+        }
+
+        public bool IsDisposed { get; private set; }
+
+        public void Dispose()
+        {
+            if (IsDisposed)
+            {
+                return;
+            }
+
+            _owner._blockReentrancyCount--;
+            _owner = null!;
+            IsDisposed = true;
+        }
+    }
 
     internal sealed class ObservableHashSetEqualityComparer<TItem> : IEqualityComparer<ObservableHashSet<TItem>?>, IEqualityComparer<HashSet<TItem>?>
     {
@@ -612,10 +886,10 @@ public class ObservableHashSet<TItem> :
         public bool Equals(HashSet<TItem>? x, HashSet<TItem>? y) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
 
         [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
-        public bool Equals(ObservableHashSet<TItem>? x, HashSet<TItem>? y) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
+        public static bool Equals(ObservableHashSet<TItem>? x, HashSet<TItem>? y) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
 
         [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
-        public bool Equals(HashSet<TItem>? x, ObservableHashSet<TItem>? y) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
+        public static bool Equals(HashSet<TItem>? x, ObservableHashSet<TItem>? y) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
 
         public int GetHashCode([DisallowNull] ObservableHashSet<TItem> obj)
         {
@@ -1082,7 +1356,7 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
         /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
         /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
         [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
-        public bool Equals(ISet<FileSystemInfo>? x, IEqualityComparer<FileSystemInfo> setXComparer, ISet<FileSystemInfo>? y, IEqualityComparer<FileSystemInfo> setYComparer) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => setXComparer, () => setYComparer);
+        public static bool Equals(ISet<FileSystemInfo>? x, IEqualityComparer<FileSystemInfo> setXComparer, ISet<FileSystemInfo>? y, IEqualityComparer<FileSystemInfo> setYComparer) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => setXComparer, () => setYComparer);
 
         /// <summary>
         /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
@@ -1102,7 +1376,7 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
         /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
         /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
         [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
-        public bool Equals(ISet<FileSystemInfo>? x, IEqualityComparer<FileSystemInfo> setXComparer, ISet<string>? y, IEqualityComparer<string> setYComparer) => SetEqualityComparerHelpers.IsSetEqual(y, x, () => setYComparer, () => setXComparer);
+        public static bool Equals(ISet<FileSystemInfo>? x, IEqualityComparer<FileSystemInfo> setXComparer, ISet<string>? y, IEqualityComparer<string> setYComparer) => SetEqualityComparerHelpers.IsSetEqual(y, x, () => setYComparer, () => setXComparer);
 
         /// <summary>
         /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
@@ -1122,7 +1396,7 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
         /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
         /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
         [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
-        public bool Equals(ISet<string>? x, IEqualityComparer<string> setXComparer, ISet<string>? y, IEqualityComparer<string> setYComparer) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => setXComparer, () => setYComparer);
+        public static bool Equals(ISet<string>? x, IEqualityComparer<string> setXComparer, ISet<string>? y, IEqualityComparer<string> setYComparer) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => setXComparer, () => setYComparer);
 
         /// <summary>
         /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
@@ -1142,7 +1416,7 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
         /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
         /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
         [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
-        public bool Equals(ISet<string>? x, IEqualityComparer<string> setXComparer, ISet<FileSystemInfo>? y, IEqualityComparer<FileSystemInfo> setYComparer) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => setXComparer, () => setYComparer);
+        public static bool Equals(ISet<string>? x, IEqualityComparer<string> setXComparer, ISet<FileSystemInfo>? y, IEqualityComparer<FileSystemInfo> setYComparer) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => setXComparer, () => setYComparer);
 
         /// <summary>
         /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
@@ -1162,7 +1436,7 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
         /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
         /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
         [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
-        public bool Equals(ObservableFileSystemPathHashSet? x, ISet<string>? y, IEqualityComparer<string> setYComparer) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => x!.Comparer, () => setYComparer);
+        public static bool Equals(ObservableFileSystemPathHashSet? x, ISet<string>? y, IEqualityComparer<string> setYComparer) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => x!.Comparer, () => setYComparer);
 
         /// <summary>
         /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
@@ -1182,7 +1456,7 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
         /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
         /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
         [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
-        public bool Equals(ObservableFileSystemPathHashSet? x, HashSet<string>? y) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
+        public static bool Equals(ObservableFileSystemPathHashSet? x, HashSet<string>? y) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
 
         /// <summary>
         /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
@@ -1202,7 +1476,7 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
         /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
         /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
         [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
-        public bool Equals(ObservableFileSystemPathHashSet? x, ObservableHashSet<string>? y) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
+        public static bool Equals(ObservableFileSystemPathHashSet? x, ObservableHashSet<string>? y) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
 
         /// <summary>
         /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
@@ -1222,7 +1496,7 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
         /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
         /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
         [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
-        public bool Equals(ISet<string>? y, IEqualityComparer<string> setYComparer, ObservableFileSystemPathHashSet? x) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => x!.Comparer, () => setYComparer);
+        public static bool Equals(ISet<string>? y, IEqualityComparer<string> setYComparer, ObservableFileSystemPathHashSet? x) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => x!.Comparer, () => setYComparer);
 
         /// <summary>
         /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
@@ -1242,7 +1516,7 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
         /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
         /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
         [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
-        public bool Equals(HashSet<string>? y, ObservableFileSystemPathHashSet? x) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
+        public static bool Equals(HashSet<string>? y, ObservableFileSystemPathHashSet? x) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
 
         /// <summary>
         /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
@@ -1262,7 +1536,7 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
         /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
         /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
         [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
-        public bool Equals(ObservableHashSet<string>? y, ObservableFileSystemPathHashSet? x) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
+        public static bool Equals(ObservableHashSet<string>? y, ObservableFileSystemPathHashSet? x) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
 
         /// <summary>
         /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
@@ -1282,7 +1556,7 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
         /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
         /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
         [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
-        public bool Equals(ObservableFileSystemPathHashSet? x, ISet<FileSystemInfo>? y, IEqualityComparer<FileSystemInfo> setYComparer) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => x!.Comparer, () => setYComparer);
+        public static bool Equals(ObservableFileSystemPathHashSet? x, ISet<FileSystemInfo>? y, IEqualityComparer<FileSystemInfo> setYComparer) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => x!.Comparer, () => setYComparer);
 
         /// <summary>
         /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
@@ -1302,7 +1576,7 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
         /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
         /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
         [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
-        public bool Equals(ObservableFileSystemPathHashSet? x, HashSet<FileSystemInfo>? y) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
+        public static bool Equals(ObservableFileSystemPathHashSet? x, HashSet<FileSystemInfo>? y) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
 
         /// <summary>
         /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
@@ -1322,7 +1596,7 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
         /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
         /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
         [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
-        public bool Equals(ObservableFileSystemPathHashSet? x, ObservableHashSet<FileSystemInfo>? y) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
+        public static bool Equals(ObservableFileSystemPathHashSet? x, ObservableHashSet<FileSystemInfo>? y) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
 
         /// <summary>
         /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
@@ -1342,7 +1616,7 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
         /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
         /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
         [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
-        public bool Equals(ISet<FileSystemInfo>? x, IEqualityComparer<FileSystemInfo> setXComparer, ObservableFileSystemPathHashSet? y) => SetEqualityComparerHelpers.IsSetEqual(y, x, () => y!.Comparer, () => setXComparer);
+        public static bool Equals(ISet<FileSystemInfo>? x, IEqualityComparer<FileSystemInfo> setXComparer, ObservableFileSystemPathHashSet? y) => SetEqualityComparerHelpers.IsSetEqual(y, x, () => y!.Comparer, () => setXComparer);
 
         /// <summary>
         /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
@@ -1362,7 +1636,7 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
         /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
         /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
         [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
-        public bool Equals(HashSet<FileSystemInfo>? x, ObservableFileSystemPathHashSet? y) => SetEqualityComparerHelpers.IsSetEqual(y, x, () => y!.Comparer, () => x!.Comparer);
+        public static bool Equals(HashSet<FileSystemInfo>? x, ObservableFileSystemPathHashSet? y) => SetEqualityComparerHelpers.IsSetEqual(y, x, () => y!.Comparer, () => x!.Comparer);
 
         /// <summary>
         /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
@@ -1382,9 +1656,9 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
         /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
         /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
         [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
-        public bool Equals(ObservableHashSet<FileSystemInfo>? x, ObservableFileSystemPathHashSet? y) => SetEqualityComparerHelpers.IsSetEqual(y, x, () => y!.Comparer, () => x!.Comparer);
+        public static bool Equals(ObservableHashSet<FileSystemInfo>? x, ObservableFileSystemPathHashSet? y) => SetEqualityComparerHelpers.IsSetEqual(y, x, () => y!.Comparer, () => x!.Comparer);
 
-        public int GetHashCode([DisallowNull] ISet<string>? obj, IEqualityComparer<string> comparer)
+        public static int GetHashCode([DisallowNull] ISet<string>? obj, IEqualityComparer<string> comparer)
         {
             ArgumentNullExceptionAdvanced.ThrowIfNull(obj);
             ArgumentNullExceptionAdvanced.ThrowIfNull(comparer);
@@ -1392,7 +1666,7 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
             return SetEqualityComparerHelpers.ComputeHashCode(obj, comparer);
         }
 
-        public int GetHashCode([DisallowNull] ISet<FileSystemInfo>? obj, IEqualityComparer<FileSystemInfo> comparer)
+        public static int GetHashCode([DisallowNull] ISet<FileSystemInfo>? obj, IEqualityComparer<FileSystemInfo> comparer)
         {
             ArgumentNullExceptionAdvanced.ThrowIfNull(obj);
             ArgumentNullExceptionAdvanced.ThrowIfNull(comparer);
@@ -1493,7 +1767,7 @@ public abstract class FileSystemPathEqualityComparer : StringComparer, IEquality
 
     public override bool Equals(object? obj) => obj is IEqualityComparer<string> other && Equals(other);
 
-    private string NormalizeFileSystemPath(string fileSystemPath) => Path.TrimEndingDirectorySeparator(fileSystemPath);
+    private static string NormalizeFileSystemPath(string fileSystemPath) => Path.TrimEndingDirectorySeparator(fileSystemPath);
 
     public override int GetHashCode(string? obj) => obj is not null
         ? Comparer.GetHashCode(NormalizeFileSystemPath(obj))

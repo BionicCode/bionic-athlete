@@ -14,7 +14,7 @@ public abstract class ViewModel : ViewModelCommon, IViewModel
     {
         _progressDataCollectionInternal = [];
         ProgressDataCollection = new ReadOnlyObservableCollection<ObservableProgressData>(_progressDataCollectionInternal);
-        SelectedProgressIndex = 0;
+        _selectedProgressIndex = 0;
     }
 
     #region IProgressReporter
@@ -43,8 +43,6 @@ public abstract class ViewModel : ViewModelCommon, IViewModel
         get => _selectedProgressIndex;
         private set
         {
-            ArgumentOutOfRangeExceptionAdvanced.ThrowIfIndexOutOfRange(value, _progressDataCollectionInternal);
-
             if (TrySetValue(value, ref _selectedProgressIndex))
             {
                 SetSelectedProgress(value);
@@ -54,9 +52,9 @@ public abstract class ViewModel : ViewModelCommon, IViewModel
 
     private void SetSelectedProgress(int progressDataIndex)
     {
-        SelectedProgress = progressDataIndex < 0
-            ? null
-            : _progressDataCollectionInternal[progressDataIndex];
+        SelectedProgress = progressDataIndex >= 0 && progressDataIndex < _progressDataCollectionInternal.Count
+            ? _progressDataCollectionInternal[progressDataIndex]
+            : null;
         OnPropertyChanged(nameof(HasProgressData));
     }
 
@@ -122,8 +120,8 @@ public abstract class ViewModel : ViewModelCommon, IViewModel
         ArgumentNullExceptionAdvanced.ThrowIfNull(onProgress);
 
         var progressData = new ObservableProgressData(0, maxValue, initialMessage, operationTitle) { IsIndeterminate = isIndeterminate };
-        SelectedProgress = progressData;
         _progressDataCollectionInternal.Add(progressData);
+        UpdateSelectedProgressData();
 
         Action<ObservableProgressData> reportAction = onProgress + OnProgress;
 
@@ -207,13 +205,13 @@ public abstract class ViewModel : ViewModelCommon, IViewModel
     }
 
     /// <inheritdoc/>
-    public event EventHandler<ObservableProgressChangedEventArgs>? ProgressChanged;
+    public new event EventHandler<ObservableProgressChangedEventArgs>? ProgressChanged;
 
     /// <summary>
     /// Indicates ongoing progress reporting 
     /// </summary>
     /// <remarks>Raises <see cref="INotifyPropertyChanged.PropertyChanged"/> event.</remarks>
-    private bool IsReportingProgress => SelectedProgress is not null && !SelectedProgress.IsCompleted;
+    private new bool IsReportingProgress => SelectedProgress is not null && !SelectedProgress.IsCompleted;
 
     #endregion IProgressReporter
 

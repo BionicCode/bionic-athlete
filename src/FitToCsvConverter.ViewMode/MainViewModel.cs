@@ -8,7 +8,7 @@ using BionicCode.Utilities.Net;
 using FitToCsvConverter.Data;
 using FitToCsvConverter.Data.Decoding;
 
-public class MainViewModel : ViewModel
+public class MainViewModel : ViewModel, IDisposableAdvanced
 {
     private const string FitFileExtension = ".fit";
     private string _destinationFolder;
@@ -23,12 +23,14 @@ public class MainViewModel : ViewModel
     private readonly ITemporaryFileManager _temporaryFileManager;
     private readonly Func<IFitActivityDecoder> _cachingFitActivityDecoderFactory;
     private readonly string _allowedFileExtensions;
+    private readonly SemaphoreSlim _addFitFilesSemaphore;
 
     public MainViewModel(IZipArchiveManager zipArchiveManager,
         IGarminFitCsvToolConverter garminFitCsvToolConverter,
         ITemporaryFileManager temporaryFileManager,
         Func<IFitActivityDecoder> cachingFitActivityDecoderFactory)
     {
+        _addFitFilesSemaphore = new SemaphoreSlim(1, 1);
         _fitFilePathsValidator = IsFitFilePathsValid();
         _filePathsValidator = IsFilePathsValid();
         _folderPathValidator = IsFolderPathValid();
@@ -36,18 +38,25 @@ public class MainViewModel : ViewModel
         ExportData = [];
         FitFilePaths = [];
         _selectedFitFilePath = string.Empty;
+        _destinationFolder = string.Empty;
         _zipArchiveManager = zipArchiveManager;
         _garminFitCsvToolConverter = garminFitCsvToolConverter;
         _temporaryFileManager = temporaryFileManager;
         _cachingFitActivityDecoderFactory = cachingFitActivityDecoderFactory;
         ExportCommand = new AsyncRelayCommand(ExecuteExportCommandAsync, CanExecuteExportCommand);
-        StartNewSessionCommand = new RelayCommand(ExecuteStartNewSessionCommand);
+        StartNewSessionCommand = new RelayCommand(ExecuteStartNewSessionCommand, () => !((IProgressReporter)this).IsReportingProgress);
         _allowedFileExtensions = _zipArchiveManager.SupportedArchiveFileExtensions.Concat([FitFileExtension]).JoinToString();
     }
 
     // For design-time data only
+#pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
     public MainViewModel()
+#pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
     {
+        // CHeck if in debug mode and throw if not, to prevent usage of this constructor in production code.
+#if !DEBUG
+        throw new InvalidOperationException("This constructor is for design-time data only and should not be used in production code."); 
+#endif
     }
 
     public void StartNewSession()
@@ -95,35 +104,65 @@ public class MainViewModel : ViewModel
     {
         ArgumentExceptionAdvanced.ThrowIfNullOrEmpty(fitFilePaths);
 
-        IProgress<ProgressData> progressReporter = StartNewObservableProgressReporting(string.Empty, $"Adding files...", isIndeterminate: true);
-        foreach (string fitFilePath in fitFilePaths)
+        bool isSemaphoreEntered = false;
+        var addedFitFilePathsLookup = new HashSet<string>();
+        bool wasAdded = false;
+        string addedFilePath = string.Empty;
+        try
         {
-            progressReporter.Report(new ProgressData { Message = $"Adding '{Path.GetFileName(fitFilePath)}'..." });
-            if (_zipArchiveManager.IsFileTypeSupportedArchive(fitFilePath))
+            cancellationToken.ThrowIfCancellationRequested();
+
+            await _addFitFilesSemaphore.WaitAsync(cancellationToken);
+            isSemaphoreEntered = true;
+
+            IProgress<ProgressData> progressReporter = StartNewObservableProgressReporting(string.Empty, $"Adding files...", isIndeterminate: true);
+            foreach (string fitFilePath in fitFilePaths)
             {
-                await foreach (string extractedFilePath in _zipArchiveManager.ExtractArchiveAsync(fitFilePath, progressReporter, cancellationToken).ConfigureAwait(true))
+                cancellationToken.ThrowIfCancellationRequested();
+
+                progressReporter.Report(new ProgressData { Message = $"Adding '{Path.GetFileName(fitFilePath)}'..." });
+                if (_zipArchiveManager.IsFileTypeSupportedArchive(fitFilePath))
                 {
-                    _ = await AddFitFilePathAsync(extractedFilePath, cancellationToken);
+                    await foreach (string extractedFilePath in _zipArchiveManager.ExtractArchiveAsync(fitFilePath, progressReporter, cancellationToken).ConfigureAwait(true))
+                    {
+                        wasAdded = await AddFitFilePathAsync(extractedFilePath, cancellationToken);
+                        addedFilePath = extractedFilePath;
+                    }
+
+                    RemoveAllObservableProgressData();
+                }
+                else
+                {
+                    wasAdded = await AddFitFilePathAsync(fitFilePath, cancellationToken);
+                    addedFilePath = fitFilePath;
                 }
 
-                RemoveAllObservableProgressData();
+                if (wasAdded)
+                {
+                    _ = addedFitFilePathsLookup.Add(addedFilePath);
+                }
             }
-            else
+        }
+        catch (OperationCanceledException)
+        {
+            for (int index = ExportData.Count - 1; index >= 0; index--)
             {
-                _ = await AddFitFilePathAsync(fitFilePath, cancellationToken);
+                ExportData exportData = ExportData[index];
+                if (addedFitFilePathsLookup.Contains(exportData.FitFilePath))
+                {
+                    ExportData.RemoveAt(index);
+                    _ = FitFilePaths.Remove(exportData.FitFilePath);
+                }
             }
-        }
-    }
 
-    public void RemoveFitFilePath(string filePath)
-    {
-        if (FitFilePaths.Contains(filePath))
-        {
-            _ = FitFilePaths.Remove(filePath);
+            throw;
         }
-        else
+        finally
         {
-            throw new InvalidOperationException($"File path '{filePath}' not found in collection '{nameof(FitFilePaths)}'.");
+            if (isSemaphoreEntered)
+            {
+                _ = _addFitFilesSemaphore.Release();
+            }
         }
     }
 
@@ -140,6 +179,19 @@ public class MainViewModel : ViewModel
         SelectedExportData = exportData;
         SelectedExportData.AddExtraFilePaths(filePaths);
     }
+
+    public void RemoveFitFilePath(string filePath)
+    {
+        if (FitFilePaths.Contains(filePath))
+        {
+            _ = FitFilePaths.Remove(filePath);
+        }
+        else
+        {
+            throw new InvalidOperationException($"File path '{filePath}' not found in collection '{nameof(FitFilePaths)}'.");
+        }
+    }
+
     public void SetAllActivityFieldsSelected(bool isSelected) => SelectedExportData?.SetAllActivityFieldsSelected(isSelected);
     public void SetAllRecordFieldsSelected(bool isSelected) => SelectedExportData?.SetAllRecordFieldsSelected(isSelected);
     public void SetAllSessionFieldsSelected(bool isSelected) => SelectedExportData?.SetAllSessionFieldsSelected(isSelected);
@@ -250,7 +302,7 @@ public class MainViewModel : ViewModel
     public ObservableFileSystemPathHashSet FitFilePaths { get; }
     public IAsyncRelayCommand ExportCommand { get; }
     public IRelayCommand StartNewSessionCommand { get; }
-
+    public bool IsDisposed { get; private set; }
     public ObservableCollection<ExportData> ExportData { get; private set; }
     public ExportData? SelectedExportData
     {
@@ -284,4 +336,33 @@ public class MainViewModel : ViewModel
     private static PropertyValidationDelegate<string> IsFolderPathValid() => folderPath => new PropertyValidationResult(
         !string.IsNullOrWhiteSpace(folderPath) && Directory.Exists(folderPath),
         ["Destination folder cannot be empty and must exist."]);
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (!IsDisposed)
+        {
+            if (disposing)
+            {
+                _addFitFilesSemaphore.Dispose();
+            }
+
+            // TODO: free unmanaged resources (unmanaged objects) and override finalizer
+            // TODO: set large fields to null
+            IsDisposed = true;
+        }
+    }
+
+    // // TODO: override finalizer only if 'Dispose(bool disposing)' has code to free unmanaged resources
+    // ~MainWindow()
+    // {
+    //     // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+    //     Dispose(disposing: false);
+    // }
+
+    public void Dispose()
+    {
+        // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
+    }
 }

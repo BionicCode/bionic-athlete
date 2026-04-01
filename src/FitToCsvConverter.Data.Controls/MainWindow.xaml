@@ -149,18 +149,6 @@
                 <Setter Property="Padding"
                         Value="50" />
             </Style>
-            
-            <TextBlock x:Key="DropTargetIcon" 
-                       x:Shared="False"
-                       Text="&#xe8e5;"
-                       ToolTip="Drag and drop FIT files here, either raw or as ZIP files."
-                       FontFamily="{StaticResource SegoeMDL2Assets}"
-                       Foreground="Gray"
-                       FontSize="68"
-                       Opacity="0.5"
-                       IsHitTestVisible="False"
-                       HorizontalAlignment="Center"
-                       VerticalAlignment="Center" />
 
             <ContextMenu x:Key="ActivityFieldContextMenu" DataContext="{Binding RelativeSource={RelativeSource Self}, Path=PlacementTarget.DataContext}">
                 <MenuItem Header="Select all"
@@ -196,21 +184,18 @@
             <ContextMenu x:Key="ZipFilesContextMenu"
                          DataContext="{Binding RelativeSource={RelativeSource Self}, Path=PlacementTarget.DataContext}">
                 <MenuItem Header="Select all for rename"
-                          Command="{x:Static local:MainWindow.SelectAllExtraFilesForRenameCommand}"
-                          CommandParameter="{Binding}"/>
+                          Command="{x:Static local:MainWindow.SelectAllExtraFilesForRenameCommand}" />
                 <MenuItem Header="Deselect all for rename"
-                          Command="{x:Static local:MainWindow.UnselectAllExtraFilesForRenameCommand}"
-                          CommandParameter=""/>
+                          Command="{x:Static local:MainWindow.UnselectAllExtraFilesForRenameCommand}" />
             </ContextMenu>
 
             <ContextMenu x:Key="FitFileListContextMenu"
-                         DataContext="{Binding RelativeSource={RelativeSource Self}, Path=PlacementTarget.DataContext}">
+                         DataContext="{Binding RelativeSource={RelativeSource Self}, Path=PlacementTarget.SelectedItem}">
                 <MenuItem Header="Remove FIT file"
                           Command="{x:Static local:MainWindow.RemoveFitFileCommand}"
                           CommandParameter="{Binding}" />
                 <MenuItem Header="Add FIT file"
-                          Command="{x:Static local:MainWindow.AddFitFileCommand}"
-                          CommandParameter="{Binding}" />
+                          Command="{x:Static local:MainWindow.AddFitFileCommand}" />
             </ContextMenu>
         </ResourceDictionary>
     </Window.Resources>
