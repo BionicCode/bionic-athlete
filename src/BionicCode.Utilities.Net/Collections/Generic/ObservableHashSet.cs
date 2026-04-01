@@ -16,6 +16,7 @@ public class ObservableHashSet<TItem> :
     IEnumerable<TItem>,
     IReadOnlyCollection<TItem>,
     ISet<TItem>,
+    IList,
     IList<TItem>,
     IEnumerable,
     IReadOnlySet<TItem>,
@@ -36,6 +37,7 @@ public class ObservableHashSet<TItem> :
 
     public ObservableHashSet() => Items = [];
 
+#pragma warning disable IDE0028 // Simplify collection initialization. Feature not available (available only in preview).
     [SuppressMessage("Style", "IDE0028:Simplify collection initialization", Justification = "<Pending>")]
     public ObservableHashSet(IEnumerable<TItem> collection)
     {
@@ -70,20 +72,21 @@ public class ObservableHashSet<TItem> :
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(collection);
         Items = new HashSet<TItem>(collection, comparer);
-        _listProjection = [with(collection)];
-        _indexTable = [with(Items.Comparer)];
-        _reverseIndexTable = [with(EqualityComparer<int>.Default)];
+        _listProjection = new(collection);
+        _indexTable = new(Items.Comparer);
+        _reverseIndexTable = new(EqualityComparer<int>.Default);
         BuildIndex();
     }
 
     public ObservableHashSet(int capacity, IEqualityComparer<TItem>? comparer)
     {
         ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(capacity);
-        Items = new HashSet<TItem>(capacity, comparer);
-        _listProjection = [with(capacity)];
+        Items = new(capacity, comparer);
+        _listProjection = new(capacity);
         _indexTable = new(capacity, Items.Comparer);
         _reverseIndexTable = new(capacity, EqualityComparer<int>.Default);
     }
+#pragma warning restore IDE0028 // Simplify collection initialization. Feature not available (available only in preview).
 
     public int Capacity => Items.Capacity;
     /// <summary>
@@ -96,6 +99,11 @@ public class ObservableHashSet<TItem> :
 
     int ICollection<TItem>.Count => Count;
     bool ICollection<TItem>.IsReadOnly { get; }
+    bool IList.IsFixedSize { get; }
+    bool IList.IsReadOnly { get; }
+    int ICollection.Count { get; }
+    bool ICollection.IsSynchronized { get; }
+    object ICollection.SyncRoot { get; }
 
     /// <summary>Adds an item to the <see cref="ObservableHashSet{T}"/> if it is not already present.</summary>
     /// <param name="item">The item to add to the set. The value can be <see langword="null"/> for reference types.</param>
@@ -766,12 +774,12 @@ public class ObservableHashSet<TItem> :
     void ICollection<TItem>.Add(TItem item) => Add(item);
 
     #region IList<T>
-    [SuppressMessage("Design", "CA1033:Interface methods should be callable by child types", Justification = "Not overridable behavior. IList<T> implementation only exist to add performance boost for WPF data binding aupport.")]
+    [SuppressMessage("Design", "CA1033:Interface methods should be callable by child types", Justification = "Not overridable behavior. IList<T> implementation only exist to add performance boost for WPF data binding support.")]
     int IList<TItem>.IndexOf(TItem item) => _indexTable.TryGetValue(item, out int index)
         ? index
         : -1;
 
-    [SuppressMessage("Design", "CA1033:Interface methods should be callable by child types", Justification = "Not overridable behavior. IList<T> implementation only exist to add performance boost for WPF data binding aupport.")]
+    [SuppressMessage("Design", "CA1033:Interface methods should be callable by child types", Justification = "Not overridable behavior. IList<T> implementation only exist to add performance boost for WPF data binding support.")]
     void IList<TItem>.Insert(int index, TItem item)
     {
         ArgumentOutOfRangeExceptionAdvanced.ThrowIfIndexOutOfRange(index, _listProjection);
@@ -786,7 +794,7 @@ public class ObservableHashSet<TItem> :
         }
     }
 
-    [SuppressMessage("Design", "CA1033:Interface methods should be callable by child types", Justification = "Not overridable behavior. IList<T> implementation only exist to add performance boost for WPF data binding aupport.")]
+    [SuppressMessage("Design", "CA1033:Interface methods should be callable by child types", Justification = "Not overridable behavior. IList<T> implementation only exist to add performance boost for WPF data binding support.")]
     void IList<TItem>.RemoveAt(int index)
     {
         ArgumentOutOfRangeExceptionAdvanced.ThrowIfIndexOutOfRange(index, _listProjection);
@@ -803,6 +811,128 @@ public class ObservableHashSet<TItem> :
             }
         }
     }
+
+    #region IList
+    int IList.Add(object? value)
+    {
+        if (value is not TItem item)
+        {
+            throw new InvalidCastException($"Unable to convert '{value?.GetType().FullName ?? "NULL"}' to '{typeof(TItem).FullName}'.");
+        }
+
+        return Add(item) && _indexTable.TryGetValue(item, out int index)
+            ? index
+            : -1;
+    }
+
+    void IList.Clear() => Clear();
+    bool IList.Contains(object? value)
+    {
+        if (value is not TItem item)
+        {
+            throw new InvalidCastException($"Unable to convert '{value?.GetType().FullName ?? "NULL"}' to '{typeof(TItem).FullName}'.");
+        }
+
+        return Contains(item);
+    }
+
+    [SuppressMessage("Design", "CA1033:Interface methods should be callable by child types", Justification = "Not overridable behavior. IList<T> implementation only exist to add performance boost for WPF data binding support.")]
+    int IList.IndexOf(object? value)
+    {
+        if (value is not TItem item)
+        {
+            throw new InvalidCastException($"Unable to convert '{value?.GetType().FullName ?? "NULL"}' to '{typeof(TItem).FullName}'.");
+        }
+
+        return _indexTable.TryGetValue(item, out int index)
+            ? index
+            : -1;
+    }
+
+    [SuppressMessage("Design", "CA1033:Interface methods should be callable by child types", Justification = "Not overridable behavior. IList<T> implementation only exist to add performance boost for WPF data binding support.")]
+    void IList.Insert(int index, object? value)
+    {
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfIndexOutOfRange(index, _listProjection);
+
+        if (value is not TItem item)
+        {
+            throw new InvalidCastException($"Unable to convert '{value?.GetType().FullName ?? "NULL"}' to '{typeof(TItem).FullName}'.");
+        }
+
+        ((IList<TItem>)this).Insert(index, item);
+    }
+
+    void IList.Remove(object? value)
+    {
+        if (value is not TItem item)
+        {
+            throw new InvalidCastException($"Unable to convert '{value?.GetType().FullName ?? "NULL"}' to '{typeof(TItem).FullName}'.");
+        }
+
+        _ = Remove(item);
+    }
+
+    [SuppressMessage("Design", "CA1033:Interface methods should be callable by child types", Justification = "Not overridable behavior. IList<T> implementation only exist to add performance boost for WPF data binding support.")]
+    void IList.RemoveAt(int index)
+    {
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfIndexOutOfRange(index, _listProjection);
+
+        ((IList<TItem>)this).RemoveAt(index);
+    }
+
+    void ICollection.CopyTo(Array array, int index)
+    {
+        ArgumentNullExceptionAdvanced.ThrowIfNull(array);
+
+        if (array.Rank is not 1)
+        {
+            throw new ArgumentException("Array must be one-dimensional.", nameof(array));
+        }
+
+        if (array.GetLowerBound(0) is not 0)
+        {
+            throw new ArgumentException("Array must have zero lower bound.", nameof(array));
+        }
+
+        if (index < 0 || index > array.Length)
+        {
+            throw new ArgumentOutOfRangeException(nameof(index));
+        }
+
+        if (array.Length - index < _listProjection.Count)
+        {
+            throw new ArgumentException("The destination array has insufficient space.", nameof(array));
+        }
+
+        if (array is TItem[] itemArray)
+        {
+            CopyTo(itemArray, index);
+            return;
+        }
+
+        // Fallback: copy through Array.SetValue / element checks
+        for (int i = 0; i < _listProjection.Count; i++)
+        {
+            array.SetValue(_listProjection[i], index + i);
+        }
+    }
+
+    object? IList.this[int index]
+    {
+        [SuppressMessage("Design", "CA1033:Interface methods should be callable by child types", Justification = "Not overridable behavior. IList<T> implementation only exist to add performance boost for WPF data binding support.")]
+        get => ((IList<TItem>)this)[index];
+        [SuppressMessage("Design", "CA1033:Interface methods should be callable by child types", Justification = "Not overridable behavior. IList<T> implementation only exist to add performance boost for WPF data binding support.")]
+        set
+        {
+            if (value is not TItem item)
+            {
+                throw new InvalidCastException($"Unable to convert '{value?.GetType().FullName ?? "NULL"}' to '{typeof(TItem).FullName}'.");
+            }
+
+            ((IList<TItem>)this)[index] = item;
+        }
+    }
+    #endregion IList
 
     TItem IList<TItem>.this[int index]
     {
