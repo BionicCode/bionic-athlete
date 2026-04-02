@@ -53,13 +53,11 @@
 /// </code>
 /// </remarks>
 [SuppressMessage("Design", "CA1067:Override Object.Equals(object) when implementing IEquatable<T>", Justification = "'WriteOnce<TValue> is a wrapper type, more like a decorator and deliberately separates value equality from reference equality since it is technically not immutable.'")]
-public sealed class WriteOnce<TValue> : IEquatable<WriteOnce<TValue>?>, IFormattable
+public sealed class WriteOnce<TValue> : IFormattable
 {
     private TValue _value = default!;
     private int _isSet;
     private readonly object _syncLock = new();
-
-    public WriteOnce(TValue value) => SetValue(value);
 
     public bool TrySetValue(TValue value)
     {
@@ -95,18 +93,16 @@ public sealed class WriteOnce<TValue> : IEquatable<WriteOnce<TValue>?>, IFormatt
     public bool IsSet => Volatile.Read(ref _isSet) != 0;
     public bool IsSealed => IsSet;
 
-    public static implicit operator TValue(WriteOnce<TValue>? source) => source is null 
-        ? default! 
+    public static implicit operator TValue(WriteOnce<TValue>? source) => source is null
+        ? default!
         : source.GetValueOrDefault();
-
-    public static implicit operator WriteOnce<TValue>(TValue value) => new(value);
 
     /// <summary>
     /// Returns a string representation of the current underlying value, or an empty string if no value is present.
     /// </summary>
     /// <returns>A string that represents the current underlying value if present; otherwise, an empty string.</returns>
-    public override string ToString() => GetValueOrDefault() is TValue value 
-        ? value.ToString() ?? string.Empty 
+    public override string ToString() => GetValueOrDefault() is TValue value
+        ? value.ToString() ?? string.Empty
         : string.Empty;
 
     /// <summary>
@@ -117,7 +113,7 @@ public sealed class WriteOnce<TValue> : IEquatable<WriteOnce<TValue>?>, IFormatt
     /// <para/><see cref="object.GetHashCode"/> and <see cref="object.Equals"/> are based on the wrapping <see cref="WriteOnce{TValue}"/> reference equality.</remarks>
     /// <param name="other">The other <see cref="WriteOnce{TValue}"/> instance to compare with.</param>
     /// <returns><see langword="true"/> if the underlying values are equal; otherwise, <see langword="false"/>.</returns>
-    public bool Equals(WriteOnce<TValue>? other) => Equals(this, other);
+    public bool ValueEquals(WriteOnce<TValue>? other) => ValueEquals(this, other);
 
     /// <summary>
     /// Performs an equality comparison between this instance and another <see cref="WriteOnce{TValue}"/> instance based on the underlying values AND NOT on their references.
@@ -127,7 +123,7 @@ public sealed class WriteOnce<TValue> : IEquatable<WriteOnce<TValue>?>, IFormatt
     /// <para/><see cref="object.GetHashCode"/> and <see cref="object.Equals"/> are based on the wrapping <see cref="WriteOnce{TValue}"/> reference equality.</remarks>
     /// <param name="other">The other <see cref="WriteOnce{TValue}"/> instance to compare with.</param>
     /// <returns><see langword="true"/> if the underlying values are equal; otherwise, <see langword="false"/>.</returns>
-    public bool Equals(WriteOnce<TValue>? x, WriteOnce<TValue>? y) => ReferenceEquals(x, y)
+    public bool ValueEquals(WriteOnce<TValue>? x, WriteOnce<TValue>? y) => ReferenceEquals(x, y)
         || (x is not null && y is not null && EqualityComparer<TValue>.Default.Equals(x.GetValueOrDefault(), y.GetValueOrDefault()));
 
     /// <summary>
