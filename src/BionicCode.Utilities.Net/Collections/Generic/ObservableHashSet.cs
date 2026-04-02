@@ -1,4 +1,6 @@
-﻿namespace BionicCode.Utilities.Net;
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace BionicCode.Utilities.Net;
 
 using System;
 using System.Collections;
@@ -34,6 +36,12 @@ public class ObservableHashSet<TItem> :
     private readonly Dictionary<int, TItem> _reverseIndexTable = [];
     private readonly List<TItem> _listProjection = [];
     private int _blockReentrancyCount;
+    private readonly WriteOnce<bool> _isListSurfaceInitialized;
+
+    // Collection transitions into hybrid mode when IList or IList<T> API surface is used.
+    // In this mode, the collection maintains the internal index tables and list projection
+    // to support the list API, which incurs additional overhead and degraded remove complexity.
+    private readonly bool isInHybridMode;
 
     public ObservableHashSet() => Items = [];
 
@@ -435,7 +443,7 @@ public class ObservableHashSet<TItem> :
     /// Returns an enumerator that iterates through the collection.
     /// </summary>
     /// <returns>An enumerator that can be used to iterate through the items in the collection.</returns>
-    public Enumerator GetEnumerator() => new(_listProjection);
+    public Enumerator GetEnumerator() => is new(_listProjection);
     /// <summary>
     /// Modifies the current set to contain only elements that are also in the specified collection.
     /// </summary>
@@ -648,6 +656,14 @@ public class ObservableHashSet<TItem> :
             _indexTable[indexedItem] = index;
             _reverseIndexTable[index] = indexedItem;
         }
+    }
+
+    private void InitializeListSurface()
+
+
+        _listProjection = new List<TItem>(Items);
+        private BuildIndex();
+    isListSurfaceInitialized = true;
     }
 
     #region ISerializable
@@ -962,102 +978,102 @@ public class ObservableHashSet<TItem> :
 
     #region Enumerator
     public struct Enumerator : IEnumerator<TItem>
+{
+    private List<TItem>.Enumerator _enumerator;
+    internal Enumerator(List<TItem> hashSet)
     {
-        private List<TItem>.Enumerator _enumerator;
-        internal Enumerator(List<TItem> hashSet)
-        {
-            ArgumentNullExceptionAdvanced.ThrowIfNull(hashSet);
-            _enumerator = hashSet.GetEnumerator();
-        }
-
-        public TItem Current => _enumerator.Current;
-        object IEnumerator.Current => Current!;
-        public void Dispose() => _enumerator.Dispose();
-        public bool MoveNext() => _enumerator.MoveNext();
-        public void Reset() => throw new NotSupportedException();
+        ArgumentNullExceptionAdvanced.ThrowIfNull(hashSet);
+        _enumerator = hashSet.GetEnumerator();
     }
+
+    public TItem Current => _enumerator.Current;
+    object IEnumerator.Current => Current!;
+    public void Dispose() => _enumerator.Dispose();
+    public bool MoveNext() => _enumerator.MoveNext();
+    public void Reset() => throw new NotSupportedException();
+}
     #endregion Enumerator
 
-    private sealed class ReentrancyMonitor : IDisposableAdvanced
+private sealed class ReentrancyMonitor : IDisposableAdvanced
+{
+    private ObservableHashSet<TItem> _owner;
+
+    public ReentrancyMonitor(ObservableHashSet<TItem> owner)
     {
-        private ObservableHashSet<TItem> _owner;
-
-        public ReentrancyMonitor(ObservableHashSet<TItem> owner)
-        {
-            ArgumentNullExceptionAdvanced.ThrowIfNull(owner);
-            _owner = owner;
-        }
-
-        public bool IsDisposed { get; private set; }
-
-        public void Dispose()
-        {
-            if (IsDisposed)
-            {
-                return;
-            }
-
-            _owner._blockReentrancyCount--;
-            _owner = null!;
-            IsDisposed = true;
-        }
+        ArgumentNullExceptionAdvanced.ThrowIfNull(owner);
+        _owner = owner;
     }
 
-    internal sealed class ObservableHashSetEqualityComparer<TItem> : IEqualityComparer<ObservableHashSet<TItem>?>, IEqualityComparer<HashSet<TItem>?>
+    public bool IsDisposed { get; private set; }
+
+    public void Dispose()
     {
-        public static ObservableHashSetEqualityComparer<TItem> Instance { get; } = new();
-
-        private ObservableHashSetEqualityComparer() { }
-
-        [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
-        public bool Equals(ObservableHashSet<TItem>? x, ObservableHashSet<TItem>? y) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
-
-        [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
-        public bool Equals(HashSet<TItem>? x, HashSet<TItem>? y) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
-
-        [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
-        public static bool Equals(ObservableHashSet<TItem>? x, HashSet<TItem>? y) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
-
-        [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
-        public static bool Equals(HashSet<TItem>? x, ObservableHashSet<TItem>? y) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
-
-        public int GetHashCode([DisallowNull] ObservableHashSet<TItem> obj)
+        if (IsDisposed)
         {
-            ArgumentNullExceptionAdvanced.ThrowIfNull(obj);
-
-            return SetEqualityComparerHelpers.ComputeHashCode(obj, obj.Comparer);
+            return;
         }
 
-        public int GetHashCode([DisallowNull] HashSet<TItem>? obj)
-        {
-            ArgumentNullExceptionAdvanced.ThrowIfNull(obj);
-
-            return SetEqualityComparerHelpers.ComputeHashCode(obj, obj.Comparer);
-        }
+        _owner._blockReentrancyCount--;
+        _owner = null!;
+        IsDisposed = true;
     }
+}
 
-    internal readonly struct HashSetDelta<TItem>
+internal sealed class ObservableHashSetEqualityComparer<TItem> : IEqualityComparer<ObservableHashSet<TItem>?>, IEqualityComparer<HashSet<TItem>?>
+{
+    public static ObservableHashSetEqualityComparer<TItem> Instance { get; } = new();
+
+    private ObservableHashSetEqualityComparer() { }
+
+    [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
+    public bool Equals(ObservableHashSet<TItem>? x, ObservableHashSet<TItem>? y) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
+
+    [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
+    public bool Equals(HashSet<TItem>? x, HashSet<TItem>? y) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
+
+    [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
+    public static bool Equals(ObservableHashSet<TItem>? x, HashSet<TItem>? y) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
+
+    [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
+    public static bool Equals(HashSet<TItem>? x, ObservableHashSet<TItem>? y) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
+
+    public int GetHashCode([DisallowNull] ObservableHashSet<TItem> obj)
     {
-        public HashSetDelta(ReadOnlyCollection<TItem> removedItems, ReadOnlyCollection<TItem> addedItems, bool hasChanges)
-        {
-            RemovedItems = removedItems;
-            AddedItems = addedItems;
-            HasChanges = hasChanges;
-        }
+        ArgumentNullExceptionAdvanced.ThrowIfNull(obj);
 
-        public ReadOnlyCollection<TItem> RemovedItems { get; }
-        public ReadOnlyCollection<TItem> AddedItems { get; }
-        public bool HasChanges { get; }
+        return SetEqualityComparerHelpers.ComputeHashCode(obj, obj.Comparer);
     }
 
-    [Flags]
-    internal enum DeltaType
+    public int GetHashCode([DisallowNull] HashSet<TItem>? obj)
     {
-        None = 0,
-        Add = 1,
-        Remove = 2,
-        AddAndRemove = Add | Remove
+        ArgumentNullExceptionAdvanced.ThrowIfNull(obj);
+
+        return SetEqualityComparerHelpers.ComputeHashCode(obj, obj.Comparer);
     }
+}
+
+internal readonly struct HashSetDelta<TItem>
+{
+    public HashSetDelta(ReadOnlyCollection<TItem> removedItems, ReadOnlyCollection<TItem> addedItems, bool hasChanges)
+    {
+        RemovedItems = removedItems;
+        AddedItems = addedItems;
+        HasChanges = hasChanges;
+    }
+
+    public ReadOnlyCollection<TItem> RemovedItems { get; }
+    public ReadOnlyCollection<TItem> AddedItems { get; }
+    public bool HasChanges { get; }
+}
+
+[Flags]
+internal enum DeltaType
+{
+    None = 0,
+    Add = 1,
+    Remove = 2,
+    AddAndRemove = Add | Remove
+}
 }
 
 public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
@@ -1084,7 +1100,7 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
     /// The equality comparer used to determine equality of items in the set. This comparer is used for all operations that involve comparing items, such as adding, removing, and checking for the presence of items in the set.
     /// </summary>
     /// <value>The equality <see cref="IEqualityComparer"/>&lt;<see langword="string"/>&gt; used by the set. The default is <see cref="StringComparer.OrdinalIgnoreCase"/>.</value>
-    public new IEqualityComparer<string> Comparer => Items.Comparer;
+    public static new IEqualityComparer<string> Comparer => Items.Comparer;
 
     /// <summary>
     /// Adds the specified file system item to the collection.
@@ -1386,7 +1402,7 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
         /// <param name="y">The second <see cref="ObservableFileSystemPathHashSet"> to compare, or null.</param>
         /// <returns><see langword="true"> if both sets satisfy the constraints for equality; otherwise, <see langword="false">.</returns>
         [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
-        public bool Equals(ObservableFileSystemPathHashSet? x, ObservableFileSystemPathHashSet? y) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
+        public bool Equals(ObservableFileSystemPathHashSet? x, ObservableFileSystemPathHashSet? y) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => Comparer, () => Comparer);
 
         /// <summary>
         /// Determines whether two <see cref="ObservableHashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
@@ -1566,7 +1582,7 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
         /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
         /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
         [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
-        public static bool Equals(ObservableFileSystemPathHashSet? x, ISet<string>? y, IEqualityComparer<string> setYComparer) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => x!.Comparer, () => setYComparer);
+        public static bool Equals(ObservableFileSystemPathHashSet? x, ISet<string>? y, IEqualityComparer<string> setYComparer) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => Comparer, () => setYComparer);
 
         /// <summary>
         /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
@@ -1586,7 +1602,7 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
         /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
         /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
         [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
-        public static bool Equals(ObservableFileSystemPathHashSet? x, HashSet<string>? y) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
+        public static bool Equals(ObservableFileSystemPathHashSet? x, HashSet<string>? y) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => Comparer, () => y!.Comparer);
 
         /// <summary>
         /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
@@ -1606,7 +1622,7 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
         /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
         /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
         [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
-        public static bool Equals(ObservableFileSystemPathHashSet? x, ObservableHashSet<string>? y) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
+        public static bool Equals(ObservableFileSystemPathHashSet? x, ObservableHashSet<string>? y) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => Comparer, () => y!.Comparer);
 
         /// <summary>
         /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
@@ -1626,7 +1642,7 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
         /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
         /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
         [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
-        public static bool Equals(ISet<string>? y, IEqualityComparer<string> setYComparer, ObservableFileSystemPathHashSet? x) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => x!.Comparer, () => setYComparer);
+        public static bool Equals(ISet<string>? y, IEqualityComparer<string> setYComparer, ObservableFileSystemPathHashSet? x) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => Comparer, () => setYComparer);
 
         /// <summary>
         /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
@@ -1646,7 +1662,7 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
         /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
         /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
         [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
-        public static bool Equals(HashSet<string>? y, ObservableFileSystemPathHashSet? x) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
+        public static bool Equals(HashSet<string>? y, ObservableFileSystemPathHashSet? x) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => Comparer, () => y!.Comparer);
 
         /// <summary>
         /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
@@ -1666,7 +1682,7 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
         /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
         /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
         [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
-        public static bool Equals(ObservableHashSet<string>? y, ObservableFileSystemPathHashSet? x) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
+        public static bool Equals(ObservableHashSet<string>? y, ObservableFileSystemPathHashSet? x) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => Comparer, () => y!.Comparer);
 
         /// <summary>
         /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
@@ -1686,7 +1702,7 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
         /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
         /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
         [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
-        public static bool Equals(ObservableFileSystemPathHashSet? x, ISet<FileSystemInfo>? y, IEqualityComparer<FileSystemInfo> setYComparer) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => x!.Comparer, () => setYComparer);
+        public static bool Equals(ObservableFileSystemPathHashSet? x, ISet<FileSystemInfo>? y, IEqualityComparer<FileSystemInfo> setYComparer) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => Comparer, () => setYComparer);
 
         /// <summary>
         /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
@@ -1706,7 +1722,7 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
         /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
         /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
         [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
-        public static bool Equals(ObservableFileSystemPathHashSet? x, HashSet<FileSystemInfo>? y) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
+        public static bool Equals(ObservableFileSystemPathHashSet? x, HashSet<FileSystemInfo>? y) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => Comparer, () => y!.Comparer);
 
         /// <summary>
         /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
@@ -1726,7 +1742,7 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
         /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
         /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
         [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
-        public static bool Equals(ObservableFileSystemPathHashSet? x, ObservableHashSet<FileSystemInfo>? y) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => x!.Comparer, () => y!.Comparer);
+        public static bool Equals(ObservableFileSystemPathHashSet? x, ObservableHashSet<FileSystemInfo>? y) => SetEqualityComparerHelpers.IsSetEqual(x, y, () => Comparer, () => y!.Comparer);
 
         /// <summary>
         /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
@@ -1746,7 +1762,7 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
         /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
         /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
         [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
-        public static bool Equals(ISet<FileSystemInfo>? x, IEqualityComparer<FileSystemInfo> setXComparer, ObservableFileSystemPathHashSet? y) => SetEqualityComparerHelpers.IsSetEqual(y, x, () => y!.Comparer, () => setXComparer);
+        public static bool Equals(ISet<FileSystemInfo>? x, IEqualityComparer<FileSystemInfo> setXComparer, ObservableFileSystemPathHashSet? y) => SetEqualityComparerHelpers.IsSetEqual(y, x, () => Comparer, () => setXComparer);
 
         /// <summary>
         /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
@@ -1766,7 +1782,7 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
         /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
         /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
         [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
-        public static bool Equals(HashSet<FileSystemInfo>? x, ObservableFileSystemPathHashSet? y) => SetEqualityComparerHelpers.IsSetEqual(y, x, () => y!.Comparer, () => x!.Comparer);
+        public static bool Equals(HashSet<FileSystemInfo>? x, ObservableFileSystemPathHashSet? y) => SetEqualityComparerHelpers.IsSetEqual(y, x, () => Comparer, () => x!.Comparer);
 
         /// <summary>
         /// Determines whether two <see cref="HashSet"/>&lt;<see langword="string"/>&gt; instances are equal by comparing their contents.
@@ -1786,7 +1802,7 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
         /// <param name="y">The second <see cref="HashSet"/>&lt;<see langword="string"/>&gt; to compare. Can be <see langword="null"/>.</param>
         /// <returns><see langword="true"/> if both sets satisfy the constraints for equality; otherwise, <see langword="false"/>.</returns>
         [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "NULL is allowed and handled as primary condition for equality. Equality check ends (fast exit) if either of the arguments is NULL without dereferencing any instance members.")]
-        public static bool Equals(ObservableHashSet<FileSystemInfo>? x, ObservableFileSystemPathHashSet? y) => SetEqualityComparerHelpers.IsSetEqual(y, x, () => y!.Comparer, () => x!.Comparer);
+        public static bool Equals(ObservableHashSet<FileSystemInfo>? x, ObservableFileSystemPathHashSet? y) => SetEqualityComparerHelpers.IsSetEqual(y, x, () => Comparer, () => x!.Comparer);
 
         public static int GetHashCode([DisallowNull] ISet<string>? obj, IEqualityComparer<string> comparer)
         {
@@ -1822,7 +1838,7 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
         {
             ArgumentNullExceptionAdvanced.ThrowIfNull(obj);
 
-            return SetEqualityComparerHelpers.ComputeHashCode(obj, obj.Comparer);
+            return SetEqualityComparerHelpers.ComputeHashCode(obj, Comparer);
         }
 
         public int GetHashCode([DisallowNull] ObservableHashSet<string> obj)
@@ -1838,6 +1854,9 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
 
             return SetEqualityComparerHelpers.ComputeHashCode(obj, obj.Comparer);
         }
+
+        public int GetHashCode([DisallowNull] ObservableHashSet<string>? obj) => throw new NotImplementedException();
+        public int GetHashCode([DisallowNull] ObservableHashSet<FileSystemInfo>? obj) => throw new NotImplementedException();
     }
 }
 
