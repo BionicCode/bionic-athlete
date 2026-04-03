@@ -679,18 +679,18 @@ public class ObservableHashSet<TItem> :
 
         if (hashSetDelta.RemovedItems.Count > 0)
         {
-            removedItems = DispatchIndexGroups(hashSetDelta.RemovedItems, NotifyCollectionChangedAction.Remove);
+            removedItems = DispatchContiguousIndexGroups(hashSetDelta.RemovedItems, NotifyCollectionChangedAction.Remove);
         }
 
         if (hashSetDelta.AddedItems.Count > 0)
         {
-            addedItems = DispatchIndexGroups(hashSetDelta.AddedItems, NotifyCollectionChangedAction.Add);
+            addedItems = DispatchContiguousIndexGroups(hashSetDelta.AddedItems, NotifyCollectionChangedAction.Add);
         }
 
         BroadcastDefaultSetChangedEvents(addedItems, removedItems);
     }
 
-    private List<TItem> DispatchIndexGroups(ReadOnlyDictionary<int, TItem> items, NotifyCollectionChangedAction collectionChangedAction)
+    private List<TItem> DispatchContiguousIndexGroups(ReadOnlyCollection<KeyValuePair<int, TItem>> items, NotifyCollectionChangedAction collectionChangedAction)
     {
         List<TItem> processedItems = [];
         List<TItem> currentItemsGroup = [];
@@ -793,22 +793,25 @@ public class ObservableHashSet<TItem> :
 
     private IndexedHashSetDelta<TItem> HybridModeSymmetricExceptWithUniqueHashSetInternal(HashSet<TItem> other)
     {
-        var removedItems = new SortedList<int, TItem>();
-        var addedItems = new SortedList<int, TItem>();
+        // Important: don't allow duplicates in List<KeyValuePair<int, TItem>>.
+        // It's not possible to create duplicates in this context.
+        // This is just a reminder for future refactoring.
+        List<KeyValuePair<int, TItem>> removedItems = [];
+        List<KeyValuePair<int, TItem>> addedItems = [];
 
         int smallestChangeIndex = int.MaxValue;
         foreach (TItem item in other)
         {
             if (RemoveInternal(item, isRebuildIndexRequired: false, out int itemIndex))
             {
-                removedItems.Add(itemIndex, item);
+                removedItems.Add(new KeyValuePair<int, TItem>(itemIndex, item));
                 smallestChangeIndex = Math.Min(smallestChangeIndex, itemIndex);
             }
             else
             {
                 _ = AddInternal(item, out itemIndex);
 
-                addedItems.Add(itemIndex, item);
+                addedItems.Add(new KeyValuePair<int, TItem>(itemIndex, item));
             }
         }
 
@@ -818,6 +821,8 @@ public class ObservableHashSet<TItem> :
             BuildIndex(smallestChangeIndex);
         }
 
+        addedItems.Sort();
+        removedItems.Sort();
         return new IndexedHashSetDelta<TItem>(addedItems.AsReadOnly(), removedItems.AsReadOnly(), hasChanges);
     }
 
@@ -1023,7 +1028,9 @@ public class ObservableHashSet<TItem> :
         for (int index = changeIndex; index < _listProjection.Count; index++)
         {
             TItem indexedItem = _listProjection[index];
+            int oldIndex = _indexTable[indexedItem];
             _indexTable[indexedItem] = index;
+            _ = _reverseIndexTable.Remove(oldIndex);
             _reverseIndexTable[index] = indexedItem;
         }
     }
@@ -1482,15 +1489,15 @@ public class ObservableHashSet<TItem> :
 
     internal readonly struct IndexedHashSetDelta<TItem>
     {
-        public IndexedHashSetDelta(ReadOnlyDictionary<int, TItem> removedItems, ReadOnlyDictionary<int, TItem> addedItems, bool hasChanges)
+        public IndexedHashSetDelta(ReadOnlyCollection<KeyValuePair<int, TItem>> removedItems, ReadOnlyCollection<KeyValuePair<int, TItem>> addedItems, bool hasChanges)
         {
             RemovedItems = removedItems;
             AddedItems = addedItems;
             HasChanges = hasChanges;
         }
 
-        public ReadOnlyDictionary<int, TItem> RemovedItems { get; }
-        public ReadOnlyDictionary<int, TItem> AddedItems { get; }
+        public ReadOnlyCollection<KeyValuePair<int, TItem>> RemovedItems { get; }
+        public ReadOnlyCollection<KeyValuePair<int, TItem>> AddedItems { get; }
         public bool HasChanges { get; }
     }
 

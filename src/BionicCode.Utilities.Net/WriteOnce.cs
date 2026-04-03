@@ -8,12 +8,11 @@ using System.Diagnostics.CodeAnalysis;
 /// </summary>
 /// <remarks>
 /// <see cref="WriteOnce{TValue}"/> implements a write-once semantics for the underlying value, allowing it to be set only once and then acts as immutable.
-/// <para/><see cref="WriteOnce{TValue}"/> additionally acts l ike a normal field or property 
+/// <para/><see cref="WriteOnce{TValue}"/> additionally acts like a normal field or property 
 /// in that it can be implicitly cast to and from the underlying value type, allowing it to be used in expressions 
 /// and assignments without needing to explicitly access the underlying value.
 /// <para/><see cref="WriteOnce{TValue}"/> is thread-safe, ensuring that the underlying value can only be set once even in concurrent scenarios.
-/// <para/><see cref="WriteOnce{TValue}"/> implements <see cref="IEquatable{T}"/> and <see cref="IFormattable"/> to allow for equality comparisons and formatted string representations based on the underlying value.
-/// <br/>Note: <see cref="object.GetHashCode()"/> and <see cref="object.Equals(object?)"/> are still based on the reference of the current <see cref="WriteOnce{TValue}"/> instance.
+/// <para/><see cref="WriteOnce{TValue}"/> implements <see cref="IFormattable"/> to allow for formatted string representations based on the underlying value.
 /// <para>Typical usage is to wrap e.g. a OnCollectionChanged call with a using() scope or using expression:</para>
 /// <code>
 /// class Foo
@@ -51,7 +50,7 @@ using System.Diagnostics.CodeAnalysis;
 /// }
 /// </code>
 /// </remarks>
-public class WriteOnce<TValue> : IFormattable
+public sealed class WriteOnce<TValue> : IFormattable
 {
     private TValue _value = default!;
     private int _isSet;
@@ -155,16 +154,4 @@ public class WriteOnce<TValue> : IFormattable
     public string ToString(string? format, IFormatProvider? formatProvider) => GetValueOrDefault() is IFormattable formattable
         ? formattable.ToString(format, formatProvider)
         : ToString();
-}
-
-// TODO::Implement specialization + other primitive type specializations
-public class WriteOnceString : WriteOnce<string>
-{
-    public WriteOnceString()
-    {
-    }
-
-    public WriteOnceString(string value) : base(value)
-    {
-    }
 }
