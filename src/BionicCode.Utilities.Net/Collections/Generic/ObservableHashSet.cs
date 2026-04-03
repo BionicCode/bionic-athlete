@@ -27,11 +27,58 @@ public class ObservableHashSet<TItem> :
 {
     /// <inheritdoc/>
     public event PropertyChangedEventHandler? PropertyChanged;
-    /// <inheritdoc/>
+    /// <summary>When in hybrid mode, this event is raised to to provide index based collection change reports 
+    /// the way they are required by data binding driven frameworks like WPF.
+    /// <br/>In default hash set mode <see cref="CollectionChanged"/> event is broadcasted index agnostic, 
+    /// meaning index is always reported as '-1'.</summary> 
+    /// <remarks>The <see cref="ObservableHashSet{TItem}"/> operates as a true observable hash set by default. 
+    /// But accessing any of the explicitly implemented <see cref="IList"/> or <see cref="IList{T}"/> member 
+    /// will transition it into hybrid mode.
+    /// <para/>In hybrid mode, <see cref="ObservableHashSet{TItem}"/> maintains a list projection in the background 
+    /// in order to provide index based <see cref="CollectionChanged"/> events. This is to support enhanced UI optimizations like UI virtualization. 
+    /// However, this support incurs performance penalties for remove operations and for <see cref="CollectionChanged"/> event broadcasting.
+    /// The following list shows how the time complexity of various operations is affected when the collection is in hybrid mode compared to the default hash set mode (for operations not listed here since their are not affected see <see cref="HashSet{T}"/> online documentation):
+    /// <list type="table">
+    ///   <listheader>
+    ///     <term>Operation</term>
+    ///     <term>Default HashSet mode complexity</term>
+    ///     <term>Hybrid mode complexity</term>
+    ///   </listheader>
+    ///   <item>
+    ///     <term>Add</term>
+    ///     <term>O(1)</term>
+    ///     <term>O(1)</term>
+    ///   </item>
+    ///   <item>
+    ///     <term>AddRange/UnionWith</term>
+    ///     <term>O(n)</term>
+    ///     <term>O(n+k)</term>
+    ///   </item>
+    ///   <item>
+    ///     <term>Remove</term>
+    ///     <term>O(1)</term>
+    ///     <term>O(n)</term>
+    ///   </item>
+    ///   <item>
+    ///     <term>RemoveRange/RemoveWhere</term>
+    ///     <term>O(n)</term>
+    ///     <term>O(n+k)</term>
+    ///   </item>
+    ///   <item>
+    ///     <term>RemoveRange/RemoveWhere</term>
+    ///     <term>If the other parameter is a HashSet<T> collection with the same equality comparer as the current HashSet<T> object, this method is an O(n) operation. Otherwise, this method is an O(n + m) operation, where n is the number of elements in other and m is Count.</term>
+    ///     <term>O(n+k)</term>
+    ///   </item>
+    /// <item>Remove operations have degraded performance due to the need to maintain the list projection and index tables. The original O(1) operation becomes a O(n) operation if the removed item is not at the end. Removing the last item still yields a O(1) operation.</item>
+    /// <item>Broadcasting <see cref="CollectionChanged"/> events incurs additional overhead due to the partitioning of changed index range into contiguous batches to improve event consumption. For non-contiguous indices <see cref="CollectionChanged"/> is raised per index.
+    /// This will slightly degrade range operations from original O(n)</item>
+    /// </list>
+    /// When the collection is in hybrid mode, the <see cref="SetChanged"/> event is raised to provide index-based collection change notifications that are compatible with data-binding frameworks. This allows consumers to receive more granular notifications about changes to the collection, such as item additions, removals, and resets, along with the corresponding indices of the changes. When not in hybrid mode, only the <see cref="CollectionChanged"/> event is raised with index information where applicable.</remarks>
     public event NotifyCollectionChangedEventHandler? CollectionChanged;
+    public event EventHandler<SetChangedEventArgs<TItem>>? SetChanged;
     protected HashSet<TItem> Items { get; }
     private readonly Dictionary<TItem, int> _indexTable = [];
-    private readonly Dictionary<int, TItem> _reverseIndexTable = [];
+    private readonly SortedDictionary<int, TItem> _reverseIndexTable = [];
     private readonly List<TItem> _listProjection = [];
     private int _blockReentrancyCount;
 
@@ -50,7 +97,7 @@ public class ObservableHashSet<TItem> :
         ArgumentNullExceptionAdvanced.ThrowIfNull(collection);
         _listProjection = new(collection);
         _indexTable = new(Items.Comparer);
-        _reverseIndexTable = new(EqualityComparer<int>.Default);
+        _reverseIndexTable = new(Comparer<int>.Default);
         BuildIndex();
     }
 
@@ -59,35 +106,38 @@ public class ObservableHashSet<TItem> :
     {
         Items = new(comparer);
         _indexTable = new(Items.Comparer);
-        _reverseIndexTable = new(EqualityComparer<int>.Default);
+        _reverseIndexTable = new(Comparer<int>.Default);
     }
 
     [SuppressMessage("Style", "IDE0028:Simplify collection initialization", Justification = "<Pending>")]
     public ObservableHashSet(int capacity)
     {
         ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(capacity);
+
         Items = new(capacity);
         _listProjection = new(capacity);
         _indexTable = new(capacity, Items.Comparer);
-        _reverseIndexTable = new(capacity, EqualityComparer<int>.Default);
+        _reverseIndexTable = new(Comparer<int>.Default);
     }
 
     public ObservableHashSet(IEnumerable<TItem> collection, IEqualityComparer<TItem>? comparer)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(collection);
+
         Items = new HashSet<TItem>(collection, comparer);
         _indexTable = new(Items.Comparer);
-        _reverseIndexTable = new(EqualityComparer<int>.Default);
+        _reverseIndexTable = new(Comparer<int>.Default);
         BuildIndex();
     }
 
     public ObservableHashSet(int capacity, IEqualityComparer<TItem>? comparer)
     {
         ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(capacity);
+
         Items = new(capacity, comparer);
         _listProjection = new(capacity);
         _indexTable = new(capacity, Items.Comparer);
-        _reverseIndexTable = new(capacity, EqualityComparer<int>.Default);
+        _reverseIndexTable = new(Comparer<int>.Default);
     }
 #pragma warning restore IDE0028 // Simplify collection initialization. Feature not available (available only in preview).
 
@@ -95,21 +145,13 @@ public class ObservableHashSet<TItem> :
     /// <summary>
     /// The equality comparer used to determine equality of items in the set. This comparer is used for all operations that involve comparing items, such as adding, removing, and checking for the presence of items in the set.
     /// </summary>
-    /// <value>The equality <see cref="IEqualityComparer{T}"/> used by the set.</value>
+    /// <removedItem>The equality <see cref="IEqualityComparer{T}"/> used by the set.</removedItem>
     public IEqualityComparer<TItem> Comparer => Items.Comparer;
 
     public int Count => Items.Count;
 
-    int ICollection<TItem>.Count => Count;
-    bool ICollection<TItem>.IsReadOnly { get; }
-    bool IList.IsFixedSize { get; }
-    bool IList.IsReadOnly { get; }
-    int ICollection.Count { get; }
-    bool ICollection.IsSynchronized { get; }
-    object ICollection.SyncRoot { get; }
-
     /// <summary>Adds an item to the <see cref="ObservableHashSet{T}"/> if it is not already present.</summary>
-    /// <param name="item">The item to add to the set. The value can be <see langword="null"/> for reference types.</param>
+    /// <param name="item">The item to add to the set. The removedItem can be <see langword="null"/> for reference types.</param>
     /// <remarks>Use this method to add an item to the set. If the item is already present, the set remains unchanged and the method returns <see langword="false"/>; otherwise, the item is added and the method returns <see langword="true"/>.
     /// <para/>This method raises the <see cref="CollectionChanged"/> event with <see cref="NotifyCollectionChangedAction.Add"/> action and the start index of the changes to support the <see cref="IList{T}"/> API surface.
     /// <para/>This method raises the <see cref="PropertyChanged"/> event for the <see cref="Count"/> property.</remarks>
@@ -135,7 +177,7 @@ public class ObservableHashSet<TItem> :
     }
 
     /// <summary>Adds an item to the <see cref="ObservableHashSet{T}"/> if it is not already present.</summary>
-    /// <param name="item">The item to add to the set. The value can be <see langword="null"/> for reference types.</param>
+    /// <param name="item">The item to add to the set. The removedItem can be <see langword="null"/> for reference types.</param>
     /// <remarks>Override this method to extend the behavior of the <see cref="ObservableHashSet{TItem}.Add(TItem)"/> member without affecting the notification behavior.</remarks>
     /// <returns><see langword="true"/> if the item was added to the set; <see langword="false"/> if the item was already present.</returns>
     protected virtual bool AddItem(TItem item) => Items.Add(item);
@@ -171,22 +213,22 @@ public class ObservableHashSet<TItem> :
     }
 
     /// <summary>
-    /// Attempts to find a value in the set that is equal to the specified item.
+    /// Attempts to find a removedItem in the set that is equal to the specified item.
     /// </summary>
     /// <param name="equalValue">The item to search for in the set. Equality is determined by the set's comparer.</param>
-    /// <param name="actualValue">When this method returns <see langword="true"/>, contains the value from the set that is equal to <paramref
-    /// name="equalValue"/>; otherwise, contains the default value for the type.</param>
-    /// <returns><see langword="true"/> if a value equal to <paramref name="equalValue"/> was found in the set; otherwise, <see
+    /// <param name="actualValue">When this method returns <see langword="true"/>, contains the removedItem from the set that is equal to <paramref
+    /// name="equalValue"/>; otherwise, contains the default removedItem for the type.</param>
+    /// <returns><see langword="true"/> if a removedItem equal to <paramref name="equalValue"/> was found in the set; otherwise, <see
     /// langword="false"/>.</returns>
     public bool TryGetValue(TItem equalValue, [MaybeNullWhen(false)] out TItem actualValue) => TryGetItem(equalValue, out actualValue);
 
     /// <summary>
-    /// Attempts to find an item in the collection that is equal to the specified value.
+    /// Attempts to find an item in the collection that is equal to the specified removedItem.
     /// </summary>
     /// <remarks>Override this method to extend the behavior of the <see cref="ObservableHashSet{TItem}.TryGetValue(TItem, out TItem)"/> member without affecting the notification behavior.</remarks>
-    /// <param name="equalValue">The value to search for in the collection. Equality is determined by the collection's comparer.</param>
+    /// <param name="equalValue">The removedItem to search for in the collection. Equality is determined by the collection's comparer.</param>
     /// <param name="actualValue">When this method returns, contains the actual item from the collection that is equal to <paramref
-    /// name="equalValue"/>, if found; otherwise, the default value for the type of the item.</param>
+    /// name="equalValue"/>, if found; otherwise, the default removedItem for the type of the item.</param>
     /// <returns><see langword="true"/> if an item equal to <paramref name="equalValue"/> is found; otherwise, <see
     /// langword="false"/>.</returns>
     protected virtual bool TryGetItem(TItem equalValue, [MaybeNullWhen(false)] out TItem actualValue) => Items.TryGetValue(equalValue, out actualValue);
@@ -194,9 +236,9 @@ public class ObservableHashSet<TItem> :
     /// <summary>
     /// Attempts to remove the specified item from the set.
     /// </summary>
-    /// <param name="item">The item to remove from the set. The value can be <see langword="null"/> for reference types.</param>
+    /// <param name="item">The item to remove from the set. The removedItem can be <see langword="null"/> for reference types.</param>
     /// <returns><see langword="true"/> if the item was successfully removed; otherwise, <see langword="false"/>.</returns>
-    /// <remarks>Use this method to remove the item <paramref name="item"/> from the set and return a value indicating whether the removal was successful.
+    /// <remarks>Use this method to remove the item <paramref name="item"/> from the set and return a removedItem indicating whether the removal was successful.
     /// <para/>This method raises the <see cref="CollectionChanged"/> event with <see cref="NotifyCollectionChangedAction.Remove"/> action and a change index for the <see cref="IList{T}"/> API surface.
     /// <para/>This method raises the <see cref="PropertyChanged"/> event for the <see cref="Count"/> property.</remarks>
     public bool Remove(TItem item)
@@ -251,7 +293,7 @@ public class ObservableHashSet<TItem> :
     /// Removes the specified item from the collection.
     /// </summary>
     /// <remarks>Override this method to extend the behavior of the <see cref="ObservableHashSet{TItem}.RemoveItem(TItem)"/> member without affecting the notification behavior.</remarks>
-    /// <param name="item">The item to remove from the set. The value can be <see langword="null"/> for reference types.</param>
+    /// <param name="item">The item to remove from the set. The removedItem can be <see langword="null"/> for reference types.</param>
     /// <returns><see langword="true"/> if the item was successfully removed; otherwise, <see langword="false"/>.</returns>
     protected virtual bool RemoveItem(TItem item) => Items.Remove(item);
 
@@ -329,7 +371,7 @@ public class ObservableHashSet<TItem> :
     /// <summary>
     /// Determines whether an element is in the <see cref="ObservableHashSet{T}"/>.
     /// </summary>
-    /// <param name="item">The object to locate in the <see cref="ObservableHashSet{T}"/>. The value can be <see langword="null"/> for reference types.</param>
+    /// <param name="item">The object to locate in the <see cref="ObservableHashSet{T}"/>. The removedItem can be <see langword="null"/> for reference types.</param>
     /// <returns><see langword="true"/> if the <see cref="ObservableHashSet{T}"/> contains the specified element; otherwise, <see langword="false"/>.</returns>
     public bool Contains(TItem item) => Items.Contains(item);
     /// <summary>
@@ -403,7 +445,7 @@ public class ObservableHashSet<TItem> :
     /// Removes all elements in the specified collection from the current set.
     /// </summary>
     /// <remarks>If the specified collection contains elements that are not present in the set, those elements
-    /// are ignored. The operation modifies the current set and does not return a value.
+    /// are ignored. The operation modifies the current set and does not return a removedItem.
     /// <para/>This method raises the <see cref="CollectionChanged"/> event with <see cref="NotifyCollectionChangedAction.Reset"/> action.
     /// <para/>This method raises the <see cref="PropertyChanged"/> event for the <see cref="Count"/> property.</remarks>
     /// <param name="other">The collection of elements to remove from the set. Cannot be <see langword="null"/>.</param>
@@ -427,7 +469,7 @@ public class ObservableHashSet<TItem> :
     /// <summary>
     /// Creates an alternate lookup structure for items in the set using the specified alternate type.
     /// </summary>
-    /// <remarks>Use this method to efficiently perform lookups based on a different key or representation of
+    /// <remarks>Use this method to efficiently perform lookups based on a different removedItemIndex or representation of
     /// the items. The alternate lookup is valid only within the scope of the <see langword="ref"/> <see langword="struct"/> and cannot be stored or used
     /// outside its lifetime.</remarks>
     /// <typeparam name="TAlternate">The alternate type used for lookup. Must be a <see langword="ref"/> <see langword="struct"/>.</typeparam>
@@ -519,11 +561,12 @@ public class ObservableHashSet<TItem> :
     public bool SetEquals(IEnumerable<TItem> other) => Items.SetEquals(other);
     /// <summary>
     /// Modifies the current set so that it contains only elements that are present in either the set or the specified
-    /// collection, but not both.
+    /// collection, but not both. This operation is also known as the symmetric difference of two sets. 
+    /// <br/>If item is present in both sets, it will be removed; if it is present in only one of the sets, it will be added to the current set.
     /// </summary>
     /// <remarks>The symmetric difference operation removes elements that appear in both the current set and
     /// the specified collection, and adds elements that appear in either set but not both. If the specified collection
-    /// contains duplicate elements, only unique elements are considered. This method does not return a value; it
+    /// contains duplicate elements, only unique elements are considered. This method does not return a removedItem; it
     /// modifies the current set in place.
     /// <para/>This method raises the <see cref="CollectionChanged"/> event with <see cref="NotifyCollectionChangedAction.Reset"/> action.
     /// <para/>This method raises the <see cref="PropertyChanged"/> event for the <see cref="Count"/> property.</remarks>
@@ -532,18 +575,209 @@ public class ObservableHashSet<TItem> :
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(other);
 
+        // If set is empty, then symmetric difference is other.
+        if (Count == 0)
+        {
+            UnionWith(other);
+            return;
+        }
+
         CheckReentrancy();
 
-        HashSet<TItem> oldState = TakeSnapshot();
-        Items.SymmetricExceptWith(other);
+        // Special-case this; the symmetric difference of a set with itself is the empty set.
+        if (ReferenceEquals(other, this))
+        {
+            Clear();
 
-        HashSetDelta<TItem> hashSetDelta = GetDelta(oldState, DeltaType.AddAndRemove);
-        UnregisterItems(hashSetDelta.RemovedItems);
-        RegisterItems(hashSetDelta.AddedItems);
+            return;
+        }
 
+        HashSet<TItem> otherHashSet = NormalizeEnumerableArgument(other);
+
+        if (_isInHybridMode)
+        {
+            IndexedHashSetDelta<TItem> hashSetDelta = IndexedSymmetricExceptWithUniqueHashSetInternal(otherHashSet);
+            BroadcastIndexBasedCollectionChanges(hashSetDelta);
+
+            if (hashSetDelta.HasChanges)
+            {
+                BuildIndex();
+            }
+        }
+        else
+        {
+            HashSetDelta<TItem> hashSetDelta = SymmetricExceptWithUniqueHashSetInternal(otherHashSet);
+            BroadcastDefaultSetChangedEvents(hashSetDelta.AddedItems, hashSetDelta.RemovedItems);
+        }
+    }
+
+    // Normalize to HashSet<T>
+    private HashSet<TItem> NormalizeEnumerableArgument(IEnumerable<TItem> other) => other is ObservableHashSet<TItem> observableHashSet && Comparer.Equals(observableHashSet.Comparer)
+        ? observableHashSet.Items
+        : other is HashSet<TItem> hashSet && Comparer.Equals(hashSet.Comparer)
+            ? hashSet
+            : new HashSet<TItem>(other, Comparer);
+
+    private void BroadcastIndexBasedCollectionChanges(IndexedHashSetDelta<TItem> hashSetDelta)
+    {
+        if (!hashSetDelta.HasChanges)
+        {
+            return;
+        }
+
+        List<TItem> addedItems = [];
+        List<TItem> removedItems = [];
+
+        List<TItem> currentItemsGroup = [];
+        int firstIndexInGroup = -1;
+        int lastIndexInGroup = -1;
+        foreach (KeyValuePair<int, TItem> removedItemEntry in hashSetDelta.RemovedItems)
+        {
+            int removedItemIndex = removedItemEntry.Key;
+            TItem? removedItem = removedItemEntry.Value;
+
+            if (firstIndexInGroup == -1)
+            {
+                firstIndexInGroup = removedItemIndex;
+                lastIndexInGroup = firstIndexInGroup;
+            }
+
+            if (removedItemIndex - 1 == lastIndexInGroup)
+            {
+                currentItemsGroup.Add(removedItem);
+                UnregisterItem(removedItem, isRebuildIndexRequired: false);
+                lastIndexInGroup = removedItemIndex;
+                removedItems.Add(removedItem);
+                continue;
+            }
+
+            // Close group and raise events
+            if (currentItemsGroup.Count > 1)
+            {
+                OnCollectionChanged(NotifyCollectionChangedAction.Remove, currentItemsGroup, firstIndexInGroup);
+            }
+            else
+            {
+                OnCollectionChanged(NotifyCollectionChangedAction.Remove, currentItemsGroup[0], firstIndexInGroup);
+            }
+
+            // Start new group
+            currentItemsGroup.Clear();
+            firstIndexInGroup = removedItemIndex;
+            lastIndexInGroup = firstIndexInGroup;
+        }
+
+        currentItemsGroup.Clear();
+        firstIndexInGroup = -1;
+        lastIndexInGroup = -1;
+        foreach (KeyValuePair<int, TItem> addedItemEntry in hashSetDelta.AddedItems)
+        {
+            int addedItemIndex = addedItemEntry.Key;
+            TItem? addedItem = addedItemEntry.Value;
+
+            if (firstIndexInGroup == -1)
+            {
+                firstIndexInGroup = addedItemIndex;
+                lastIndexInGroup = firstIndexInGroup;
+            }
+
+            if (addedItemIndex - 1 == lastIndexInGroup)
+            {
+                currentItemsGroup.Add(addedItem);
+                RegisterItem(addedItem, addedItemIndex, isRebuildIndexRequired: false);
+                lastIndexInGroup = addedItemIndex;
+                addedItems.Add(addedItem);
+                continue;
+            }
+
+            // Close group and raise events
+            if (currentItemsGroup.Count > 1)
+            {
+                OnCollectionChanged(NotifyCollectionChangedAction.Add, currentItemsGroup, firstIndexInGroup);
+            }
+            else
+            {
+                OnCollectionChanged(NotifyCollectionChangedAction.Add, currentItemsGroup[0], firstIndexInGroup);
+            }
+
+            // Start new group
+            currentItemsGroup.Clear();
+            firstIndexInGroup = addedItemIndex;
+            lastIndexInGroup = firstIndexInGroup;
+        }
+
+        BroadcastDefaultSetChangedEvents(addedItems, removedItems);
+    }
+
+    private void BroadcastDefaultSetChangedEvents(IList<TItem> addedItems, IList<TItem> removedItems)
+    {
         OnCountChanged();
         OnIndexerChanged();
-        OnCollectionChangedReset();
+        if (addedItems.Count > 0
+            && removedItems.Count > 0)
+        {
+            OnSetChanged(NotifyCollectionChangedAction.Reset, addedItems, removedItems);
+            OnCollectionChangedReset();
+        }
+        else if (addedItems.Count > 0)
+        {
+            OnSetChanged(NotifyCollectionChangedAction.Add, addedItems, []);
+            OnCollectionChanged(NotifyCollectionChangedAction.Add, addedItems, -1);
+        }
+        else if (removedItems.Count > 0)
+        {
+            OnSetChanged(NotifyCollectionChangedAction.Remove, [], removedItems);
+            OnCollectionChanged(NotifyCollectionChangedAction.Remove, removedItems, -1);
+        }
+    }
+
+    private IndexedHashSetDelta<TItem> IndexedSymmetricExceptWithUniqueHashSetInternal(HashSet<TItem> other)
+    {
+        var removedItems = new SortedDictionary<int, TItem>();
+        var addedItems = new SortedDictionary<int, TItem>();
+
+        foreach (TItem item in other)
+        {
+            if (!_indexTable.TryGetValue(item, out int itemIndex))
+            {
+                throw new InvalidOperationException($"Failed to retrieve the removed item from the reverse index table for item '{item}'.");
+            }
+
+            if (RemoveItem(item))
+            {
+                removedItems.Add(itemIndex, item);
+            }
+            else
+            {
+                _ = Add(item);
+                addedItems.Add(itemIndex, item);
+            }
+        }
+
+        bool hasChanges = addedItems.Count > 0 || removedItems.Count > 0;
+        return new IndexedHashSetDelta<TItem>(addedItems.AsReadOnly(), removedItems.AsReadOnly(), hasChanges);
+    }
+
+    private HashSetDelta<TItem> SymmetricExceptWithUniqueHashSetInternal(HashSet<TItem> other)
+    {
+        var removedItems = new List<TItem>();
+        var addedItems = new List<TItem>();
+
+        foreach (TItem item in other)
+        {
+            if (RemoveItem(item))
+            {
+                removedItems.Add(item);
+            }
+            else
+            {
+                _ = Add(item);
+                addedItems.Add(item);
+            }
+        }
+
+        bool hasChanges = addedItems.Count > 0 || removedItems.Count > 0;
+        return new HashSetDelta<TItem>(addedItems.AsReadOnly(), removedItems.AsReadOnly(), hasChanges);
     }
 
     /// <summary>
@@ -585,6 +819,11 @@ public class ObservableHashSet<TItem> :
 
     private void RegisterItems(IEnumerable<TItem> removedItems)
     {
+        if (!_isInHybridMode)
+        {
+            return;
+        }
+
         foreach (TItem removedItem in removedItems)
         {
             RegisterItem(removedItem);
@@ -593,6 +832,11 @@ public class ObservableHashSet<TItem> :
 
     private void RegisterItem(TItem item)
     {
+        if (!_isInHybridMode)
+        {
+            return;
+        }
+
         _listProjection.Add(item);
         int newIndex = _listProjection.Count - 1;
         _indexTable[item] = newIndex;
@@ -601,6 +845,11 @@ public class ObservableHashSet<TItem> :
 
     private void UpdateItemAt(TItem newItem, TItem oldItem, int index)
     {
+        if (!_isInHybridMode)
+        {
+            return;
+        }
+
         _listProjection[index] = newItem;
         _ = _indexTable.Remove(oldItem);
         _indexTable[newItem] = index;
@@ -609,6 +858,11 @@ public class ObservableHashSet<TItem> :
 
     private void RegisterItem(TItem item, int index, bool isRebuildIndexRequired)
     {
+        if (!_isInHybridMode)
+        {
+            return;
+        }
+
         _listProjection.Insert(index, item);
         if (isRebuildIndexRequired)
         {
@@ -618,6 +872,11 @@ public class ObservableHashSet<TItem> :
 
     private void UnregisterItems(IEnumerable<TItem> removedItems)
     {
+        if (!_isInHybridMode)
+        {
+            return;
+        }
+
         foreach (TItem removedItem in removedItems)
         {
             UnregisterItem(removedItem, isRebuildIndexRequired: false);
@@ -628,6 +887,11 @@ public class ObservableHashSet<TItem> :
 
     private void UnregisterItem(TItem item, bool isRebuildIndexRequired)
     {
+        if (!_isInHybridMode)
+        {
+            return;
+        }
+
         if (_indexTable.TryGetValue(item, out int itemIndex))
         {
             _ = _indexTable.Remove(item);
@@ -655,9 +919,14 @@ public class ObservableHashSet<TItem> :
 
     private void InitializeListSurface()
     {
-        _listProjection = [with(Items)];
+        if (_isInHybridMode)
+        {
+            return;
+        }
+
+        _listProjection.AddRange([.. Items]);
         BuildIndex();
-        isListSurfaceInitialized = true;
+        _isInHybridMode.SetValue(true);
     }
 
     #region ISerializable
@@ -756,7 +1025,7 @@ public class ObservableHashSet<TItem> :
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(action, item, index));
     }
 
-    private void OnCollectionChanged(NotifyCollectionChangedAction action, IList changedItems, int startingIndex)
+    private void OnCollectionChanged(NotifyCollectionChangedAction action, IList<TItem> changedItems, int startingIndex)
     {
         using IDisposable monitor = BlockReentrancy();
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(action, changedItems, startingIndex));
@@ -768,11 +1037,16 @@ public class ObservableHashSet<TItem> :
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }
 
+    private void OnSetChanged(NotifyCollectionChangedAction action, TItem item) => SetChanged?.Invoke(this, new SetChangedEventArgs<TItem>(action, item));
+    private void OnSetChanged(NotifyCollectionChangedAction action, IList<TItem> addedItems, IList<TItem> removedItems) => SetChanged?.Invoke(this, new SetChangedEventArgs<TItem>(action, addedItems, removedItems));
+
     private void OnCountChanged() => OnPropertyChanged(nameof(Count));
     private void OnIndexerChanged() => OnPropertyChanged("Item[]");
 
     private void OnCapacityChanged() => OnPropertyChanged(nameof(Capacity));
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+
+    #region ICollection<T>
     /// <summary>
     /// Adds an item to the collection and raises change notifications if the collection is modified.
     /// </summary>
@@ -782,6 +1056,15 @@ public class ObservableHashSet<TItem> :
     /// <para/>This method raises the <see cref="PropertyChanged"/> event for the <see cref="Count"/> property.</remarks>
     /// <param name="item">The item to add to the collection. Cannot be null if the collection does not accept null values.</param>
     void ICollection<TItem>.Add(TItem item) => Add(item);
+    int ICollection<TItem>.Count => Count;
+    bool ICollection<TItem>.IsReadOnly { get; } // false; 
+    #endregion ICollection<T>
+
+    #region ICollection
+    int ICollection.Count => Count;
+    bool ICollection.IsSynchronized { get; } // false;
+    object ICollection.SyncRoot { get; } = new object();
+    #endregion ICollection
 
     #region IList<T>
     [SuppressMessage("Design", "CA1033:Interface methods should be callable by child types", Justification = "Not overridable behavior. IList<T> implementation only exist to add performance boost for WPF data binding support.")]
@@ -822,7 +1105,35 @@ public class ObservableHashSet<TItem> :
         }
     }
 
+    TItem IList<TItem>.this[int index]
+    {
+        [SuppressMessage("Design", "CA1033:Interface methods should be callable by child types", Justification = "Not overridable behavior. IList<T> implementation only exist to add performance boost for WPF data binding aupport.")]
+        get
+        {
+            ArgumentOutOfRangeExceptionAdvanced.ThrowIfIndexOutOfRange(index, _listProjection);
+
+            return _listProjection[index];
+        }
+
+        [SuppressMessage("Design", "CA1033:Interface methods should be callable by child types", Justification = "Not overridable behavior. IList<T> implementation only exist to add performance boost for WPF data binding aupport.")]
+        set
+        {
+            ArgumentOutOfRangeExceptionAdvanced.ThrowIfIndexOutOfRange(index, _listProjection);
+
+            if (_reverseIndexTable.TryGetValue(index, out TItem? existingItem))
+            {
+                UpdateItemAt(value, existingItem, index);
+
+                OnIndexerChanged();
+                OnCollectionChanged(NotifyCollectionChangedAction.Replace, value, index);
+            }
+        }
+    }
+    #endregion IList<T>
+
     #region IList
+    bool IList.IsFixedSize { get; } // false
+    bool IList.IsReadOnly { get; } // false
     int IList.Add(object? value)
     {
         if (value is not TItem item)
@@ -944,32 +1255,6 @@ public class ObservableHashSet<TItem> :
     }
     #endregion IList
 
-    TItem IList<TItem>.this[int index]
-    {
-        [SuppressMessage("Design", "CA1033:Interface methods should be callable by child types", Justification = "Not overridable behavior. IList<T> implementation only exist to add performance boost for WPF data binding aupport.")]
-        get
-        {
-            ArgumentOutOfRangeExceptionAdvanced.ThrowIfIndexOutOfRange(index, _listProjection);
-
-            return _listProjection[index];
-        }
-
-        [SuppressMessage("Design", "CA1033:Interface methods should be callable by child types", Justification = "Not overridable behavior. IList<T> implementation only exist to add performance boost for WPF data binding aupport.")]
-        set
-        {
-            ArgumentOutOfRangeExceptionAdvanced.ThrowIfIndexOutOfRange(index, _listProjection);
-
-            if (_reverseIndexTable.TryGetValue(index, out TItem? existingItem))
-            {
-                UpdateItemAt(value, existingItem, index);
-
-                OnIndexerChanged();
-                OnCollectionChanged(NotifyCollectionChangedAction.Replace, value, index);
-            }
-        }
-    }
-    #endregion IList<T>
-
     #region Enumerator
     public struct Enumerator : IEnumerator<TItem>
     {
@@ -1060,6 +1345,20 @@ public class ObservableHashSet<TItem> :
         public bool HasChanges { get; }
     }
 
+    internal readonly struct IndexedHashSetDelta<TItem>
+    {
+        public IndexedHashSetDelta(ReadOnlyDictionary<int, TItem> removedItems, ReadOnlyDictionary<int, TItem> addedItems, bool hasChanges)
+        {
+            RemovedItems = removedItems;
+            AddedItems = addedItems;
+            HasChanges = hasChanges;
+        }
+
+        public ReadOnlyDictionary<int, TItem> RemovedItems { get; }
+        public ReadOnlyDictionary<int, TItem> AddedItems { get; }
+        public bool HasChanges { get; }
+    }
+
     [Flags]
     internal enum DeltaType
     {
@@ -1093,7 +1392,7 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
     /// <summary>
     /// The equality comparer used to determine equality of items in the set. This comparer is used for all operations that involve comparing items, such as adding, removing, and checking for the presence of items in the set.
     /// </summary>
-    /// <value>The equality <see cref="IEqualityComparer"/>&lt;<see langword="string"/>&gt; used by the set. The default is <see cref="StringComparer.OrdinalIgnoreCase"/>.</value>
+    /// <removedItem>The equality <see cref="IEqualityComparer"/>&lt;<see langword="string"/>&gt; used by the set. The default is <see cref="StringComparer.OrdinalIgnoreCase"/>.</removedItem>
     public new IEqualityComparer<string> Comparer => Items.Comparer;
 
     /// <summary>
@@ -1228,7 +1527,7 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
     /// Removes all elements in the specified collection from the current set.
     /// </summary>
     /// <remarks>If the specified collection contains elements that are not present in the set, those elements
-    /// are ignored. The operation modifies the current set and does not return a value.
+    /// are ignored. The operation modifies the current set and does not return a removedItem.
     /// <para/>This method raises the <see cref="CollectionChanged"/> event with <see cref="NotifyCollectionChangedAction.Add"/> or <see cref="NotifyCollectionChangedAction.Remove"/> action including the set of removed and added items where the change index is always '-1'.
     /// <para/>This method raises the <see cref="PropertyChanged"/> event for the <see cref="Count"/> property.</remarks>
     /// <param name="other">The collection of elements to remove from the set. Cannot be <see langword="null"/>.</param>
@@ -1343,7 +1642,7 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
     /// </summary>
     /// <remarks>The symmetric difference operation removes elements that appear in both the current set and
     /// the specified collection, and adds elements that appear in either set but not both. If the specified collection
-    /// contains duplicate elements, only unique elements are considered. This method does not return a value; it
+    /// contains duplicate elements, only unique elements are considered. This method does not return a removedItem; it
     /// modifies the current set in place.
     /// <para/>This method raises the <see cref="CollectionChanged"/> event with <see cref="NotifyCollectionChangedAction.Add"/> or <see cref="NotifyCollectionChangedAction.Remove"/> action including the set of removed and added items where the change index is always '-1'.
     /// <para/>This method raises the <see cref="PropertyChanged"/> event for the <see cref="Count"/> property.</remarks>

@@ -1,4 +1,6 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿namespace BionicCode.Utilities.Net;
+
+using System.Diagnostics.CodeAnalysis;
 
 /// <summary>
 /// A wrapper that decorates and underlying value and acts like the wrapped value by hiding it's own type in e.g. expressions and statements.
@@ -26,7 +28,8 @@
 ///         _isInitialized.SetValue(true);
 ///         
 ///         // Initializing a WriteOnce&lt;string&gt; with an implicit cast from string literal, 
-///         // making it act like a plain string variable.
+///         // making it act like a plain string variable. It's equivalent to calling '_name.SetValue("Malcolm X")' 
+///         // in terms of creating a new initialized and frozen/immutable instance.
 ///         WriteOnce&lt;string&gt; name = "Malcolm X";
 ///     }
 ///     
@@ -40,10 +43,6 @@
 ///             // Implicit cast makes the WriteOnce&lt;string&gt; act like a plain string field.
 ///             double length = 24.476 + _offset;
 ///             
-///             // Initializing a WriteOnce&lt;string&gt; with an implicit cast from string literal, 
-///             // making it act like a plain string variable.
-///             WriteOnce&lt;string&gt; text = "Jerry";
-///             
 ///             // If 'TValue' is IFormattable, the WriteOnce&lt;TValue&gt; can be formatted directly 
 ///             // without needing to access the underlying value.
 ///             Console.WriteLine($"Name: {_name}, Length: {length:F2}");
@@ -52,12 +51,27 @@
 /// }
 /// </code>
 /// </remarks>
-[SuppressMessage("Design", "CA1067:Override Object.Equals(object) when implementing IEquatable<T>", Justification = "'WriteOnce<TValue> is a wrapper type, more like a decorator and deliberately separates value equality from reference equality since it is technically not immutable.'")]
-public sealed class WriteOnce<TValue> : IFormattable
+public class WriteOnce<TValue> : IFormattable
 {
     private TValue _value = default!;
     private int _isSet;
     private readonly object _syncLock = new();
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="WriteOnce{TValue}"/> class with the specified value and marks it as set (immutable).
+    /// </summary>
+    /// <remarks>Using this constructor initializes the <see cref="WriteOnce{TValue}"/> instance with the provided value and marks it as set, meaning that the value cannot be modified afterward.
+    /// <param name="value">The value to initialize the <see cref="WriteOnce{TValue}"/> instance with.</param>
+    public WriteOnce(TValue value)
+    {
+        _value = value;
+        _isSet = 1;
+    }
+
+    public WriteOnce()
+    {
+
+    }
 
     public bool TrySetValue(TValue value)
     {
@@ -96,6 +110,8 @@ public sealed class WriteOnce<TValue> : IFormattable
     public static implicit operator TValue(WriteOnce<TValue>? source) => source is null
         ? default!
         : source.GetValueOrDefault();
+
+    public static implicit operator WriteOnce<TValue>(TValue source) => new(source);
 
     /// <summary>
     /// Returns a string representation of the current underlying value, or an empty string if no value is present.
@@ -139,4 +155,16 @@ public sealed class WriteOnce<TValue> : IFormattable
     public string ToString(string? format, IFormatProvider? formatProvider) => GetValueOrDefault() is IFormattable formattable
         ? formattable.ToString(format, formatProvider)
         : ToString();
+}
+
+// TODO::Implement specialization + other primitive type specializations
+public class WriteOnceString : WriteOnce<string>
+{
+    public WriteOnceString()
+    {
+    }
+
+    public WriteOnceString(string value) : base(value)
+    {
+    }
 }

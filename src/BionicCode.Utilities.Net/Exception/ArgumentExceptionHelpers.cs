@@ -4,6 +4,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Linq;
 using System.Numerics;
 using System.Reflection;
@@ -335,95 +336,169 @@ public class ArgumentExceptionAdvanced : ArgumentException
     //    }
     //}
 
-    ///// <summary>
-    ///// Throws an exception if the specified enum value is equal to any of the provided disallowed values.
-    ///// </summary>
-    ///// <typeparam name="TEnum">The enum type to check against the disallowed values.</typeparam>
-    ///// <param name="value">The enum value to validate. Cannot be <see langword="null"/>.</param>
-    ///// <param name="disallowedValues">A collection of enum values that are not allowed. Cannot be <see langword="null"/>.</param>
-    ///// <param name="paramName">The name of the parameter representing the value being checked. This is used in the exception message.</param>
-    ///// <param name="message">An optional custom message to include in the exception. If <see langword="null"/>, a default message is used.</param>
-    ///// <exception cref="ArgumentOutOfRangeException">Thrown if the value is equal to any of the disallowed values defined  in <paramref name="disallowedValues"/>.</exception>
-    //public static void ThrowIfEnumEqualsAny<TEnum>(IConvertible value, ReadOnlySpan<TEnum> disallowedValues, [CallerArgumentExpression(nameof(value))] string? paramName = null, string? message = null) where TEnum : struct, Enum
-    //{
-    //    ArgumentNullExceptionAdvanced.ThrowIfNull(value, paramName);
-    //    ArgumentExceptionAdvanced.ThrowIfTrue(
-    //        disallowedValues.IsEmpty,
-    //        nameof(disallowedValues),
-    //        "The collection of disallowed values cannot be empty.");
+    /// <summary>
+    /// Validates that the specified value corresponds to a defined value of the specified enumeration type, and
+    /// throws an exception if it does not.
+    /// </summary>
+    /// <remarks>Use this method to ensure that a value is a valid member of a specific enum type
+    /// before using it in code that requires a defined enum value. This is especially useful when working with
+    /// values from untrusted sources or deserialization.</remarks>
+    /// <typeparam name="TEnum">The enumeration type against which to validate the value. Must be a struct that implements Enum.</typeparam>
+    /// <param name="value">The value to validate. Can be an enum value or a convertible value representing an enum member (e.g. an <see langword="int"/> or <see langword="string"/> value).</param>
+    /// <param name="paramName">The name of the parameter being validated. This value is used in any thrown exception to identify the
+    /// invalid argument. Optional.</param>
+    /// <param name="message">An optional exception message.</param>
+    /// <exception cref="ArgumentException">Thrown if the provided value is an enum of a different type than <typeparamref name="TEnum"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown if the provided value does not correspond to a defined member of <typeparamref name="TEnum"/>.</exception>
+    public static void ThrowIfEnumIsNotDefined<TEnum>([NotNull] IConvertible value, [CallerArgumentExpression(nameof(value))] string? paramName = null, string? message = null) where TEnum : struct, Enum
+    {
+        ArgumentNullExceptionAdvanced.ThrowIfNull(value, paramName);
 
-    //    TEnum parsedEnum = ParseEnumValue<TEnum>(value, paramName);
+        TEnum parsedEnum = ParseEnumValue<TEnum>(value, paramName);
 
-    //    EqualityComparer<TEnum> equalityComparer = EqualityComparer<TEnum>.Default;
-    //    foreach (TEnum other in disallowedValues)
-    //    {
-    //        if (equalityComparer.Equals(parsedEnum, other))
-    //        {
-    //            if (message is null)
-    //            {
-    //                var allowedValues = Enum.GetValues<TEnum>()
-    //                    .Except(disallowedValues.ToArray())
-    //                    .ToList();
+        if (!Enum.IsDefined<TEnum>(parsedEnum))
+        {
+            throw new ArgumentOutOfRangeException(
+                paramName,
+                message ?? $"The value '{parsedEnum}' of argument '{paramName}' is not defined in enum '{typeof(TEnum).FullName}'.");
+        }
+    }
 
-    //                Type enumType = typeof(TEnum);
-    //                string fullyQualifiedEnumTypeName = enumType.FullName ?? enumType.Name;
-    //                string messageStart = $"The argument '{paramName}' is one of the disallowed values. Found: '{parsedEnum}'.";
-    //                message = disallowedValues.Length <= allowedValues.Count
-    //                    ? $"{messageStart} Disallowed: {disallowedValues.JoinToString(value => $"{fullyQualifiedEnumTypeName}.{value.ToString()}", ", ")}."
-    //                    : $"{messageStart} Allowed: {allowedValues.JoinToString(value => $"{fullyQualifiedEnumTypeName}.{value.ToString()}", ", ")}.";
-    //            }
+    /// <summary>
+    /// Throws an exception if the specified enum value does not match any of the provided allowed values.
+    /// </summary>
+    /// <remarks>Use this method to enforce that an enum argument matches one of a set of allowed
+    /// values. This is useful for validating method parameters or configuration values at runtime.</remarks>
+    /// <typeparam name="TEnum">The enum type to compare against. Must be a value type that implements <see cref="System.Enum"/>.</typeparam>
+    /// <param name="value">The enum value to validate. Cannot be null.</param>
+    /// <param name="allowedValues">A collection of allowed enum values to compare against. Cannot be <see langword="null"/> or empty.</param>
+    /// <param name="paramName">The name of the parameter to include in the exception message. This is typically provided automatically and
+    /// is optional.</param>
+    /// <param name="message">An optional custom message to include in the exception if the value is not allowed.</param>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown if <paramref name="value"/> does not equal any of the allowed values in <paramref name="allowedValues"/>.</exception>
+    public static void ThrowIfEnumNotEqualsAny<TEnum>(IConvertible value, ReadOnlySpan<TEnum> allowedValues, [CallerArgumentExpression(nameof(value))] string? paramName = null, string? message = null) where TEnum : struct, Enum
+    {
+        ArgumentNullExceptionAdvanced.ThrowIfNull(value, paramName);
+        ArgumentExceptionAdvanced.ThrowIfTrue(
+            allowedValues.IsEmpty,
+            nameof(allowedValues),
+            "The collection of allowed values cannot be empty.");
 
-    //            throw new ArgumentOutOfRangeException(paramName, message);
-    //        }
-    //    }
-    //}
+        TEnum parsedEnum = ParseEnumValue<TEnum>(value, paramName);
 
-    //private static TEnum ParseEnumValue<TEnum>(IConvertible value, string? paramName) where TEnum : struct, Enum
-    //{
-    //    TEnum result;
+        EqualityComparer<TEnum> equalityComparer = EqualityComparer<TEnum>.Default;
+        foreach (TEnum other in allowedValues)
+        {
+            if (equalityComparer.Equals(parsedEnum, other))
+            {
+                return;
+            }
+        }
 
-    //    if (value is Enum rawEnum)
-    //    {
-    //        result = rawEnum is TEnum castEnum
-    //            ? castEnum
-    //            : throw new ArgumentException(
-    //                $"Type mismatch. The enum value '{rawEnum.GetType().FullName}' is not of the expected type '{typeof(TEnum).FullName}'.",
-    //                paramName);
-    //    }
-    //    else
-    //    {
-    //        if (value.ToString(CultureInfo.InvariantCulture) is string stringValue)
-    //        {
-    //            try
-    //            {
-    //                result = Enum.Parse<TEnum>(stringValue, ignoreCase: true);
-    //            }
-    //            catch (Exception e)
-    //                when (e is ArgumentException
-    //                    or ArgumentNullException
-    //                    or InvalidOperationException
-    //                    or OverflowException
-    //                    or FormatException)
-    //            {
-    //                throw new ArgumentException($"The argument {paramName} is not a valid enum value.", paramName, e);
-    //            }
-    //        }
-    //        else
-    //        {
-    //            ITypeDataView iConvertibleTypeData = SymbolReflectionInfoCache.GetOrCreateSymbolInfoDataCacheEntry(typeof(IConvertible));
-    //            const string iConvertibleToStringMethodName = nameof(IConvertible.ToString);
-    //            MethodData? iConvertibleToStringMethodData = iConvertibleTypeData.Methods.TryGetMethodsByName(iConvertibleToStringMethodName, out MethodList methods) && methods.HasItems
-    //                ? methods[0]
-    //                : null;
+        if (message is null)
+        {
+            var disallowedValues = Enum.GetValues<TEnum>()
+                .Except(allowedValues.ToArray())
+                .ToList();
 
-    //            throw new ArgumentException(
-    //                $"Invalid value. The '{iConvertibleToStringMethodData?.FullyQualifiedSignature ?? $"{nameof(IConvertible.ToString)}.{iConvertibleToStringMethodName}"}' conversion of the argument '{paramName}' returned NULL.",
-    //                paramName);
-    //        }
-    //    }
+            Type enumType = typeof(TEnum);
+            string fullyQualifiedEnumTypeName = enumType.FullName ?? enumType.Name;
+            string messageStart = $"The argument '{paramName}' is not one of the allowed values. Found: '{parsedEnum}'.";
+            message = disallowedValues.Count <= allowedValues.Length
+                ? $"{messageStart} Disallowed: {disallowedValues.JoinToString(value => $"{fullyQualifiedEnumTypeName}.{value.ToString()}", ", ")}."
+                : $"{messageStart} Allowed: {allowedValues.JoinToString(value => $"{fullyQualifiedEnumTypeName}.{value.ToString()}", ", ")}.";
+        }
 
-    //    return result;
-    //}
+        throw new ArgumentOutOfRangeException(paramName, message);
+    }
+
+    /// <summary>
+    /// Throws an exception if the specified enum value is equal to any of the provided disallowed values.
+    /// </summary>
+    /// <typeparam name="TEnum">The enum type to check against the disallowed values.</typeparam>
+    /// <param name="value">The enum value to validate. Cannot be <see langword="null"/>.</param>
+    /// <param name="disallowedValues">A collection of enum values that are not allowed. Cannot be <see langword="null"/>.</param>
+    /// <param name="paramName">The name of the parameter representing the value being checked. This is used in the exception message.</param>
+    /// <param name="message">An optional custom message to include in the exception. If <see langword="null"/>, a default message is used.</param>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown if the value is equal to any of the disallowed values defined  in <paramref name="disallowedValues"/>.</exception>
+    public static void ThrowIfEnumEqualsAny<TEnum>(IConvertible value, ReadOnlySpan<TEnum> disallowedValues, [CallerArgumentExpression(nameof(value))] string? paramName = null, string? message = null) where TEnum : struct, Enum
+    {
+        ArgumentNullExceptionAdvanced.ThrowIfNull(value, paramName);
+        ArgumentExceptionAdvanced.ThrowIfTrue(
+            disallowedValues.IsEmpty,
+            nameof(disallowedValues),
+            "The collection of disallowed values cannot be empty.");
+
+        TEnum parsedEnum = ParseEnumValue<TEnum>(value, paramName);
+
+        EqualityComparer<TEnum> equalityComparer = EqualityComparer<TEnum>.Default;
+        foreach (TEnum other in disallowedValues)
+        {
+            if (equalityComparer.Equals(parsedEnum, other))
+            {
+                if (message is null)
+                {
+                    var allowedValues = Enum.GetValues<TEnum>()
+                        .Except(disallowedValues.ToArray())
+                        .ToList();
+
+                    Type enumType = typeof(TEnum);
+                    string fullyQualifiedEnumTypeName = enumType.FullName ?? enumType.Name;
+                    string messageStart = $"The argument '{paramName}' is one of the disallowed values. Found: '{parsedEnum}'.";
+                    message = disallowedValues.Length <= allowedValues.Count
+                        ? $"{messageStart} Disallowed: {disallowedValues.JoinToString(value => $"{fullyQualifiedEnumTypeName}.{value.ToString()}", ", ")}."
+                        : $"{messageStart} Allowed: {allowedValues.JoinToString(value => $"{fullyQualifiedEnumTypeName}.{value.ToString()}", ", ")}.";
+                }
+
+                throw new ArgumentOutOfRangeException(paramName, message);
+            }
+        }
+    }
+
+    private static TEnum ParseEnumValue<TEnum>(IConvertible value, string? paramName) where TEnum : struct, Enum
+    {
+        TEnum result;
+
+        if (value is Enum rawEnum)
+        {
+            result = rawEnum is TEnum castEnum
+                ? castEnum
+                : throw new ArgumentException(
+                    $"Type mismatch. The enum value '{rawEnum.GetType().FullName}' is not of the expected type '{typeof(TEnum).FullName}'.",
+                    paramName);
+        }
+        else
+        {
+            if (value.ToString(CultureInfo.InvariantCulture) is string stringValue)
+            {
+                try
+                {
+                    result = Enum.Parse<TEnum>(stringValue, ignoreCase: true);
+                }
+                catch (Exception e)
+                    when (e is ArgumentException
+                        or ArgumentNullException
+                        or InvalidOperationException
+                        or OverflowException
+                        or FormatException)
+                {
+                    throw new ArgumentException($"The argument {paramName} is not a valid enum value.", paramName, e);
+                }
+            }
+            else
+            {
+                Type iConvertibleType = typeof(IConvertible);
+                const string iConvertibleToStringMethodName = nameof(IConvertible.ToString);
+                MethodInfo? iConvertibleToStringMethodData = iConvertibleType.GetMethod(iConvertibleToStringMethodName);
+
+                throw new ArgumentException(
+                    $"Invalid value. The '{iConvertibleToStringMethodData?.Name ?? $"{nameof(IConvertible.ToString)}.{iConvertibleToStringMethodName}"}' conversion of the argument '{paramName}' returned 'null'.",
+                    paramName);
+            }
+        }
+
+        return result;
+    }
 
     /// <summary>
     /// Throws an exception if the specified type does not match the expected type.
