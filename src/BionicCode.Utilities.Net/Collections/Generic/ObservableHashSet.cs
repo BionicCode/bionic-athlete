@@ -78,7 +78,7 @@ public class ObservableHashSet<TItem> :
     public event EventHandler<SetChangedEventArgs<TItem>>? SetChanged;
     protected HashSet<TItem> Items { get; }
     private readonly Dictionary<TItem, int> _indexTable = [];
-    private readonly SortedDictionary<int, TItem> _reverseIndexTable = [];
+    private readonly Dictionary<int, TItem> _reverseIndexTable = [];
     private readonly List<TItem> _listProjection = [];
     private int _blockReentrancyCount;
 
@@ -95,10 +95,11 @@ public class ObservableHashSet<TItem> :
     public ObservableHashSet(IEnumerable<TItem> collection)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(collection);
+
+        Items = new HashSet<TItem>(collection);
         _listProjection = new(collection);
         _indexTable = new(Items.Comparer);
-        _reverseIndexTable = new(Comparer<int>.Default);
-        BuildIndex();
+        _reverseIndexTable = new(EqualityComparer<int>.Default);
     }
 
     [SuppressMessage("Style", "IDE0028:Simplify collection initialization", Justification = "<Pending>")]
@@ -106,7 +107,7 @@ public class ObservableHashSet<TItem> :
     {
         Items = new(comparer);
         _indexTable = new(Items.Comparer);
-        _reverseIndexTable = new(Comparer<int>.Default);
+        _reverseIndexTable = new(EqualityComparer<int>.Default);
     }
 
     [SuppressMessage("Style", "IDE0028:Simplify collection initialization", Justification = "<Pending>")]
@@ -117,7 +118,7 @@ public class ObservableHashSet<TItem> :
         Items = new(capacity);
         _listProjection = new(capacity);
         _indexTable = new(capacity, Items.Comparer);
-        _reverseIndexTable = new(Comparer<int>.Default);
+        _reverseIndexTable = new(EqualityComparer<int>.Default);
     }
 
     public ObservableHashSet(IEnumerable<TItem> collection, IEqualityComparer<TItem>? comparer)
@@ -126,8 +127,7 @@ public class ObservableHashSet<TItem> :
 
         Items = new HashSet<TItem>(collection, comparer);
         _indexTable = new(Items.Comparer);
-        _reverseIndexTable = new(Comparer<int>.Default);
-        BuildIndex();
+        _reverseIndexTable = new(EqualityComparer<int>.Default);
     }
 
     public ObservableHashSet(int capacity, IEqualityComparer<TItem>? comparer)
@@ -137,7 +137,7 @@ public class ObservableHashSet<TItem> :
         Items = new(capacity, comparer);
         _listProjection = new(capacity);
         _indexTable = new(capacity, Items.Comparer);
-        _reverseIndexTable = new(Comparer<int>.Default);
+        _reverseIndexTable = new(EqualityComparer<int>.Default);
     }
 #pragma warning restore IDE0028 // Simplify collection initialization. Feature not available (available only in preview).
 
@@ -161,11 +161,8 @@ public class ObservableHashSet<TItem> :
     {
         CheckReentrancy();
 
-        int newIndex = _listProjection.Count;
-        if (AddItem(item))
+        if (AddInternal(item, out int newIndex))
         {
-            RegisterItem(item);
-
             OnCountChanged();
             OnIndexerChanged();
             OnCollectionChanged(NotifyCollectionChangedAction.Add, item, newIndex);
@@ -173,6 +170,19 @@ public class ObservableHashSet<TItem> :
             return true;
         }
 
+        return false;
+    }
+
+    private bool AddInternal(TItem item, out int newIndex)
+    {
+        if (AddItem(item))
+        {
+            _ = RegisterItem(item, out newIndex);
+
+            return true;
+        }
+
+        newIndex = -1;
         return false;
     }
 
@@ -196,20 +206,28 @@ public class ObservableHashSet<TItem> :
 
         CheckReentrancy();
 
-        var addedItems = new List<TItem>();
-        int changeStartIndex = _listProjection.Count;
+        if (AddRangeInternal(items, out IList<TItem> addedItems, out int rangeStartIndex))
+        {
+            OnCountChanged();
+            OnIndexerChanged();
+            OnCollectionChanged(NotifyCollectionChangedAction.Add, addedItems, rangeStartIndex);
+        }
+    }
+
+    private bool AddRangeInternal(IEnumerable<TItem> items, out IList<TItem> addedItems, out int rangeStartIndex)
+    {
+        addedItems = [];
+        rangeStartIndex = _listProjection.Count;
         foreach (TItem item in items)
         {
             if (AddItem(item))
             {
-                RegisterItem(item);
+                _ = RegisterItem(item, out _);
                 addedItems.Add(item);
             }
         }
 
-        OnCountChanged();
-        OnIndexerChanged();
-        OnCollectionChanged(NotifyCollectionChangedAction.Add, addedItems, changeStartIndex);
+        return addedItems.Count > 0;
     }
 
     /// <summary>
@@ -245,14 +263,24 @@ public class ObservableHashSet<TItem> :
     {
         CheckReentrancy();
 
-        if (RemoveItem(item)
-            && _indexTable.TryGetValue(item, out int removeIndex))
+        if (RemoveInternal(item, isRebuildIndexRequired: true, out int removeIndex))
         {
-            UnregisterItem(item, isRebuildIndexRequired: true);
-
             OnCountChanged();
             OnIndexerChanged();
             OnCollectionChanged(NotifyCollectionChangedAction.Remove, item, removeIndex);
+
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool RemoveInternal(TItem item, bool isRebuildIndexRequired, out int itemIndex)
+    {
+        itemIndex = -1;
+        if (RemoveItem(item))
+        {
+            _ = UnregisterItem(item, isRebuildIndexRequired, out itemIndex);
 
             return true;
         }
@@ -268,25 +296,42 @@ public class ObservableHashSet<TItem> :
     /// <para/>This method raises the <see cref="CollectionChanged"/> event with <see cref="NotifyCollectionChangedAction.Reset"/> action.
     /// <para/>This method raises the <see cref="PropertyChanged"/> event for the <see cref="Count"/> property.</remarks>
     /// <param name="items">The collection of items to remove from the collection. Cannot be null.</param>
-    public void RemoveRange(IEnumerable<TItem> items)
+    public void RemoveRange(IEnumerable<TItem> items, out IList<TItem> removedItems)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(items);
 
         CheckReentrancy();
 
+        if (RemoveRangeInternal(items, isRebuildIndexRequired: true, out removedItems, out _))
+        {
+            OnCountChanged();
+            OnIndexerChanged();
+            OnCollectionChangedReset();
+        }
+    }
+
+    private bool RemoveRangeInternal(IEnumerable<TItem> items, bool isRebuildIndexRequired, out IList<TItem> removedItems, out IList<int> removedIndices)
+    {
+        removedIndices = [];
+        removedItems = [];
+
         foreach (TItem item in items)
         {
-            if (RemoveItem(item))
+            if (RemoveItem(item)
+                && UnregisterItem(item, isRebuildIndexRequired: false, out int itemIndex))
             {
-                UnregisterItem(item, isRebuildIndexRequired: false);
+                removedItems.Add(item);
+                removedIndices.Add(itemIndex);
             }
         }
 
-        BuildIndex();
+        if (isRebuildIndexRequired)
+        {
+            int smallestChangeIndex = removedIndices.Min();
+            BuildIndex(smallestChangeIndex);
+        }
 
-        OnCountChanged();
-        OnIndexerChanged();
-        OnCollectionChangedReset();
+        return removedItems.Count > 0;
     }
 
     /// <summary>
@@ -313,21 +358,26 @@ public class ObservableHashSet<TItem> :
         CheckReentrancy();
 
         int removedCount = 0;
+        List<int> removedIndices = [];
         foreach (TItem item in Items)
         {
             if (match.Invoke(item)
-                && RemoveItem(item))
+                && RemoveInternal(item, isRebuildIndexRequired: false, out int itemIndex))
             {
                 removedCount++;
-                UnregisterItem(item, isRebuildIndexRequired: false);
+                removedIndices.Add(itemIndex);
             }
         }
 
-        BuildIndex();
+        if (removedCount > 0)
+        {
+            int smallestChangeIndex = removedIndices.Min();
+            BuildIndex(smallestChangeIndex);
 
-        OnCountChanged();
-        OnIndexerChanged();
-        OnCollectionChangedReset();
+            OnCountChanged();
+            OnIndexerChanged();
+            OnCollectionChangedReset();
+        }
 
         return removedCount;
     }
@@ -459,7 +509,7 @@ public class ObservableHashSet<TItem> :
         Items.ExceptWith(other);
 
         HashSetDelta<TItem> hashSetDelta = GetDelta(oldState, DeltaType.Remove);
-        UnregisterItems(hashSetDelta.RemovedItems);
+        _ = UnregisterItems(hashSetDelta.RemovedItems, out _);
 
         OnCountChanged();
         OnIndexerChanged();
@@ -499,8 +549,8 @@ public class ObservableHashSet<TItem> :
         Items.IntersectWith(other);
 
         HashSetDelta<TItem> hashSetDelta = GetDelta(oldState, DeltaType.AddAndRemove);
-        UnregisterItems(hashSetDelta.RemovedItems);
-        RegisterItems(hashSetDelta.AddedItems);
+        _ = UnregisterItems(hashSetDelta.RemovedItems, out _);
+        _ = RegisterItems(hashSetDelta.AddedItems, out _);
 
         OnCountChanged();
         OnIndexerChanged();
@@ -582,8 +632,6 @@ public class ObservableHashSet<TItem> :
             return;
         }
 
-        CheckReentrancy();
-
         // Special-case this; the symmetric difference of a set with itself is the empty set.
         if (ReferenceEquals(other, this))
         {
@@ -596,13 +644,8 @@ public class ObservableHashSet<TItem> :
 
         if (_isInHybridMode)
         {
-            IndexedHashSetDelta<TItem> hashSetDelta = IndexedSymmetricExceptWithUniqueHashSetInternal(otherHashSet);
+            IndexedHashSetDelta<TItem> hashSetDelta = HybridModeSymmetricExceptWithUniqueHashSetInternal(otherHashSet);
             BroadcastIndexBasedCollectionChanges(hashSetDelta);
-
-            if (hashSetDelta.HasChanges)
-            {
-                BuildIndex();
-            }
         }
         else
         {
@@ -625,6 +668,8 @@ public class ObservableHashSet<TItem> :
             return;
         }
 
+        CheckReentrancy();
+
         List<TItem> addedItems = [];
         List<TItem> removedItems = [];
 
@@ -640,13 +685,16 @@ public class ObservableHashSet<TItem> :
             {
                 firstIndexInGroup = removedItemIndex;
                 lastIndexInGroup = firstIndexInGroup;
+
+                currentItemsGroup.Add(removedItem);
+                removedItems.Add(removedItem);
+                continue;
             }
 
             if (removedItemIndex - 1 == lastIndexInGroup)
             {
-                currentItemsGroup.Add(removedItem);
-                UnregisterItem(removedItem, isRebuildIndexRequired: false);
                 lastIndexInGroup = removedItemIndex;
+                currentItemsGroup.Add(removedItem);
                 removedItems.Add(removedItem);
                 continue;
             }
@@ -679,13 +727,16 @@ public class ObservableHashSet<TItem> :
             {
                 firstIndexInGroup = addedItemIndex;
                 lastIndexInGroup = firstIndexInGroup;
+
+                currentItemsGroup.Add(addedItem);
+                addedItems.Add(addedItem);
+                continue;
             }
 
             if (addedItemIndex - 1 == lastIndexInGroup)
             {
-                currentItemsGroup.Add(addedItem);
-                RegisterItem(addedItem, addedItemIndex, isRebuildIndexRequired: false);
                 lastIndexInGroup = addedItemIndex;
+                currentItemsGroup.Add(addedItem);
                 addedItems.Add(addedItem);
                 continue;
             }
@@ -711,6 +762,14 @@ public class ObservableHashSet<TItem> :
 
     private void BroadcastDefaultSetChangedEvents(IList<TItem> addedItems, IList<TItem> removedItems)
     {
+        if (addedItems.Count == 0
+            && removedItems.Count == 0)
+        {
+            return;
+        }
+
+        CheckReentrancy();
+
         OnCountChanged();
         OnIndexerChanged();
         if (addedItems.Count > 0
@@ -731,25 +790,21 @@ public class ObservableHashSet<TItem> :
         }
     }
 
-    private IndexedHashSetDelta<TItem> IndexedSymmetricExceptWithUniqueHashSetInternal(HashSet<TItem> other)
+    private IndexedHashSetDelta<TItem> HybridModeSymmetricExceptWithUniqueHashSetInternal(HashSet<TItem> other)
     {
         var removedItems = new SortedDictionary<int, TItem>();
         var addedItems = new SortedDictionary<int, TItem>();
 
         foreach (TItem item in other)
         {
-            if (!_indexTable.TryGetValue(item, out int itemIndex))
-            {
-                throw new InvalidOperationException($"Failed to retrieve the removed item from the reverse index table for item '{item}'.");
-            }
-
-            if (RemoveItem(item))
+            if (RemoveInternal(item, isRebuildIndexRequired: true, out int itemIndex))
             {
                 removedItems.Add(itemIndex, item);
             }
             else
             {
-                _ = Add(item);
+                _ = AddInternal(item, out itemIndex);
+
                 addedItems.Add(itemIndex, item);
             }
         }
@@ -771,7 +826,7 @@ public class ObservableHashSet<TItem> :
             }
             else
             {
-                _ = Add(item);
+                _ = AddItem(item);
                 addedItems.Add(item);
             }
         }
@@ -807,9 +862,14 @@ public class ObservableHashSet<TItem> :
         {
             if (Items.Add(item))
             {
-                RegisterItem(item);
+                _ = RegisterItem(item, out _);
                 addedItems.Add(item);
             }
+        }
+
+        if (addedItems.Count == 0)
+        {
+            return;
         }
 
         OnCountChanged();
@@ -817,30 +877,47 @@ public class ObservableHashSet<TItem> :
         OnCollectionChanged(NotifyCollectionChangedAction.Add, addedItems, changeStartIndex);
     }
 
-    private void RegisterItems(IEnumerable<TItem> removedItems)
+    /// <summary>
+    /// Registers the specified items with the index tables and list projection, and returns the indices of the registered items.
+    /// </summary>
+    /// <remarks>The result indices list <paramref name="indices"/> will be populated with the indices of the registered items <b>in the original order</b> in which they were provided by the <paramref name="addedItems"/> collection.</remarks>
+    /// <param name="addedItems">The collection of items to be registered.</param>
+    /// <param name="indices">The list that will be populated with the indices of the registered items <b>in the original order</b> in which they were provided by the <paramref name="addedItems"/> collection.</param>
+    /// <returns><see langword="true"/> if any items were registered; otherwise, <see langword="false"/>.</returns>
+    private bool RegisterItems(IEnumerable<TItem> addedItems, out IList<int> indices)
     {
+        indices = [];
         if (!_isInHybridMode)
         {
-            return;
+            return false;
         }
 
-        foreach (TItem removedItem in removedItems)
+        foreach (TItem removedItem in addedItems)
         {
-            RegisterItem(removedItem);
+            if (RegisterItem(removedItem, out int itemIndex))
+            {
+                indices.Add(itemIndex);
+            }
         }
+
+        return true;
     }
 
-    private void RegisterItem(TItem item)
+    private bool RegisterItem(TItem item, out int itemIndex)
     {
+        itemIndex = -1;
         if (!_isInHybridMode)
         {
-            return;
+            return false;
         }
 
         _listProjection.Add(item);
         int newIndex = _listProjection.Count - 1;
         _indexTable[item] = newIndex;
         _reverseIndexTable[newIndex] = item;
+        itemIndex = newIndex;
+
+        return true;
     }
 
     private void UpdateItemAt(TItem newItem, TItem oldItem, int index)
@@ -856,60 +933,83 @@ public class ObservableHashSet<TItem> :
         _reverseIndexTable[index] = newItem;
     }
 
-    private void RegisterItem(TItem item, int index, bool isRebuildIndexRequired)
+    private void RegisterInsertedItem(TItem item, int changeIndex, bool isRebuildIndexRequired)
     {
         if (!_isInHybridMode)
         {
             return;
         }
 
-        _listProjection.Insert(index, item);
+        _listProjection.Insert(changeIndex, item);
         if (isRebuildIndexRequired)
         {
-            BuildIndex();
+            BuildIndex(changeIndex);
         }
     }
 
-    private void UnregisterItems(IEnumerable<TItem> removedItems)
+    /// <summary>
+    /// Unregisters the specified items from the index tables and list projection, and returns the indices of the removed items.
+    /// </summary>
+    /// <remarks>The result indices list <paramref name="indices"/> will be populated with the indices of the removed items <b>in the original order</b> in which they were provided by the <paramref name="removedItems"/> collection.</remarks>
+    /// <param name="removedItems">The collection of items to be removed.</param>
+    /// <param name="indices">The list that will be populated with the indices of the removed items <b>in the original order</b> in which they were provided by the <paramref name="removedItems"/> collection.</param>
+    /// <returns><see langword="true"/> if any items were removed; otherwise, <see langword="false"/>.</returns>
+    private bool UnregisterItems(IEnumerable<TItem> removedItems, out IList<int> indices)
     {
+        indices = [];
         if (!_isInHybridMode)
         {
-            return;
+            return false;
         }
 
         foreach (TItem removedItem in removedItems)
         {
-            UnregisterItem(removedItem, isRebuildIndexRequired: false);
+            if (UnregisterItem(removedItem, isRebuildIndexRequired: false, out int itemIndex))
+            {
+                indices.Add(itemIndex);
+            }
         }
 
-        BuildIndex();
+        if (indices.Count == 0)
+        {
+            return false;
+        }
+
+        int changeStartIndex = indices.Min();
+        BuildIndex(changeStartIndex);
+
+        return true;
     }
 
-    private void UnregisterItem(TItem item, bool isRebuildIndexRequired)
+    private bool UnregisterItem(TItem item, bool isRebuildIndexRequired, out int itemIndex)
     {
+        itemIndex = -1;
         if (!_isInHybridMode)
         {
-            return;
+            return false;
         }
 
-        if (_indexTable.TryGetValue(item, out int itemIndex))
+        if (_indexTable.TryGetValue(item, out itemIndex))
         {
             _ = _indexTable.Remove(item);
             _ = _reverseIndexTable.Remove(itemIndex);
             _listProjection.RemoveAt(itemIndex);
-            if (isRebuildIndexRequired)
+
+            // If removed item was last not index rebuld is required
+            if (isRebuildIndexRequired && itemIndex != _listProjection.Count)
             {
-                BuildIndex();
+                BuildIndex(itemIndex);
             }
+
+            return true;
         }
+
+        return false;
     }
 
-    private void BuildIndex()
+    private void BuildIndex(int changeIndex)
     {
-        _indexTable.Clear();
-        _reverseIndexTable.Clear();
-
-        for (int index = 0; index < _listProjection.Count; index++)
+        for (int index = changeIndex; index < _listProjection.Count; index++)
         {
             TItem indexedItem = _listProjection[index];
             _indexTable[indexedItem] = index;
@@ -925,7 +1025,7 @@ public class ObservableHashSet<TItem> :
         }
 
         _listProjection.AddRange([.. Items]);
-        BuildIndex();
+        BuildIndex(0);
         _isInHybridMode.SetValue(true);
     }
 
@@ -1079,7 +1179,7 @@ public class ObservableHashSet<TItem> :
 
         if (AddItem(item))
         {
-            RegisterItem(item, index, isRebuildIndexRequired: true);
+            RegisterInsertedItem(item, index, isRebuildIndexRequired: true);
 
             OnCountChanged();
             OnIndexerChanged();
@@ -1096,7 +1196,7 @@ public class ObservableHashSet<TItem> :
         {
             if (RemoveItem(item))
             {
-                UnregisterItem(item, isRebuildIndexRequired: true);
+                _ = UnregisterItem(item, isRebuildIndexRequired: true, out _);
 
                 OnCountChanged();
                 OnIndexerChanged();
