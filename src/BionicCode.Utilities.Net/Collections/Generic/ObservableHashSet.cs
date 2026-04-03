@@ -315,23 +315,28 @@ public class ObservableHashSet<TItem> :
         removedIndices = [];
         removedItems = [];
 
+        int smallestChangeIndex = int.MaxValue;
         foreach (TItem item in items)
         {
-            if (RemoveItem(item)
-                && UnregisterItem(item, isRebuildIndexRequired: false, out int itemIndex))
+            if (RemoveItem(item))
             {
                 removedItems.Add(item);
-                removedIndices.Add(itemIndex);
+
+                if (UnregisterItem(item, isRebuildIndexRequired: false, out int itemIndex))
+                {
+                    removedIndices.Add(itemIndex);
+                    smallestChangeIndex = Math.Min(smallestChangeIndex, itemIndex);
+                }
             }
         }
 
-        if (isRebuildIndexRequired)
+        bool hasChanges = removedItems.Count > 0;
+        if (hasChanges && isRebuildIndexRequired)
         {
-            int smallestChangeIndex = removedIndices.Min();
             BuildIndex(smallestChangeIndex);
         }
 
-        return removedItems.Count > 0;
+        return hasChanges;
     }
 
     /// <summary>
@@ -358,20 +363,19 @@ public class ObservableHashSet<TItem> :
         CheckReentrancy();
 
         int removedCount = 0;
-        List<int> removedIndices = [];
+        int smallestChangeIndex = int.MaxValue;
         foreach (TItem item in Items)
         {
             if (match.Invoke(item)
                 && RemoveInternal(item, isRebuildIndexRequired: false, out int itemIndex))
             {
                 removedCount++;
-                removedIndices.Add(itemIndex);
+                smallestChangeIndex = Math.Min(smallestChangeIndex, itemIndex);
             }
         }
 
         if (removedCount > 0)
         {
-            int smallestChangeIndex = removedIndices.Min();
             BuildIndex(smallestChangeIndex);
 
             OnCountChanged();
@@ -625,6 +629,8 @@ public class ObservableHashSet<TItem> :
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(other);
 
+        CheckReentrancy();
+
         // If set is empty, then symmetric difference is other.
         if (Count == 0)
         {
@@ -668,96 +674,81 @@ public class ObservableHashSet<TItem> :
             return;
         }
 
-        CheckReentrancy();
-
-        List<TItem> addedItems = [];
         List<TItem> removedItems = [];
+        List<TItem> addedItems = [];
 
-        List<TItem> currentItemsGroup = [];
-        int firstIndexInGroup = -1;
-        int lastIndexInGroup = -1;
-        foreach (KeyValuePair<int, TItem> removedItemEntry in hashSetDelta.RemovedItems)
+        if (hashSetDelta.RemovedItems.Count > 0)
         {
-            int removedItemIndex = removedItemEntry.Key;
-            TItem? removedItem = removedItemEntry.Value;
-
-            if (firstIndexInGroup == -1)
-            {
-                firstIndexInGroup = removedItemIndex;
-                lastIndexInGroup = firstIndexInGroup;
-
-                currentItemsGroup.Add(removedItem);
-                removedItems.Add(removedItem);
-                continue;
-            }
-
-            if (removedItemIndex - 1 == lastIndexInGroup)
-            {
-                lastIndexInGroup = removedItemIndex;
-                currentItemsGroup.Add(removedItem);
-                removedItems.Add(removedItem);
-                continue;
-            }
-
-            // Close group and raise events
-            if (currentItemsGroup.Count > 1)
-            {
-                OnCollectionChanged(NotifyCollectionChangedAction.Remove, currentItemsGroup, firstIndexInGroup);
-            }
-            else
-            {
-                OnCollectionChanged(NotifyCollectionChangedAction.Remove, currentItemsGroup[0], firstIndexInGroup);
-            }
-
-            // Start new group
-            currentItemsGroup.Clear();
-            firstIndexInGroup = removedItemIndex;
-            lastIndexInGroup = firstIndexInGroup;
+            removedItems = DispatchIndexGroups(hashSetDelta.RemovedItems, NotifyCollectionChangedAction.Remove);
         }
 
-        currentItemsGroup.Clear();
-        firstIndexInGroup = -1;
-        lastIndexInGroup = -1;
-        foreach (KeyValuePair<int, TItem> addedItemEntry in hashSetDelta.AddedItems)
+        if (hashSetDelta.AddedItems.Count > 0)
         {
-            int addedItemIndex = addedItemEntry.Key;
-            TItem? addedItem = addedItemEntry.Value;
-
-            if (firstIndexInGroup == -1)
-            {
-                firstIndexInGroup = addedItemIndex;
-                lastIndexInGroup = firstIndexInGroup;
-
-                currentItemsGroup.Add(addedItem);
-                addedItems.Add(addedItem);
-                continue;
-            }
-
-            if (addedItemIndex - 1 == lastIndexInGroup)
-            {
-                lastIndexInGroup = addedItemIndex;
-                currentItemsGroup.Add(addedItem);
-                addedItems.Add(addedItem);
-                continue;
-            }
-
-            // Close group and raise events
-            if (currentItemsGroup.Count > 1)
-            {
-                OnCollectionChanged(NotifyCollectionChangedAction.Add, currentItemsGroup, firstIndexInGroup);
-            }
-            else
-            {
-                OnCollectionChanged(NotifyCollectionChangedAction.Add, currentItemsGroup[0], firstIndexInGroup);
-            }
-
-            // Start new group
-            currentItemsGroup.Clear();
-            firstIndexInGroup = addedItemIndex;
-            lastIndexInGroup = firstIndexInGroup;
+            addedItems = DispatchIndexGroups(hashSetDelta.AddedItems, NotifyCollectionChangedAction.Add);
         }
 
         BroadcastDefaultSetChangedEvents(addedItems, removedItems);
+    }
+
+    private List<TItem> DispatchIndexGroups(ReadOnlyDictionary<int, TItem> items, NotifyCollectionChangedAction collectionChangedAction)
+    {
+        List<TItem> processedItems = [];
+        List<TItem> currentItemsGroup = [];
+        int firstIndexInGroup = -1;
+        int lastIndexInGroup = -1;
+        foreach (KeyValuePair<int, TItem> itemEntry in items)
+        {
+            int itemIndex = itemEntry.Key;
+            TItem item = itemEntry.Value;
+            processedItems.Add(item);
+
+            if (firstIndexInGroup == -1)
+            {
+                firstIndexInGroup = itemIndex;
+                lastIndexInGroup = firstIndexInGroup;
+
+                currentItemsGroup.Add(item);
+                continue;
+            }
+
+            if (itemIndex - 1 == lastIndexInGroup)
+            {
+                lastIndexInGroup = itemIndex;
+                currentItemsGroup.Add(item);
+                continue;
+            }
+
+            // Close group and raise events
+            if (currentItemsGroup.Count > 1)
+            {
+                OnCollectionChanged(collectionChangedAction, currentItemsGroup, firstIndexInGroup);
+            }
+            else
+            {
+                OnCollectionChanged(collectionChangedAction, currentItemsGroup[0], firstIndexInGroup);
+            }
+
+            // Start new group and initialize with current item
+            currentItemsGroup.Clear();
+            currentItemsGroup.Add(item);
+            firstIndexInGroup = itemIndex;
+            lastIndexInGroup = firstIndexInGroup;
+        }
+
+        // Finish last group if needed
+        if (currentItemsGroup.Count > 0)
+        {
+            if (currentItemsGroup.Count > 1)
+            {
+                OnCollectionChanged(collectionChangedAction, currentItemsGroup, firstIndexInGroup);
+            }
+            else
+            {
+                OnCollectionChanged(collectionChangedAction, currentItemsGroup[0], firstIndexInGroup);
+            }
+        }
+
+        return processedItems;
     }
 
     private void BroadcastDefaultSetChangedEvents(IList<TItem> addedItems, IList<TItem> removedItems)
@@ -768,38 +759,50 @@ public class ObservableHashSet<TItem> :
             return;
         }
 
-        CheckReentrancy();
-
         OnCountChanged();
         OnIndexerChanged();
         if (addedItems.Count > 0
             && removedItems.Count > 0)
         {
             OnSetChanged(NotifyCollectionChangedAction.Reset, addedItems, removedItems);
-            OnCollectionChangedReset();
+
+            if (!_isInHybridMode)
+            {
+                OnCollectionChangedReset();
+            }
         }
         else if (addedItems.Count > 0)
         {
             OnSetChanged(NotifyCollectionChangedAction.Add, addedItems, []);
-            OnCollectionChanged(NotifyCollectionChangedAction.Add, addedItems, -1);
+
+            if (!_isInHybridMode)
+            {
+                OnCollectionChanged(NotifyCollectionChangedAction.Add, addedItems, -1);
+            }
         }
         else if (removedItems.Count > 0)
         {
             OnSetChanged(NotifyCollectionChangedAction.Remove, [], removedItems);
-            OnCollectionChanged(NotifyCollectionChangedAction.Remove, removedItems, -1);
+
+            if (!_isInHybridMode)
+            {
+                OnCollectionChanged(NotifyCollectionChangedAction.Remove, removedItems, -1);
+            }
         }
     }
 
     private IndexedHashSetDelta<TItem> HybridModeSymmetricExceptWithUniqueHashSetInternal(HashSet<TItem> other)
     {
-        var removedItems = new SortedDictionary<int, TItem>();
-        var addedItems = new SortedDictionary<int, TItem>();
+        var removedItems = new SortedList<int, TItem>();
+        var addedItems = new SortedList<int, TItem>();
 
+        int smallestChangeIndex = int.MaxValue;
         foreach (TItem item in other)
         {
-            if (RemoveInternal(item, isRebuildIndexRequired: true, out int itemIndex))
+            if (RemoveInternal(item, isRebuildIndexRequired: false, out int itemIndex))
             {
                 removedItems.Add(itemIndex, item);
+                smallestChangeIndex = Math.Min(smallestChangeIndex, itemIndex);
             }
             else
             {
@@ -810,6 +813,11 @@ public class ObservableHashSet<TItem> :
         }
 
         bool hasChanges = addedItems.Count > 0 || removedItems.Count > 0;
+        if (hasChanges)
+        {
+            BuildIndex(smallestChangeIndex);
+        }
+
         return new IndexedHashSetDelta<TItem>(addedItems.AsReadOnly(), removedItems.AsReadOnly(), hasChanges);
     }
 
@@ -820,7 +828,7 @@ public class ObservableHashSet<TItem> :
 
         foreach (TItem item in other)
         {
-            if (RemoveItem(item))
+            if (RemoveInternal(item, isRebuildIndexRequired: false, out _))
             {
                 removedItems.Add(item);
             }
@@ -941,6 +949,8 @@ public class ObservableHashSet<TItem> :
         }
 
         _listProjection.Insert(changeIndex, item);
+        _indexTable[item] = changeIndex;
+        _reverseIndexTable[changeIndex] = item;
         if (isRebuildIndexRequired)
         {
             BuildIndex(changeIndex);
@@ -962,11 +972,13 @@ public class ObservableHashSet<TItem> :
             return false;
         }
 
+        int changeStartIndex = int.MaxValue;
         foreach (TItem removedItem in removedItems)
         {
             if (UnregisterItem(removedItem, isRebuildIndexRequired: false, out int itemIndex))
             {
                 indices.Add(itemIndex);
+                changeStartIndex = Math.Min(changeStartIndex, itemIndex);
             }
         }
 
@@ -975,7 +987,6 @@ public class ObservableHashSet<TItem> :
             return false;
         }
 
-        int changeStartIndex = indices.Min();
         BuildIndex(changeStartIndex);
 
         return true;
@@ -995,7 +1006,7 @@ public class ObservableHashSet<TItem> :
             _ = _reverseIndexTable.Remove(itemIndex);
             _listProjection.RemoveAt(itemIndex);
 
-            // If removed item was last not index rebuld is required
+            // If removed item was last not index rebuild is required
             if (isRebuildIndexRequired && itemIndex != _listProjection.Count)
             {
                 BuildIndex(itemIndex);
@@ -1168,14 +1179,20 @@ public class ObservableHashSet<TItem> :
 
     #region IList<T>
     [SuppressMessage("Design", "CA1033:Interface methods should be callable by child types", Justification = "Not overridable behavior. IList<T> implementation only exist to add performance boost for WPF data binding support.")]
-    int IList<TItem>.IndexOf(TItem item) => _indexTable.TryGetValue(item, out int index)
-        ? index
-        : -1;
+    int IList<TItem>.IndexOf(TItem item)
+    {
+        InitializeListSurface();
+        return _indexTable.TryGetValue(item, out int index)
+            ? index
+            : -1;
+    }
 
     [SuppressMessage("Design", "CA1033:Interface methods should be callable by child types", Justification = "Not overridable behavior. IList<T> implementation only exist to add performance boost for WPF data binding support.")]
     void IList<TItem>.Insert(int index, TItem item)
     {
         ArgumentOutOfRangeExceptionAdvanced.ThrowIfIndexOutOfRange(index, _listProjection);
+
+        InitializeListSurface();
 
         if (AddItem(item))
         {
@@ -1192,12 +1209,12 @@ public class ObservableHashSet<TItem> :
     {
         ArgumentOutOfRangeExceptionAdvanced.ThrowIfIndexOutOfRange(index, _listProjection);
 
+        InitializeListSurface();
+
         if (_reverseIndexTable.TryGetValue(index, out TItem? item))
         {
-            if (RemoveItem(item))
+            if (RemoveInternal(item, isRebuildIndexRequired: true, out _))
             {
-                _ = UnregisterItem(item, isRebuildIndexRequired: true, out _);
-
                 OnCountChanged();
                 OnIndexerChanged();
                 OnCollectionChanged(NotifyCollectionChangedAction.Remove, item, index);
@@ -1212,6 +1229,8 @@ public class ObservableHashSet<TItem> :
         {
             ArgumentOutOfRangeExceptionAdvanced.ThrowIfIndexOutOfRange(index, _listProjection);
 
+            InitializeListSurface();
+
             return _listProjection[index];
         }
 
@@ -1219,6 +1238,8 @@ public class ObservableHashSet<TItem> :
         set
         {
             ArgumentOutOfRangeExceptionAdvanced.ThrowIfIndexOutOfRange(index, _listProjection);
+
+            InitializeListSurface();
 
             if (_reverseIndexTable.TryGetValue(index, out TItem? existingItem))
             {
@@ -1241,8 +1262,8 @@ public class ObservableHashSet<TItem> :
             throw new InvalidCastException($"Unable to convert '{value?.GetType().FullName ?? "NULL"}' to '{typeof(TItem).FullName}'.");
         }
 
-        return Add(item) && _indexTable.TryGetValue(item, out int index)
-            ? index
+        return AddInternal(item, out int itemIndex)
+            ? itemIndex
             : -1;
     }
 
@@ -1265,6 +1286,7 @@ public class ObservableHashSet<TItem> :
             throw new InvalidCastException($"Unable to convert '{value?.GetType().FullName ?? "NULL"}' to '{typeof(TItem).FullName}'.");
         }
 
+        InitializeListSurface();
         return _indexTable.TryGetValue(item, out int index)
             ? index
             : -1;
@@ -1280,6 +1302,8 @@ public class ObservableHashSet<TItem> :
             throw new InvalidCastException($"Unable to convert '{value?.GetType().FullName ?? "NULL"}' to '{typeof(TItem).FullName}'.");
         }
 
+        InitializeListSurface();
+
         ((IList<TItem>)this).Insert(index, item);
     }
 
@@ -1290,6 +1314,8 @@ public class ObservableHashSet<TItem> :
             throw new InvalidCastException($"Unable to convert '{value?.GetType().FullName ?? "NULL"}' to '{typeof(TItem).FullName}'.");
         }
 
+        InitializeListSurface();
+
         _ = Remove(item);
     }
 
@@ -1297,6 +1323,8 @@ public class ObservableHashSet<TItem> :
     void IList.RemoveAt(int index)
     {
         ArgumentOutOfRangeExceptionAdvanced.ThrowIfIndexOutOfRange(index, _listProjection);
+
+        InitializeListSurface();
 
         ((IList<TItem>)this).RemoveAt(index);
     }
@@ -1320,7 +1348,7 @@ public class ObservableHashSet<TItem> :
             throw new ArgumentOutOfRangeException(nameof(index));
         }
 
-        if (array.Length - index < _listProjection.Count)
+        if (array.Length - index < Items.Count)
         {
             throw new ArgumentException("The destination array has insufficient space.", nameof(array));
         }
@@ -1332,16 +1360,21 @@ public class ObservableHashSet<TItem> :
         }
 
         // Fallback: copy through Array.SetValue / element checks
-        for (int i = 0; i < _listProjection.Count; i++)
+        foreach (TItem item in Items)
         {
-            array.SetValue(_listProjection[i], index + i);
+            array.SetValue(item, index++);
         }
     }
 
     object? IList.this[int index]
     {
         [SuppressMessage("Design", "CA1033:Interface methods should be callable by child types", Justification = "Not overridable behavior. IList<T> implementation only exist to add performance boost for WPF data binding support.")]
-        get => ((IList<TItem>)this)[index];
+        get
+        {
+            InitializeListSurface();
+            return ((IList<TItem>)this)[index];
+        }
+
         [SuppressMessage("Design", "CA1033:Interface methods should be callable by child types", Justification = "Not overridable behavior. IList<T> implementation only exist to add performance boost for WPF data binding support.")]
         set
         {
@@ -1349,6 +1382,8 @@ public class ObservableHashSet<TItem> :
             {
                 throw new InvalidCastException($"Unable to convert '{value?.GetType().FullName ?? "NULL"}' to '{typeof(TItem).FullName}'.");
             }
+
+            InitializeListSurface();
 
             ((IList<TItem>)this)[index] = item;
         }
