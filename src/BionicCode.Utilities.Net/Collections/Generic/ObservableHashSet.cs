@@ -205,7 +205,7 @@ public class ObservableHashSet<TItem> :
         CheckReentrancy();
 
         addedItems = [];
-        if (AddRangeInternal(items, isCollectionChangedPerItemRequired: true, out List<TItem> addedItemsList, out _))
+        if (AddRangeInternal(items, isCollectionChangedPerItemRequired: true, isManualResetRequired: false, out List<TItem> addedItemsList, out _))
         {
             addedItems = addedItemsList;
         }
@@ -215,7 +215,8 @@ public class ObservableHashSet<TItem> :
 
     private bool AddRangeInternal(ICollection<TItem> items,
         bool isCollectionChangedPerItemRequired,
-        out List<TItem> addedItems,
+        bool isManualResetRequired,
+        [NotNullWhen(true)] out List<TItem> addedItems,
         out int rangeStartIndex)
     {
         addedItems = [];
@@ -319,7 +320,7 @@ public class ObservableHashSet<TItem> :
 
         bool isRebuildIndexRequired = _isInHybridMode;
         removedItems = [];
-        if (RemoveRangeInternal(items, isRebuildIndexRequired, isCollectionChangedPerItemRequired: true, out List<TItem> removedItemsList, out _))
+        if (RemoveRangeInternal(items, isRebuildIndexRequired, isCollectionChangedPerItemRequired: true, isManualResetRequired: false, out List<TItem> removedItemsList, out _))
         {
             removedItems = removedItemsList;
         }
@@ -327,15 +328,20 @@ public class ObservableHashSet<TItem> :
         return removedItems.Count > 0;
     }
 
-    protected bool RemoveRangeInternal(ICollection<TItem>? items, bool isRebuildIndexRequired, bool isCollectionChangedPerItemRequired, out List<TItem> removedItems, out List<int> removedIndices)
+    protected bool RemoveRangeInternal(ICollection<TItem>? items,
+        bool isRebuildIndexRequired,
+        bool isCollectionChangedPerItemRequired,
+        bool isManualResetRequired,
+        [NotNullWhen(true)] out List<TItem> removedItems,
+        [NotNullWhen(true)] out List<int> removedIndices)
     {
         removedIndices = [];
         removedItems = [];
         items = items.OrEmpty();
 
         // If TRUE it disables per single-item event dispatching and triggers a single bulk change event.
-        bool isResetRequired = items.Count > MaxNumberOfSingleItemChangesBeforeBatchChange
-            || !_isInHybridMode;
+        bool isResetRequired = !isManualResetRequired && (items.Count > MaxNumberOfSingleItemChangesBeforeBatchChange
+            || !_isInHybridMode);
 
         int smallestChangeIndex = int.MaxValue;
         foreach (TItem item in items)
@@ -918,7 +924,7 @@ public class ObservableHashSet<TItem> :
         // so the real choices are basically many single-item events or one brutal Reset.
 
         List<KeyValuePair<int, TItem>> removedItemEntries = [];
-        List<TItem> removedItems = [];
+        List<TItem> removedItemCandidates = [];
 
         // We must process all removes before we can process adds, otherwise we might end up with stale indices since a remove operation can shift indices.
         List<TItem> addedPendingPool = [];
@@ -927,6 +933,7 @@ public class ObservableHashSet<TItem> :
             if (_indexTable.TryGetValue(item, out int existingItemIndex))
             {
                 removedItemEntries.Add(new KeyValuePair<int, TItem>(existingItemIndex, item));
+                removedItemCandidates.Add(item);
             }
             else
             {
@@ -937,13 +944,15 @@ public class ObservableHashSet<TItem> :
         bool isResetRequired = removedItemEntries.Count + addedPendingPool.Count > MaxNumberOfSingleItemChangesBeforeBatchChange;
         if (isResetRequired)
         {
+            List<TItem> addedItems = [];
+            List<TItem> removedItems = [];
+
             // When there are too many changes, it's more efficient to raise a Reset event instead of many single-item events.
             // This is because if single-item events are too many, then the dispatcher thread could be flooded causing the UI to freeze.
-            if (RemoveRangeInternal(removedItems, isRebuildIndexRequired: true, out removedItems, out _)
-                || AddRangeInternal(addedPendingPool, out _, out _))
+            if (RemoveRangeInternal(removedItemCandidates, isRebuildIndexRequired: true, isCollectionChangedPerItemRequired: false, isManualResetRequired: true, out removedItems, out _)
+                || AddRangeInternal(addedPendingPool, isCollectionChangedPerItemRequired: false, isManualResetRequired: true, out addedItems, out _))
             {
-                OnCollectionChangedReset();
-                BroadcastDefaultSetChangedEvents(addedPendingPool, removedItems);
+                BroadcastBulkSetChangeEvents(NotifyCollectionChangedAction.Reset, addedItems, removedItems, -1);
             }
 
             return;
@@ -958,15 +967,10 @@ public class ObservableHashSet<TItem> :
             removedItemEntries.Sort((item1, item2) => item2.Key.CompareTo(item1.Key));
 
             // Dispatch single-item remove events in descending order of indices to minimize index shifting issues for subsequent removes.
-            foreach (KeyValuePair<int, TItem> removedItem in removedItemEntries)
+            foreach (KeyValuePair<int, TItem> removedItemEntry in removedItemEntries)
             {
-                TItem item = removedItem.Value;
-                // Item exists in the set, so it should be removed as part of the symmetric difference operation.
-
-                if (RemoveInternal(item, isRebuildIndexRequired: true, out int correctedItemIndex))
-                {
-                    OnCollectionChanged(NotifyCollectionChangedAction.Remove, item, correctedItemIndex);
-                }
+                TItem? item = removedItemEntry.Value;
+                _ = RemoveInternal(item, isRebuildIndexRequired: true, isCollectionChangedRequired: true, out _);
             }
         }
 
@@ -974,21 +978,12 @@ public class ObservableHashSet<TItem> :
         if (hasAddedItems)
         {
             // Dispatch single-item add events in the original order of items to avoid index shifts on the listener side (e.g. WPF data binding).
-            foreach (TItem item in addedPendingPool)
-            {
-                if (AddInternal(item, out int itemIndex))
-                {
-                    OnCollectionChanged(NotifyCollectionChangedAction.Add, item, itemIndex);
-                }
-            }
+            _ = AddRangeInternal(addedPendingPool,
+                isCollectionChangedPerItemRequired: true,
+                isManualResetRequired: false,
+                out _,
+                out _);
         }
-
-        if (hasAddedItems || hasRemovedItems)
-        {
-            BroadcastDefaultSetChangedEvents(addedPendingPool, removedItems);
-        }
-
-        return;
     }
 
     private void SymmetricExceptWithUniqueHashSetInternal(HashSet<TItem> other)
@@ -998,13 +993,13 @@ public class ObservableHashSet<TItem> :
 
         foreach (TItem item in other)
         {
-            if (RemoveInternal(item, isRebuildIndexRequired: false, out _))
+            if (RemoveInternal(item, isRebuildIndexRequired: false, isCollectionChangedRequired: false, out _))
             {
                 removedItems.Add(item);
             }
             else
             {
-                _ = AddItem(item);
+                _ = AddInternal(item, isCollectionChangedRequired: false, out _);
                 addedItems.Add(item);
             }
         }
@@ -1012,9 +1007,7 @@ public class ObservableHashSet<TItem> :
         bool hasChanges = addedItems.Count > 0 || removedItems.Count > 0;
         if (hasChanges)
         {
-            OnCountChanged();
-            OnIndexerChanged();
-            BroadcastDefaultSetChangedEvents(addedItems, removedItems);
+            BroadcastBulkSetChangeEvents(NotifyCollectionChangedAction.Reset, addedItems, removedItems, -1);
         }
 
         return;
@@ -1430,12 +1423,7 @@ public class ObservableHashSet<TItem> :
 
         if (_reverseIndexTable.TryGetValue(index, out TItem? item))
         {
-            if (RemoveInternal(item, isRebuildIndexRequired: true, out _))
-            {
-                OnCountChanged();
-                OnIndexerChanged();
-                OnCollectionChanged(NotifyCollectionChangedAction.Remove, item, index);
-            }
+            _ = RemoveInternal(item, isRebuildIndexRequired: true, isCollectionChangedRequired: true, out _);
         }
     }
 
@@ -1479,7 +1467,7 @@ public class ObservableHashSet<TItem> :
             throw new InvalidCastException($"Unable to convert '{value?.GetType().FullName ?? "NULL"}' to '{typeof(TItem).FullName}'.");
         }
 
-        return AddInternal(item, out int itemIndex)
+        return AddInternal(item, isCollectionChangedRequired: true, out int itemIndex)
             ? itemIndex
             : -1;
     }
