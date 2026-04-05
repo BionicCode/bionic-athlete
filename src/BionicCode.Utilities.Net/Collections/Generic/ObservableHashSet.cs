@@ -408,10 +408,12 @@ public class ObservableHashSet<TItem> :
             ClearItems();
             _indexTable.Clear();
             _reverseIndexTable.Clear();
+            var oldItems = _listProjection.ToList();
             _listProjection.Clear();
 
             OnCountChanged();
             OnIndexerChanged();
+            OnSetChanged(NotifyCollectionChangedAction.Reset, [], oldItems);
             OnCollectionChangedReset();
         }
     }
@@ -766,6 +768,9 @@ public class ObservableHashSet<TItem> :
         {
             OnSetChanged(NotifyCollectionChangedAction.Reset, addedItems, removedItems);
 
+            // When in hybride-mode we already have broadcasted granular index-based collection changed events,
+            // so we can skip raising an additional Reset event for the CollectionChanged event.
+            // For non-hybrid mode we need to raise a Reset event as we don't have granular index-based collection changed events.
             if (!_isInHybridMode)
             {
                 OnCollectionChangedReset();
@@ -775,6 +780,9 @@ public class ObservableHashSet<TItem> :
         {
             OnSetChanged(NotifyCollectionChangedAction.Add, addedItems, []);
 
+            // When in hybride-mode we already have broadcasted granular index-based collection changed events,
+            // so we can skip raising an additional event for the CollectionChanged event.
+            // For non-hybrid mode we need to raise an anonymous item change event as we don't have granular index-based representation.
             if (!_isInHybridMode)
             {
                 OnCollectionChanged(NotifyCollectionChangedAction.Add, addedItems, -1);
@@ -784,6 +792,9 @@ public class ObservableHashSet<TItem> :
         {
             OnSetChanged(NotifyCollectionChangedAction.Remove, [], removedItems);
 
+            // When in hybride-mode we already have broadcasted granular index-based collection changed events,
+            // so we can skip raising an additional event for the CollectionChanged event.
+            // For non-hybrid mode we need to raise an anonymous item change event as we don't have granular index-based representation.
             if (!_isInHybridMode)
             {
                 OnCollectionChanged(NotifyCollectionChangedAction.Remove, removedItems, -1);
@@ -799,6 +810,9 @@ public class ObservableHashSet<TItem> :
         List<KeyValuePair<int, TItem>> removedItems = [];
         List<KeyValuePair<int, TItem>> addedItems = [];
 
+        // We must process all removes before we can process adds, otherwise we might end up with stale indices since a remove operation can shift indices.
+        List<TItem> addedPendingPool = [];
+
         int smallestChangeIndex = int.MaxValue;
         foreach (TItem item in other)
         {
@@ -809,20 +823,35 @@ public class ObservableHashSet<TItem> :
             }
             else
             {
-                _ = AddInternal(item, out itemIndex);
-
-                addedItems.Add(new KeyValuePair<int, TItem>(itemIndex, item));
+                addedPendingPool.Add(item);
             }
         }
 
-        bool hasChanges = addedItems.Count > 0 || removedItems.Count > 0;
-        if (hasChanges)
+        bool hasRemovedItems = removedItems.Count > 0;
+        if (hasRemovedItems)
         {
+            // We only need to sort removed items by their original indices to ensure correct order of index-based collection changed events.
+            // Soring in descending order ensures that when we later dispatch them from end to beginning to ensure event handlers can process arriving events live the removed items to raise collection changed events, we will be processing them from the highest index to the lowest index, which is important to maintain correct indices for subsequent changes.
+            removedItems.Sort((item1, item2) => item2.Key.CompareTo(item1.Key));
+
             BuildIndex(smallestChangeIndex);
         }
 
-        addedItems.Sort();
-        removedItems.Sort();
+        if (addedPendingPool.Count > 0)
+        {
+                {
+                if (AddInternal(item, out int itemIndex))
+                {
+                    addedItems.Add(new KeyValuePair<int, TItem>(itemIndex, item));
+                }
+            }
+        }
+
+        // Since added items are essentially appended sequentially to the end of the list projection,
+        // they are already sorted by index and we don't need to sort them again.
+        // We only need to sort removed items by their original indices to ensure correct order of index-based collection changed events.
+
+        bool hasChanges = addedItems.Count > 0 || hasRemovedItems;
         return new IndexedHashSetDelta<TItem>(addedItems.AsReadOnly(), removedItems.AsReadOnly(), hasChanges);
     }
 
@@ -1156,6 +1185,7 @@ public class ObservableHashSet<TItem> :
     }
 
     private void OnSetChanged(NotifyCollectionChangedAction action, TItem item) => SetChanged?.Invoke(this, new SetChangedEventArgs<TItem>(action, item));
+    private void OnSetChangedReset() => SetChanged?.Invoke(this, new SetChangedEventArgs<TItem>(NotifyCollectionChangedAction.Reset, default!));
     private void OnSetChanged(NotifyCollectionChangedAction action, IList<TItem> addedItems, IList<TItem> removedItems) => SetChanged?.Invoke(this, new SetChangedEventArgs<TItem>(action, addedItems, removedItems));
 
     private void OnCountChanged() => OnPropertyChanged(nameof(Count));
@@ -1182,6 +1212,43 @@ public class ObservableHashSet<TItem> :
     int ICollection.Count => Count;
     bool ICollection.IsSynchronized { get; } // false;
     object ICollection.SyncRoot { get; } = new object();
+
+    void ICollection.CopyTo(Array array, int index)
+    {
+        ArgumentNullExceptionAdvanced.ThrowIfNull(array);
+
+        if (array.Rank is not 1)
+        {
+            throw new ArgumentException("Array must be one-dimensional.", nameof(array));
+        }
+
+        if (array.GetLowerBound(0) is not 0)
+        {
+            throw new ArgumentException("Array must have zero lower bound.", nameof(array));
+        }
+
+        if (index < 0 || index > array.Length)
+        {
+            throw new ArgumentOutOfRangeException(nameof(index));
+        }
+
+        if (array.Length - index < Items.Count)
+        {
+            throw new ArgumentException("The destination array has insufficient space.", nameof(array));
+        }
+
+        if (array is TItem[] itemArray)
+        {
+            CopyTo(itemArray, index);
+            return;
+        }
+
+        // Fallback: copy through Array.SetValue / element checks
+        foreach (TItem item in Items)
+        {
+            array.SetValue(item, index++);
+        }
+    }
     #endregion ICollection
 
     #region IList<T>
@@ -1334,43 +1401,6 @@ public class ObservableHashSet<TItem> :
         InitializeListSurface();
 
         ((IList<TItem>)this).RemoveAt(index);
-    }
-
-    void ICollection.CopyTo(Array array, int index)
-    {
-        ArgumentNullExceptionAdvanced.ThrowIfNull(array);
-
-        if (array.Rank is not 1)
-        {
-            throw new ArgumentException("Array must be one-dimensional.", nameof(array));
-        }
-
-        if (array.GetLowerBound(0) is not 0)
-        {
-            throw new ArgumentException("Array must have zero lower bound.", nameof(array));
-        }
-
-        if (index < 0 || index > array.Length)
-        {
-            throw new ArgumentOutOfRangeException(nameof(index));
-        }
-
-        if (array.Length - index < Items.Count)
-        {
-            throw new ArgumentException("The destination array has insufficient space.", nameof(array));
-        }
-
-        if (array is TItem[] itemArray)
-        {
-            CopyTo(itemArray, index);
-            return;
-        }
-
-        // Fallback: copy through Array.SetValue / element checks
-        foreach (TItem item in Items)
-        {
-            array.SetValue(item, index++);
-        }
     }
 
     object? IList.this[int index]
