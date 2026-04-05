@@ -81,6 +81,7 @@ public class ObservableHashSet<TItem> :
     private readonly Dictionary<int, TItem> _reverseIndexTable = [];
     private readonly List<TItem> _listProjection = [];
     private int _blockReentrancyCount;
+    private const int MaxNumberOfSingleItemChangesBeforeBatchChange = 100;
 
     // Collection transitions into hybrid mode when IList or IList<T> API surface is used.
     // In this mode, the collection maintains the internal index tables and list projection
@@ -161,28 +162,24 @@ public class ObservableHashSet<TItem> :
     {
         CheckReentrancy();
 
-        if (AddInternal(item, out int newIndex))
-        {
-            OnCountChanged();
-            OnIndexerChanged();
-            OnCollectionChanged(NotifyCollectionChangedAction.Add, item, newIndex);
-
-            return true;
-        }
-
-        return false;
+        return AddInternal(item, isCollectionChangedRequired: true, out _);
     }
 
-    private bool AddInternal(TItem item, out int newIndex)
+    private bool AddInternal(TItem item, bool isCollectionChangedRequired, out int newIndex)
     {
+        newIndex = -1;
+
         if (AddItem(item))
         {
             _ = RegisterItem(item, out newIndex);
+            if (isCollectionChangedRequired)
+            {
+                BroadcastSingleSetChangeEvents(NotifyCollectionChangedAction.Add, item, newIndex);
+            }
 
             return true;
         }
 
-        newIndex = -1;
         return false;
     }
 
@@ -200,34 +197,49 @@ public class ObservableHashSet<TItem> :
     /// <para/>This method raises the <see cref="CollectionChanged"/> event with <see cref="NotifyCollectionChangedAction.Add"/> action and the start index of the changes to support the <see cref="IList{T}"/> API surface.
     /// <para/>This method raises the <see cref="PropertyChanged"/> event for the <see cref="Count"/> property.</remarks>
     /// <param name="items">The collection of items to add. Cannot be <see langword="null"/>.</param>
-    public void AddRange(IEnumerable<TItem> items)
+    /// <returns><see langword="true"/> if at least one item was added to the collection; otherwise, <see langword="false"/>.</returns>
+    public bool AddRange(ICollection<TItem> items, out IList<TItem> addedItems)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(items);
 
         CheckReentrancy();
 
-        if (AddRangeInternal(items, out IList<TItem> addedItems, out int rangeStartIndex))
+        addedItems = [];
+        if (AddRangeInternal(items, isCollectionChangedPerItemRequired: true, out List<TItem> addedItemsList, out _))
         {
-            OnCountChanged();
-            OnIndexerChanged();
-            OnCollectionChanged(NotifyCollectionChangedAction.Add, addedItems, rangeStartIndex);
+            addedItems = addedItemsList;
         }
+
+        return addedItems.Count > 0;
     }
 
-    private bool AddRangeInternal(IEnumerable<TItem> items, out IList<TItem> addedItems, out int rangeStartIndex)
+    private bool AddRangeInternal(ICollection<TItem> items,
+        bool isCollectionChangedPerItemRequired,
+        out List<TItem> addedItems,
+        out int rangeStartIndex)
     {
         addedItems = [];
+
+        // If TRUE it disables per single-item event dispatching and triggers a single bulk change event.
+        bool isResetRequired = items.Count > MaxNumberOfSingleItemChangesBeforeBatchChange
+            || !_isInHybridMode;
         rangeStartIndex = _listProjection.Count;
         foreach (TItem item in items)
         {
-            if (AddItem(item))
+            if (AddInternal(item, isCollectionChangedRequired: isCollectionChangedPerItemRequired && !isResetRequired, out _))
             {
-                _ = RegisterItem(item, out _);
                 addedItems.Add(item);
             }
         }
 
-        return addedItems.Count > 0;
+        bool hasChanges = addedItems.Count > 0;
+        if (hasChanges
+            && isResetRequired)
+        {
+            BroadcastBulkSetChangeEvents(NotifyCollectionChangedAction.Reset, addedItems, [], rangeStartIndex);
+        }
+
+        return hasChanges;
     }
 
     /// <summary>
@@ -263,24 +275,26 @@ public class ObservableHashSet<TItem> :
     {
         CheckReentrancy();
 
-        if (RemoveInternal(item, isRebuildIndexRequired: true, out int removeIndex))
-        {
-            OnCountChanged();
-            OnIndexerChanged();
-            OnCollectionChanged(NotifyCollectionChangedAction.Remove, item, removeIndex);
-
-            return true;
-        }
-
-        return false;
+        return RemoveInternal(item, isRebuildIndexRequired: true, isCollectionChangedRequired: true, out _);
     }
 
-    private bool RemoveInternal(TItem item, bool isRebuildIndexRequired, out int itemIndex)
+    private bool RemoveInternal(TItem item, bool isRebuildIndexRequired, bool isCollectionChangedRequired, out int itemIndex)
     {
         itemIndex = -1;
         if (RemoveItem(item))
         {
             _ = UnregisterItem(item, isRebuildIndexRequired, out itemIndex);
+            if (isCollectionChangedRequired)
+            {
+                BroadcastSingleSetChangeEvents(NotifyCollectionChangedAction.Remove, item, itemIndex);
+            }
+
+            // If we raise events per single-item then we must rebuild the index after each change to ensure collection state consistency for the listener.
+            if (isRebuildIndexRequired
+                || isCollectionChangedRequired)
+            {
+                BuildIndex(itemIndex);
+            }
 
             return true;
         }
@@ -295,45 +309,61 @@ public class ObservableHashSet<TItem> :
     /// are not present.
     /// <para/>This method raises the <see cref="CollectionChanged"/> event with <see cref="NotifyCollectionChangedAction.Reset"/> action.
     /// <para/>This method raises the <see cref="PropertyChanged"/> event for the <see cref="Count"/> property.</remarks>
-    /// <param name="items">The collection of items to remove from the collection. Cannot be null.</param>
-    public void RemoveRange(IEnumerable<TItem> items, out IList<TItem> removedItems)
+    /// <param name="items">The collection of items to remove from the collection. Cannot be <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> if at least one item was removed from the collection; otherwise, <see langword="false"/>.</returns>
+    public bool RemoveRange(ICollection<TItem> items, out IList<TItem> removedItems)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(items);
 
         CheckReentrancy();
 
-        if (RemoveRangeInternal(items, isRebuildIndexRequired: true, out removedItems, out _))
+        bool isRebuildIndexRequired = _isInHybridMode;
+        removedItems = [];
+        if (RemoveRangeInternal(items, isRebuildIndexRequired, isCollectionChangedPerItemRequired: true, out List<TItem> removedItemsList, out _))
         {
-            OnCountChanged();
-            OnIndexerChanged();
-            OnCollectionChangedReset();
+            removedItems = removedItemsList;
         }
+
+        return removedItems.Count > 0;
     }
 
-    private bool RemoveRangeInternal(IEnumerable<TItem> items, bool isRebuildIndexRequired, out IList<TItem> removedItems, out IList<int> removedIndices)
+    protected bool RemoveRangeInternal(ICollection<TItem>? items, bool isRebuildIndexRequired, bool isCollectionChangedPerItemRequired, out List<TItem> removedItems, out List<int> removedIndices)
     {
         removedIndices = [];
         removedItems = [];
+        items = items.OrEmpty();
+
+        // If TRUE it disables per single-item event dispatching and triggers a single bulk change event.
+        bool isResetRequired = items.Count > MaxNumberOfSingleItemChangesBeforeBatchChange
+            || !_isInHybridMode;
 
         int smallestChangeIndex = int.MaxValue;
         foreach (TItem item in items)
         {
-            if (RemoveItem(item))
+            if (RemoveInternal(
+                item,
+                isRebuildIndexRequired: false, // May reindex if 'isCollectionChangedPerItemRequired' argument is true
+                isCollectionChangedRequired: isCollectionChangedPerItemRequired && !isResetRequired,
+                out int itemIndex))
             {
                 removedItems.Add(item);
-
-                if (UnregisterItem(item, isRebuildIndexRequired: false, out int itemIndex))
-                {
-                    removedIndices.Add(itemIndex);
-                    smallestChangeIndex = Math.Min(smallestChangeIndex, itemIndex);
-                }
+                removedIndices.Add(itemIndex);
+                smallestChangeIndex = Math.Min(smallestChangeIndex, itemIndex);
             }
         }
 
         bool hasChanges = removedItems.Count > 0;
-        if (hasChanges && isRebuildIndexRequired)
+        if (hasChanges
+            && isRebuildIndexRequired
+            && !isCollectionChangedPerItemRequired)
         {
             BuildIndex(smallestChangeIndex);
+        }
+
+        if (hasChanges
+            && isResetRequired)
+        {
+            BroadcastBulkSetChangeEvents(NotifyCollectionChangedAction.Reset, [], removedItems, smallestChangeIndex);
         }
 
         return hasChanges;
@@ -362,28 +392,31 @@ public class ObservableHashSet<TItem> :
 
         CheckReentrancy();
 
-        int removedCount = 0;
         int smallestChangeIndex = int.MaxValue;
+        List<TItem> removedItems = [];
+
+        // If TRUE it disables per single-item event dispatching and triggers a single bulk change event.
+        bool isResetRequired = Count > MaxNumberOfSingleItemChangesBeforeBatchChange
+            || !_isInHybridMode;
+
         foreach (TItem item in Items)
         {
             if (match.Invoke(item)
-                && RemoveInternal(item, isRebuildIndexRequired: false, out int itemIndex))
+                && RemoveInternal(item, isRebuildIndexRequired: false, isCollectionChangedRequired: !isResetRequired, out int itemIndex))
             {
-                removedCount++;
+                removedItems.Add(item);
                 smallestChangeIndex = Math.Min(smallestChangeIndex, itemIndex);
             }
         }
 
-        if (removedCount > 0)
+        bool hasChanges = removedItems.Count > 0;
+        if (hasChanges
+            && isResetRequired)
         {
-            BuildIndex(smallestChangeIndex);
-
-            OnCountChanged();
-            OnIndexerChanged();
-            OnCollectionChangedReset();
+            BroadcastBulkSetChangeEvents(NotifyCollectionChangedAction.Reset, [], removedItems, smallestChangeIndex);
         }
 
-        return removedCount;
+        return removedItems.Count;
     }
 
     /// <summary>
@@ -652,13 +685,11 @@ public class ObservableHashSet<TItem> :
 
         if (_isInHybridMode)
         {
-            IndexedHashSetDelta<TItem> hashSetDelta = HybridModeSymmetricExceptWithUniqueHashSetInternal(otherHashSet);
-            BroadcastIndexBasedCollectionChanges(hashSetDelta);
+            HybridModeSymmetricExceptWithUniqueHashSetInternal(otherHashSet);
         }
         else
         {
-            HashSetDelta<TItem> hashSetDelta = SymmetricExceptWithUniqueHashSetInternal(otherHashSet);
-            BroadcastDefaultSetChangedEvents(hashSetDelta.AddedItems, hashSetDelta.RemovedItems);
+            SymmetricExceptWithUniqueHashSetInternal(otherHashSet);
         }
     }
 
@@ -753,7 +784,48 @@ public class ObservableHashSet<TItem> :
         return processedItems;
     }
 
-    private void BroadcastDefaultSetChangedEvents(IList<TItem> addedItems, IList<TItem> removedItems)
+    protected void BroadcastSingleSetChangeEvents(NotifyCollectionChangedAction changedAction, TItem item, int changeIndex)
+    {
+        if (_isInHybridMode)
+        {
+            OnCollectionChanged(changedAction, item, changeIndex);
+        }
+
+        BroadcastDefaultSetChangedEvents([item], []);
+    }
+
+    protected void BroadcastBulkSetChangeEvents(NotifyCollectionChangedAction changedAction, List<TItem>? addedItems, List<TItem>? removedItems, int changeStartIndex)
+    {
+        addedItems = addedItems.OrEmpty();
+        removedItems = removedItems.OrEmpty();
+
+        if (_isInHybridMode)
+        {
+            switch (changedAction)
+            {
+                case NotifyCollectionChangedAction.Reset:
+                    OnCollectionChangedReset();
+                    BroadcastDefaultSetChangedEvents(addedItems, removedItems);
+                    break;
+                case NotifyCollectionChangedAction.Add:
+                    OnCollectionChanged(NotifyCollectionChangedAction.Add, addedItems, changeStartIndex);
+                    BroadcastDefaultSetChangedEvents(addedItems, []);
+                    break;
+                case NotifyCollectionChangedAction.Remove:
+                    OnCollectionChanged(NotifyCollectionChangedAction.Remove, removedItems, changeStartIndex);
+                    BroadcastDefaultSetChangedEvents([], removedItems);
+                    break;
+                default:
+                    throw new NotSupportedException($"The collection changed action '{changedAction}' is not supported for bulk set change events. Only Add, Remove and Reset actions are supported.");
+            }
+        }
+        else
+        {
+            BroadcastDefaultSetChangedEvents(addedItems, removedItems);
+        }
+    }
+
+    private void BroadcastDefaultSetChangedEvents(List<TItem> addedItems, List<TItem> removedItems)
     {
         if (addedItems.Count == 0
             && removedItems.Count == 0)
@@ -763,12 +835,13 @@ public class ObservableHashSet<TItem> :
 
         OnCountChanged();
         OnIndexerChanged();
+
         if (addedItems.Count > 0
             && removedItems.Count > 0)
         {
             OnSetChanged(NotifyCollectionChangedAction.Reset, addedItems, removedItems);
 
-            // When in hybride-mode we already have broadcasted granular index-based collection changed events,
+            // When in hybrid-mode we already have broadcasted granular index-based collection changed events,
             // so we can skip raising an additional Reset event for the CollectionChanged event.
             // For non-hybrid mode we need to raise a Reset event as we don't have granular index-based collection changed events.
             if (!_isInHybridMode)
@@ -778,48 +851,82 @@ public class ObservableHashSet<TItem> :
         }
         else if (addedItems.Count > 0)
         {
-            OnSetChanged(NotifyCollectionChangedAction.Add, addedItems, []);
-
-            // When in hybride-mode we already have broadcasted granular index-based collection changed events,
-            // so we can skip raising an additional event for the CollectionChanged event.
-            // For non-hybrid mode we need to raise an anonymous item change event as we don't have granular index-based representation.
-            if (!_isInHybridMode)
+            if (addedItems.Count > 1)
             {
-                OnCollectionChanged(NotifyCollectionChangedAction.Add, addedItems, -1);
+                OnSetChanged(NotifyCollectionChangedAction.Add, addedItems, []);
+
+                // When in hybrid-mode we already have broadcasted granular index-based collection changed events,
+                // so we can skip raising an additional event for the CollectionChanged event.
+                // For non-hybrid mode we need to raise an anonymous item change event as we don't have granular index-based representation.
+                if (!_isInHybridMode)
+                {
+                    OnCollectionChangedReset();
+                }
+            }
+            else
+            {
+                OnSetChanged(NotifyCollectionChangedAction.Add, addedItems[0]);
+
+                // When in hybrid-mode we already have broadcasted granular index-based collection changed events,
+                // so we can skip raising an additional event for the CollectionChanged event.
+                // For non-hybrid mode we need to raise an anonymous item change event as we don't have granular index-based representation.
+                if (!_isInHybridMode)
+                {
+                    OnCollectionChanged(NotifyCollectionChangedAction.Add, addedItems[0], -1);
+                }
             }
         }
         else if (removedItems.Count > 0)
         {
-            OnSetChanged(NotifyCollectionChangedAction.Remove, [], removedItems);
-
-            // When in hybride-mode we already have broadcasted granular index-based collection changed events,
-            // so we can skip raising an additional event for the CollectionChanged event.
-            // For non-hybrid mode we need to raise an anonymous item change event as we don't have granular index-based representation.
-            if (!_isInHybridMode)
+            if (removedItems.Count > 1)
             {
-                OnCollectionChanged(NotifyCollectionChangedAction.Remove, removedItems, -1);
+                OnSetChanged(NotifyCollectionChangedAction.Remove, [], removedItems);
+
+                // When in hybrid-mode we already have broadcasted granular index-based collection changed events,
+                // so we can skip raising an additional event for the CollectionChanged event.
+                // For non-hybrid mode we need to raise an anonymous item change event as we don't have granular index-based representation.
+                if (!_isInHybridMode)
+                {
+                    OnCollectionChangedReset();
+                }
+            }
+            else
+            {
+                OnSetChanged(NotifyCollectionChangedAction.Remove, removedItems[0]);
+
+                // When in hybrid-mode we already have broadcasted granular index-based collection changed events,
+                // so we can skip raising an additional event for the CollectionChanged event.
+                // For non-hybrid mode we need to raise an anonymous item change event as we don't have granular index-based representation.
+                if (!_isInHybridMode)
+                {
+                    OnCollectionChanged(NotifyCollectionChangedAction.Remove, removedItems[0], -1);
+                }
             }
         }
     }
 
-    private IndexedHashSetDelta<TItem> HybridModeSymmetricExceptWithUniqueHashSetInternal(HashSet<TItem> other)
+    private void HybridModeSymmetricExceptWithUniqueHashSetInternal(HashSet<TItem> other)
     {
         // Important: don't allow duplicates in List<KeyValuePair<int, TItem>>.
         // It's not possible to create duplicates in this context.
         // This is just a reminder for future refactoring.
-        List<KeyValuePair<int, TItem>> removedItems = [];
-        List<KeyValuePair<int, TItem>> addedItems = [];
+        //
+        // WPF’s collection/view pipeline is explicitly designed for incremental replay of single-item changes.
+        // CollectionView.ProcessCollectionChanged handles one change at a time, and ListCollectionView.ProcessCollectionChangedWithAdjustedIndex
+        // updates internal state incrementally. That is the normal fast path.
+        // WPF explicitly rejects range add / remove / replace / move events,
+        // so the real choices are basically many single-item events or one brutal Reset.
+
+        List<KeyValuePair<int, TItem>> removedItemEntries = [];
+        List<TItem> removedItems = [];
 
         // We must process all removes before we can process adds, otherwise we might end up with stale indices since a remove operation can shift indices.
         List<TItem> addedPendingPool = [];
-
-        int smallestChangeIndex = int.MaxValue;
         foreach (TItem item in other)
         {
-            if (RemoveInternal(item, isRebuildIndexRequired: false, out int itemIndex))
+            if (_indexTable.TryGetValue(item, out int existingItemIndex))
             {
-                removedItems.Add(new KeyValuePair<int, TItem>(itemIndex, item));
-                smallestChangeIndex = Math.Min(smallestChangeIndex, itemIndex);
+                removedItemEntries.Add(new KeyValuePair<int, TItem>(existingItemIndex, item));
             }
             else
             {
@@ -827,35 +934,64 @@ public class ObservableHashSet<TItem> :
             }
         }
 
-        bool hasRemovedItems = removedItems.Count > 0;
-        if (hasRemovedItems)
+        bool isResetRequired = removedItemEntries.Count + addedPendingPool.Count > MaxNumberOfSingleItemChangesBeforeBatchChange;
+        if (isResetRequired)
         {
-            // We only need to sort removed items by their original indices to ensure correct order of index-based collection changed events.
-            // Soring in descending order ensures that when we later dispatch them from end to beginning to ensure event handlers can process arriving events live the removed items to raise collection changed events, we will be processing them from the highest index to the lowest index, which is important to maintain correct indices for subsequent changes.
-            removedItems.Sort((item1, item2) => item2.Key.CompareTo(item1.Key));
+            // When there are too many changes, it's more efficient to raise a Reset event instead of many single-item events.
+            // This is because if single-item events are too many, then the dispatcher thread could be flooded causing the UI to freeze.
+            if (RemoveRangeInternal(removedItems, isRebuildIndexRequired: true, out removedItems, out _)
+                || AddRangeInternal(addedPendingPool, out _, out _))
+            {
+                OnCollectionChangedReset();
+                BroadcastDefaultSetChangedEvents(addedPendingPool, removedItems);
+            }
 
-            BuildIndex(smallestChangeIndex);
+            return;
         }
 
-        if (addedPendingPool.Count > 0)
+        bool hasRemovedItems = removedItemEntries.Count > 0;
+        if (hasRemovedItems)
         {
+            // We only need to sort removed items by their original indices in descending order to ensure optimal order for UI data binding.
+            // However, the real index will potentially change/shift as we process removes,
+            // but since we are removing from the end towards the start, the ordering will remain correct.
+            removedItemEntries.Sort((item1, item2) => item2.Key.CompareTo(item1.Key));
+
+            // Dispatch single-item remove events in descending order of indices to minimize index shifting issues for subsequent removes.
+            foreach (KeyValuePair<int, TItem> removedItem in removedItemEntries)
+            {
+                TItem item = removedItem.Value;
+                // Item exists in the set, so it should be removed as part of the symmetric difference operation.
+
+                if (RemoveInternal(item, isRebuildIndexRequired: true, out int correctedItemIndex))
                 {
-                if (AddInternal(item, out int itemIndex))
-                {
-                    addedItems.Add(new KeyValuePair<int, TItem>(itemIndex, item));
+                    OnCollectionChanged(NotifyCollectionChangedAction.Remove, item, correctedItemIndex);
                 }
             }
         }
 
-        // Since added items are essentially appended sequentially to the end of the list projection,
-        // they are already sorted by index and we don't need to sort them again.
-        // We only need to sort removed items by their original indices to ensure correct order of index-based collection changed events.
+        bool hasAddedItems = addedPendingPool.Count > 0;
+        if (hasAddedItems)
+        {
+            // Dispatch single-item add events in the original order of items to avoid index shifts on the listener side (e.g. WPF data binding).
+            foreach (TItem item in addedPendingPool)
+            {
+                if (AddInternal(item, out int itemIndex))
+                {
+                    OnCollectionChanged(NotifyCollectionChangedAction.Add, item, itemIndex);
+                }
+            }
+        }
 
-        bool hasChanges = addedItems.Count > 0 || hasRemovedItems;
-        return new IndexedHashSetDelta<TItem>(addedItems.AsReadOnly(), removedItems.AsReadOnly(), hasChanges);
+        if (hasAddedItems || hasRemovedItems)
+        {
+            BroadcastDefaultSetChangedEvents(addedPendingPool, removedItems);
+        }
+
+        return;
     }
 
-    private HashSetDelta<TItem> SymmetricExceptWithUniqueHashSetInternal(HashSet<TItem> other)
+    private void SymmetricExceptWithUniqueHashSetInternal(HashSet<TItem> other)
     {
         var removedItems = new List<TItem>();
         var addedItems = new List<TItem>();
@@ -874,7 +1010,14 @@ public class ObservableHashSet<TItem> :
         }
 
         bool hasChanges = addedItems.Count > 0 || removedItems.Count > 0;
-        return new HashSetDelta<TItem>(addedItems.AsReadOnly(), removedItems.AsReadOnly(), hasChanges);
+        if (hasChanges)
+        {
+            OnCountChanged();
+            OnIndexerChanged();
+            BroadcastDefaultSetChangedEvents(addedItems, removedItems);
+        }
+
+        return;
     }
 
     /// <summary>

@@ -1212,6 +1212,16 @@ public static partial class HelperExtensionsCommon
     public static IEnumerable<TItem> OrEmpty<TItem>(this IEnumerable<TItem>? source) => source ?? Enumerable.Empty<TItem>();
 
     /// <summary>
+    /// Returns the specified <see cref="ICollection{TItem}"/> if it is not <see langword="null"/>; otherwise, returns an empty <see cref="IEnumerable{TItem}"/>.
+    /// </summary>
+    /// <remarks>This method simplifies <see langword="null"/> checks by ensuring that a <see cref="ICollection{TItem}"/> is never <see langword="null"/>, which can
+    /// help prevent <see cref="NullReferenceException"/> in client code.</remarks>
+    /// <typeparam name="TItem">The type of the <see cref="ICollection{TItem}"/> items..</typeparam>
+    /// <param name="source">The <see cref="ICollection{TItem}"/> to return if it is not <see langword="null"/>.</param>
+    /// <returns>The original <see cref="ICollection{TItem}"/> if it is not <see langword="null"/>; otherwise, an empty <see cref="ICollection{TItem}"/>.</returns>
+    public static ICollection<TItem> OrEmpty<TItem>(this ICollection<TItem>? source) => source ?? Array.Empty<TItem>();
+
+    /// <summary>
     /// Returns the specified <see cref="List{TItem}"/> if it is not <see langword="null"/>; otherwise, returns an empty <see cref="List{TItem}"/>.
     /// </summary>
     /// <remarks>This method simplifies <see langword="null"/> checks by ensuring that a <see cref="List{TItem}"/> is never <see langword="null"/>, which can
