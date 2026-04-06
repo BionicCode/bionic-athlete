@@ -749,15 +749,112 @@ public partial class ObservableHashSet<TItem> :
 
         CheckReentrancy();
 
-        //HashSet<TItem> oldState = TakeSnapshot();
-        Items.ExceptWith(other);
+        // This is already the empty set; return.
+        if (Count == 0)
+        {
+            return;
+        }
 
-        //HashSetDelta<TItem> hashSetDelta = GetDelta(oldState, DeltaType.Remove);
-        //_ = UnregisterItems(hashSetDelta.RemovedItems, out _);
+        // Special case if other is this; a set minus itself is the empty set.
+        if (ReferenceEquals(other, this))
+        {
+            Clear();
+            return;
+        }
 
-        OnCountChanged();
-        OnIndexerChanged();
-        OnCollectionChangedReset();
+        if (other is ICollection<TItem> otherAsCollection
+            && otherAsCollection.Count == 0)
+        {
+            return;
+        }
+
+        if (_isInHybridMode)
+        {
+            HybridModeExceptWithInternal(other);
+        }
+        else
+        {
+            DefaultModeExceptWithInternal(other);
+        }
+    }
+
+    private void HybridModeExceptWithInternal(IEnumerable<TItem> other)
+    {
+        // Remove every element in other from this.
+        Debug.Assert(_isInHybridMode == true, "This method is only for hybrid mode.");
+
+        List<KeyValuePair<int, TItem>> removeItemCandidateEntries = [];
+        foreach (TItem otherItem in other)
+        {
+            if (Contains(otherItem)
+                && _indexTable.TryGetValue(otherItem, out int itemIndex))
+            {
+                Debug.Assert(ReferenceEquals(otherItem, _listProjection[itemIndex]), "Index table is out of sync with the list projection.");
+                Debug.Assert(_reverseIndexTable.TryGetValue(itemIndex, out TItem? reverseIndexedItem) && ReferenceEquals(otherItem, reverseIndexedItem), "Reverse index table is out of sync with the list projection.");
+                removeItemCandidateEntries.Add(new KeyValuePair<int, TItem>(itemIndex, otherItem));
+            }
+        }
+
+        if (removeItemCandidateEntries.Count == 0)
+        {
+            return;
+        }
+
+        bool isResetRequired = removeItemCandidateEntries.Count > MaxNumberOfSingleItemChangesBeforeBatchChange;
+        List<TItem> removedItems = [];
+
+        // Sort in descending order to ensure that the index of the next change is not affected when raising per single-item change events.
+        removeItemCandidateEntries.Sort((x, y) => y.Key.CompareTo(x.Key));
+
+        for (int index = 0; index < removeItemCandidateEntries.Count; index++)
+        {
+            KeyValuePair<int, TItem> entry = removeItemCandidateEntries[index];
+            TItem item = entry.Value;
+
+            // When there are too many changes, it's more efficient to raise a Reset event instead of many single-item events.
+            // This is because if single-item events are too many, then the dispatcher thread could be flooded causing the UI to freeze.
+            if (RemoveInternal(item,
+                isRebuildIndexRequired: !isResetRequired,
+                isCollectionChangedRequired: !isResetRequired,
+                out _))
+            {
+                removedItems.Add(item);
+            }
+        }
+
+        bool hasChanges = removedItems.Count > 0;
+        if (isResetRequired
+            && hasChanges)
+        {
+            int lowestChangeIndex = removeItemCandidateEntries.Last().Key;
+            BuildIndex(lowestChangeIndex);
+            BroadcastBulkSetChangeEvents(NotifyCollectionChangedAction.Reset, [], removedItems, -1);
+        }
+
+        return;
+    }
+
+    private void DefaultModeExceptWithInternal(IEnumerable<TItem> other)
+    {
+        // Remove every element in other from this.
+        Debug.Assert(_isInHybridMode == false, "This method is only for default mode.");
+
+        List<TItem> removedItems = [];
+        foreach (TItem otherItem in other)
+        {
+            if (RemoveInternal(otherItem, isRebuildIndexRequired: false, isCollectionChangedRequired: false, out _))
+            {
+                removedItems.Add(otherItem);
+            }
+        }
+
+        bool hasChanges = removedItems.Count > 0;
+        if (hasChanges)
+        {
+            BroadcastBulkSetChangeEvents(NotifyCollectionChangedAction.Reset, [], removedItems, -1);
+        }
+
+        return;
     }
 
     /// <summary>
