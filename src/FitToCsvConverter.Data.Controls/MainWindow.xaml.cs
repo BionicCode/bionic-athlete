@@ -1,6 +1,8 @@
 ﻿namespace FitToCsvConverter.Controls;
 
+using System.Globalization;
 using System.Windows;
+using System.Windows.Data;
 using System.Windows.Input;
 using BionicCode.Utilities.Net;
 using FitToCsvConverter.ViewModel;
@@ -16,6 +18,7 @@ public partial class MainWindow : Window, IDisposableAdvanced
     private readonly List<CancellationTokenSource> _addFitFilesCancellationTokenSources;
     private readonly object _cancellationTokenSourceQueueSyncLock;
     private bool? _isFitFileDropAllowed;
+    private bool? _isExtraFileDropAllowed;
 
     public bool IsDisposed { get; private set; }
 
@@ -248,6 +251,31 @@ public partial class MainWindow : Window, IDisposableAdvanced
         _isFitFileDropAllowed = filePaths.Any(path => _viewModel.IsFitFilePathValid(path).IsValid);
     }
 
+    private void ProvideExtraFileDropTargetFeedBack(object sender, DragEventArgs e)
+    {
+        if (_isExtraFileDropAllowed == false)
+        {
+            e.Effects = DragDropEffects.None;
+            e.Handled = true;
+        }
+    }
+
+    private void ClearExtraFileDropTargetFeedBack(object sender, DragEventArgs e) => _isExtraFileDropAllowed = null;
+
+    private void PrepareExtraFileDropTargetFeedBack(object sender, DragEventArgs e)
+    {
+        if (!e.Data.GetDataPresent(DataFormats.FileDrop))
+        {
+            return;
+        }
+
+        string[] filePaths = (string[])e.Data.GetData(DataFormats.FileDrop, false) ?? [];
+
+        // Only disallow when all files are invalid.
+        // Otherwise, allow the drop and let the view model handle the validation and error reporting for each file.
+        _isExtraFileDropAllowed = _viewModel.ExportData.Any() && filePaths.Any(path => _viewModel.IsFilePathValid(path).IsValid);
+    }
+
     protected virtual void Dispose(bool disposing)
     {
         if (!IsDisposed)
@@ -283,5 +311,27 @@ public partial class MainWindow : Window, IDisposableAdvanced
         // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
         Dispose(disposing: true);
         GC.SuppressFinalize(this);
+    }
+}
+
+[Localizability(LocalizationCategory.NeverLocalize)]
+public sealed class BooleanToVisibilityConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        Visibility hiddenVisibility = parameter is Visibility visibility
+            ? visibility
+            : Visibility.Collapsed;
+        ArgumentExceptionAdvanced.ThrowIfEnumIsNotDefined<Visibility>(hiddenVisibility);
+
+        return (bool)value
+            ? Visibility.Visible
+            : hiddenVisibility;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        ArgumentExceptionAdvanced.ThrowIfEnumIsNotDefined<Visibility>((Visibility)value);
+        return value is Visibility visibility && visibility is Visibility.Visible;
     }
 }

@@ -1,6 +1,7 @@
 ﻿namespace FitToCsvConverter.ViewModel;
 
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Text;
@@ -22,6 +23,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
     private readonly IFitToCsvConverter _garminFitCsvToolConverter;
     private readonly ITemporaryFileManager _temporaryFileManager;
     private readonly Func<IFitActivityDecoder> _cachingFitActivityDecoderFactory;
+    private readonly Dictionary<string, ExportData> _fitFilePathToExportDataLookup;
     private readonly string _allowedFileExtensions;
     private readonly SemaphoreSlim _addFitFilesSemaphore;
 
@@ -37,6 +39,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
         _setValueOptions = SetValueOptions.Default with { IsRejectInvalidValueEnabled = true, IsThrowExceptionOnValidationErrorEnabled = true, IsRejectEqualValuesEnabled = true };
         ExportData = [];
         FitFilePaths = [];
+        _fitFilePathToExportDataLookup = [];
         _selectedFitFilePath = string.Empty;
         _destinationFolder = string.Empty;
         _zipArchiveManager = zipArchiveManager;
@@ -64,6 +67,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
         FitFilePaths.Clear();
         SelectedFitFilePath = string.Empty;
         ExportData.Clear();
+        _fitFilePathToExportDataLookup.Clear();
         SelectedExportData = null;
         RemoveAllObservableProgressData();
     }
@@ -85,7 +89,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
         return new PropertyValidationResult(true, Array.Empty<string>());
     }
 
-    public static PropertyValidationResult IsFilePathValid(string filePath)
+    public PropertyValidationResult IsFilePathValid(string filePath)
     {
         if (string.IsNullOrWhiteSpace(filePath))
         {
@@ -184,7 +188,14 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
     {
         if (FitFilePaths.Contains(filePath))
         {
-            _ = FitFilePaths.Remove(filePath);
+            Debug.Assert(_fitFilePathToExportDataLookup.ContainsKey(filePath), $"File path '{filePath}' is in '{nameof(FitFilePaths)}' collection but not in '{nameof(_fitFilePathToExportDataLookup)}' lookup.");
+            if (FitFilePaths.Remove(filePath)
+                && _fitFilePathToExportDataLookup.TryGetValue(filePath, out ExportData? exportData))
+            {
+                _ = _fitFilePathToExportDataLookup.Remove(filePath);
+                _ = ExportData.Remove(exportData);
+                SelectedExportData = ExportData.FirstOrDefault();
+            }
         }
         else
         {
@@ -226,6 +237,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
         exportData.AddExtraFilePaths([temporaryDestinationFilePath], isRenamingRequired: false);
 
         ExportData.Add(exportData);
+        _fitFilePathToExportDataLookup.Add(fitFilePath, exportData);
         SelectedExportData ??= exportData;
 
         return true;
@@ -296,7 +308,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
     public string? SelectedFitFilePath
     {
         get => _selectedFitFilePath;
-        set => _ = TrySetValue(value, value => FitFilePaths.IsEmpty() || FitFilePaths.Contains(value) ? new PropertyValidationResult(true, []) : new PropertyValidationResult(false, ["Selected file is not in the list of fit files."]), ref _selectedFitFilePath, _setValueOptions);
+        set => _ = TrySetValue(value, value => value is null || FitFilePaths.IsEmpty() || FitFilePaths.Contains(value) ? new PropertyValidationResult(true, []) : new PropertyValidationResult(false, ["Selected file is not in the list of fit files."]), ref _selectedFitFilePath, _setValueOptions);
     }
 
     public ObservableFileSystemPathHashSet FitFilePaths { get; }
@@ -307,7 +319,13 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
     public ExportData? SelectedExportData
     {
         get => _selectedExportData;
-        set => TrySetValue(value, ref _selectedExportData);
+        set
+        {
+            if (TrySetValue(value, ref _selectedExportData))
+            {
+                SelectedFitFilePath = value?.FitFilePath;
+            }
+        }
     }
 
     private PropertyValidationDelegate<ObservableFileSystemPathHashSet> IsFitFilePathsValid() => fitFilePaths =>
@@ -325,7 +343,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
             return new PropertyValidationResult(true, Array.Empty<string>());
         };
 
-    private static PropertyValidationDelegate<string> IsFilePathsValid() => filePath =>
+    private PropertyValidationDelegate<string> IsFilePathsValid() => filePath =>
         {
             ArgumentNullExceptionAdvanced.ThrowIfNull(filePath);
 

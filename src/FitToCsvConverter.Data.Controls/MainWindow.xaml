@@ -20,7 +20,7 @@
                 <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/ProgressbarStyle.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
-            <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+            <local:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
 
             <Style  x:Key="LabelTextBlockStyle"
                     TargetType="TextBlock">
@@ -93,9 +93,10 @@
                 </Setter>
             </Style>
 
-            <Style TargetType="ListBoxItem">
+            <Style TargetType="ListBoxItem" 
+                   x:Key="ExtraFileListBoxItem">
                 <Setter Property="Background"
-                        Value="{StaticResource ExtraFileItemDefaultBackgroundBrush}" />
+                        Value="{StaticResource DefaultListItemBackgroundBrush}" />
                 <Setter Property="BorderThickness"
                         Value="1" />
                 <Setter Property="BorderBrush"
@@ -138,6 +139,47 @@
                                     <Setter Property="Background"
                                             Value="{StaticResource FileItemAutoRenamingEnabledBackgroundBrush}" />
                                 </MultiDataTrigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style TargetType="ListBoxItem">
+                <Setter Property="Background"
+                        Value="{StaticResource DefaultListItemBackgroundBrush}" />
+                <Setter Property="BorderThickness"
+                        Value="1" />
+                <Setter Property="BorderBrush"
+                        Value="Gray" />
+                <Setter Property="Margin"
+                        Value="5,0" />
+                <Setter Property="Padding"
+                        Value="5,2" />
+                <Setter Property="IsHitTestVisible"
+                        Value="True" />
+                <Setter Property="HorizontalContentAlignment"
+                        Value="Stretch" />
+                <Setter Property="ToolTip"
+                        Value="{Binding RelativeSource={RelativeSource Self}, Path=Content}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ListBoxItem">
+                            <Border Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    Padding="{TemplateBinding Padding}"
+                                    CornerRadius="6">
+                                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                            </Border>
+
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsSelected"
+                                         Value="True">
+                                    <Setter Property="Background"
+                                            Value="{StaticResource DefaultListItemHighlightBrush}" />
+                                </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
                     </Setter.Value>
@@ -286,7 +328,7 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="340" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
@@ -296,7 +338,7 @@
                                 Grid.Column="0">
                         <TextBlock Text="Discovered FIT Files:"
                                    Style="{StaticResource LabelTextBlockStyle}" />
-                        <ListBox ItemsSource="{Binding ExportData, Mode=OneTime}"
+                        <ListBox x:Name="ExportDataMasterView" ItemsSource="{Binding ExportData, Mode=OneTime}"
                                  SelectedItem="{Binding SelectedExportData}"
                                  DisplayMemberPath="FitFileName"
                                  BorderThickness="0"
@@ -311,7 +353,8 @@
 
                     <Grid Grid.Row="0"
                           Grid.Column="2"
-                          Margin="10,0,0,10">
+                          Margin="10,0,0,10"
+                          Visibility="{Binding ElementName=ExportDataMasterView, Path=HasItems, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter={x:Static Visibility.Hidden}}">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="*" />
                             <RowDefinition Height="Auto" />
@@ -365,7 +408,8 @@
 
                     <Grid Grid.Column="2"
                           Grid.Row="1"
-                          Margin="10,0">
+                          Margin="10,0"
+                          Visibility="{Binding ElementName=ExportDataMasterView, Path=HasItems, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter={x:Static Visibility.Hidden}}">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
@@ -398,9 +442,13 @@
                                  Grid.Column="0"
                                  ItemsSource="{Binding SelectedExportData.SelectedExtraFilePaths}"
                                  SelectedItem="{Binding SelectedExtraFilePath}"
+                                 ItemContainerStyle="{StaticResource ExtraFileListBoxItem}"
                                  BorderThickness="0"
                                  AllowDrop="True"
                                  Drop="OnExtraZipFileContentDropped"
+                                 DragEnter="PrepareExtraFileDropTargetFeedBack"
+                                 DragOver="ProvideExtraFileDropTargetFeedBack"
+                                 DragLeave="ClearExtraFileDropTargetFeedBack"
                                  Background="Transparent"
                                  ToolTip="Drag and drop FIT files here, either raw or as ZIP files.">
                             <ListBox.ItemTemplate>

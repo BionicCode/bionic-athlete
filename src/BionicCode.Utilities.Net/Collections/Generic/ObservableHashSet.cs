@@ -151,7 +151,7 @@ public partial class ObservableHashSet<TItem> :
     // In this mode, the collection maintains the internal index tables and list projection
     // to support the list API, which incurs additional overhead and degraded remove complexity.
     // The collection can transition back to pure hash set mode when the list API is no longer used, at which point the index tables and list projection are cleared to optimize performance for hash set operations.
-    private readonly WriteOnce<bool> _isInHybridMode;
+    private readonly WriteOnce<bool> _isInHybridMode = new();
 
     public ObservableHashSet() => Items = [];
 

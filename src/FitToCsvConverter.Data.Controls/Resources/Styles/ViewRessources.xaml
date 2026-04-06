@@ -72,6 +72,14 @@
     <SolidColorBrush x:Key="ExtraFileItemButtonBackgroundBrush"
                      Color="{StaticResource ExtraFileItemButtonBackgroundColor}"
                      Opacity="0.8" />
+    <Color x:Key="DefaultListItemBackgroundColor">#9bc3c5</Color>
+    <SolidColorBrush x:Key="DefaultListItemBackgroundBrush"
+                     Color="{StaticResource DefaultListItemBackgroundColor}"
+                     Opacity="0.8" />
+    <Color x:Key="DefaultListItemHighlightColor">PapayaWhip</Color>
+    <SolidColorBrush x:Key="DefaultListItemHighlightBrush"
+                     Color="{StaticResource DefaultListItemHighlightColor}"
+                     Opacity="0.8" />
 
     <Style TargetType="Button">
         <Style.Setters>
