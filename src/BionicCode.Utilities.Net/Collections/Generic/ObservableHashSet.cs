@@ -1410,12 +1410,12 @@ public partial class ObservableHashSet<TItem> :
     /// Returns an enumerator that iterates through the collection.
     /// </summary>
     /// <returns>An enumerator that can be used to iterate through the collection.</returns>
-    IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable)Items).GetEnumerator();
+    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     /// <summary>
     /// Returns an enumerator that iterates through the collection.
     /// </summary>
     /// <returns>An enumerator for the collection of items.</returns>
-    IEnumerator<TItem> IEnumerable<TItem>.GetEnumerator() => ((IEnumerable<TItem>)Items).GetEnumerator();
+    IEnumerator<TItem> IEnumerable<TItem>.GetEnumerator() => GetEnumerator();
 
     private HashSetDelta<TItem> GetDelta(HashSet<TItem> oldState, DeltaType deltaType = DeltaType.AddAndRemove)
     {
@@ -1485,7 +1485,7 @@ public partial class ObservableHashSet<TItem> :
         return new ReentrancyMonitor(this);
     }
 
-    private TItem[] TakeSnapshot() => Items.ToArray();
+    protected TItem[] TakeSnapshot() => Items.ToArray();
 
     private void OnCollectionChanged(NotifyCollectionChangedAction action, TItem item, int index)
     {
@@ -1661,8 +1661,8 @@ public partial class ObservableHashSet<TItem> :
             throw new InvalidCastException($"Unable to convert '{value?.GetType().FullName ?? "NULL"}' to '{typeof(TItem).FullName}'.");
         }
 
-        return AddInternal(item, isCollectionChangedRequired: true, out int itemIndex)
-            ? itemIndex
+        return Add(item) && _indexTable.TryGetValue(item, out int index)
+            ? index
             : -1;
     }
 
@@ -1685,19 +1685,12 @@ public partial class ObservableHashSet<TItem> :
             throw new InvalidCastException($"Unable to convert '{value?.GetType().FullName ?? "NULL"}' to '{typeof(TItem).FullName}'.");
         }
 
-        InitializeListSurface();
-        return _indexTable.TryGetValue(item, out int index)
-            ? index
-            : -1;
+        return ((IList<TItem>)this).IndexOf(item);
     }
 
     [SuppressMessage("Design", "CA1033:Interface methods should be callable by child types", Justification = "Not overridable behavior. IList<T> implementation only exist to add performance boost for WPF data binding support.")]
     void IList.Insert(int index, object? value)
     {
-        InitializeListSurface();
-
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfIndexOutOfRange(index, _listProjection);
-
         if (value is not TItem item)
         {
             throw new InvalidCastException($"Unable to convert '{value?.GetType().FullName ?? "NULL"}' to '{typeof(TItem).FullName}'.");
@@ -1717,14 +1710,7 @@ public partial class ObservableHashSet<TItem> :
     }
 
     [SuppressMessage("Design", "CA1033:Interface methods should be callable by child types", Justification = "Not overridable behavior. IList<T> implementation only exist to add performance boost for WPF data binding support.")]
-    void IList.RemoveAt(int index)
-    {
-        InitializeListSurface();
-
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfIndexOutOfRange(index, _listProjection);
-
-        ((IList<TItem>)this).RemoveAt(index);
-    }
+    void IList.RemoveAt(int index) => ((IList<TItem>)this).RemoveAt(index);
 
     object? IList.this[int index]
     {
