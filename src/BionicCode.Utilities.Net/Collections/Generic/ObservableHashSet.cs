@@ -1661,6 +1661,7 @@ public partial class ObservableHashSet<TItem> :
             throw new InvalidCastException($"Unable to convert '{value?.GetType().FullName ?? "NULL"}' to '{typeof(TItem).FullName}'.");
         }
 
+        InitializeListSurface();
         return Add(item) && _indexTable.TryGetValue(item, out int index)
             ? index
             : -1;
