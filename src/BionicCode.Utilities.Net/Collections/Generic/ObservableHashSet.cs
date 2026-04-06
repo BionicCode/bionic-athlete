@@ -646,10 +646,10 @@ public partial class ObservableHashSet<TItem> :
 
         if (Count > 0)
         {
+            TItem[] oldItems = TakeSnapshot();
             ClearItems();
             _indexTable.Clear();
             _reverseIndexTable.Clear();
-            var oldItems = _listProjection.ToList();
             _listProjection.Clear();
 
             BroadcastBulkSetChangeEvents(NotifyCollectionChangedAction.Reset, [], oldItems, 0);
@@ -1153,7 +1153,7 @@ public partial class ObservableHashSet<TItem> :
     }
 
     // Normalize to HashSet<T>.
-    // If other is a hashset that uses same equality comparer, intersect is much faster
+    // If other is a hash set that uses same equality comparer, intersect is much faster
     // because we can use other's Contains
     private HashSet<TItem> NormalizeEnumerableArgument(IEnumerable<TItem> other) => other is ObservableHashSet<TItem> observableHashSet && Comparer.Equals(observableHashSet.Comparer)
         ? observableHashSet.Items
@@ -1182,14 +1182,14 @@ public partial class ObservableHashSet<TItem> :
         }
         else
         {
-            throw new NotSupportedException($"The collection changed action '{changedAction}' is not supported for single set change events. Only Add and Remove actions are supported.");
+            throw new NotSupportedException($"The collection changed action '{changedAction}' is not supported for single set change events. Only Add, Remove and Replace actions are supported.");
         }
     }
 
-    protected void BroadcastBulkSetChangeEvents(NotifyCollectionChangedAction changedAction, List<TItem>? addedItems, List<TItem>? removedItems, int changeStartIndex)
+    protected void BroadcastBulkSetChangeEvents(NotifyCollectionChangedAction changedAction, IList<TItem>? addedItems, IList<TItem>? removedItems, int changeStartIndex)
     {
-        addedItems = addedItems.OrEmpty();
-        removedItems = removedItems.OrEmpty();
+        addedItems ??= [];
+        removedItems ??= [];
 
         if (_isInHybridMode)
         {
@@ -1209,7 +1209,7 @@ public partial class ObservableHashSet<TItem> :
         }
     }
 
-    private void BroadcastDefaultSetChangedEvents(List<TItem> addedItems, List<TItem> removedItems)
+    private void BroadcastDefaultSetChangedEvents(IList<TItem> addedItems, IList<TItem> removedItems)
     {
         if (addedItems.Count == 0
             && removedItems.Count == 0)
@@ -1587,19 +1587,13 @@ public partial class ObservableHashSet<TItem> :
     {
         InitializeListSurface();
 
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfIndexOutOfRange(index, _listProjection);
-
-        TItem? replacedItem = default;
-        if (_reverseIndexTable.TryGetValue(index, out TItem? existingItem))
-        {
-            replacedItem = existingItem;
-        }
+        // index == Count  translates to appending to the end of the list for native 'List<T>.Insert(...)' behavior.
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfIndexOutOfRange(index, 0, _listProjection.Count);
 
         if (AddItem(item))
         {
             RegisterInsertedItem(item, index, isRebuildIndexRequired: true);
-
-            BroadcastSingleSetChangeEvents(NotifyCollectionChangedAction.Replace, item, index, replacedItem);
+            BroadcastSingleSetChangeEvents(NotifyCollectionChangedAction.Add, item, index);
         }
     }
 
@@ -1635,13 +1629,23 @@ public partial class ObservableHashSet<TItem> :
 
             ArgumentOutOfRangeExceptionAdvanced.ThrowIfIndexOutOfRange(index, _listProjection);
 
-            if (_reverseIndexTable.TryGetValue(index, out TItem? existingItem)
-                && RemoveItem(existingItem)
-                && AddItem(value))
+            if (_reverseIndexTable.TryGetValue(index, out TItem existingItem)
+                && RemoveItem(existingItem))
             {
-                UpdateItemAt(value, existingItem, index);
-
-                BroadcastSingleSetChangeEvents(NotifyCollectionChangedAction.Replace, value, index, existingItem);
+                if (AddItem(value))
+                {
+                    UpdateItemAt(value, existingItem, index);
+                    BroadcastSingleSetChangeEvents(NotifyCollectionChangedAction.Replace, value, index, existingItem);
+                }
+                else
+                {
+                    // Roll back
+                    if (!AddItem(existingItem))
+                    {
+                        // This should never happen as we just removed the existing item, but we should at least try to keep the internal state consistent in this case.
+                        throw new InvalidOperationException($"Failed to roll back after failed attempt to replace item at index '{index}' with value '{value}'. The collection is now in an inconsistent state.");
+                    }
+                }
             }
         }
     }
