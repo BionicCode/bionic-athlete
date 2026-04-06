@@ -351,7 +351,7 @@ public partial class ObservableHashSet<TItem> :
     {
         CheckReentrancy();
 
-        return RemoveInternal(item, isRebuildIndexRequired: _isInHybridMode, isCollectionChangedRequired: _isInHybridMode, out _);
+        return RemoveInternal(item, isRebuildIndexRequired: _isInHybridMode, isCollectionChangedRequired: true, out _);
     }
 
     private bool RemoveInternal(TItem item, bool isRebuildIndexRequired, bool isCollectionChangedRequired, out int itemIndex)
@@ -1366,9 +1366,16 @@ public partial class ObservableHashSet<TItem> :
         for (int index = changeIndex; index < _listProjection.Count; index++)
         {
             TItem indexedItem = _listProjection[index];
-            int oldIndex = _indexTable[indexedItem];
+
+            // Ensure that the reverse table does not contain stale indices after we update the table with the new index for the indexed item.
+            // Otherwise, multiple indices could point to the same item or remain in the set despite the item being already removed.
+            // The main reason for this is that middle remove operations cause a shift of indices to the left.
+            if (_indexTable.TryGetValue(indexedItem, out int oldIndex))
+            {
+                _ = _reverseIndexTable.Remove(oldIndex);
+            }
+
             _indexTable[indexedItem] = index;
-            _ = _reverseIndexTable.Remove(oldIndex);
             _reverseIndexTable[index] = indexedItem;
         }
 
@@ -1578,14 +1585,14 @@ public partial class ObservableHashSet<TItem> :
     [SuppressMessage("Design", "CA1033:Interface methods should be callable by child types", Justification = "Not overridable behavior. IList<T> implementation only exist to add performance boost for WPF data binding support.")]
     void IList<TItem>.Insert(int index, TItem item)
     {
+        InitializeListSurface();
+
         ArgumentOutOfRangeExceptionAdvanced.ThrowIfIndexOutOfRange(index, _listProjection);
 
-        InitializeListSurface();
         TItem? replacedItem = default;
         if (_reverseIndexTable.TryGetValue(index, out TItem? existingItem))
         {
             replacedItem = existingItem;
-            UpdateItemAt(item, existingItem, index);
         }
 
         if (AddItem(item))
@@ -1599,9 +1606,9 @@ public partial class ObservableHashSet<TItem> :
     [SuppressMessage("Design", "CA1033:Interface methods should be callable by child types", Justification = "Not overridable behavior. IList<T> implementation only exist to add performance boost for WPF data binding support.")]
     void IList<TItem>.RemoveAt(int index)
     {
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfIndexOutOfRange(index, _listProjection);
-
         InitializeListSurface();
+
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfIndexOutOfRange(index, _listProjection);
 
         if (_reverseIndexTable.TryGetValue(index, out TItem? item))
         {
@@ -1614,9 +1621,9 @@ public partial class ObservableHashSet<TItem> :
         [SuppressMessage("Design", "CA1033:Interface methods should be callable by child types", Justification = "Not overridable behavior. IList<T> implementation only exist to add performance boost for WPF data binding aupport.")]
         get
         {
-            ArgumentOutOfRangeExceptionAdvanced.ThrowIfIndexOutOfRange(index, _listProjection);
-
             InitializeListSurface();
+
+            ArgumentOutOfRangeExceptionAdvanced.ThrowIfIndexOutOfRange(index, _listProjection);
 
             return _listProjection[index];
         }
@@ -1624,16 +1631,17 @@ public partial class ObservableHashSet<TItem> :
         [SuppressMessage("Design", "CA1033:Interface methods should be callable by child types", Justification = "Not overridable behavior. IList<T> implementation only exist to add performance boost for WPF data binding aupport.")]
         set
         {
-            ArgumentOutOfRangeExceptionAdvanced.ThrowIfIndexOutOfRange(index, _listProjection);
-
             InitializeListSurface();
 
-            if (_reverseIndexTable.TryGetValue(index, out TItem? existingItem))
+            ArgumentOutOfRangeExceptionAdvanced.ThrowIfIndexOutOfRange(index, _listProjection);
+
+            if (_reverseIndexTable.TryGetValue(index, out TItem? existingItem)
+                && RemoveItem(existingItem)
+                && AddItem(value))
             {
                 UpdateItemAt(value, existingItem, index);
 
-                OnIndexerChanged();
-                OnCollectionChanged(NotifyCollectionChangedAction.Replace, value, index);
+                BroadcastSingleSetChangeEvents(NotifyCollectionChangedAction.Replace, value, index, existingItem);
             }
         }
     }
@@ -1682,14 +1690,14 @@ public partial class ObservableHashSet<TItem> :
     [SuppressMessage("Design", "CA1033:Interface methods should be callable by child types", Justification = "Not overridable behavior. IList<T> implementation only exist to add performance boost for WPF data binding support.")]
     void IList.Insert(int index, object? value)
     {
+        InitializeListSurface();
+
         ArgumentOutOfRangeExceptionAdvanced.ThrowIfIndexOutOfRange(index, _listProjection);
 
         if (value is not TItem item)
         {
             throw new InvalidCastException($"Unable to convert '{value?.GetType().FullName ?? "NULL"}' to '{typeof(TItem).FullName}'.");
         }
-
-        InitializeListSurface();
 
         ((IList<TItem>)this).Insert(index, item);
     }
@@ -1701,17 +1709,15 @@ public partial class ObservableHashSet<TItem> :
             throw new InvalidCastException($"Unable to convert '{value?.GetType().FullName ?? "NULL"}' to '{typeof(TItem).FullName}'.");
         }
 
-        InitializeListSurface();
-
         _ = Remove(item);
     }
 
     [SuppressMessage("Design", "CA1033:Interface methods should be callable by child types", Justification = "Not overridable behavior. IList<T> implementation only exist to add performance boost for WPF data binding support.")]
     void IList.RemoveAt(int index)
     {
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfIndexOutOfRange(index, _listProjection);
-
         InitializeListSurface();
+
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfIndexOutOfRange(index, _listProjection);
 
         ((IList<TItem>)this).RemoveAt(index);
     }
@@ -1719,11 +1725,7 @@ public partial class ObservableHashSet<TItem> :
     object? IList.this[int index]
     {
         [SuppressMessage("Design", "CA1033:Interface methods should be callable by child types", Justification = "Not overridable behavior. IList<T> implementation only exist to add performance boost for WPF data binding support.")]
-        get
-        {
-            InitializeListSurface();
-            return ((IList<TItem>)this)[index];
-        }
+        get => ((IList<TItem>)this)[index];
 
         [SuppressMessage("Design", "CA1033:Interface methods should be callable by child types", Justification = "Not overridable behavior. IList<T> implementation only exist to add performance boost for WPF data binding support.")]
         set
@@ -1732,8 +1734,6 @@ public partial class ObservableHashSet<TItem> :
             {
                 throw new InvalidCastException($"Unable to convert '{value?.GetType().FullName ?? "NULL"}' to '{typeof(TItem).FullName}'.");
             }
-
-            InitializeListSurface();
 
             ((IList<TItem>)this)[index] = item;
         }
