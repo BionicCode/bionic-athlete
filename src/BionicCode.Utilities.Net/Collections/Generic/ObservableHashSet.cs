@@ -319,12 +319,12 @@ public partial class ObservableHashSet<TItem> :
     }
 
     /// <summary>
-    /// Attempts to find a removedItem in the set that is equal to the specified item.
+    /// Attempts to find a item in the set that is equal to the specified item.
     /// </summary>
     /// <param name="equalValue">The item to search for in the set. Equality is determined by the set's comparer.</param>
-    /// <param name="actualValue">When this method returns <see langword="true"/>, contains the removedItem from the set that is equal to <paramref
-    /// name="equalValue"/>; otherwise, contains the default removedItem for the type.</param>
-    /// <returns><see langword="true"/> if a removedItem equal to <paramref name="equalValue"/> was found in the set; otherwise, <see
+    /// <param name="actualValue">When this method returns <see langword="true"/>, contains the item from the set that is equal to <paramref
+    /// name="equalValue"/>; otherwise, contains the default item for the type.</param>
+    /// <returns><see langword="true"/> if an item equal to <paramref name="equalValue"/> was found in the set; otherwise, <see
     /// langword="false"/>.</returns>
     public bool TryGetValue(TItem equalValue, [MaybeNullWhen(false)] out TItem actualValue) => TryGetItem(equalValue, out actualValue);
 
@@ -1161,7 +1161,7 @@ public partial class ObservableHashSet<TItem> :
             ? hashSet
             : new HashSet<TItem>(other, Comparer);
 
-    protected void BroadcastSingleSetChangeEvents(NotifyCollectionChangedAction changedAction, TItem item, int changeIndex)
+    protected void BroadcastSingleSetChangeEvents(NotifyCollectionChangedAction changedAction, TItem item, int changeIndex, TItem oldItem = default)
     {
         if (_isInHybridMode)
         {
@@ -1175,6 +1175,10 @@ public partial class ObservableHashSet<TItem> :
         else if (changedAction is NotifyCollectionChangedAction.Remove)
         {
             BroadcastDefaultSetChangedEvents([], [item]);
+        }
+        else if (changedAction is NotifyCollectionChangedAction.Replace)
+        {
+            BroadcastDefaultSetChangedEvents([item], [oldItem]);
         }
         else
         {
@@ -1285,32 +1289,6 @@ public partial class ObservableHashSet<TItem> :
         }
     }
 
-    /// <summary>
-    /// Registers the specified items with the index tables and list projection, and returns the indices of the registered items.
-    /// </summary>
-    /// <remarks><b>When in hybrid mode</b> the result indices list <paramref name="indices"/> will be populated with the indices of the registered items <b>in the original order</b> in which they were provided by the <paramref name="addedItems"/> collection.</remarks>
-    /// <param name="addedItems">The collection of items to be registered.</param>
-    /// <param name="indices">The list that will be populated with the indices of the registered items <b>in the original order</b> in which they were provided by the <paramref name="addedItems"/> collection.</param>
-    /// <returns><see langword="true"/> if any items were registered; otherwise, <see langword="false"/>.</returns>
-    private bool RegisterItems(IEnumerable<TItem> addedItems, out IList<int> indices)
-    {
-        indices = [];
-        if (!_isInHybridMode)
-        {
-            return false;
-        }
-
-        foreach (TItem removedItem in addedItems)
-        {
-            if (RegisterItem(removedItem, out int itemIndex))
-            {
-                indices.Add(itemIndex);
-            }
-        }
-
-        return true;
-    }
-
     private bool RegisterItem(TItem item, out int itemIndex)
     {
         itemIndex = -1;
@@ -1356,41 +1334,6 @@ public partial class ObservableHashSet<TItem> :
             BuildIndex(changeIndex);
         }
     }
-
-    ///// <summary>
-    ///// Unregisters the specified items from the index tables and list projection, and returns the indices of the removed items.
-    ///// </summary>
-    ///// <remarks>The result indices list <paramref name="indices"/> will be populated with the indices of the removed items <b>in the original order</b> in which they were provided by the <paramref name="removedItems"/> collection.</remarks>
-    ///// <param name="removedItems">The collection of items to be removed.</param>
-    ///// <param name="indices">The list that will be populated with the indices of the removed items <b>in the original order</b> in which they were provided by the <paramref name="removedItems"/> collection.</param>
-    ///// <returns><see langword="true"/> if any items were removed; otherwise, <see langword="false"/>.</returns>
-    //private bool UnregisterItems(IEnumerable<TItem> removedItems, out IList<int> indices)
-    //{
-    //    indices = [];
-    //    if (!_isInHybridMode)
-    //    {
-    //        return false;
-    //    }
-
-    //    int changeStartIndex = int.MaxValue;
-    //    foreach (TItem removedItem in removedItems)
-    //    {
-    //        if (UnregisterItem(removedItem, isRebuildIndexRequired: false, out int itemIndex))
-    //        {
-    //            indices.Add(itemIndex);
-    //            changeStartIndex = Math.Min(changeStartIndex, itemIndex);
-    //        }
-    //    }
-
-    //    if (indices.Count == 0)
-    //    {
-    //        return false;
-    //    }
-
-    //    BuildIndex(changeStartIndex);
-
-    //    return true;
-    //}
 
     private bool UnregisterItem(TItem item, bool isRebuildIndexRequired, out int itemIndex)
     {
@@ -1638,14 +1581,18 @@ public partial class ObservableHashSet<TItem> :
         ArgumentOutOfRangeExceptionAdvanced.ThrowIfIndexOutOfRange(index, _listProjection);
 
         InitializeListSurface();
+        TItem? replacedItem = default;
+        if (_reverseIndexTable.TryGetValue(index, out TItem? existingItem))
+        {
+            replacedItem = existingItem;
+            UpdateItemAt(item, existingItem, index);
+        }
 
         if (AddItem(item))
         {
             RegisterInsertedItem(item, index, isRebuildIndexRequired: true);
 
-            OnCountChanged();
-            OnIndexerChanged();
-            OnCollectionChanged(NotifyCollectionChangedAction.Add, item, index);
+            BroadcastSingleSetChangeEvents(NotifyCollectionChangedAction.Replace, item, index, replacedItem);
         }
     }
 
@@ -1977,18 +1924,7 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(match);
 
-        string[] snapshot = Items.ToArray();
-        int removedCount = 0;
-        foreach (string item in snapshot)
-        {
-            var fileInfo = new FileInfo(item);
-            if (match(fileInfo) && Remove(item))
-            {
-                removedCount++;
-            }
-        }
-
-        return removedCount;
+        return base.RemoveWhere(fileSystemPath => match.Invoke(new FileInfo(fileSystemPath)));
     }
 
     /// <summary>
@@ -2002,18 +1938,7 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(match);
 
-        string[] snapshot = Items.ToArray();
-        int removedCount = 0;
-        foreach (string item in snapshot)
-        {
-            var directoryInfo = new DirectoryInfo(item);
-            if (match(directoryInfo) && Remove(item))
-            {
-                removedCount++;
-            }
-        }
-
-        return removedCount;
+        return base.RemoveWhere(fileSystemPath => match.Invoke(new DirectoryInfo(fileSystemPath)));
     }
 
     public bool TryGetValue(FileInfo item, [MaybeNullWhen(false)] out FileInfo value)
@@ -2021,10 +1946,10 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
         ArgumentNullExceptionAdvanced.ThrowIfNull(item);
 
         value = default;
-        if (Items.TryGetValue(item.FullName, out string? stringValue))
-        {
-            value = new FileInfo(stringValue);
 
+        if (base.TryGetValue(item.FullName, out _))
+        {
+            value = item;
             return true;
         }
 
@@ -2036,10 +1961,10 @@ public sealed class ObservableFileSystemPathHashSet : ObservableHashSet<string>
         ArgumentNullExceptionAdvanced.ThrowIfNull(item);
 
         value = default;
-        if (Items.TryGetValue(item.FullName, out string? stringValue))
-        {
-            value = new DirectoryInfo(stringValue);
 
+        if (base.TryGetValue(item.FullName, out _))
+        {
+            value = item;
             return true;
         }
 
