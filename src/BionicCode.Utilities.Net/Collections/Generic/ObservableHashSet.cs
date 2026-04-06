@@ -5,6 +5,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Runtime.CompilerServices;
@@ -268,6 +269,7 @@ public partial class ObservableHashSet<TItem> :
         CheckReentrancy();
 
         addedItems = [];
+
         if (AddRangeInternal(items, isCollectionChangedPerItemRequired: true, isManualResetRequired: false, out List<TItem> addedItemsList, out _))
         {
             addedItems = addedItemsList;
@@ -349,7 +351,7 @@ public partial class ObservableHashSet<TItem> :
     {
         CheckReentrancy();
 
-        return RemoveInternal(item, isRebuildIndexRequired: true, isCollectionChangedRequired: true, out _);
+        return RemoveInternal(item, isRebuildIndexRequired: _isInHybridMode, isCollectionChangedRequired: _isInHybridMode, out _);
     }
 
     private bool RemoveInternal(TItem item, bool isRebuildIndexRequired, bool isCollectionChangedRequired, out int itemIndex)
@@ -389,11 +391,13 @@ public partial class ObservableHashSet<TItem> :
 
         return _isInHybridMode
             ? HybridModeRemoveRangeInternal(items, out removedItems) > 0
-            : RemoveRangeInternal(items, isRebuildIndexRequired: false, isCollectionChangedPerItemRequired: false, isManualResetRequired: false, out removedItems, out _);
+            : DefaultModeRemoveRangeInternal(items, out removedItems, out _);
     }
 
     private int HybridModeRemoveRangeInternal(ICollection<TItem> items, out List<TItem> removedItems)
     {
+        Debug.Assert(_isInHybridMode == true, "This method is only for hybrid mode.");
+
         if (items.Count == 0)
         {
             removedItems = [];
@@ -405,6 +409,8 @@ public partial class ObservableHashSet<TItem> :
         {
             if (_indexTable.TryGetValue(item, out int itemIndex))
             {
+                Debug.Assert(ReferenceEquals(item, _listProjection[itemIndex]), "Index table is out of sync with the list projection.");
+                Debug.Assert(_reverseIndexTable.TryGetValue(itemIndex, out TItem? reverseIndexedItem) && ReferenceEquals(item, reverseIndexedItem), "Reverse index table is out of sync with the list projection.");
                 removeItemCandidateEntries.Add(new KeyValuePair<int, TItem>(itemIndex, item));
             }
         }
@@ -441,6 +447,21 @@ public partial class ObservableHashSet<TItem> :
         }
 
         return removedItems.Count;
+    }
+
+    protected bool DefaultModeRemoveRangeInternal(ICollection<TItem>? items,
+        [NotNullWhen(true)] out List<TItem> removedItems,
+        [NotNullWhen(true)] out List<int> removedIndices)
+    {
+        Debug.Assert(_isInHybridMode == false, "This method is only for default mode.");
+
+        return RemoveRangeInternal(
+            items,
+            isRebuildIndexRequired: false,
+            isCollectionChangedPerItemRequired: false,
+            isManualResetRequired: false,
+            out removedItems,
+            out removedIndices);
     }
 
     protected bool RemoveRangeInternal(ICollection<TItem>? items,
@@ -524,11 +545,13 @@ public partial class ObservableHashSet<TItem> :
 
         return _isInHybridMode
             ? HybridModeRemoveWhereInternal(match)
-            : RemoveWhereInternal(match);
+            : DefaultModeRemoveWhereInternal(match);
     }
 
     private int HybridModeRemoveWhereInternal(Predicate<TItem> match)
     {
+        Debug.Assert(_isInHybridMode == true, "This method is only for hybrid mode.");
+
         if (Items.Count == 0)
         {
             return 0;
@@ -538,9 +561,11 @@ public partial class ObservableHashSet<TItem> :
         for (int index = _listProjection.Count - 1; index >= 0; index--)
         {
             TItem item = _listProjection[index];
+            Debug.Assert(_reverseIndexTable.TryGetValue(index, out TItem? reverseIndexedItem) && ReferenceEquals(item, reverseIndexedItem), "Reverse index table is out of sync with the list projection.");
             if (match.Invoke(item)
                 && _indexTable.TryGetValue(item, out int itemIndex))
             {
+                Debug.Assert(itemIndex == index, "Index table is out of sync with the list projection.");
                 removeItemCandidateEntries.Add(new KeyValuePair<int, TItem>(itemIndex, item));
             }
         }
@@ -575,8 +600,10 @@ public partial class ObservableHashSet<TItem> :
         return removedItems.Count;
     }
 
-    private int RemoveWhereInternal(Predicate<TItem> match)
+    private int DefaultModeRemoveWhereInternal(Predicate<TItem> match)
     {
+        Debug.Assert(_isInHybridMode == false, "This method is only for default mode.");
+
         var removedItems = new List<TItem>();
 
         TItem[] items = TakeSnapshot();
@@ -747,7 +774,9 @@ public partial class ObservableHashSet<TItem> :
     /// Returns an enumerator that iterates through the collection.
     /// </summary>
     /// <returns>An enumerator that can be used to iterate through the items in the collection.</returns>
-    public Enumerator GetEnumerator() => new(_listProjection);
+    public Enumerator GetEnumerator() => _isInHybridMode
+        ? new(_listProjection)
+        : new Enumerator(Items);
     /// <summary>
     /// Modifies the current set to contain only elements that are also in the specified collection.
     /// </summary>
@@ -783,7 +812,7 @@ public partial class ObservableHashSet<TItem> :
             }
         }
 
-        // If other is a hashset that uses same equality comparer, intersect is much faster
+        // If other is a hash set that uses same equality comparer, intersect is much faster
         // because we can use other's Contains
         HashSet<TItem> otherAsHashSet = NormalizeEnumerableArgument(other);
         if (otherAsHashSet.Count == 0)
@@ -798,19 +827,23 @@ public partial class ObservableHashSet<TItem> :
         }
         else
         {
-            IntersectWithInternal(otherAsHashSet);
+            DefaultModeIntersectWithInternal(otherAsHashSet);
         }
     }
 
     private void HybridModeIntersectWithInternal(HashSet<TItem> other)
     {
+        Debug.Assert(_isInHybridMode == true, "This method is only for hybrid mode.");
+
         List<KeyValuePair<int, TItem>> removeItemCandidateEntries = [];
         for (int index = _listProjection.Count - 1; index >= 0; index--)
         {
             TItem item = _listProjection[index];
+            Debug.Assert(_reverseIndexTable.TryGetValue(index, out TItem? itemFromLookupTable) && ReferenceEquals(item, itemFromLookupTable), "Index table is out of sync with the list projection.");
             if (!other.Contains(item)
                 && _indexTable.TryGetValue(item, out int itemIndex))
             {
+                Debug.Assert(itemIndex == index, "Index table is out of sync with the list projection.");
                 removeItemCandidateEntries.Add(new KeyValuePair<int, TItem>(itemIndex, item));
             }
         }
@@ -845,8 +878,10 @@ public partial class ObservableHashSet<TItem> :
         return;
     }
 
-    private void IntersectWithInternal(HashSet<TItem> other)
+    private void DefaultModeIntersectWithInternal(HashSet<TItem> other)
     {
+        Debug.Assert(_isInHybridMode == false, "This method is only for default mode.");
+
         var removedItems = new List<TItem>();
 
         TItem[] items = TakeSnapshot();
@@ -959,7 +994,7 @@ public partial class ObservableHashSet<TItem> :
             return;
         }
 
-        // If other is a hashset that uses same equality comparer, intersect is much faster
+        // If other is a hash set that uses same equality comparer, intersect is much faster
         // because we can use other's Contains
         HashSet<TItem> otherAsHashSet = NormalizeEnumerableArgument(other);
 
@@ -969,7 +1004,151 @@ public partial class ObservableHashSet<TItem> :
         }
         else
         {
-            SymmetricExceptWithInternal(otherAsHashSet);
+            DefaultModeSymmetricExceptWithInternal(otherAsHashSet);
+        }
+    }
+
+    private void HybridModeSymmetricExceptWithInternal(HashSet<TItem> other)
+    {
+
+        Debug.Assert(_isInHybridMode == true, "This method is only for hybrid mode.");
+
+        // Important: don't allow duplicates in List<KeyValuePair<int, TItem>>.
+        // It's not possible to create duplicates in this context.
+        // This is just a reminder for future refactoring.
+        //
+        // WPF’s collection/view pipeline is explicitly designed for incremental replay of single-item changes.
+        // CollectionView.ProcessCollectionChanged handles one change at a time, and ListCollectionView.ProcessCollectionChangedWithAdjustedIndex
+        // updates internal state incrementally. That is the normal fast path.
+        // WPF explicitly rejects range add / remove / replace / move events,
+        // so the real choices are basically many single-item events or one brutal Reset.
+
+        List<KeyValuePair<int, TItem>> removeItemCandidateEntries = [];
+
+        // We must process all removes before we can process adds, otherwise we might end up with stale indices since a remove operation can shift indices.
+        List<TItem> addedPendingPool = [];
+        foreach (TItem item in other)
+        {
+            if (_indexTable.TryGetValue(item, out int existingItemIndex))
+            {
+                Debug.Assert(ReferenceEquals(item, _listProjection[existingItemIndex]), "Index table is out of sync with the list projection.");
+                Debug.Assert(_reverseIndexTable.TryGetValue(existingItemIndex, out TItem? itemFromReverseLookup) && ReferenceEquals(item, itemFromReverseLookup), "Reverse index table is out of sync with the list projection.");
+
+                removeItemCandidateEntries.Add(new KeyValuePair<int, TItem>(existingItemIndex, item));
+            }
+            else
+            {
+                addedPendingPool.Add(item);
+            }
+        }
+
+        // We only need to sort removed items by their original indices in descending order to ensure optimal order for UI data binding.
+        // However, the real index will potentially change/shift as we process removes,
+        // but since we are removing from the end towards the start, the ordering will remain correct.
+        removeItemCandidateEntries.Sort((item1, item2) => item2.Key.CompareTo(item1.Key));
+
+        bool isResetRequired = removeItemCandidateEntries.Count + addedPendingPool.Count > MaxNumberOfSingleItemChangesBeforeBatchChange;
+        List<TItem> addedItems = [];
+        List<TItem> removedItems = [];
+        bool hasChanges = false;
+        int lowestChangeIndex = int.MaxValue;
+
+        // When there are too many changes, it's more efficient to raise a Reset event instead of many single-item events.
+        // This is because if single-item events are too many, then the dispatcher thread could be flooded causing the UI to freeze.
+        // We set argument 'isManualResetRequired' to true so that we can dispatch a single bulk event for remove and add operations together.
+        foreach (KeyValuePair<int, TItem> itemEntry in removeItemCandidateEntries)
+        {
+            TItem item = itemEntry.Value;
+            if (RemoveInternal(item,
+                isRebuildIndexRequired: !isResetRequired,
+                isCollectionChangedRequired: !isResetRequired,
+                out _))
+            {
+                removedItems.Add(item);
+                lowestChangeIndex = Math.Min(lowestChangeIndex, itemEntry.Key);
+            }
+
+            hasChanges = removedItems.Count > 0;
+        }
+
+        hasChanges |= AddRangeInternal(addedPendingPool,
+            isCollectionChangedPerItemRequired: !isResetRequired,
+            isManualResetRequired: isResetRequired,
+            out addedItems,
+            out _);
+
+        if (hasChanges
+            && isResetRequired)
+        {
+            if (removedItems.Count > 0)
+            {
+                BuildIndex(lowestChangeIndex);
+            }
+
+            BroadcastBulkSetChangeEvents(NotifyCollectionChangedAction.Reset, addedItems, removedItems, -1);
+        }
+    }
+
+    private void DefaultModeSymmetricExceptWithInternal(HashSet<TItem> other)
+    {
+        var removedItems = new List<TItem>();
+        var addedItems = new List<TItem>();
+
+        Debug.Assert(_isInHybridMode == false, "This method is only for default mode.");
+
+        foreach (TItem item in other)
+        {
+            if (RemoveInternal(item, isRebuildIndexRequired: false, isCollectionChangedRequired: false, out _))
+            {
+                removedItems.Add(item);
+            }
+            else
+            {
+                _ = AddInternal(item, isCollectionChangedRequired: false, out _);
+                addedItems.Add(item);
+            }
+        }
+
+        bool hasChanges = addedItems.Count > 0 || removedItems.Count > 0;
+        if (hasChanges)
+        {
+            BroadcastBulkSetChangeEvents(NotifyCollectionChangedAction.Reset, addedItems, removedItems, -1);
+        }
+
+        return;
+    }
+
+    /// <summary>
+    /// Determines whether the current set is a subset of, a superset of, or equal to the specified collection.
+    /// </summary>
+    /// <typeparam name="TAlternate">The type of the elements in the alternate lookup.</typeparam>
+    /// <param name="lookup">The alternate lookup to compare with the current set.</param>
+    /// <returns><see langword="true"/> if the alternate lookup is valid; otherwise, <see langword="false"/>.</returns>
+    public bool TryGetAlternateLookup<TAlternate>(out HashSet<TItem>.AlternateLookup<TAlternate> lookup) where TAlternate : allows ref struct => Items.TryGetAlternateLookup(out lookup);
+    /// <summary>
+    /// Adds all elements from the specified collection to the current set.
+    /// </summary>
+    /// <remarks>Duplicate elements in the specified collection are ignored. The set will contain each unique
+    /// element from both the original set and the specified collection after the operation completes.
+    /// <para/>This method raises the <see cref="CollectionChanged"/> event with <see cref="NotifyCollectionChangedAction.Add"/> action and the start index of the changes to support the <see cref="IList{T}"/> API surface.
+    /// <para/>This method raises the <see cref="PropertyChanged"/> event for the <see cref="Count"/> and the indexer properties.</remarks>
+    /// <param name="other">The collection whose elements are to be added to the set. Cannot be <see langword="null"/>.</param>
+    public void UnionWith(IEnumerable<TItem> other)
+    {
+        ArgumentNullExceptionAdvanced.ThrowIfNull(other);
+
+        CheckReentrancy();
+
+        foreach (TItem item in other)
+        {
+            _ = AddInternal(item, isCollectionChangedRequired: true, out _);
+#if DEBUG
+            if (_isInHybridMode)
+            {
+                Debug.Assert(_indexTable.TryGetValue(item, out int itemIndex) && ReferenceEquals(_listProjection[itemIndex], item), "Index table is out of sync with the list projection after UnionWith.");
+                Debug.Assert(_reverseIndexTable.TryGetValue(itemIndex, out TItem? itemFromReverseLookup) && ReferenceEquals(itemFromReverseLookup, item), "Reverse index table is out of sync with the list projection after UnionWith.");
+            }
+#endif
         }
     }
 
@@ -1103,135 +1282,6 @@ public partial class ObservableHashSet<TItem> :
                     OnCollectionChanged(NotifyCollectionChangedAction.Remove, removedItems[0], -1);
                 }
             }
-        }
-    }
-
-    private void HybridModeSymmetricExceptWithInternal(HashSet<TItem> other)
-    {
-        // Important: don't allow duplicates in List<KeyValuePair<int, TItem>>.
-        // It's not possible to create duplicates in this context.
-        // This is just a reminder for future refactoring.
-        //
-        // WPF’s collection/view pipeline is explicitly designed for incremental replay of single-item changes.
-        // CollectionView.ProcessCollectionChanged handles one change at a time, and ListCollectionView.ProcessCollectionChangedWithAdjustedIndex
-        // updates internal state incrementally. That is the normal fast path.
-        // WPF explicitly rejects range add / remove / replace / move events,
-        // so the real choices are basically many single-item events or one brutal Reset.
-
-        List<KeyValuePair<int, TItem>> removeItemCandidateEntries = [];
-
-        // We must process all removes before we can process adds, otherwise we might end up with stale indices since a remove operation can shift indices.
-        List<TItem> addedPendingPool = [];
-        foreach (TItem item in other)
-        {
-            if (_indexTable.TryGetValue(item, out int existingItemIndex))
-            {
-                removeItemCandidateEntries.Add(new KeyValuePair<int, TItem>(existingItemIndex, item));
-            }
-            else
-            {
-                addedPendingPool.Add(item);
-            }
-        }
-
-        // We only need to sort removed items by their original indices in descending order to ensure optimal order for UI data binding.
-        // However, the real index will potentially change/shift as we process removes,
-        // but since we are removing from the end towards the start, the ordering will remain correct.
-        removeItemCandidateEntries.Sort((item1, item2) => item2.Key.CompareTo(item1.Key));
-
-        bool isResetRequired = removeItemCandidateEntries.Count + addedPendingPool.Count > MaxNumberOfSingleItemChangesBeforeBatchChange;
-        List<TItem> addedItems = [];
-        List<TItem> removedItems = [];
-        bool hasChanges = false;
-        int lowestChangeIndex = int.MaxValue;
-
-        // When there are too many changes, it's more efficient to raise a Reset event instead of many single-item events.
-        // This is because if single-item events are too many, then the dispatcher thread could be flooded causing the UI to freeze.
-        // We set argument 'isManualResetRequired' to true so that we can dispatch a single bulk event for remove and add operations together.
-        foreach (KeyValuePair<int, TItem> itemEntry in removeItemCandidateEntries)
-        {
-            TItem item = itemEntry.Value;
-            if (RemoveInternal(item,
-                isRebuildIndexRequired: !isResetRequired,
-                isCollectionChangedRequired: !isResetRequired,
-                out _))
-            {
-                removedItems.Add(item);
-                lowestChangeIndex = Math.Min(lowestChangeIndex, itemEntry.Key);
-            }
-
-            hasChanges = removedItems.Count > 0;
-        }
-
-        hasChanges |= AddRangeInternal(addedPendingPool,
-            isCollectionChangedPerItemRequired: !isResetRequired,
-            isManualResetRequired: isResetRequired,
-            out addedItems,
-            out _);
-
-        if (hasChanges
-            && isResetRequired)
-        {
-            if (removedItems.Count > 0)
-            {
-                BuildIndex(lowestChangeIndex);
-            }
-
-            BroadcastBulkSetChangeEvents(NotifyCollectionChangedAction.Reset, addedItems, removedItems, -1);
-        }
-    }
-
-    private void SymmetricExceptWithInternal(HashSet<TItem> other)
-    {
-        var removedItems = new List<TItem>();
-        var addedItems = new List<TItem>();
-
-        foreach (TItem item in other)
-        {
-            if (RemoveInternal(item, isRebuildIndexRequired: false, isCollectionChangedRequired: false, out _))
-            {
-                removedItems.Add(item);
-            }
-            else
-            {
-                _ = AddInternal(item, isCollectionChangedRequired: false, out _);
-                addedItems.Add(item);
-            }
-        }
-
-        bool hasChanges = addedItems.Count > 0 || removedItems.Count > 0;
-        if (hasChanges)
-        {
-            BroadcastBulkSetChangeEvents(NotifyCollectionChangedAction.Reset, addedItems, removedItems, -1);
-        }
-
-        return;
-    }
-
-    /// <summary>
-    /// Determines whether the current set is a subset of, a superset of, or equal to the specified collection.
-    /// </summary>
-    /// <typeparam name="TAlternate">The type of the elements in the alternate lookup.</typeparam>
-    /// <param name="lookup">The alternate lookup to compare with the current set.</param>
-    /// <returns><see langword="true"/> if the alternate lookup is valid; otherwise, <see langword="false"/>.</returns>
-    public bool TryGetAlternateLookup<TAlternate>(out HashSet<TItem>.AlternateLookup<TAlternate> lookup) where TAlternate : allows ref struct => Items.TryGetAlternateLookup(out lookup);
-    /// <summary>
-    /// Adds all elements from the specified collection to the current set.
-    /// </summary>
-    /// <remarks>Duplicate elements in the specified collection are ignored. The set will contain each unique
-    /// element from both the original set and the specified collection after the operation completes.
-    /// <para/>This method raises the <see cref="CollectionChanged"/> event with <see cref="NotifyCollectionChangedAction.Add"/> action and the start index of the changes to support the <see cref="IList{T}"/> API surface.
-    /// <para/>This method raises the <see cref="PropertyChanged"/> event for the <see cref="Count"/> and the indexer properties.</remarks>
-    /// <param name="other">The collection whose elements are to be added to the set. Cannot be <see langword="null"/>.</param>
-    public void UnionWith(IEnumerable<TItem> other)
-    {
-        ArgumentNullExceptionAdvanced.ThrowIfNull(other);
-
-        CheckReentrancy();
-
-        foreach (TItem item in other)
-        {
-            _ = AddInternal(item, isCollectionChangedRequired: true, out _);
         }
     }
 
@@ -1378,6 +1428,8 @@ public partial class ObservableHashSet<TItem> :
             _ = _reverseIndexTable.Remove(oldIndex);
             _reverseIndexTable[index] = indexedItem;
         }
+
+        Debug.Assert(_indexTable.Count == _reverseIndexTable.Count && _reverseIndexTable.Count == _listProjection.Count, "Index tables and list projection are expected to be always in sync.");
     }
 
     private void InitializeListSurface()
@@ -1387,6 +1439,9 @@ public partial class ObservableHashSet<TItem> :
             return;
         }
 
+        _listProjection.Clear();
+        _indexTable.Clear();
+        _reverseIndexTable.Clear();
         _listProjection.AddRange([.. Items]);
         BuildIndex(0);
         _isInHybridMode.SetValue(true);
@@ -1741,17 +1796,39 @@ public partial class ObservableHashSet<TItem> :
     #region Enumerator
     public struct Enumerator : IEnumerator<TItem>
     {
-        private List<TItem>.Enumerator _enumerator;
-        internal Enumerator(List<TItem> hashSet)
+        private List<TItem>.Enumerator _listEnumerator;
+        private HashSet<TItem>.Enumerator _hashSetEnumerator;
+        private readonly bool _isHashSetEnumeratorAvailable;
+
+        internal Enumerator(List<TItem> list)
         {
-            ArgumentNullExceptionAdvanced.ThrowIfNull(hashSet);
-            _enumerator = hashSet.GetEnumerator();
+            ArgumentNullExceptionAdvanced.ThrowIfNull(list);
+            _listEnumerator = list.GetEnumerator();
+            _isHashSetEnumeratorAvailable = false;
         }
 
-        public TItem Current => _enumerator.Current;
+        internal Enumerator(HashSet<TItem> hashSet)
+        {
+            ArgumentNullExceptionAdvanced.ThrowIfNull(hashSet);
+            _hashSetEnumerator = hashSet.GetEnumerator();
+            _isHashSetEnumeratorAvailable = true;
+        }
+
+        public TItem Current => _isHashSetEnumeratorAvailable
+            ? _hashSetEnumerator!.Current
+            : _listEnumerator.Current;
+
         object IEnumerator.Current => Current!;
-        public void Dispose() => _enumerator.Dispose();
-        public bool MoveNext() => _enumerator.MoveNext();
+        public void Dispose()
+        {
+            _listEnumerator.Dispose();
+            _hashSetEnumerator.Dispose();
+        }
+
+        public bool MoveNext() => _isHashSetEnumeratorAvailable
+            ? _hashSetEnumerator.MoveNext()
+            : _listEnumerator.MoveNext();
+
         public void Reset() => throw new NotSupportedException();
     }
     #endregion Enumerator
