@@ -43,31 +43,6 @@ public partial class ObservableHashSet<TItem> :
     /// <inheritdoc/>
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    /// <summary>
-    /// Raised when the collection changes.
-    /// <br/>In hybrid mode, this event provides index-based collection change reports as required by data-binding
-    /// frameworks such as WPF.
-    /// <br/>In default hash set mode, <see cref="CollectionChanged"/> is index-agnostic, meaning the reported index is
-    /// always '-1'.
-    /// </summary>
-    /// <remarks>
-    /// The <see cref="ObservableHashSet{TItem}"/> behaves like a natural observable hash set by default.
-    /// Accessing any explicitly implemented <see cref="IList"/> or <see cref="IList{T}"/> member transitions the set
-    /// into hybrid mode.
-    /// <br/><b>This means <see cref="ObservableHashSet{TItem}"/> will typically operate in hybrid mode when used as
-    /// an items source for frameworks such as WPF or WinUI.</b>
-    ///
-    /// <para/>In hybrid mode, the collection maintains an internal list projection and index tables in order to provide
-    /// index-based <see cref="CollectionChanged"/> events. This enables UI features such as virtualization, but it also
-    /// increases the cost of operations that remove items because index state must be maintained.
-    ///
-    /// <para/>The following table summarizes the asymptotic time complexity of the operations most affected by hybrid
-    /// mode. Let:
-    /// <list type="bullet">
-    ///   <item><term><c>n</c></term><description>be the number of elements supplied by the method argument</description></item>
-    ///   <item><term><c>m</c></term><description>be the current <see cref="Count"/> of this set</description></item>
-    /// </list>
-    ///
     /// <list type="table">
     ///   <listheader>
     ///     <term>Operation</term>
@@ -75,7 +50,7 @@ public partial class ObservableHashSet<TItem> :
     ///     <term>Hybrid mode</term>
     ///   </listheader>
     ///   <item>
-    ///     <term><see cref="Add(TItem)"/></term>
+    ///     <term><see cref="Add(TItem)"/> / <see cref="ICollection{T}.Add(TItem)"/></term>
     ///     <term>O(1)</term>
     ///     <term>O(1)</term>
     ///   </item>
@@ -85,12 +60,12 @@ public partial class ObservableHashSet<TItem> :
     ///     <term>O(n)</term>
     ///   </item>
     ///   <item>
-    ///     <term><see cref="Remove(TItem)"/></term>
+    ///     <term><see cref="Remove(TItem)"/> / <see cref="IList.Remove(object)"/></term>
     ///     <term>O(1)</term>
     ///     <term>O(m) worst case; O(1) if the removed item is already the last projected item</term>
     ///   </item>
     ///   <item>
-    ///     <term><see cref="RemoveRange(ICollection{TItem}, out List{TItem})"/></term>
+    ///     <term><see cref="RemoveRange(ICollection{TItem}, out List{TItem})"/> / <see cref="ExceptWith(IEnumerable{TItem})"/></term>
     ///     <term>O(n)</term>
     ///     <term>O(n · m) worst case</term>
     ///   </item>
@@ -109,19 +84,32 @@ public partial class ObservableHashSet<TItem> :
     ///     <term>O(n)</term>
     ///     <term>O(n + m²) worst case</term>
     ///   </item>
+    ///   <item>
+    ///     <term><see cref="Clear()"/> / <see cref="IList.Clear()"/></term>
+    ///     <term>O(m)</term>
+    ///     <term>O(m)</term>
+    ///   </item>
+    ///   <item>
+    ///     <term><see cref="IList.Add(object)"/></term>
+    ///     <term>O(m) on first use because the list surface must be initialized; otherwise O(1)</term>
+    ///     <term>O(1)</term>
+    ///   </item>
+    ///   <item>
+    ///     <term><see cref="IList{T}.Insert(int, TItem)"/> / <see cref="IList.Insert(int, object)"/></term>
+    ///     <term>O(m) on first use; otherwise O(m)</term>
+    ///     <term>O(m)</term>
+    ///   </item>
+    ///   <item>
+    ///     <term><see cref="IList{T}.RemoveAt(int)"/> / <see cref="IList.RemoveAt(int)"/></term>
+    ///     <term>O(m) on first use; otherwise O(m)</term>
+    ///     <term>O(m)</term>
+    ///   </item>
+    ///   <item>
+    ///     <term><see cref="IList{T}.this[int]"/> / <see cref="IList.this[int]"/> set accessor</term>
+    ///     <term>O(m) on first use because the list surface must be initialized; otherwise O(1)</term>
+    ///     <term>O(1)</term>
+    ///   </item>
     /// </list>
-    ///
-    /// <para/>When the collection is in hybrid mode, <see cref="SetChanged"/> provides bulk, index-agnostic change
-    /// notifications, while <see cref="CollectionChanged"/> may provide granular per-item notifications with indices.
-    ///
-    /// <para/>When the collection is not in hybrid mode, <see cref="CollectionChanged"/> is raised without meaningful
-    /// index information for <see cref="NotifyCollectionChangedAction.Add"/>,
-    /// <see cref="NotifyCollectionChangedAction.Remove"/>, and
-    /// <see cref="NotifyCollectionChangedAction.Reset"/>; in this case the index is reported as '-1'.
-    ///
-    /// <para/>A series of remove-related collection change events is broadcast in descending index order.
-    /// <para/>A series of add-related collection change events is broadcast in ascending index order.
-    /// </remarks>
     public event NotifyCollectionChangedEventHandler? CollectionChanged;
 
     /// <summary>
@@ -319,24 +307,20 @@ public partial class ObservableHashSet<TItem> :
     }
 
     /// <summary>
-    /// Attempts to find a item in the set that is equal to the specified item.
+    /// Attempts to find an item in the collection that is equal to the specified item.
     /// </summary>
-    /// <param name="equalValue">The item to search for in the set. Equality is determined by the set's comparer.</param>
-    /// <param name="actualValue">When this method returns <see langword="true"/>, contains the item from the set that is equal to <paramref
-    /// name="equalValue"/>; otherwise, contains the default item for the type.</param>
-    /// <returns><see langword="true"/> if an item equal to <paramref name="equalValue"/> was found in the set; otherwise, <see
-    /// langword="false"/>.</returns>
+    /// <param name="equalValue">The item to search for in the collection. Equality is determined by the collection's comparer.</param>
+    /// <param name="actualValue">When this method returns <see langword="true"/>, contains the actual stored item from the <see cref="ObservableHashSet{TItem}"/> that is equal to <paramref name="equalValue"/>, if found; otherwise, contains the default value of <typeparamref name="TItem"/> when the search yielded no match.</param>
+    /// <returns><see langword="true"/> if an item equal to <paramref name="equalValue"/> is found; otherwise, <see langword="false"/>.</returns>
     public bool TryGetValue(TItem equalValue, [MaybeNullWhen(false)] out TItem actualValue) => TryGetItem(equalValue, out actualValue);
 
     /// <summary>
-    /// Attempts to find an item in the collection that is equal to the specified removedItem.
+    /// Attempts to find an item in the collection that is equal to the specified item.
     /// </summary>
     /// <remarks>Override this method to extend the behavior of the <see cref="ObservableHashSet{TItem}.TryGetValue(TItem, out TItem)"/> member without affecting the notification behavior.</remarks>
-    /// <param name="equalValue">The removedItem to search for in the collection. Equality is determined by the collection's comparer.</param>
-    /// <param name="actualValue">When this method returns, contains the actual item from the collection that is equal to <paramref
-    /// name="equalValue"/>, if found; otherwise, the default removedItem for the type of the item.</param>
-    /// <returns><see langword="true"/> if an item equal to <paramref name="equalValue"/> is found; otherwise, <see
-    /// langword="false"/>.</returns>
+    /// <param name="equalValue">The item to search for in the collection. Equality is determined by the collection's comparer.</param>
+    /// <param name="actualValue">When this method returns <see langword="true"/>, contains the actual stored item from the <see cref="ObservableHashSet{TItem}"/> that is equal to <paramref name="equalValue"/>, if found; otherwise, contains the default value of <typeparamref name="TItem"/> when the search yielded no match.</param>
+    /// <returns><see langword="true"/> if an item equal to <paramref name="equalValue"/> is found; otherwise, <see langword="false"/>.</returns>
     protected virtual bool TryGetItem(TItem equalValue, [MaybeNullWhen(false)] out TItem actualValue) => Items.TryGetValue(equalValue, out actualValue);
 
     /// <summary>
@@ -787,11 +771,11 @@ public partial class ObservableHashSet<TItem> :
         foreach (TItem otherItem in other)
         {
             if (Contains(otherItem)
-                && _indexTable.TryGetValue(otherItem, out int itemIndex))
+                && _indexTable.TryGetValue(otherItem, out int itemIndex)
+                && _reverseIndexTable.TryGetValue(itemIndex, out TItem? originalIndexedItem))
             {
-                Debug.Assert(ReferenceEquals(otherItem, _listProjection[itemIndex]), "Index table is out of sync with the list projection.");
-                Debug.Assert(_reverseIndexTable.TryGetValue(itemIndex, out TItem? reverseIndexedItem) && ReferenceEquals(otherItem, reverseIndexedItem), "Reverse index table is out of sync with the list projection.");
-                removeItemCandidateEntries.Add(new KeyValuePair<int, TItem>(itemIndex, otherItem));
+                Debug.Assert(ReferenceEquals(_listProjection[itemIndex], originalIndexedItem), "Reverse index table is out of sync with the list projection.");
+                removeItemCandidateEntries.Add(new KeyValuePair<int, TItem>(itemIndex, originalIndexedItem));
             }
         }
 
@@ -840,11 +824,14 @@ public partial class ObservableHashSet<TItem> :
         Debug.Assert(_isInHybridMode == false, "This method is only for default mode.");
 
         List<TItem> removedItems = [];
+
+        // Prevent enumeration of self if other is this, which could cause issues since we are modifying the collection while enumerating.
         foreach (TItem otherItem in other)
         {
-            if (RemoveInternal(otherItem, isRebuildIndexRequired: false, isCollectionChangedRequired: false, out _))
+            if (TryGetItem(otherItem, out TItem originalIndexedItem)
+                && RemoveInternal(originalIndexedItem, isRebuildIndexRequired: false, isCollectionChangedRequired: false, out _))
             {
-                removedItems.Add(otherItem);
+                removedItems.Add(originalIndexedItem);
             }
         }
 
@@ -1126,16 +1113,20 @@ public partial class ObservableHashSet<TItem> :
         List<TItem> addedPendingPool = [];
         foreach (TItem item in other)
         {
-            if (_indexTable.TryGetValue(item, out int existingItemIndex))
+            if (TryGetItem(item, out TItem? originalItem))
             {
-                Debug.Assert(ReferenceEquals(item, _listProjection[existingItemIndex]), "Index table is out of sync with the list projection.");
-                Debug.Assert(_reverseIndexTable.TryGetValue(existingItemIndex, out TItem? itemFromReverseLookup) && ReferenceEquals(item, itemFromReverseLookup), "Reverse index table is out of sync with the list projection.");
-
-                removeItemCandidateEntries.Add(new KeyValuePair<int, TItem>(existingItemIndex, item));
+                if (_indexTable.TryGetValue(originalItem, out int existingItemIndex))
+                {
+#if DEBUG
+                    Debug.Assert(ReferenceEquals(originalItem, _listProjection[existingItemIndex]), "Index table is out of sync with the list projection.");
+                    Debug.Assert(_reverseIndexTable.TryGetValue(existingItemIndex, out TItem? itemFromReverseLookup) && ReferenceEquals(originalItem, itemFromReverseLookup), "Reverse index table is out of sync with the list projection.");
+#endif
+                    removeItemCandidateEntries.Add(new KeyValuePair<int, TItem>(existingItemIndex, originalItem));
+                }
             }
             else
             {
-                addedPendingPool.Add(item);
+                addedPendingPool.Add(originalItem);
             }
         }
 
@@ -1242,8 +1233,10 @@ public partial class ObservableHashSet<TItem> :
 #if DEBUG
             if (_isInHybridMode)
             {
-                Debug.Assert(_indexTable.TryGetValue(item, out int itemIndex) && ReferenceEquals(_listProjection[itemIndex], item), "Index table is out of sync with the list projection after UnionWith.");
-                Debug.Assert(_reverseIndexTable.TryGetValue(itemIndex, out TItem? itemFromReverseLookup) && ReferenceEquals(itemFromReverseLookup, item), "Reverse index table is out of sync with the list projection after UnionWith.");
+                bool hasMatchingOriginalItem = TryGetItem(item, out TItem? originalItem);
+                Debug.Assert(hasMatchingOriginalItem, "Newly added item is not found in the set after UnionWith.");
+                Debug.Assert(_indexTable.TryGetValue(originalItem, out int itemIndex) && ReferenceEquals(_listProjection[itemIndex], originalItem), "Index table is out of sync with the list projection after UnionWith.");
+                Debug.Assert(_reverseIndexTable.TryGetValue(itemIndex, out TItem? itemFromReverseLookup) && ReferenceEquals(itemFromReverseLookup, originalItem), "Reverse index table is out of sync with the list projection after UnionWith.");
             }
 #endif
         }
