@@ -18,6 +18,7 @@
                 <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/ScrollBarStyle.xaml" />
                 <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/WatermarkTextBoxStyle.xaml" />
                 <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/ProgressbarStyle.xaml" />
+                <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/ToolBarButtonStyle.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
             <local:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
@@ -336,6 +337,24 @@
                     <StackPanel Grid.Row="0"
                                 Grid.RowSpan="2"
                                 Grid.Column="0">
+                        <local:UniformToolBar Margin="0,0,0,5">                            
+                            <local:ToolBarButton x:Name="OpenFitFileToolBarButton"
+                                                 Content="{StaticResource OpenFileIcon}"
+                                                 LabelText="Open FIT File"
+                                                 LabelFontSize="12"
+                                                 ToolTip="Open FIT file"
+                                                 FontSize="24"
+                                                 Padding="5" />
+                            <local:ToolBarButton x:Name="ClearAllToolBarButton"
+                                                 Content="{StaticResource DeleteIcon}"
+                                                 LabelText="Clear all"
+                                                 LabelFontSize="12"
+                                                 Command="{Binding RemoveFitFileCommand}"
+                                                 CommandParameter="{Binding SelectedExportData}"
+                                                 ToolTip="Clear all"
+                                                 FontSize="24"
+                                                 Padding="5" />
+                        </local:UniformToolBar>
                         <TextBlock Text="Discovered FIT Files:"
                                    Style="{StaticResource LabelTextBlockStyle}" />
                         <ListBox x:Name="ExportDataMasterView" ItemsSource="{Binding ExportData, Mode=OneTime}"
@@ -343,7 +362,8 @@
                                  DisplayMemberPath="FitFileName"
                                  BorderThickness="0"
                                  Padding="0,5"
-                                 Width="Auto" />
+                                 Width="Auto"
+                                 ContextMenu="{StaticResource FitFileListContextMenu}" />
                     </StackPanel>
                     <GridSplitter Grid.Column="1"
                                   Grid.RowSpan="2"

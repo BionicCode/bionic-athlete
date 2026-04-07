@@ -1,0 +1,95 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:local="clr-namespace:FitToCsvConverter.Controls"
+    xmlns:theme="clr-namespace:Microsoft.Windows.Themes;assembly=PresentationFramework.Aero2">
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/ViewRessources.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+
+    <Style TargetType="{x:Type local:ToolBarButton}">
+        <Setter Property="Background"
+                Value="{StaticResource ExtraFileItemButtonBackgroundBrush}" />
+        <Setter Property="Foreground"
+                Value="{StaticResource TextBrush}" />
+        <Setter Property="BorderThickness"
+                Value="0" />
+        <Setter Property="HorizontalContentAlignment"
+                Value="Center" />
+        <Setter Property="VerticalContentAlignment"
+                Value="Center" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type local:ToolBarButton}">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            Padding="{TemplateBinding Padding}">
+                        <Grid Margin="0,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            
+                            <ContentPresenter x:Name="ContentPresenter" 
+                                              Grid.Row="0" 
+                                              Grid.RowSpan="2"
+                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                            <TextBlock x:Name="Label" 
+                                       Grid.Row="1"
+                                       Text="{TemplateBinding LabelText}"
+                                       FontSize="{TemplateBinding LabelFontSize}"
+                                       Visibility="Visible"
+                                       HorizontalAlignment="Center"
+                                       Opacity="0" />
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver"
+                                 Value="True">
+                            <Setter TargetName="ContentPresenter"
+                                    Property="Grid.RowSpan"
+                                    Value="1" />
+                            <Setter TargetName="Label"
+                                    Property="Visibility"
+                                    Value="{x:Static Visibility.Visible}" />
+                        </Trigger>
+                        <EventTrigger RoutedEvent="MouseEnter">
+                            <BeginStoryboard x:Name="MouseEnterStoryboard">
+                                <Storyboard>     
+                                    <DoubleAnimation Storyboard.TargetName="Label"
+                                                     Storyboard.TargetProperty="Opacity"
+                                                     From="0"
+                                                     To="1"
+                                                     Duration="0:0:0.2" />
+                                    <ColorAnimation Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
+                                                    To="{StaticResource ExtraFileItemButtonHighlightColor}"
+                                                    Duration="{StaticResource MouseOverAnimationDuration}" />
+                                    <ColorAnimation Storyboard.TargetProperty="(Foreground).(SolidColorBrush.Color)"
+                                                    To="{StaticResource MouseOverTextColor}"
+                                                    Duration="{StaticResource MouseOverAnimationDuration}" />
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </EventTrigger>
+                        <EventTrigger RoutedEvent="MouseLeave">
+                            <BeginStoryboard x:Name="MouseLeaveStoryboard">
+                                <Storyboard>
+                                    <DoubleAnimation Storyboard.TargetName="Label"
+                                                     Storyboard.TargetProperty="Opacity"
+                                                     To="0"
+                                                     Duration="0:0:0.2" />
+                                    <ColorAnimation Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
+                                                    To="{StaticResource ExtraFileItemButtonBackgroundColor}"
+                                                    Duration="{StaticResource MouseOverAnimationDuration}" />
+                                    <ColorAnimation Storyboard.TargetProperty="(Foreground).(SolidColorBrush.Color)"
+                                                    To="{StaticResource TextColor}"
+                                                    Duration="{StaticResource MouseOverAnimationDuration}" />                                  
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </EventTrigger>
+                    </ControlTemplate.Triggers>
+            </ControlTemplate>
+        </Setter.Value>
+    </Setter>
+    </Style>
+</ResourceDictionary>

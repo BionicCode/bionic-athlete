@@ -32,17 +32,30 @@
                Opacity="1"
                HorizontalAlignment="Center"
                VerticalAlignment="Center" />
-    <TextBlock x:Key="DropTargetIcon"
+    <TextBlock x:Key="OpenFileIcon"
                x:Shared="False"
                Text="&#xe8e5;"
-               ToolTip="Drag and drop FIT files here, either raw or as ZIP files."
+               ToolTip="Open file"
                FontFamily="{StaticResource SegoeMDL2Assets}"
-               Foreground="Gray"
-               FontSize="68"
+               FontSize="{Binding RelativeSource={RelativeSource AncestorType=ContentControl}, Path=FontSize}"
                Opacity="0.5"
                IsHitTestVisible="False"
                HorizontalAlignment="Center"
                VerticalAlignment="Center" />
+
+    <StackPanel x:Key="DropTargetIcon"
+                x:Shared="False"
+                ToolTip="Drag and drop FIT files here, either raw or as ZIP files.">
+        <ContentControl FontSize="68" Content="{StaticResource OpenFileIcon}" />
+        <TextBlock Text="Drop files here"
+                   FontStyle="Italic"
+                   Foreground="Gray"
+                   FontSize="18"
+                   Opacity="0.5"
+                   IsHitTestVisible="False"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center" />
+    </StackPanel>
     <!--#endregion Icons-->
 
     <Duration x:Key="MouseOverAnimationDuration">0:0:0.2</Duration>
