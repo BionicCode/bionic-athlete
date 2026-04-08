@@ -6,18 +6,18 @@ using System.Windows.Media;
 
 public class AdvancedProgressBar : ProgressBar
 {
-    public double CornerRadius
+    public CornerRadius CornerRadius
     {
-        get => (double)GetValue(CornerRadiusProperty);
+        get => (CornerRadius)GetValue(CornerRadiusProperty);
         set => SetValue(CornerRadiusProperty, value);
     }
 
     public static readonly DependencyProperty CornerRadiusProperty =
         DependencyProperty.Register(
             nameof(CornerRadius),
-            typeof(double),
+            typeof(CornerRadius),
             typeof(AdvancedProgressBar),
-            new FrameworkPropertyMetadata(4.0, FrameworkPropertyMetadataOptions.AffectsMeasure));
+            new FrameworkPropertyMetadata(new CornerRadius(4), FrameworkPropertyMetadataOptions.AffectsMeasure));
 
     public double ProgressTextSize
     {

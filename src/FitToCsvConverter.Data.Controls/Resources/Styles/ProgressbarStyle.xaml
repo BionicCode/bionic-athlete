@@ -65,7 +65,7 @@
                                 Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=CornerRadius}" /> <!-- Use Binding instead of TemplateBinding for implicit double to Thickness conversion -->
+                                CornerRadius="{TemplateBinding CornerRadius}" /> 
 
                         <Rectangle x:Name="PART_Track"
                                    Grid.Row="1"

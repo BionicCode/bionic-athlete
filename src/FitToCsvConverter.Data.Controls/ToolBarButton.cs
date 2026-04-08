@@ -2,6 +2,7 @@
 
 using System.Collections;
 using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -43,9 +44,10 @@ public class ToolBarButton : Button
 {
     private FrameworkElement? _contentHost;
     private TextBlock? _label;
+    private Border? _labelBorder;
     private Storyboard? _mouseOverForegroundStoryboard;
     private Storyboard? _revertForegroundStoryboard;
-    private double _oldContentHeight;
+    private readonly double _oldContentHeight;
 
     public string LabelText { get => (string)GetValue(LabelTextProperty); set => SetValue(LabelTextProperty, value); }
 
@@ -54,7 +56,8 @@ public class ToolBarButton : Button
             nameof(LabelText),
             typeof(string),
             typeof(ToolBarButton),
-            new PropertyMetadata(string.Empty));
+            new FrameworkPropertyMetadata(string.Empty, FrameworkPropertyMetadataOptions.AffectsMeasure | FrameworkPropertyMetadataOptions.AffectsParentMeasure));
+
     public double LabelFontSize { get => (double)GetValue(LabelFontSizeProperty); set => SetValue(LabelFontSizeProperty, value); }
 
     public static readonly DependencyProperty LabelFontSizeProperty =
@@ -62,9 +65,51 @@ public class ToolBarButton : Button
             nameof(LabelFontSize),
             typeof(double),
             typeof(ToolBarButton),
-            new PropertyMetadata(14.0));
+            new FrameworkPropertyMetadata(14.0, FrameworkPropertyMetadataOptions.AffectsMeasure | FrameworkPropertyMetadataOptions.AffectsParentMeasure));
+
+    //public delegate void UniformToolBarItemSizeChangedEventHandler(object sender, UniformToolBarItemSizeChangedEventArgs e);
+    public static readonly RoutedEvent UniformToolBarItemSizeChangedEvent = EventManager.RegisterRoutedEvent(
+        nameof(UniformToolBarItemSizeChanged),
+        RoutingStrategy.Bubble,
+        typeof(EventHandler<UniformToolBarItemSizeChangedEventArgs>),
+        typeof(ToolBarButton));
+
+    public event EventHandler<UniformToolBarItemSizeChangedEventArgs> UniformToolBarItemSizeChanged
+    {
+        add => AddHandler(UniformToolBarItemSizeChangedEvent, value);
+        remove => RemoveHandler(UniformToolBarItemSizeChangedEvent, value);
+    }
 
     static ToolBarButton() => DefaultStyleKeyProperty.OverrideMetadata(typeof(ToolBarButton), new FrameworkPropertyMetadata(typeof(ToolBarButton)));
+
+    public ToolBarButton()
+    {
+        Loaded += OnLoaded;
+        SizeChanged += OnSizeChanged;
+    }
+
+    private void OnLoaded(object sender, RoutedEventArgs e) => UpdateSizeRelatedResources();
+
+    private void OnSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        UpdateSizeRelatedResources();
+        RaiseEvent(new UniformToolBarItemSizeChangedEventArgs(UniformToolBarItemSizeChangedEvent, this, e));
+    }
+
+    //protected override void OnChildDesiredSizeChanged(UIElement child)
+    //{
+    //    ArgumentNullExceptionAdvanced.ThrowIfNull(child);
+
+    //    base.OnChildDesiredSizeChanged(child);
+    //    UpdateSizeRelatedResources();
+    //    RaiseEvent(new UniformToolBarItemSizeChangedEventArgs(UniformToolBarItemSizeChangedEvent, this, true, true, child.RenderSize, child.RenderSize));
+    //}
+
+    private void UpdateSizeRelatedResources()
+    {
+        BuildMouseOverStoryboard();
+        BuildMouseOverRevertStoryboard();
+    }
 
     public override void OnApplyTemplate()
     {
@@ -72,94 +117,163 @@ public class ToolBarButton : Button
 
         _contentHost = GetTemplateChild("PART_ContentPresenter") as FrameworkElement;
         _label = GetTemplateChild("PART_Label") as TextBlock;
+        _labelBorder = GetTemplateChild("PART_LabelBorder") as Border;
     }
 
     protected override void OnMouseEnter(MouseEventArgs e)
     {
-        base.OnMouseEnter(e);
-
         if (_contentHost is not null
-            && _label is not null)
+            && _label is not null
+            && _labelBorder is not null)
         {
             if (_mouseOverForegroundStoryboard is null)
             {
-                _mouseOverForegroundStoryboard = new Storyboard() { FillBehavior = FillBehavior.HoldEnd };
-                var colorAnimation = new ColorAnimation
-                {
-                    To = (Color)FindResource("MouseOverTextColor"),
-                    Duration = (Duration)FindResource("MouseOverAnimationDuration"),
-                    AutoReverse = false,
-                };
-                Storyboard.SetTarget(colorAnimation, this);
-                Storyboard.SetTargetProperty(colorAnimation, new PropertyPath("(Button.Foreground).(SolidColorBrush.Color)"));
-                _mouseOverForegroundStoryboard.Children.Add(colorAnimation);
-
-                var opacityAnimation = new DoubleAnimation
-                {
-                    To = LabelFontSize,
-                    Duration = (Duration)FindResource("MouseOverAnimationDuration"),
-                    AutoReverse = false,
-                };
-                Storyboard.SetTarget(opacityAnimation, _label);
-                Storyboard.SetTargetProperty(opacityAnimation, new PropertyPath(FontSizeProperty));
-                _mouseOverForegroundStoryboard.Children.Add(opacityAnimation);
+                BuildMouseOverStoryboard();
             }
 
-            _mouseOverForegroundStoryboard.Begin();
-            _oldContentHeight = _contentHost.ActualHeight;
-            double newContentHeight = _contentHost.ActualHeight - _label.ActualHeight;
-            _contentHost.BeginAnimation(FrameworkElement.HeightProperty, new DoubleAnimation
+            _mouseOverForegroundStoryboard?.Begin();
+        }
+
+        base.OnMouseEnter(e);
+    }
+
+    protected override void OnMouseLeave(MouseEventArgs e)
+    {
+        if (_contentHost is not null
+            && _label is not null
+            && _labelBorder is not null)
+        {
+            if (_revertForegroundStoryboard is null)
+            {
+                BuildMouseOverRevertStoryboard();
+            }
+
+            _revertForegroundStoryboard?.Begin();
+        }
+
+        base.OnMouseLeave(e);
+    }
+
+    private void BuildMouseOverStoryboard()
+    {
+        if (_contentHost is not null
+            && _label is not null
+            && _labelBorder is not null)
+        {
+            _mouseOverForegroundStoryboard = new Storyboard() { FillBehavior = FillBehavior.HoldEnd };
+            var colorAnimation = new ColorAnimation
+            {
+                To = (Color)FindResource("MouseOverTextColor"),
+                Duration = (Duration)FindResource("MouseOverAnimationDuration"),
+                AutoReverse = false,
+            };
+            Storyboard.SetTarget(colorAnimation, this);
+            Storyboard.SetTargetProperty(colorAnimation, new PropertyPath("(Button.Foreground).(SolidColorBrush.Color)"));
+            _mouseOverForegroundStoryboard.Children.Add(colorAnimation);
+
+            var opacityAnimation = new DoubleAnimation
+            {
+                To = 1,
+                Duration = (Duration)FindResource("MouseOverAnimationDuration"),
+                AutoReverse = false,
+            };
+            Storyboard.SetTarget(opacityAnimation, _labelBorder);
+            Storyboard.SetTargetProperty(opacityAnimation, new PropertyPath(OpacityProperty));
+            _mouseOverForegroundStoryboard.Children.Add(opacityAnimation);
+
+            var borderHorizontalGrowAnimation = new DoubleAnimation
+            {
+                From = 0,
+                To = _labelBorder.ActualWidth,
+                Duration = (Duration)FindResource("MouseOverAnimationDuration"),
+                AutoReverse = false,
+            };
+            Storyboard.SetTarget(borderHorizontalGrowAnimation, _labelBorder);
+            Storyboard.SetTargetProperty(borderHorizontalGrowAnimation, new PropertyPath(WidthProperty));
+            _mouseOverForegroundStoryboard.Children.Add(borderHorizontalGrowAnimation);
+
+            var fontSizeAnimation = new DoubleAnimation
+            {
+                To = LabelFontSize,
+                Duration = (Duration)FindResource("MouseOverAnimationDuration"),
+                AutoReverse = false,
+            };
+            Storyboard.SetTarget(fontSizeAnimation, _label);
+            Storyboard.SetTargetProperty(fontSizeAnimation, new PropertyPath(FontSizeProperty));
+            _mouseOverForegroundStoryboard.Children.Add(fontSizeAnimation);
+
+            // Shrink to 75 % of original height to create some visual interest and to help indicate that the button is being hovered over
+            double newContentHeight = _contentHost.ActualHeight * 0.75;
+            var heightAnimation = new DoubleAnimation
             {
                 From = _contentHost.ActualHeight,
                 To = newContentHeight,
                 Duration = (Duration)FindResource("MouseOverAnimationDuration"),
                 AutoReverse = false,
-            });
-            Grid.SetRowSpan(_contentHost, 1);
+            };
+            Storyboard.SetTarget(heightAnimation, _contentHost);
+            Storyboard.SetTargetProperty(heightAnimation, new PropertyPath(FrameworkElement.HeightProperty));
+            _mouseOverForegroundStoryboard.Children.Add(heightAnimation);
         }
     }
 
-    protected override void OnMouseLeave(MouseEventArgs e)
+    private void BuildMouseOverRevertStoryboard()
     {
-        if (_contentHost is not null)
+        if (_contentHost is not null
+            && _label is not null
+            && _labelBorder is not null)
         {
-            if (_revertForegroundStoryboard is null)
+            _revertForegroundStoryboard = new Storyboard() { FillBehavior = FillBehavior.HoldEnd };
+            var colorAnimation = new ColorAnimation
             {
-                _revertForegroundStoryboard = new Storyboard() { FillBehavior = FillBehavior.HoldEnd };
-                var colorAnimation = new ColorAnimation
-                {
-                    To = (Color)FindResource("TextColor"),
-                    Duration = (Duration)FindResource("MouseOverAnimationDuration"),
-                    AutoReverse = false,
-                };
-                Storyboard.SetTarget(colorAnimation, this);
-                Storyboard.SetTargetProperty(colorAnimation, new PropertyPath("(Button.Foreground).(SolidColorBrush.Color)"));
-                _revertForegroundStoryboard.Children.Add(colorAnimation);
-
-                var opacityAnimation = new DoubleAnimation
-                {
-                    To = 0.001,
-                    Duration = TimeSpan.FromMilliseconds(100),
-                    AutoReverse = false,
-                };
-                Storyboard.SetTarget(opacityAnimation, _label);
-                Storyboard.SetTargetProperty(opacityAnimation, new PropertyPath(FontSizeProperty));
-                _revertForegroundStoryboard.Children.Add(opacityAnimation);
-            }
-
-            _revertForegroundStoryboard.Begin();
-
-            _contentHost.BeginAnimation(FrameworkElement.HeightProperty, new DoubleAnimation
-            {
-                To = _oldContentHeight,
+                To = (Color)FindResource("TextColor"),
                 Duration = (Duration)FindResource("MouseOverAnimationDuration"),
                 AutoReverse = false,
-            });
+            };
+            Storyboard.SetTarget(colorAnimation, this);
+            Storyboard.SetTargetProperty(colorAnimation, new PropertyPath("(Button.Foreground).(SolidColorBrush.Color)"));
+            _revertForegroundStoryboard.Children.Add(colorAnimation);
 
-            Grid.SetRowSpan(_contentHost, 2);
+            var opacityAnimation = new DoubleAnimation
+            {
+                To = 0,
+                Duration = (Duration)FindResource("MouseOverAnimationDuration"),
+                AutoReverse = false,
+            };
+            Storyboard.SetTarget(opacityAnimation, _labelBorder);
+            Storyboard.SetTargetProperty(opacityAnimation, new PropertyPath(OpacityProperty));
+            _revertForegroundStoryboard.Children.Add(opacityAnimation);
+
+            var borderHorizontalShrinkAnimation = new DoubleAnimation
+            {
+                To = 0,
+                Duration = (Duration)FindResource("MouseOverAnimationDuration"),
+                AutoReverse = false,
+            };
+            Storyboard.SetTarget(borderHorizontalShrinkAnimation, _labelBorder);
+            Storyboard.SetTargetProperty(borderHorizontalShrinkAnimation, new PropertyPath(WidthProperty));
+            _revertForegroundStoryboard.Children.Add(borderHorizontalShrinkAnimation);
+
+            var fontSizeAnimation = new DoubleAnimation
+            {
+                To = 0.001,
+                Duration = (Duration)FindResource("MouseOverAnimationDuration"),
+                AutoReverse = false,
+            };
+            Storyboard.SetTarget(fontSizeAnimation, _label);
+            Storyboard.SetTargetProperty(fontSizeAnimation, new PropertyPath(FontSizeProperty));
+            _revertForegroundStoryboard.Children.Add(fontSizeAnimation);
+
+            var heightAnimation = new DoubleAnimation
+            {
+                To = _contentHost.ActualHeight,
+                Duration = (Duration)FindResource("MouseOverAnimationDuration"),
+                AutoReverse = false,
+            };
+            Storyboard.SetTarget(heightAnimation, _contentHost);
+            Storyboard.SetTargetProperty(heightAnimation, new PropertyPath(FrameworkElement.HeightProperty));
+            _revertForegroundStoryboard.Children.Add(heightAnimation);
         }
-
-        base.OnMouseLeave(e);
     }
 }
 
@@ -168,12 +282,56 @@ public class UniformToolBar : ToolBar
     private ToolBarPanel? _itemsHost;
     private Size _currentUniformSize;
     private readonly Dictionary<FrameworkElement, Size> _originalDesiredSizes = [];
+    [TypeConverter(typeof(LengthConverter))]
+    public double ItemHeight
+    {
+        get => (double)GetValue(ItemHeightProperty);
+        set => SetValue(ItemHeightProperty, value);
+    }
+
+    [TypeConverter(typeof(LengthConverter))]
+    public static readonly DependencyProperty ItemHeightProperty = DependencyProperty.Register(
+        nameof(ItemHeight),
+        typeof(double),
+        typeof(UniformToolBar),
+        new PropertyMetadata(24d, OnItemHeightChanged));
+    [TypeConverter(typeof(LengthConverter))]
+    public double ItemWidth
+    {
+        get => (double)GetValue(ItemWidthProperty);
+        set => SetValue(ItemWidthProperty, value);
+    }
+
+    [TypeConverter(typeof(LengthConverter))]
+    public static readonly DependencyProperty ItemWidthProperty = DependencyProperty.Register(
+        nameof(ItemWidth),
+        typeof(double),
+        typeof(UniformToolBar),
+        new PropertyMetadata(24d, OnItemWidthChanged));
+
+    private static void OnItemHeightChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        var uniformToolBar = (UniformToolBar)d;
+        uniformToolBar._currentUniformSize = new Size(uniformToolBar._currentUniformSize.Width, (double)e.NewValue);
+        _ = uniformToolBar.Dispatcher.InvokeAsync(uniformToolBar.ApplyUniformSizing, DispatcherPriority.Render);
+    }
+
+    private static void OnItemWidthChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        var uniformToolBar = (UniformToolBar)d;
+        uniformToolBar._currentUniformSize = new Size((double)e.NewValue, uniformToolBar._currentUniformSize.Height);
+        _ = uniformToolBar.Dispatcher.InvokeAsync(uniformToolBar.ApplyUniformSizing, DispatcherPriority.Render);
+    }
 
     public UniformToolBar()
     {
         _currentUniformSize = Size.Empty;
         Loaded += OnLoaded;
+        _currentUniformSize = new Size(ItemWidth, ItemHeight);
+        AddHandler(ToolBarButton.UniformToolBarItemSizeChangedEvent, new EventHandler<UniformToolBarItemSizeChangedEventArgs>(OnUniformToolBarItemSizeChanged!));
     }
+
+    private void OnUniformToolBarItemSizeChanged(object sender, UniformToolBarItemSizeChangedEventArgs e) => _ = Dispatcher.InvokeAsync(ApplyUniformSizing, DispatcherPriority.Render);
 
     public override void OnApplyTemplate()
     {
@@ -182,6 +340,13 @@ public class UniformToolBar : ToolBar
             ?? // Only thrown if Microsoft .NET source have drastically changed the template for ToolBar, which is unlikely.
                // We throw so we can update the code to match the new template.
                throw new InvalidOperationException("PART_ToolBarPanel not found in official .NET template.");
+    }
+
+    protected override Size MeasureOverride(Size constraint)
+    {
+        _originalDesiredSizes.Clear();
+        _ = Dispatcher.InvokeAsync(ApplyUniformSizing, DispatcherPriority.Render);
+        return base.MeasureOverride(constraint);
     }
 
     protected override void OnChildDesiredSizeChanged(UIElement child)
@@ -239,6 +404,10 @@ public class UniformToolBar : ToolBar
 
     private void ApplyUniformSizing()
     {
+        //IEnumerable<FrameworkElement> frameworkElementsOfHost = _itemsHost.Children
+        //    .OfType<FrameworkElement>()
+        //    .Where(element => element is not Separator);
+
         bool hasChanges = HasContentChildSizeChanged(out List<FrameworkElement>? targetElements);
         if (hasChanges)
         {
@@ -288,7 +457,13 @@ public class UniformToolBar : ToolBar
             || maxHeight != _currentUniformSize.Height;
         if (hasSizeChanged)
         {
-            _currentUniformSize = new Size(maxWidth, maxHeight);
+            double newWith = double.IsNaN(ItemWidth)
+                ? maxWidth
+                : Math.Max(maxWidth, ItemWidth);
+            double newHeight = double.IsNaN(ItemHeight)
+                ? maxHeight
+                : Math.Max(maxHeight, ItemHeight);
+            _currentUniformSize = new Size(newWith, newHeight);
 
             // Perform a second pass over collected candidates to filter out any elements
             // that may already have the new uniform size, so we don't unnecessarily update them

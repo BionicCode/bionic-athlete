@@ -274,7 +274,7 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <StackPanel Grid.Row="1"
+                <!--<StackPanel Grid.Row="1"
                             Grid.Column="0"
                             Grid.ColumnSpan="2"
                             Margin="5">
@@ -282,7 +282,11 @@
                                Style="{StaticResource LabelTextBlockStyle}" />
                     <ListBox ItemsSource="{Binding FitFilePaths}"
                              SelectedItem="{Binding SelectedFitFilePath}"
-                             BorderThickness="0"
+                             Background="Transparent"
+                             BorderBrush="Gray"
+                             BorderThickness="1"
+                             Height="100"
+                             Padding="0,5"
                              AllowDrop="True"
                              ToolTip="Drag and drop FIT files here, either raw or as ZIP files."
                              Drop="OnFitFilesDropped"
@@ -292,16 +296,13 @@
                              ContextMenu="{StaticResource FitFileListContextMenu}">
                         <ListBox.Template>
                             <ControlTemplate TargetType="ListBox">
-                                <Border BorderBrush="Gray"
-                                        BorderThickness="1"
-                                        Height="100"
-                                        Padding="0,5"
-                                        Background="Transparent"
-                                        IsHitTestVisible="True"
-                                        AllowDrop="True">
+                                <Border BorderBrush="{TemplateBinding BorderBrush}"
+                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                        Padding="{TemplateBinding Padding}"
+                                        Background="{TemplateBinding Background}">
                                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                                         <Grid>
-                                            <ContentControl Content="{StaticResource DropTargetIcon}" />
+                                            <ContentControl Content="{StaticResource FitFileDropTargetIcon}" />
                                             <ItemsPresenter />
                                         </Grid>
                                     </ScrollViewer>
@@ -315,7 +316,7 @@
                         </ListBox.ItemTemplate>
                     </ListBox>
 
-                </StackPanel>
+                </StackPanel>-->
 
                 <Separator Grid.Row="2"
                            Grid.Column="0"
@@ -329,40 +330,56 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="340" />
+                        <ColumnDefinition Width="350" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
-                    <StackPanel Grid.Row="0"
+                    <Grid Grid.Row="0"
                                 Grid.RowSpan="2"
                                 Grid.Column="0">
-                        <local:UniformToolBar Margin="0,0,0,5">                            
-                            <local:ToolBarButton x:Name="OpenFitFileToolBarButton"
-                                                 Content="{StaticResource OpenFileIcon}"
-                                                 LabelText="Open FIT File"
-                                                 LabelFontSize="12"
-                                                 FontSize="24"
-                                                 Padding="5" />
-                            <local:ToolBarButton x:Name="ClearAllToolBarButton"
-                                                 Content="{StaticResource DeleteIcon}"
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <local:UniformToolBar Grid.Row="0"
+                                              Margin="0,0,0,5"
+                                              ItemHeight="42"
+                                              ItemWidth="Auto">
+                            <local:ToolBarButton Content="{StaticResource OpenFileIcon}"
+                                                 LabelText="Open FIT file"
+                                                 Command="{Binding OpenFitFileCommand}"
+                                                 CommandParameter="{Binding SelectedExportData}" />
+                            <local:ToolBarButton Content="{StaticResource DeleteIcon}"
                                                  LabelText="Clear all"
-                                                 LabelFontSize="12"
                                                  Command="{Binding RemoveFitFileCommand}"
-                                                 CommandParameter="{Binding SelectedExportData}"
-                                                 FontSize="24"
-                                                 Padding="5" />
+                                                 CommandParameter="{Binding SelectedExportData}" />
                         </local:UniformToolBar>
-                        <TextBlock Text="Discovered FIT Files:"
+                        <TextBlock Grid.Row="1" 
+                                   Text="FIT Files:"
                                    Style="{StaticResource LabelTextBlockStyle}" />
-                        <ListBox x:Name="ExportDataMasterView" ItemsSource="{Binding ExportData, Mode=OneTime}"
-                                 SelectedItem="{Binding SelectedExportData}"
-                                 DisplayMemberPath="FitFileName"
-                                 BorderThickness="0"
-                                 Padding="0,5"
-                                 Width="Auto"
-                                 ContextMenu="{StaticResource FitFileListContextMenu}" />
-                    </StackPanel>
+                        <Grid Grid.Row="2">
+                            <ContentControl Content="{StaticResource FitFileDropTargetIcon}"
+                                            Height="120" 
+                                            VerticalAlignment="Center" />
+                            <ListBox x:Name="ExportDataMasterView"
+                                     ItemsSource="{Binding ExportData, Mode=OneTime}"
+                                     SelectedItem="{Binding SelectedExportData}"
+                                     DisplayMemberPath="FitFileName"
+                                     Background="Transparent"
+                                     BorderThickness="1"
+                                     Padding="0,5"
+                                     Width="Auto"
+                                     AllowDrop="True"
+                                     ToolTip="Drag and drop FIT files here, either raw or as ZIP files."
+                                     Drop="OnFitFilesDropped"
+                                     DragEnter="PrepareFitFileDropTargetFeedBack"
+                                     DragOver="ProvideFitFileDropTargetFeedBack"
+                                     DragLeave="ClearFitFileDropTargetFeedBack"
+                                     ContextMenu="{StaticResource FitFileListContextMenu}" />
+                        </Grid>
+                    </Grid>
                     <GridSplitter Grid.Column="1"
                                   Grid.RowSpan="2"
                                   Width="8"
@@ -447,7 +464,7 @@
                         <ContentControl Grid.Column="0"
                                         Grid.Row="2"
                                         Grid.RowSpan="2"
-                                        Content="{StaticResource DropTargetIcon}" />
+                                        Content="{StaticResource ExtraFilesDropTargetIcon}" />
                         
                         <TextBlock Grid.Row="0"
                                    Text="ZIP File Data:"
@@ -458,6 +475,8 @@
                         <ListBox Grid.Row="2"
                                  Grid.RowSpan="2"
                                  Grid.Column="0"
+                                 Height="150"
+                                 Width="500"
                                  ItemsSource="{Binding SelectedExportData.SelectedExtraFilePaths}"
                                  SelectedItem="{Binding SelectedExtraFilePath}"
                                  ItemContainerStyle="{StaticResource ExtraFileListBoxItem}"
@@ -476,6 +495,7 @@
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Grid.Column="0"
                                                    Text="{Binding Name}"
@@ -489,7 +509,11 @@
                                                   Margin="5,0,20,0"
                                                   VerticalAlignment="Center"
                                                   ToolTip="Manually rename file to use the batch name." />
-                                        <Button Grid.Column="2"
+                                        <Separator Grid.Column="2"
+                                                   Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}"
+                                                   Margin="2"
+                                                   Background="Black"/>
+                                        <Button Grid.Column="3"
                                                 Content="{StaticResource DeleteIcon}"
                                                 Command="{Binding DeleteExtraFileCommand}"
                                                 CommandParameter="{Binding}"
@@ -639,7 +663,7 @@
                     </StackPanel>
                     <local:AdvancedProgressBar Maximum="1"
                                                Height="42"
-                                               CornerRadius="4"
+                                               CornerRadius="{StaticResource CornerRadius}"
                                                ProgressTextAlignment="BottomCenter"
                                                ProgressTextSize="18"
                                                Value="{Binding ProgressDataCollection[0].Progress, Mode=OneWay}"
@@ -662,7 +686,7 @@
                     </StackPanel>
                     <local:AdvancedProgressBar Maximum="1"
                                                Height="42"
-                                               CornerRadius="4"
+                                               CornerRadius="{StaticResource CornerRadius}"
                                                ProgressTextAlignment="BottomCenter"
                                                ProgressTextSize="18"
                                                Value="{Binding ProgressDataCollection[1].Progress, Mode=OneWay}"

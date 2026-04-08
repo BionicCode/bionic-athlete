@@ -13,24 +13,29 @@
                 Value="{StaticResource TextBrush}" />
         <Setter Property="BorderThickness"
                 Value="0" />
+        <Setter Property="Padding"
+                Value="5" />
         <Setter Property="HorizontalContentAlignment"
-                Value="Center" />
+                Value="Stretch" />
         <Setter Property="VerticalContentAlignment"
-                Value="Center" />
+                Value="Stretch" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type local:ToolBarButton}">
                     <Border x:Name="Border"
                         Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            Padding="{TemplateBinding Padding}">
+                            BorderThickness="{TemplateBinding BorderThickness}">
                         <VisualStateManager.VisualStateGroups>
                             <VisualStateGroup x:Name="CommonStates">
                                 <VisualState x:Name="Normal" />
                                 <VisualState x:Name="MouseOver">
                                     <Storyboard>
                                         <ColorAnimation Storyboard.TargetName="Border"
+                                                        Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
+                                                        To="{StaticResource ExtraFileItemButtonHighlightColor}"
+                                                        Duration="{StaticResource MouseOverAnimationDuration}" />
+                                        <ColorAnimation Storyboard.TargetName="PART_LabelBorder"
                                                         Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
                                                         To="{StaticResource ExtraFileItemButtonHighlightColor}"
                                                         Duration="{StaticResource MouseOverAnimationDuration}" />
@@ -41,32 +46,48 @@
                             </VisualStateGroup>
                         </VisualStateManager.VisualStateGroups>
                             
-                        <Grid Margin="0,0">
+                        <Grid Margin="0">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="*" />
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
 
                             <Viewbox x:Name="PART_ContentPresenter"
-                                                  Grid.Row="0"
-                                                  Grid.RowSpan="2"
+                                     Grid.Row="0"
+                                     Grid.RowSpan="2"
+                                     Margin="{TemplateBinding Padding}"
                                      StretchDirection="Both"
-                                                  HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}">
-                                <ContentPresenter  />
+                                     HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                     VerticalAlignment="{TemplateBinding VerticalContentAlignment}">
+                                <ContentPresenter />
                             </Viewbox>
-                            
-                            <TextBlock x:Name="PART_LabelPlaceholder"
-                                       Grid.Row="1"
-                                       Text="{TemplateBinding LabelText}"
-                                       FontSize="{TemplateBinding LabelFontSize}"
-                                       Foreground="Transparent"
-                                       HorizontalAlignment="Center" />
-                            <TextBlock x:Name="PART_Label" 
-                                       Grid.Row="1"
-                                       Text="{TemplateBinding LabelText}"
-                                       FontSize="0.01"
-                                       HorizontalAlignment="Center" />
+
+                            <Border x:Name="PART_LabelPlaceholderBorder"
+                                    Grid.Row="1"
+                                    Panel.ZIndex="0"
+                                    Opacity="0"
+                                    Background="Transparent"
+                                    CornerRadius="{StaticResource CornerRadius}"
+                                    VerticalAlignment="Center"
+                                    Padding="5,0">
+                                <TextBlock x:Name="PART_LabelPlaceholder"
+                                           Text="{TemplateBinding LabelText}"
+                                           FontSize="{TemplateBinding LabelFontSize}"
+                                           Foreground="Transparent" />
+                            </Border>
+                            <Border x:Name="PART_LabelBorder"
+                                    Grid.Row="1"
+                                    Panel.ZIndex="10"
+                                    Opacity="0"
+                                    Background="{StaticResource ExtraFileItemButtonHighlightBrush}"
+                                    CornerRadius="{StaticResource CornerRadius}"
+                                    VerticalAlignment="Center"
+                                    Padding="5,0">
+                                <TextBlock x:Name="PART_Label"
+                                           Text="{TemplateBinding LabelText}"
+                                           HorizontalAlignment="Center"
+                                           FontSize="0.01" />
+                            </Border>
                         </Grid>
                     </Border>
             </ControlTemplate>
