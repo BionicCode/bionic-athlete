@@ -29,7 +29,7 @@
                x:Shared="False"
                Text="&#xe74d;"
                FontFamily="{StaticResource SegoeMDL2Assets}"
-               Opacity="1"
+               FontSize="{Binding RelativeSource={RelativeSource AncestorType=ContentControl}, Path=FontSize}"
                HorizontalAlignment="Center"
                VerticalAlignment="Center" />
     <TextBlock x:Key="OpenFileIcon"
@@ -38,8 +38,6 @@
                ToolTip="Open file"
                FontFamily="{StaticResource SegoeMDL2Assets}"
                FontSize="{Binding RelativeSource={RelativeSource AncestorType=ContentControl}, Path=FontSize}"
-               Opacity="0.5"
-               IsHitTestVisible="False"
                HorizontalAlignment="Center"
                VerticalAlignment="Center" />
 
@@ -58,7 +56,7 @@
     </StackPanel>
     <!--#endregion Icons-->
 
-    <Duration x:Key="MouseOverAnimationDuration">0:0:0.2</Duration>
+    <Duration x:Key="MouseOverAnimationDuration">0:0:0.3</Duration>
 
     <Color x:Key="MouseOverTextColor">White</Color>
     <SolidColorBrush x:Key="MouseOverTextBrush"

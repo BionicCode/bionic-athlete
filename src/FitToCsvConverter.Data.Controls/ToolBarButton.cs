@@ -5,6 +5,9 @@ using System.Collections.Specialized;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
 
 /// <summary>
@@ -38,6 +41,12 @@ using System.Windows.Threading;
 /// </summary>
 public class ToolBarButton : Button
 {
+    private FrameworkElement? _contentHost;
+    private TextBlock? _label;
+    private Storyboard? _mouseOverForegroundStoryboard;
+    private Storyboard? _revertForegroundStoryboard;
+    private double _oldContentHeight;
+
     public string LabelText { get => (string)GetValue(LabelTextProperty); set => SetValue(LabelTextProperty, value); }
 
     public static readonly DependencyProperty LabelTextProperty =
@@ -56,6 +65,102 @@ public class ToolBarButton : Button
             new PropertyMetadata(14.0));
 
     static ToolBarButton() => DefaultStyleKeyProperty.OverrideMetadata(typeof(ToolBarButton), new FrameworkPropertyMetadata(typeof(ToolBarButton)));
+
+    public override void OnApplyTemplate()
+    {
+        base.OnApplyTemplate();
+
+        _contentHost = GetTemplateChild("PART_ContentPresenter") as FrameworkElement;
+        _label = GetTemplateChild("PART_Label") as TextBlock;
+    }
+
+    protected override void OnMouseEnter(MouseEventArgs e)
+    {
+        base.OnMouseEnter(e);
+
+        if (_contentHost is not null
+            && _label is not null)
+        {
+            if (_mouseOverForegroundStoryboard is null)
+            {
+                _mouseOverForegroundStoryboard = new Storyboard() { FillBehavior = FillBehavior.HoldEnd };
+                var colorAnimation = new ColorAnimation
+                {
+                    To = (Color)FindResource("MouseOverTextColor"),
+                    Duration = (Duration)FindResource("MouseOverAnimationDuration"),
+                    AutoReverse = false,
+                };
+                Storyboard.SetTarget(colorAnimation, this);
+                Storyboard.SetTargetProperty(colorAnimation, new PropertyPath("(Button.Foreground).(SolidColorBrush.Color)"));
+                _mouseOverForegroundStoryboard.Children.Add(colorAnimation);
+
+                var opacityAnimation = new DoubleAnimation
+                {
+                    To = LabelFontSize,
+                    Duration = (Duration)FindResource("MouseOverAnimationDuration"),
+                    AutoReverse = false,
+                };
+                Storyboard.SetTarget(opacityAnimation, _label);
+                Storyboard.SetTargetProperty(opacityAnimation, new PropertyPath(FontSizeProperty));
+                _mouseOverForegroundStoryboard.Children.Add(opacityAnimation);
+            }
+
+            _mouseOverForegroundStoryboard.Begin();
+            _oldContentHeight = _contentHost.ActualHeight;
+            double newContentHeight = _contentHost.ActualHeight - _label.ActualHeight;
+            _contentHost.BeginAnimation(FrameworkElement.HeightProperty, new DoubleAnimation
+            {
+                From = _contentHost.ActualHeight,
+                To = newContentHeight,
+                Duration = (Duration)FindResource("MouseOverAnimationDuration"),
+                AutoReverse = false,
+            });
+            Grid.SetRowSpan(_contentHost, 1);
+        }
+    }
+
+    protected override void OnMouseLeave(MouseEventArgs e)
+    {
+        if (_contentHost is not null)
+        {
+            if (_revertForegroundStoryboard is null)
+            {
+                _revertForegroundStoryboard = new Storyboard() { FillBehavior = FillBehavior.HoldEnd };
+                var colorAnimation = new ColorAnimation
+                {
+                    To = (Color)FindResource("TextColor"),
+                    Duration = (Duration)FindResource("MouseOverAnimationDuration"),
+                    AutoReverse = false,
+                };
+                Storyboard.SetTarget(colorAnimation, this);
+                Storyboard.SetTargetProperty(colorAnimation, new PropertyPath("(Button.Foreground).(SolidColorBrush.Color)"));
+                _revertForegroundStoryboard.Children.Add(colorAnimation);
+
+                var opacityAnimation = new DoubleAnimation
+                {
+                    To = 0.001,
+                    Duration = TimeSpan.FromMilliseconds(100),
+                    AutoReverse = false,
+                };
+                Storyboard.SetTarget(opacityAnimation, _label);
+                Storyboard.SetTargetProperty(opacityAnimation, new PropertyPath(FontSizeProperty));
+                _revertForegroundStoryboard.Children.Add(opacityAnimation);
+            }
+
+            _revertForegroundStoryboard.Begin();
+
+            _contentHost.BeginAnimation(FrameworkElement.HeightProperty, new DoubleAnimation
+            {
+                To = _oldContentHeight,
+                Duration = (Duration)FindResource("MouseOverAnimationDuration"),
+                AutoReverse = false,
+            });
+
+            Grid.SetRowSpan(_contentHost, 2);
+        }
+
+        base.OnMouseLeave(e);
+    }
 }
 
 public class UniformToolBar : ToolBar
@@ -85,6 +190,18 @@ public class UniformToolBar : ToolBar
 
         _ = Dispatcher.InvokeAsync(ApplyUniformSizing, DispatcherPriority.Render);
     }
+
+    //protected override void OnMouseEnter(MouseEventArgs e)
+    //{
+    //    base.OnMouseEnter(e);
+    //    _ = Items.Add(new ToolBarButton { LabelText = "New Button with extra long label to stretch all existing items" });
+    //}
+
+    //protected override void OnMouseLeave(MouseEventArgs e)
+    //{
+    //    base.OnMouseLeave(e);
+    //    Items.RemoveAt(Items.Count - 1);
+    //}
 
     protected override void OnItemsChanged(NotifyCollectionChangedEventArgs e)
     {
@@ -151,18 +268,20 @@ public class UniformToolBar : ToolBar
         List<FrameworkElement> candidates = [];
         foreach (FrameworkElement frameworkElement in frameworkElementsOfHost)
         {
-            if (frameworkElement is not Separator)
+            if (frameworkElement is Separator)
             {
-                if (!_originalDesiredSizes.TryGetValue(frameworkElement, out Size originalDesiredSize))
-                {
-                    originalDesiredSize = frameworkElement.DesiredSize;
-                    _originalDesiredSizes[frameworkElement] = originalDesiredSize;
-                }
-
-                maxHeight = Math.Max(maxHeight, originalDesiredSize.Height);
-                maxWidth = Math.Max(maxWidth, originalDesiredSize.Width);
-                candidates.Add(frameworkElement);
+                continue;
             }
+
+            if (!_originalDesiredSizes.TryGetValue(frameworkElement, out Size originalDesiredSize))
+            {
+                originalDesiredSize = frameworkElement.DesiredSize;
+                _originalDesiredSizes[frameworkElement] = originalDesiredSize;
+            }
+
+            maxHeight = Math.Max(maxHeight, originalDesiredSize.Height);
+            maxWidth = Math.Max(maxWidth, originalDesiredSize.Width);
+            candidates.Add(frameworkElement);
         }
 
         bool hasSizeChanged = maxWidth != _currentUniformSize.Width

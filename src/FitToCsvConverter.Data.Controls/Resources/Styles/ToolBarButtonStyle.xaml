@@ -20,74 +20,55 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type local:ToolBarButton}">
-                    <Border Background="{TemplateBinding Background}"
+                    <Border x:Name="Border"
+                        Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
                             Padding="{TemplateBinding Padding}">
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualState x:Name="Normal" />
+                                <VisualState x:Name="MouseOver">
+                                    <Storyboard>
+                                        <ColorAnimation Storyboard.TargetName="Border"
+                                                        Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
+                                                        To="{StaticResource ExtraFileItemButtonHighlightColor}"
+                                                        Duration="{StaticResource MouseOverAnimationDuration}" />
+                                    </Storyboard>
+                                </VisualState>
+                                <VisualState x:Name="Pressed" />
+                                <VisualState x:Name="Disabled" />
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                            
                         <Grid Margin="0,0">
                             <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
+
+                            <Viewbox x:Name="PART_ContentPresenter"
+                                                  Grid.Row="0"
+                                                  Grid.RowSpan="2"
+                                     StretchDirection="Both"
+                                                  HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}">
+                                <ContentPresenter  />
+                            </Viewbox>
                             
-                            <ContentPresenter x:Name="ContentPresenter" 
-                                              Grid.Row="0" 
-                                              Grid.RowSpan="2"
-                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
-                            <TextBlock x:Name="Label" 
+                            <TextBlock x:Name="PART_LabelPlaceholder"
                                        Grid.Row="1"
                                        Text="{TemplateBinding LabelText}"
                                        FontSize="{TemplateBinding LabelFontSize}"
-                                       Visibility="Visible"
-                                       HorizontalAlignment="Center"
-                                       Opacity="0" />
+                                       Foreground="Transparent"
+                                       HorizontalAlignment="Center" />
+                            <TextBlock x:Name="PART_Label" 
+                                       Grid.Row="1"
+                                       Text="{TemplateBinding LabelText}"
+                                       FontSize="0.01"
+                                       HorizontalAlignment="Center" />
                         </Grid>
                     </Border>
-                    <ControlTemplate.Triggers>
-                        <Trigger Property="IsMouseOver"
-                                 Value="True">
-                            <Setter TargetName="ContentPresenter"
-                                    Property="Grid.RowSpan"
-                                    Value="1" />
-                            <Setter TargetName="Label"
-                                    Property="Visibility"
-                                    Value="{x:Static Visibility.Visible}" />
-                        </Trigger>
-                        <EventTrigger RoutedEvent="MouseEnter">
-                            <BeginStoryboard x:Name="MouseEnterStoryboard">
-                                <Storyboard>     
-                                    <DoubleAnimation Storyboard.TargetName="Label"
-                                                     Storyboard.TargetProperty="Opacity"
-                                                     From="0"
-                                                     To="1"
-                                                     Duration="0:0:0.2" />
-                                    <ColorAnimation Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
-                                                    To="{StaticResource ExtraFileItemButtonHighlightColor}"
-                                                    Duration="{StaticResource MouseOverAnimationDuration}" />
-                                    <ColorAnimation Storyboard.TargetProperty="(Foreground).(SolidColorBrush.Color)"
-                                                    To="{StaticResource MouseOverTextColor}"
-                                                    Duration="{StaticResource MouseOverAnimationDuration}" />
-                                </Storyboard>
-                            </BeginStoryboard>
-                        </EventTrigger>
-                        <EventTrigger RoutedEvent="MouseLeave">
-                            <BeginStoryboard x:Name="MouseLeaveStoryboard">
-                                <Storyboard>
-                                    <DoubleAnimation Storyboard.TargetName="Label"
-                                                     Storyboard.TargetProperty="Opacity"
-                                                     To="0"
-                                                     Duration="0:0:0.2" />
-                                    <ColorAnimation Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
-                                                    To="{StaticResource ExtraFileItemButtonBackgroundColor}"
-                                                    Duration="{StaticResource MouseOverAnimationDuration}" />
-                                    <ColorAnimation Storyboard.TargetProperty="(Foreground).(SolidColorBrush.Color)"
-                                                    To="{StaticResource TextColor}"
-                                                    Duration="{StaticResource MouseOverAnimationDuration}" />                                  
-                                </Storyboard>
-                            </BeginStoryboard>
-                        </EventTrigger>
-                    </ControlTemplate.Triggers>
             </ControlTemplate>
         </Setter.Value>
     </Setter>

@@ -342,7 +342,6 @@
                                                  Content="{StaticResource OpenFileIcon}"
                                                  LabelText="Open FIT File"
                                                  LabelFontSize="12"
-                                                 ToolTip="Open FIT file"
                                                  FontSize="24"
                                                  Padding="5" />
                             <local:ToolBarButton x:Name="ClearAllToolBarButton"
@@ -351,7 +350,6 @@
                                                  LabelFontSize="12"
                                                  Command="{Binding RemoveFitFileCommand}"
                                                  CommandParameter="{Binding SelectedExportData}"
-                                                 ToolTip="Clear all"
                                                  FontSize="24"
                                                  Padding="5" />
                         </local:UniformToolBar>
