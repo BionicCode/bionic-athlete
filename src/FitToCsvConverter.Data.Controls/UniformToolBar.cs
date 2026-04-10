@@ -7,17 +7,18 @@ using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
-using System.Windows.Threading;
+using System.Windows.Media;
 using BionicCode.Utilities.Net;
 
 public class UniformToolBar : HeaderedItemsControl
 {
-    private readonly ToolBarPanel? _itemsHost;
+    private ItemsControl? _itemsHost;
     private Size _currentUniformSize;
     private readonly ToolBarOverflowPanel? _toolBarOverflowPanel;
     private readonly Dictionary<FrameworkElement, Size> _originalDesiredSizes = [];
     private readonly LayoutPlan _plan;
     private Size _lastMeasureConstraint;
+    private Panel? _mainPanel;
 
     public static ComponentResourceKey ToolBarPanelTemplateName { get; } = new ComponentResourceKey(typeof(UniformToolBar), "PART_UniformToolBarPanel");
     public static ComponentResourceKey ToolBarOverflowPanelTemplateName { get; } = new ComponentResourceKey(typeof(UniformToolBar), "PART_UniformToolBarOverflowPanel");
@@ -39,7 +40,10 @@ public class UniformToolBar : HeaderedItemsControl
         nameof(ItemHeight),
         typeof(double),
         typeof(UniformToolBar),
-        new PropertyMetadata(24d, OnItemHeightChanged));
+        new FrameworkPropertyMetadata(
+            double.NaN,
+            FrameworkPropertyMetadataOptions.AffectsMeasure),
+        new ValidateValueCallback(IsWidthHeightValid));
     #endregion ItemHeight
 
     #region ItemWidth
@@ -55,7 +59,10 @@ public class UniformToolBar : HeaderedItemsControl
         nameof(ItemWidth),
         typeof(double),
         typeof(UniformToolBar),
-        new PropertyMetadata(24d, OnItemWidthChanged));
+        new FrameworkPropertyMetadata(
+            double.NaN,
+            FrameworkPropertyMetadataOptions.AffectsMeasure),
+        new ValidateValueCallback(IsWidthHeightValid));
     #endregion ItemWidth 
 
     #region HasOverflowItems
@@ -84,53 +91,53 @@ public class UniformToolBar : HeaderedItemsControl
     public bool HasOverflowItems => (bool)GetValue(HasOverflowItemsProperty);
     #endregion HasOverflowItems
 
-    #region MainPanel
-    /// <summary>
-    /// Gets or sets the main <see cref="Panel"/> of the <see cref="UniformToolBar"/>. 
-    /// This is the panel that contains the toolbar items and is responsible for arranging them.
-    /// </summary>
-    /// <value>The main <see cref="Panel"/> of the <see cref="UniformToolBar"/>. The default is a <see cref="UniformToolBarPanel"/>.</value>
-    public Panel MainPanel
-    {
-        get => (Panel)GetValue(MainPanelProperty);
-        set => SetValue(MainPanelProperty, value);
-    }
+    //#region MainPanel
+    ///// <summary>
+    ///// Gets or sets the main <see cref="Panel"/> of the <see cref="UniformToolBar"/>. 
+    ///// This is the panel that contains the toolbar items and is responsible for arranging them.
+    ///// </summary>
+    ///// <value>The main <see cref="Panel"/> of the <see cref="UniformToolBar"/>. The default is a <see cref="UniformToolBarPanel"/>.</value>
+    //public Panel MainPanel
+    //{
+    //    get => (Panel)GetValue(MainPanelProperty);
+    //    set => SetValue(MainPanelProperty, value);
+    //}
 
-    /// <summary>
-    /// Gets or sets the main <see cref="Panel"/> of the <see cref="UniformToolBar"/>. 
-    /// This is the panel that contains the toolbar items and is responsible for arranging them.
-    /// </summary>
-    /// <value>The main <see cref="Panel"/> of the <see cref="UniformToolBar"/>. The default is a <see cref="UniformToolBarPanel"/>.</value>
-    public static readonly DependencyProperty MainPanelProperty = DependencyProperty.Register(
-        nameof(MainPanel),
-        typeof(Panel),
-        typeof(UniformToolBar),
-        new PropertyMetadata(new UniformToolBarPanel()));
-    #endregion MainPanel
+    ///// <summary>
+    ///// Gets or sets the main <see cref="Panel"/> of the <see cref="UniformToolBar"/>. 
+    ///// This is the panel that contains the toolbar items and is responsible for arranging them.
+    ///// </summary>
+    ///// <value>The main <see cref="Panel"/> of the <see cref="UniformToolBar"/>. The default is a <see cref="UniformToolBarPanel"/>.</value>
+    //public static readonly DependencyProperty MainPanelProperty = DependencyProperty.Register(
+    //    nameof(MainPanel),
+    //    typeof(Panel),
+    //    typeof(UniformToolBar),
+    //    new PropertyMetadata(default));
+    //#endregion MainPanel
 
-    #region OverflowPanel
-    /// <summary>
-    /// Gets or sets the main <see cref="Panel"/> of the <see cref="UniformToolBar"/>. 
-    /// This is the panel that contains the toolbar items and is responsible for arranging them.
-    /// </summary>
-    /// <value>The main <see cref="Panel"/> of the <see cref="UniformToolBar"/>. The default is a <see cref="UniformToolBarPanel"/>.</value>
-    public Panel OverflowPanel
-    {
-        get => (Panel)GetValue(OverflowPanelProperty);
-        set => SetValue(OverflowPanelProperty, value);
-    }
+    //#region OverflowPanel
+    ///// <summary>
+    ///// Gets or sets the main <see cref="Panel"/> of the <see cref="UniformToolBar"/>. 
+    ///// This is the panel that contains the toolbar items and is responsible for arranging them.
+    ///// </summary>
+    ///// <value>The main <see cref="Panel"/> of the <see cref="UniformToolBar"/>. The default is a <see cref="UniformToolBarPanel"/>.</value>
+    //public Panel OverflowPanel
+    //{
+    //    get => (Panel)GetValue(OverflowPanelProperty);
+    //    set => SetValue(OverflowPanelProperty, value);
+    //}
 
-    /// <summary>
-    /// Gets or sets the main <see cref="Panel"/> of the <see cref="UniformToolBar"/>. 
-    /// This is the panel that contains the toolbar items and is responsible for arranging them.
-    /// </summary>
-    /// <value>The overflow <see cref="Panel"/> of the <see cref="UniformToolBar"/>. The default is a <see cref="UniformToolBarOverflowPanel"/>.</value>
-    public static readonly DependencyProperty OverflowPanelProperty = DependencyProperty.Register(
-        nameof(OverflowPanel),
-        typeof(Panel),
-        typeof(UniformToolBar),
-        new PropertyMetadata(new UniformToolBarOverflowPanel()));
-    #endregion OverflowPanel
+    ///// <summary>
+    ///// Gets or sets the main <see cref="Panel"/> of the <see cref="UniformToolBar"/>. 
+    ///// This is the panel that contains the toolbar items and is responsible for arranging them.
+    ///// </summary>
+    ///// <value>The overflow <see cref="Panel"/> of the <see cref="UniformToolBar"/>. The default is a <see cref="UniformToolBarOverflowPanel"/>.</value>
+    //public static readonly DependencyProperty OverflowPanelProperty = DependencyProperty.Register(
+    //    nameof(OverflowPanel),
+    //    typeof(Panel),
+    //    typeof(UniformToolBar),
+    //    new PropertyMetadata(new UniformToolBarOverflowPanel()));
+    //#endregion OverflowPanel
 
     #region Orientation
     /// <summary>
@@ -156,6 +163,29 @@ public class UniformToolBar : HeaderedItemsControl
         new PropertyMetadata(Orientation.Horizontal));
     #endregion Orientation
 
+    #region OverflowMode
+    /// <summary>
+    /// Gets or sets the overflow mode of the <see cref="UniformToolBar"/>. 
+    /// This determines how the toolbar items behave when there is not enough space.
+    /// </summary>
+    /// <value>The overflow mode of the <see cref="UniformToolBar"/>. The default is <see cref="OverflowMode.AsNeeded"/>.</value>
+    public OverflowMode OverflowMode
+    {
+        get => (OverflowMode)GetValue(OverflowModeProperty);
+        set => SetValue(OverflowModeProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the overflow mode of the <see cref="UniformToolBar"/>. 
+    /// This determines how the toolbar items behave when there is not enough space.
+    /// </summary>
+    /// <value>The overflow mode of the <see cref="UniformToolBar"/>. The default is <see cref="OverflowMode.AsNeeded"/>.</value>
+    public static readonly DependencyProperty OverflowModeProperty = DependencyProperty.Register(
+        nameof(OverflowMode),
+        typeof(OverflowMode),
+        typeof(UniformToolBar),
+        new PropertyMetadata(OverflowMode.AsNeeded));
+    #endregion OverflowMode
     #region IsOverflowOpen
     /// <summary>
     /// Gets or sets a value indicating whether the overflow panel of the <see cref="UniformToolBar"/> is open.
@@ -253,50 +283,6 @@ public class UniformToolBar : HeaderedItemsControl
 
     #region Attached properties
 
-    #region IsOverflowItem
-    /// <summary>
-    ///     The key needed set a read-only property.
-    /// Attached property to indicate if the item is placed in the overflow panel
-    /// </summary>
-    protected static readonly DependencyPropertyKey IsOverflowItemPropertyKey =
-            DependencyProperty.RegisterAttachedReadOnly(
-                    "IsOverflowItem",
-                    typeof(bool),
-                    typeof(UniformToolBar),
-                    new FrameworkPropertyMetadata(BooleanBoxes.FalseBox));
-
-    /// <summary>
-    ///     The DependencyProperty for the IsOverflowItem property.
-    ///     Flags:              None
-    ///     Default Value:      false
-    /// </summary>
-    public static readonly DependencyProperty IsOverflowItemProperty = IsOverflowItemPropertyKey.DependencyProperty;
-
-    /// <summary>
-    /// Writes the attached property IsOverflowItem to the given element.
-    /// </summary>
-    /// <param name="element">The element to which to write the attached property.</param>
-    /// <param name="value">The property value to set</param>
-    internal static void SetIsOverflowItem(DependencyObject element, object value)
-    {
-        ArgumentNullExceptionAdvanced.ThrowIfNull(element);
-
-        element.SetValue(IsOverflowItemPropertyKey, value);
-    }
-
-    /// <summary>
-    /// Reads the attached property IsOverflowItem from the given element.
-    /// </summary>
-    /// <param name="element">The element from which to read the attached property.</param>
-    /// <returns>The property's value.</returns>
-    public static bool GetIsOverflowItem(DependencyObject element)
-    {
-        ArgumentNullException.ThrowIfNull(element);
-        return (bool)element.GetValue(IsOverflowItemProperty);
-    }
-
-    #endregion IsOverflowItem 
-
     #endregion Attached properties
 
     /// <summary>
@@ -308,14 +294,21 @@ public class UniformToolBar : HeaderedItemsControl
     {
         var uniformToolBar = (UniformToolBar)d;
         uniformToolBar._currentUniformSize = new Size(uniformToolBar._currentUniformSize.Width, (double)e.NewValue);
-        _ = uniformToolBar.Dispatcher.InvokeAsync(uniformToolBar.ApplyUniformSizing, DispatcherPriority.Render);
+        //_ = uniformToolBar.Dispatcher.InvokeAsync(uniformToolBar.ApplyUniformSizing, DispatcherPriority.Render);
     }
 
     private static void OnItemWidthChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         var uniformToolBar = (UniformToolBar)d;
         uniformToolBar._currentUniformSize = new Size((double)e.NewValue, uniformToolBar._currentUniformSize.Height);
-        _ = uniformToolBar.Dispatcher.InvokeAsync(uniformToolBar.ApplyUniformSizing, DispatcherPriority.Render);
+        uniformToolBar.InvalidateMeasure();
+        //_ = uniformToolBar.Dispatcher.InvokeAsync(uniformToolBar.ApplyUniformSizing, DispatcherPriority.Render);
+    }
+
+    private static bool IsWidthHeightValid(object value)
+    {
+        double v = (double)value;
+        return double.IsNaN(v) || (v >= 0.0d && !double.IsPositiveInfinity(v));
     }
 
     public UniformToolBar()
@@ -323,7 +316,18 @@ public class UniformToolBar : HeaderedItemsControl
         _currentUniformSize = Size.Empty;
         Loaded += OnLoaded;
         _currentUniformSize = new Size(ItemWidth, ItemHeight);
-        AddHandler(ToolBarButton.UniformToolBarItemSizeChangedEvent, new EventHandler<UniformToolBarItemSizeChangedEventArgs>(OnUniformToolBarItemSizeChanged!));
+        //AddHandler(ToolBarButton.UniformToolBarItemSizeChangedEvent, new EventHandler<UniformToolBarItemSizeChangedEventArgs>(OnUniformToolBarItemSizeChanged!));
+        AddHandler(UniformToolBarPanel.OverflowDetectedEvent, new EventHandler<OverflowDetectedRoutedEventArgs>(OnOverflowDetected));
+    }
+
+    private void OnOverflowDetected(object? sender, OverflowDetectedRoutedEventArgs e)
+    {
+        OverflowItems.Clear();
+        foreach ((int itemIndex, object item) in e.OverflowItems)
+        {
+            VisibleItems.RemoveAt(itemIndex);
+            _ = OverflowItems.Add(item);
+        }
     }
 
     protected override void OnItemsSourceChanged(IEnumerable oldValue, IEnumerable newValue)
@@ -379,11 +383,7 @@ public class UniformToolBar : HeaderedItemsControl
                 VisibleItems.Clear();
                 OverflowItems.Clear();
 
-                if (e.NewItems is not null
-                    && e.NewItems.Count > 0)
-                {
-                    RegisterNewItems(e.NewItems);
-                }
+                RegisterNewItems(Items);
 
                 break;
         }
@@ -411,23 +411,51 @@ public class UniformToolBar : HeaderedItemsControl
         }
     }
 
-    private void OnUniformToolBarItemSizeChanged(object sender, UniformToolBarItemSizeChangedEventArgs e) => _ = Dispatcher.InvokeAsync(ApplyUniformSizing, DispatcherPriority.Render);
+    //private void OnUniformToolBarItemSizeChanged(object sender, UniformToolBarItemSizeChangedEventArgs e) => _ = Dispatcher.InvokeAsync(ApplyUniformSizing, DispatcherPriority.Render);
 
-    public override void OnApplyTemplate() => base.OnApplyTemplate();//_itemsHost = GetTemplateChild(ToolBarPanelTemplateName.) as ToolBarPanel//    ?? // Only thrown if Microsoft .NET source have drastically changed the template for ToolBar, which is unlikely.//       // We throw so we can update the code to match the new template.//       throw new InvalidOperationException("PART_ToolBarPanel not found in official .NET template.");//DependencyObject? panel = GetTemplateChild(ToolBarOverflowPanelTemplateName.ResourceId as string);//if (panel is not null and not System.Windows.Controls.Primitives.ToolBarOverflowPanel)//{//    throw new NotSupportedException("The template part named PART_ToolBarOverflowPanel must be of type ToolBarOverflowPanel.");//}//_toolBarOverflowPanel = panel as ToolBarOverflowPanel;
+    public override void OnApplyTemplate()
+    {
+        base.OnApplyTemplate();
+        _itemsHost = GetTemplateChild("MainPanelHost") as ItemsControl;
+        //    ?? // Only thrown if Microsoft .NET source have drastically changed the template for ToolBar, which is unlikely.//       // We throw so we can update the code to match the new template.//       throw new InvalidOperationException("PART_ToolBarPanel not found in official .NET template.");//DependencyObject? panel = GetTemplateChild(ToolBarOverflowPanelTemplateName.ResourceId as string);//if (panel is not null and not System.Windows.Controls.Primitives.ToolBarOverflowPanel)//{//    throw new NotSupportedException("The template part named PART_ToolBarOverflowPanel must be of type ToolBarOverflowPanel.");//}//_toolBarOverflowPanel = panel as ToolBarOverflowPanel;
+    }
+
+    private bool TryFindVisualChild<TChild>(DependencyObject parent, out TChild? child) where TChild : DependencyObject
+    {
+        child = null;
+        if (parent is null)
+        {
+            return false;
+        }
+
+        for (int index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)
+        {
+            DependencyObject currentChild = VisualTreeHelper.GetChild(parent, index);
+            if (currentChild is TChild foundChild)
+            {
+                child = foundChild;
+                return true;
+            }
+
+            if (TryFindVisualChild(currentChild, out child))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     protected override Size MeasureOverride(Size constraint)
     {
-        _originalDesiredSizes.Clear();
-        _ = Dispatcher.InvokeAsync(ApplyUniformSizing, DispatcherPriority.Render);
-        return base.MeasureOverride(constraint);
+        Size childSize = base.MeasureOverride(constraint);
+        //_originalDesiredSizes.Clear();
+        //_ = Dispatcher.InvokeAsync(ApplyUniformSizing, DispatcherPriority.Render);
+        _mainPanel?.Measure(constraint);
+        return _mainPanel?.DesiredSize ?? childSize;
     }
 
-    protected override void OnChildDesiredSizeChanged(UIElement child)
-    {
-        base.OnChildDesiredSizeChanged(child);
-
-        _ = Dispatcher.InvokeAsync(ApplyUniformSizing, DispatcherPriority.Render);
-    }
+    //protected override void OnChildDesiredSizeChanged(UIElement child) => base.OnChildDesiredSizeChanged(child);//_ = Dispatcher.InvokeAsync(ApplyUniformSizing, DispatcherPriority.Render);
 
     //protected override void OnMouseEnter(MouseEventArgs e)
     //{
@@ -441,85 +469,98 @@ public class UniformToolBar : HeaderedItemsControl
     //    Items.RemoveAt(Items.Count - 1);
     //}
 
-    private void OnLoaded(object sender, RoutedEventArgs e) => _ = Dispatcher.InvokeAsync(ApplyUniformSizing, DispatcherPriority.Render);
-
-    private void ApplyUniformSizing()
+    private void OnLoaded(object sender, RoutedEventArgs e)
     {
-        //IEnumerable<FrameworkElement> frameworkElementsOfHost = _itemsHost.Children
-        //    .OfType<FrameworkElement>()
-        //    .Where(element => element is not Separator);
-
-        bool hasChanges = HasContentChildSizeChanged(out List<FrameworkElement>? targetElements);
-        if (hasChanges)
+        if (TryFindVisualChild(_itemsHost, out ItemsPresenter? itemsPresenter))
         {
-            foreach (FrameworkElement element in targetElements)
+            if (TryFindVisualChild(itemsPresenter, out Panel? mainPanel))
             {
-                element.MinWidth = _currentUniformSize.Width;
-                element.MaxWidth = _currentUniformSize.Width;
-                element.MinHeight = _currentUniformSize.Height;
-                element.MaxHeight = _currentUniformSize.Height;
+                _mainPanel = mainPanel;
             }
         }
+
+        InvalidateMeasure();
+        //_mainPanel?.InvalidateMeasure();
+        //foreach (object? item in Items)//{//    _ = VisibleItems.Add(item);//}//_ = Dispatcher.InvokeAsync(ApplyUniformSizing, DispatcherPriority.Render);
     }
 
-    private bool HasContentChildSizeChanged(out List<FrameworkElement> targetElements)
-    {
-        targetElements = [];
+    //private void ApplyUniformSizing()
+    //{
+    //    //IEnumerable<FrameworkElement> frameworkElementsOfHost = _itemsHost.Children
+    //    //    .OfType<FrameworkElement>()
+    //    //    .Where(element => element is not Separator);
 
-        if (_itemsHost is null
-            || _itemsHost.Children.Count == 0)
-        {
-            return false;
-        }
+    //    bool hasChanges = HasContentChildSizeChanged(out List<FrameworkElement>? targetElements);
+    //    if (hasChanges)
+    //    {
+    //        foreach (FrameworkElement element in targetElements)
+    //        {
+    //            element.MinWidth = _currentUniformSize.Width;
+    //            element.MaxWidth = _currentUniformSize.Width;
+    //            element.MinHeight = _currentUniformSize.Height;
+    //            element.MaxHeight = _currentUniformSize.Height;
+    //        }
+    //    }
+    //}
 
-        IEnumerable<FrameworkElement> frameworkElementsOfHost = _itemsHost.Children.OfType<FrameworkElement>();
-        double maxWidth = 0;
-        double maxHeight = 0;
-        List<FrameworkElement> candidates = [];
-        foreach (FrameworkElement frameworkElement in frameworkElementsOfHost)
-        {
-            if (frameworkElement is Separator)
-            {
-                continue;
-            }
+    //private bool HasContentChildSizeChanged(out List<FrameworkElement> targetElements)
+    //{
+    //    targetElements = [];
 
-            if (!_originalDesiredSizes.TryGetValue(frameworkElement, out Size originalDesiredSize))
-            {
-                originalDesiredSize = frameworkElement.DesiredSize;
-                _originalDesiredSizes[frameworkElement] = originalDesiredSize;
-            }
+    //    if (_itemsHost is null
+    //        || _itemsHost.Children.Count == 0)
+    //    {
+    //        return false;
+    //    }
 
-            maxHeight = Math.Max(maxHeight, originalDesiredSize.Height);
-            maxWidth = Math.Max(maxWidth, originalDesiredSize.Width);
-            candidates.Add(frameworkElement);
-        }
+    //    IEnumerable<FrameworkElement> frameworkElementsOfHost = _itemsHost.Children.OfType<FrameworkElement>();
+    //    double maxWidth = 0;
+    //    double maxHeight = 0;
+    //    List<FrameworkElement> candidates = [];
+    //    foreach (FrameworkElement frameworkElement in frameworkElementsOfHost)
+    //    {
+    //        if (frameworkElement is Separator)
+    //        {
+    //            continue;
+    //        }
 
-        bool hasSizeChanged = maxWidth != _currentUniformSize.Width
-            || maxHeight != _currentUniformSize.Height;
-        if (hasSizeChanged)
-        {
-            double newWith = double.IsNaN(ItemWidth)
-                ? maxWidth
-                : Math.Max(maxWidth, ItemWidth);
-            double newHeight = double.IsNaN(ItemHeight)
-                ? maxHeight
-                : Math.Max(maxHeight, ItemHeight);
-            _currentUniformSize = new Size(newWith, newHeight);
+    //        if (!_originalDesiredSizes.TryGetValue(frameworkElement, out Size originalDesiredSize))
+    //        {
+    //            originalDesiredSize = frameworkElement.DesiredSize;
+    //            _originalDesiredSizes[frameworkElement] = originalDesiredSize;
+    //        }
 
-            // Perform a second pass over collected candidates to filter out any elements
-            // that may already have the new uniform size, so we don't unnecessarily update them
-            // and cause extra layout passes.
-            foreach (FrameworkElement element in candidates)
-            {
-                if (element.RenderSize != _currentUniformSize)
-                {
-                    targetElements.Add(element);
-                }
-            }
-        }
+    //        maxHeight = Math.Max(maxHeight, originalDesiredSize.Height);
+    //        maxWidth = Math.Max(maxWidth, originalDesiredSize.Width);
+    //        candidates.Add(frameworkElement);
+    //    }
 
-        return hasSizeChanged;
-    }
+    //    bool hasSizeChanged = maxWidth != _currentUniformSize.Width
+    //        || maxHeight != _currentUniformSize.Height;
+    //    if (hasSizeChanged)
+    //    {
+    //        double newWith = double.IsNaN(ItemWidth)
+    //            ? maxWidth
+    //            : Math.Max(maxWidth, ItemWidth);
+    //        double newHeight = double.IsNaN(ItemHeight)
+    //            ? maxHeight
+    //            : Math.Max(maxHeight, ItemHeight);
+    //        _currentUniformSize = new Size(newWith, newHeight);
+
+    //        // Perform a second pass over collected candidates to filter out any elements
+    //        // that may already have the new uniform size, so we don't unnecessarily update them
+    //        // and cause extra layout passes.
+    //        foreach (FrameworkElement element in candidates)
+    //        {
+    //            if (element.RenderSize != _currentUniformSize)
+    //            {
+    //                targetElements.Add(element);
+    //            }
+    //        }
+    //    }
+
+    //    return hasSizeChanged;
+    //}
 
     private void PurgeTable(IList? items)
     {
