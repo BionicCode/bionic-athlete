@@ -5,6 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:FitToCsvConverter.Controls"
         xmlns:viewModel="clr-namespace:FitToCsvConverter.ViewModel;assembly=FitToCsvConverter.ViewModel"
+        xmlns:theme="clr-namespace:Microsoft.Windows.Themes;assembly=PresentationFramework.Aero2"
         mc:Ignorable="d"
         Title="MainWindow" Height="900" SizeToContent="Width">
     <d:DesignerProperties.DataContext>
@@ -336,8 +337,8 @@
                     </Grid.ColumnDefinitions>
 
                     <Grid Grid.Row="0"
-                                Grid.RowSpan="2"
-                                Grid.Column="0">
+                          Grid.RowSpan="2"
+                          Grid.Column="0">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
@@ -356,29 +357,38 @@
                                                  Command="{Binding RemoveFitFileCommand}"
                                                  CommandParameter="{Binding SelectedExportData}" />
                         </local:UniformToolBar>
-                        <TextBlock Grid.Row="1" 
+                        <TextBlock Grid.Row="1"
                                    Text="FIT Files:"
                                    Style="{StaticResource LabelTextBlockStyle}" />
-                        <Grid Grid.Row="2">
-                            <ContentControl Content="{StaticResource FitFileDropTargetIcon}"
-                                            Height="120" 
-                                            VerticalAlignment="Center" />
-                            <ListBox x:Name="ExportDataMasterView"
-                                     ItemsSource="{Binding ExportData, Mode=OneTime}"
-                                     SelectedItem="{Binding SelectedExportData}"
-                                     DisplayMemberPath="FitFileName"
-                                     Background="Transparent"
-                                     BorderThickness="1"
-                                     Padding="0,5"
-                                     Width="Auto"
-                                     AllowDrop="True"
-                                     ToolTip="Drag and drop FIT files here, either raw or as ZIP files."
-                                     Drop="OnFitFilesDropped"
-                                     DragEnter="PrepareFitFileDropTargetFeedBack"
-                                     DragOver="ProvideFitFileDropTargetFeedBack"
-                                     DragLeave="ClearFitFileDropTargetFeedBack"
-                                     ContextMenu="{StaticResource FitFileListContextMenu}" />
-                        </Grid>
+                        <theme:SystemDropShadowChrome x:Name="Shdw"
+                                                      Color="Transparent">
+                            <Grid Grid.Row="2">
+                                <ContentControl Content="{StaticResource FitFileDropTargetIcon}"
+                                                Height="120"
+                                                VerticalAlignment="Center" />
+                                <Border x:Name="ToolBarSubMenuBorder"
+                                        Background="{StaticResource ToolBarSubMenuBackground}"
+                                        BorderBrush="{StaticResource ToolBarMenuBorder}"
+                                        BorderThickness="1"
+                                        RenderOptions.ClearTypeHint="Enabled">
+                                    <ListBox x:Name="ExportDataMasterView"
+                                             ItemsSource="{Binding ExportData, Mode=OneTime}"
+                                             SelectedItem="{Binding SelectedExportData}"
+                                             DisplayMemberPath="FitFileName"
+                                             Background="Transparent"
+                                             BorderThickness="1"
+                                             Padding="0,5"
+                                             Width="Auto"
+                                             AllowDrop="True"
+                                             ToolTip="Drag and drop FIT files here, either raw or as ZIP files."
+                                             Drop="OnFitFilesDropped"
+                                             DragEnter="PrepareFitFileDropTargetFeedBack"
+                                             DragOver="ProvideFitFileDropTargetFeedBack"
+                                             DragLeave="ClearFitFileDropTargetFeedBack"
+                                             ContextMenu="{StaticResource FitFileListContextMenu}" />
+                                </Border>
+                            </Grid>
+                        </theme:SystemDropShadowChrome>
                     </Grid>
                     <GridSplitter Grid.Column="1"
                                   Grid.RowSpan="2"
