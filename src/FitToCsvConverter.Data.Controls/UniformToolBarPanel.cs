@@ -160,8 +160,99 @@ public class UniformToolBarPanel : Panel
     /// <summary>
     ///     Instantiates a new instance of this class.
     /// </summary>
-    public UniformToolBarPanel() : base()
+    public UniformToolBarPanel() : base() => Loaded += OnLoaded;
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
     {
+
+        /*Truth table for BaseValueSource
+           ┌───────────────────┬───────────────┬───────────────────────┬──────────────────────────┐
+           │ BaseValueSource   │ Has modifiers │ HasDefaultValue(...)  │ HasNonDefaultValue(...)  │
+           ├───────────────────┼───────────────┼───────────────────────┼──────────────────────────┤
+           │ Default           │ No            │ true                  │ false                    │ <=== Only in this case we want to set the binding, 
+           │ Default           │ Yes           │ false                 │ true                     │      otherwise we might be overwriting a user set or inherited value
+           │ Local             │ No            │ false                 │ true                     │
+           │ Local             │ Yes           │ false                 │ true                     │
+           │ Style             │ No            │ false                 │ true                     │
+           │ Style             │ Yes           │ false                 │ true                     │
+           │ Inherited         │ No            │ false                 │ true                     │
+           │ Inherited         │ Yes           │ false                 │ true                     │
+           └───────────────────┴───────────────┴───────────────────────┴──────────────────────────┘
+
+        Since we don't want to override any expressions like Binding etc. (original ToolBarPanel overrides user expression) 
+        we must add an extra check using ReadLocalValue to determine if the value is actually coming from a default value or not. 
+        */
+        ValueSource source = DependencyPropertyHelper.GetValueSource(this, OrientationProperty);
+        bool isDefaultSource = source.BaseValueSource is BaseValueSource.Default;
+        bool isOrientationDefaultValue = isDefaultSource
+            && ReadLocalValue(OrientationProperty) == DependencyProperty.UnsetValue;
+
+        DependencyObject parent = VisualTreeHelper.GetParent(this);
+        while (parent is not null and not (ToolBar or UniformToolBar))
+        {
+            parent = VisualTreeHelper.GetParent(parent);
+        }
+
+        if (parent is not ToolBar and not UniformToolBar)
+        {
+            return;
+        }
+
+        if (isOrientationDefaultValue)
+        {
+            var binding = new Binding
+            {
+                Source = parent,
+                Path = new PropertyPath(ToolBar.OrientationProperty)
+            };
+            _ = SetBinding(OrientationProperty, binding);
+        }
+
+        source = DependencyPropertyHelper.GetValueSource(this, ItemHeightProperty);
+        isDefaultSource = source.BaseValueSource is BaseValueSource.Default;
+        bool isItemHeightDefaultValue = isDefaultSource
+            && ReadLocalValue(ItemHeightProperty) == DependencyProperty.UnsetValue;
+
+        var uniformToolBar = parent as UniformToolBar;
+        if (uniformToolBar is not null && isItemHeightDefaultValue)
+        {
+            var binding = new Binding
+            {
+                Source = uniformToolBar,
+                Path = new PropertyPath(UniformToolBar.ItemHeightProperty)
+            };
+            _ = SetBinding(ItemHeightProperty, binding);
+        }
+
+        source = DependencyPropertyHelper.GetValueSource(this, ItemWidthProperty);
+        isDefaultSource = source.BaseValueSource is BaseValueSource.Default;
+        bool isItemWidthDefaultValue = isDefaultSource
+            && ReadLocalValue(ItemWidthProperty) == DependencyProperty.UnsetValue;
+
+        if (isItemWidthDefaultValue && uniformToolBar is not null)
+        {
+            var binding = new Binding
+            {
+                Source = uniformToolBar,
+                Path = new PropertyPath(UniformToolBar.ItemWidthProperty)
+            };
+            _ = SetBinding(ItemWidthProperty, binding);
+        }
+
+        source = DependencyPropertyHelper.GetValueSource(this, OverflowModeProperty);
+        isDefaultSource = source.BaseValueSource is BaseValueSource.Default;
+        bool isOverflowModeDefaultValue = isDefaultSource
+            && ReadLocalValue(OverflowModeProperty) == DependencyProperty.UnsetValue;
+
+        if (isOverflowModeDefaultValue && uniformToolBar is not null)
+        {
+            var binding = new Binding
+            {
+                Source = uniformToolBar,
+                Path = new PropertyPath(UniformToolBar.OverflowModeProperty)
+            };
+            _ = SetBinding(OverflowModeProperty, binding);
+        }
     }
 
     private static bool IsWidthHeightValid(object value)
