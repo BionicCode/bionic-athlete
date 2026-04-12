@@ -42,7 +42,7 @@ public class UniformToolBar : HeaderedItemsControl
         typeof(double),
         typeof(UniformToolBar),
         new FrameworkPropertyMetadata(
-            double.NaN,
+            48d,
             FrameworkPropertyMetadataOptions.AffectsMeasure),
         new ValidateValueCallback(IsWidthHeightValid));
     #endregion ItemHeight
@@ -61,7 +61,7 @@ public class UniformToolBar : HeaderedItemsControl
         typeof(double),
         typeof(UniformToolBar),
         new FrameworkPropertyMetadata(
-            double.NaN,
+            48d,
             FrameworkPropertyMetadataOptions.AffectsMeasure),
         new ValidateValueCallback(IsWidthHeightValid));
     #endregion ItemWidth 
@@ -187,6 +187,7 @@ public class UniformToolBar : HeaderedItemsControl
         typeof(UniformToolBar),
         new PropertyMetadata(OverflowMode.AsNeeded));
     #endregion OverflowMode
+
     #region IsOverflowOpen
     /// <summary>
     /// Gets or sets a value indicating whether the overflow panel of the <see cref="UniformToolBar"/> is open.
@@ -288,8 +289,7 @@ public class UniformToolBar : HeaderedItemsControl
 
     private static void OnItemHeightChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
-        var uniformToolBar = (UniformToolBar)d;
-        uniformToolBar._currentUniformSize = new Size(uniformToolBar._currentUniformSize.Width, (double)e.NewValue);
+        //uniformToolBar._currentUniformSize = new Size(uniformToolBar._currentUniformSize.Width, (double)e.NewValue);
         //_ = uniformToolBar.Dispatcher.InvokeAsync(uniformToolBar.ApplyUniformSizing, DispatcherPriority.Render);
     }
 
@@ -304,7 +304,7 @@ public class UniformToolBar : HeaderedItemsControl
     private static bool IsWidthHeightValid(object value)
     {
         double v = (double)value;
-        return double.IsNaN(v) || (v >= 0.0d && !double.IsPositiveInfinity(v));
+        return !double.IsNaN(v) && v >= 0.0d && !double.IsPositiveInfinity(v);
     }
 
     public UniformToolBar()
@@ -421,11 +421,11 @@ public class UniformToolBar : HeaderedItemsControl
     {
         base.OnApplyTemplate();
         _mainItemsHost = GetTemplateChild("MainPanelHost") as ItemsControl;
-        _mainItemsHost?.Loaded += OnMainItemsHostLoaded;
+        //_mainItemsHost?.Loaded += OnMainItemsHostLoaded;
         //    ?? // Only thrown if Microsoft .NET source have drastically changed the template for ToolBar, which is unlikely.//       // We throw so we can update the code to match the new template.//       throw new InvalidOperationException("PART_ToolBarPanel not found in official .NET template.");//DependencyObject? panel = GetTemplateChild(ToolBarOverflowPanelTemplateName.ResourceId as string);//if (panel is not null and not System.Windows.Controls.Primitives.ToolBarOverflowPanel)//{//    throw new NotSupportedException("The template part named PART_ToolBarOverflowPanel must be of type ToolBarOverflowPanel.");//}//_toolBarOverflowPanel = panel as ToolBarOverflowPanel;
     }
 
-    private void OnMainItemsHostLoaded(object sender, RoutedEventArgs e) => InvalidateMeasure();
+    //private void OnMainItemsHostLoaded(object sender, RoutedEventArgs e) => InvalidateMeasure();
 
     private bool TryFindVisualChild<TChild>(DependencyObject parent, out TChild? child) where TChild : DependencyObject
     {
@@ -453,18 +453,18 @@ public class UniformToolBar : HeaderedItemsControl
         return false;
     }
 
-    protected override Size MeasureOverride(Size constraint)
-    {
-        if (_mainItemsHost is null)
-        {
-            return base.MeasureOverride(constraint);
-        }
+    //protected override Size MeasureOverride(Size constraint)
+    //{
+    //    if (_mainItemsHost is null)
+    //    {
+    //        return base.MeasureOverride(constraint);
+    //    }
 
-        _mainItemsHost.Measure(constraint);
-        return _mainItemsHost.DesiredSize;
-    }
+    //    _mainItemsHost.Measure(constraint);
+    //    return _mainItemsHost.DesiredSize;
+    //}
 
-    protected override void OnChildDesiredSizeChanged(UIElement child) => base.OnChildDesiredSizeChanged(child);//_ = Dispatcher.InvokeAsync(ApplyUniformSizing, DispatcherPriority.Render);
+    //protected override void OnChildDesiredSizeChanged(UIElement child) => base.OnChildDesiredSizeChanged(child);//_ = Dispatcher.InvokeAsync(ApplyUniformSizing, DispatcherPriority.Render);
 
     //protected override void OnMouseEnter(MouseEventArgs e)
     //{
@@ -604,7 +604,64 @@ public class UniformToolBarItemsControl : ItemsControl
 
 internal class UniformToolBarItem : ContentControl
 {
-    static UniformToolBarItem() => DefaultStyleKeyProperty.OverrideMetadata(typeof(UniformToolBarItem), new FrameworkPropertyMetadata(typeof(UniformToolBarItem)));
+    //#region ItemHeight
+    //[TypeConverter(typeof(LengthConverter))]
+    //public double ItemHeight
+    //{
+    //    get => (double)GetValue(ItemHeightProperty);
+    //    set => SetValue(ItemHeightProperty, value);
+    //}
+
+    //[TypeConverter(typeof(LengthConverter))]
+    //public static readonly DependencyProperty ItemHeightProperty = DependencyProperty.Register(
+    //    nameof(ItemHeight),
+    //    typeof(double),
+    //    typeof(UniformToolBarItem),
+    //    new FrameworkPropertyMetadata(
+    //        48d,
+    //        FrameworkPropertyMetadataOptions.AffectsMeasure | FrameworkPropertyMetadataOptions.AffectsParentMeasure,
+    //        OnItemHeightChanged),
+    //    new ValidateValueCallback(IsWidthHeightValid));
+    //#endregion ItemHeight
+
+    //#region ItemWidth
+    //[TypeConverter(typeof(LengthConverter))]
+    //public double ItemWidth
+    //{
+    //    get => (double)GetValue(ItemWidthProperty);
+    //    set => SetValue(ItemWidthProperty, value);
+    //}
+
+    //[TypeConverter(typeof(LengthConverter))]
+    //public static readonly DependencyProperty ItemWidthProperty = DependencyProperty.Register(
+    //    nameof(ItemWidth),
+    //    typeof(double),
+    //    typeof(UniformToolBarItem),
+    //    new FrameworkPropertyMetadata(
+    //        48d,
+    //        FrameworkPropertyMetadataOptions.AffectsMeasure | FrameworkPropertyMetadataOptions.AffectsParentMeasure,
+    //        OnItemWidthChanged),
+    //    new ValidateValueCallback(IsWidthHeightValid));
+    //#endregion ItemWidth 
+    //static UniformToolBarItem() => DefaultStyleKeyProperty.OverrideMetadata(typeof(UniformToolBarItem), new FrameworkPropertyMetadata(typeof(UniformToolBarItem)));
+
+    //private static void OnItemWidthChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    //{
+    //    var uniformToolBarItem = (UniformToolBarItem)d;
+    //    uniformToolBarItem.SetCurrentValue(WidthProperty, e.NewValue);
+    //}
+
+    //private static void OnItemHeightChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    //{
+    //    var uniformToolBarItem = (UniformToolBarItem)d;
+    //    uniformToolBarItem.SetCurrentValue(HeightProperty, e.NewValue);
+    //}
+
+    //private static bool IsWidthHeightValid(object value)
+    //{
+    //    double v = (double)value;
+    //    return !double.IsNaN(v) && v >= 0.0d && !double.IsPositiveInfinity(v);
+    //}
 
     public virtual void PrepareForMeasure()
     {

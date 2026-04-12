@@ -40,8 +40,8 @@ public class ToolBarButton : Button
     private FrameworkElement? _contentHost;
     private TextBlock? _label;
     private Border? _labelBorder;
-    private Storyboard? _mouseOverForegroundStoryboard;
-    private Storyboard? _revertForegroundStoryboard;
+    private Storyboard? _mouseOverStoryboard;
+    private Storyboard? _revertMouseOverStoryboard;
     private readonly double _oldContentHeight;
 
     public string LabelText { get => (string)GetValue(LabelTextProperty); set => SetValue(LabelTextProperty, value); }
@@ -111,18 +111,25 @@ public class ToolBarButton : Button
         base.OnApplyTemplate();
 
         _contentHost = GetTemplateChild("PART_ContentPresenterViewBox") as FrameworkElement;
+        _ = _contentHost?.RenderTransform = new ScaleTransform(1, 1);
+        _ = (_contentHost?.RenderTransformOrigin = new Point(0.5, 0.5));
+
         _label = GetTemplateChild("PART_Label") as TextBlock;
+        _ = _label?.RenderTransform = new ScaleTransform(0, 0);
+        _ = (_label?.RenderTransformOrigin = new Point(0.5, 0.5));
         _labelBorder = GetTemplateChild("PART_LabelBorder") as Border;
+        _ = _labelBorder?.RenderTransform = new ScaleTransform(1, 1);
+        _ = (_labelBorder?.RenderTransformOrigin = new Point(0.5, 0.5));
     }
 
-    protected override Size MeasureOverride(Size constraint)
-    {
-        Size calculatedSize = base.MeasureOverride(constraint);
+    //protected override Size MeasureOverride(Size constraint)
+    //{
+    //    Size calculatedSize = base.MeasureOverride(constraint);
 
-        _ = DesiredSize;
+    //    _ = DesiredSize;
 
-        return DesiredSize;
-    }
+    //    return DesiredSize;
+    //}
 
     protected override void OnMouseEnter(MouseEventArgs e)
     {
@@ -130,12 +137,12 @@ public class ToolBarButton : Button
             && _label is not null
             && _labelBorder is not null)
         {
-            if (_mouseOverForegroundStoryboard is null)
+            if (_mouseOverStoryboard is null)
             {
                 BuildMouseOverStoryboard();
             }
 
-            _mouseOverForegroundStoryboard?.Begin();
+            _mouseOverStoryboard?.Begin();
         }
 
         base.OnMouseEnter(e);
@@ -147,12 +154,12 @@ public class ToolBarButton : Button
             && _label is not null
             && _labelBorder is not null)
         {
-            if (_revertForegroundStoryboard is null)
+            if (_revertMouseOverStoryboard is null)
             {
                 BuildMouseOverRevertStoryboard();
             }
 
-            _revertForegroundStoryboard?.Begin();
+            _revertMouseOverStoryboard?.Begin();
         }
 
         base.OnMouseLeave(e);
@@ -164,16 +171,16 @@ public class ToolBarButton : Button
             && _label is not null
             && _labelBorder is not null)
         {
-            _mouseOverForegroundStoryboard = new Storyboard() { FillBehavior = FillBehavior.HoldEnd };
-            var colorAnimation = new ColorAnimation
-            {
-                To = (Color)FindResource("MouseOverTextColor"),
-                Duration = (Duration)FindResource("MouseOverAnimationDuration"),
-                AutoReverse = false,
-            };
-            Storyboard.SetTarget(colorAnimation, this);
-            Storyboard.SetTargetProperty(colorAnimation, new PropertyPath("(Button.Foreground).(SolidColorBrush.Color)"));
-            _mouseOverForegroundStoryboard.Children.Add(colorAnimation);
+            _mouseOverStoryboard = new Storyboard() { FillBehavior = FillBehavior.HoldEnd };
+            //var colorAnimation = new ColorAnimation
+            //{
+            //    To = (Color)FindResource("MouseOverTextColor"),
+            //    Duration = (Duration)FindResource("MouseOverAnimationDuration"),
+            //    AutoReverse = false,
+            //};
+            //Storyboard.SetTarget(colorAnimation, this);
+            //Storyboard.SetTargetProperty(colorAnimation, new PropertyPath("(Button.Foreground).(SolidColorBrush.Color)"));
+            //_mouseOverForegroundStoryboard.Children.Add(colorAnimation);
 
             var opacityAnimation = new DoubleAnimation
             {
@@ -183,41 +190,62 @@ public class ToolBarButton : Button
             };
             Storyboard.SetTarget(opacityAnimation, _labelBorder);
             Storyboard.SetTargetProperty(opacityAnimation, new PropertyPath(OpacityProperty));
-            _mouseOverForegroundStoryboard.Children.Add(opacityAnimation);
+            _mouseOverStoryboard.Children.Add(opacityAnimation);
 
             var borderHorizontalGrowAnimation = new DoubleAnimation
             {
-                From = 0,
-                To = _labelBorder.ActualWidth,
+                From = 0.0,
+                To = 1.0,
                 Duration = (Duration)FindResource("MouseOverAnimationDuration"),
                 AutoReverse = false,
             };
             Storyboard.SetTarget(borderHorizontalGrowAnimation, _labelBorder);
-            Storyboard.SetTargetProperty(borderHorizontalGrowAnimation, new PropertyPath(WidthProperty));
-            _mouseOverForegroundStoryboard.Children.Add(borderHorizontalGrowAnimation);
+            Storyboard.SetTargetProperty(borderHorizontalGrowAnimation, new PropertyPath("RenderTransform.ScaleX"));
+            _mouseOverStoryboard.Children.Add(borderHorizontalGrowAnimation);
 
-            var fontSizeAnimation = new DoubleAnimation
+            var horizontalFontSizeAnimation = new DoubleAnimation
             {
-                To = LabelFontSize,
+                To = 1,
                 Duration = (Duration)FindResource("MouseOverAnimationDuration"),
                 AutoReverse = false,
             };
-            Storyboard.SetTarget(fontSizeAnimation, _label);
-            Storyboard.SetTargetProperty(fontSizeAnimation, new PropertyPath(FontSizeProperty));
-            _mouseOverForegroundStoryboard.Children.Add(fontSizeAnimation);
+            Storyboard.SetTarget(horizontalFontSizeAnimation, _label);
+            Storyboard.SetTargetProperty(horizontalFontSizeAnimation, new PropertyPath("RenderTransform.ScaleX"));
+            _mouseOverStoryboard.Children.Add(horizontalFontSizeAnimation);
+
+            var verticalFontSizeAnimation = new DoubleAnimation
+            {
+                To = 1,
+                Duration = (Duration)FindResource("MouseOverAnimationDuration"),
+                AutoReverse = false,
+            };
+            Storyboard.SetTarget(verticalFontSizeAnimation, _label);
+            Storyboard.SetTargetProperty(verticalFontSizeAnimation, new PropertyPath("RenderTransform.ScaleY"));
+            _mouseOverStoryboard.Children.Add(verticalFontSizeAnimation);
 
             // Shrink to 75 % of original height to create some visual interest and to help indicate that the button is being hovered over
-            double newContentHeight = _contentHost.ActualHeight * 0.75;
-            var heightAnimation = new DoubleAnimation
+            _ = _contentHost.ActualHeight * 0.75;
+            var contentHeightAnimation = new DoubleAnimation
             {
-                From = _contentHost.ActualHeight,
-                To = newContentHeight,
+                From = 1.0,
+                To = 0.75,
                 Duration = (Duration)FindResource("MouseOverAnimationDuration"),
                 AutoReverse = false,
             };
-            Storyboard.SetTarget(heightAnimation, _contentHost);
-            Storyboard.SetTargetProperty(heightAnimation, new PropertyPath(FrameworkElement.HeightProperty));
-            _mouseOverForegroundStoryboard.Children.Add(heightAnimation);
+            Storyboard.SetTarget(contentHeightAnimation, _contentHost);
+            Storyboard.SetTargetProperty(contentHeightAnimation, new PropertyPath("RenderTransform.ScaleY"));
+            _mouseOverStoryboard.Children.Add(contentHeightAnimation);
+
+            var contentWidthAnimation = new DoubleAnimation
+            {
+                From = 1.0,
+                To = 0.75,
+                Duration = (Duration)FindResource("MouseOverAnimationDuration"),
+                AutoReverse = false,
+            };
+            Storyboard.SetTarget(contentWidthAnimation, _contentHost);
+            Storyboard.SetTargetProperty(contentWidthAnimation, new PropertyPath("RenderTransform.ScaleX"));
+            _mouseOverStoryboard.Children.Add(contentWidthAnimation);
         }
     }
 
@@ -227,16 +255,16 @@ public class ToolBarButton : Button
             && _label is not null
             && _labelBorder is not null)
         {
-            _revertForegroundStoryboard = new Storyboard() { FillBehavior = FillBehavior.HoldEnd };
-            var colorAnimation = new ColorAnimation
-            {
-                To = (Color)FindResource("TextColor"),
-                Duration = (Duration)FindResource("MouseOverAnimationDuration"),
-                AutoReverse = false,
-            };
-            Storyboard.SetTarget(colorAnimation, this);
-            Storyboard.SetTargetProperty(colorAnimation, new PropertyPath("(Button.Foreground).(SolidColorBrush.Color)"));
-            _revertForegroundStoryboard.Children.Add(colorAnimation);
+            _revertMouseOverStoryboard = new Storyboard() { FillBehavior = FillBehavior.HoldEnd };
+            //var colorAnimation = new ColorAnimation
+            //{
+            //    To = (Color)FindResource("TextColor"),
+            //    Duration = (Duration)FindResource("MouseOverAnimationDuration"),
+            //    AutoReverse = false,
+            //};
+            //Storyboard.SetTarget(colorAnimation, this);
+            //Storyboard.SetTargetProperty(colorAnimation, new PropertyPath("(Button.Foreground).(SolidColorBrush.Color)"));
+            //_revertForegroundStoryboard.Children.Add(colorAnimation);
 
             var opacityAnimation = new DoubleAnimation
             {
@@ -246,37 +274,57 @@ public class ToolBarButton : Button
             };
             Storyboard.SetTarget(opacityAnimation, _labelBorder);
             Storyboard.SetTargetProperty(opacityAnimation, new PropertyPath(OpacityProperty));
-            _revertForegroundStoryboard.Children.Add(opacityAnimation);
+            _revertMouseOverStoryboard.Children.Add(opacityAnimation);
 
             var borderHorizontalShrinkAnimation = new DoubleAnimation
             {
-                To = 0,
+                To = 0.0,
                 Duration = (Duration)FindResource("MouseOverAnimationDuration"),
                 AutoReverse = false,
             };
             Storyboard.SetTarget(borderHorizontalShrinkAnimation, _labelBorder);
-            Storyboard.SetTargetProperty(borderHorizontalShrinkAnimation, new PropertyPath(WidthProperty));
-            _revertForegroundStoryboard.Children.Add(borderHorizontalShrinkAnimation);
+            Storyboard.SetTargetProperty(borderHorizontalShrinkAnimation, new PropertyPath("RenderTransform.ScaleX"));
+            _revertMouseOverStoryboard.Children.Add(borderHorizontalShrinkAnimation);
 
-            var fontSizeAnimation = new DoubleAnimation
+            var horizontalFontSizeAnimation = new DoubleAnimation
             {
-                To = 0.001,
+                To = 1,
                 Duration = (Duration)FindResource("MouseOverAnimationDuration"),
                 AutoReverse = false,
             };
-            Storyboard.SetTarget(fontSizeAnimation, _label);
-            Storyboard.SetTargetProperty(fontSizeAnimation, new PropertyPath(FontSizeProperty));
-            _revertForegroundStoryboard.Children.Add(fontSizeAnimation);
+            Storyboard.SetTarget(horizontalFontSizeAnimation, _label);
+            Storyboard.SetTargetProperty(horizontalFontSizeAnimation, new PropertyPath("RenderTransform.ScaleX"));
+            _revertMouseOverStoryboard.Children.Add(horizontalFontSizeAnimation);
 
-            var heightAnimation = new DoubleAnimation
+            var verticalFontSizeAnimation = new DoubleAnimation
             {
-                To = _contentHost.ActualHeight,
+                To = 1,
                 Duration = (Duration)FindResource("MouseOverAnimationDuration"),
                 AutoReverse = false,
             };
-            Storyboard.SetTarget(heightAnimation, _contentHost);
-            Storyboard.SetTargetProperty(heightAnimation, new PropertyPath(FrameworkElement.HeightProperty));
-            _revertForegroundStoryboard.Children.Add(heightAnimation);
+            Storyboard.SetTarget(verticalFontSizeAnimation, _label);
+            Storyboard.SetTargetProperty(verticalFontSizeAnimation, new PropertyPath("RenderTransform.ScaleY"));
+            _revertMouseOverStoryboard.Children.Add(verticalFontSizeAnimation);
+
+            var contentHeightAnimation = new DoubleAnimation
+            {
+                To = 1.0,
+                Duration = (Duration)FindResource("MouseOverAnimationDuration"),
+                AutoReverse = false,
+            };
+            Storyboard.SetTarget(contentHeightAnimation, _contentHost);
+            Storyboard.SetTargetProperty(contentHeightAnimation, new PropertyPath("RenderTransform.ScaleY"));
+            _revertMouseOverStoryboard.Children.Add(contentHeightAnimation);
+
+            var contentWidthAnimation = new DoubleAnimation
+            {
+                To = 1.0,
+                Duration = (Duration)FindResource("MouseOverAnimationDuration"),
+                AutoReverse = false,
+            };
+            Storyboard.SetTarget(contentWidthAnimation, _contentHost);
+            Storyboard.SetTargetProperty(contentWidthAnimation, new PropertyPath("RenderTransform.ScaleX"));
+            _revertMouseOverStoryboard.Children.Add(contentWidthAnimation);
         }
     }
 }

@@ -349,20 +349,22 @@
                                    Style="{StaticResource LabelTextBlockStyle}" />
                         <local:UniformToolBar Grid.Row="1"
                                               Margin="0,0,0,5"
-                                              HorizontalAlignment="Stretch"
-                                              VerticalAlignment="Stretch"
-                                              ItemHeight="42"
-                                              ItemWidth="Auto">
-                            <Button Content="Hello" />
-                            <Button Content="World" />
-                            <!--<local:ToolBarButton Content="{StaticResource OpenFileIcon}"
+                                              HorizontalAlignment="Left"
+                                              VerticalAlignment="Top"
+                                              ItemWidth="90"
+                                              ItemHeight="40">
+                            <!--<Button Content="Hello" Style="{x:Null}" />
+                            <Button Content="World" Style="{x:Null}"  />-->
+                            <local:ToolBarButton Content="{StaticResource OpenFileIcon}"
                                                  LabelText="Open FIT file"
                                                  Command="{Binding OpenFitFileCommand}"
-                                                 CommandParameter="{Binding SelectedExportData}" />
+                                                 CommandParameter="{Binding SelectedExportData}"
+                                                 LabelFontSize="10"/>
                             <local:ToolBarButton Content="{StaticResource DeleteIcon}"
                                                  LabelText="Clear all"
                                                  Command="{Binding RemoveFitFileCommand}"
-                                                 CommandParameter="{Binding SelectedExportData}" />-->
+                                                 CommandParameter="{Binding SelectedExportData}"
+                                                 LabelFontSize="10"/>
                         </local:UniformToolBar>
                             <Grid
                                                       Grid.Row="2">
