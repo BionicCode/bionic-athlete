@@ -349,16 +349,20 @@
                                    Style="{StaticResource LabelTextBlockStyle}" />
                         <local:UniformToolBar Grid.Row="1"
                                               Margin="0,0,0,5"
+                                              HorizontalAlignment="Stretch"
+                                              VerticalAlignment="Stretch"
                                               ItemHeight="42"
                                               ItemWidth="Auto">
-                            <local:ToolBarButton Content="{StaticResource OpenFileIcon}"
+                            <Button Content="Hello" />
+                            <Button Content="World" />
+                            <!--<local:ToolBarButton Content="{StaticResource OpenFileIcon}"
                                                  LabelText="Open FIT file"
                                                  Command="{Binding OpenFitFileCommand}"
                                                  CommandParameter="{Binding SelectedExportData}" />
                             <local:ToolBarButton Content="{StaticResource DeleteIcon}"
                                                  LabelText="Clear all"
                                                  Command="{Binding RemoveFitFileCommand}"
-                                                 CommandParameter="{Binding SelectedExportData}" />
+                                                 CommandParameter="{Binding SelectedExportData}" />-->
                         </local:UniformToolBar>
                             <Grid
                                                       Grid.Row="2">

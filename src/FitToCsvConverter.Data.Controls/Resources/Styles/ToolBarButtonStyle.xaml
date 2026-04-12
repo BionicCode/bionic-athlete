@@ -16,16 +16,22 @@
         <Setter Property="Padding"
                 Value="5" />
         <Setter Property="HorizontalContentAlignment"
-                Value="Stretch" />
+                Value="Center" />
         <Setter Property="VerticalContentAlignment"
-                Value="Stretch" />
+                Value="Center" />
+        <!--<Setter Property="HorizontalAlignment"
+                Value="Left" />
+        <Setter Property="VerticalAlignment"
+                Value="Top" />-->
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type local:ToolBarButton}">
                     <Border x:Name="Border"
                         Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}">
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                                     HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                     VerticalAlignment="{TemplateBinding VerticalContentAlignment}">
                         <VisualStateManager.VisualStateGroups>
                             <VisualStateGroup x:Name="CommonStates">
                                 <VisualState x:Name="Normal" />
@@ -45,21 +51,19 @@
                                 <VisualState x:Name="Disabled" />
                             </VisualStateGroup>
                         </VisualStateManager.VisualStateGroups>
-                            
+
                         <Grid Margin="0">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="*" />
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
 
-                            <Viewbox x:Name="PART_ContentPresenter"
+                            <Viewbox x:Name="PART_ContentPresenterViewBox"
                                      Grid.Row="0"
                                      Grid.RowSpan="2"
                                      Margin="{TemplateBinding Padding}"
-                                     StretchDirection="Both"
-                                     HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                     VerticalAlignment="{TemplateBinding VerticalContentAlignment}">
-                                <ContentPresenter />
+                                     StretchDirection="Both">
+                                <ContentPresenter x:Name="PART_ContentPresenter" />
                             </Viewbox>
 
                             <Border x:Name="PART_LabelPlaceholderBorder"

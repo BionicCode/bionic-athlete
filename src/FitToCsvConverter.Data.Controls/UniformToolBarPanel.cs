@@ -2,6 +2,7 @@
 
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -11,6 +12,7 @@ using global::System.Windows.Data;
 public class UniformToolBarPanel : Panel
 {
     private Size _measuredUniformSize;
+    private Size _measuredRequiredPanelSize;
 
     #region IsOverflowItem
     /// <summary>
@@ -160,7 +162,8 @@ public class UniformToolBarPanel : Panel
     /// <summary>
     ///     Instantiates a new instance of this class.
     /// </summary>
-    public UniformToolBarPanel() : base() => Loaded += OnLoaded;
+    public UniformToolBarPanel() : base()
+    { }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
@@ -222,6 +225,7 @@ public class UniformToolBarPanel : Panel
                 Path = new PropertyPath(UniformToolBar.ItemHeightProperty)
             };
             _ = SetBinding(ItemHeightProperty, binding);
+            //BindingOperations.GetBindingExpression(this, ItemHeightProperty)?.UpdateTarget();
         }
 
         source = DependencyPropertyHelper.GetValueSource(this, ItemWidthProperty);
@@ -253,6 +257,8 @@ public class UniformToolBarPanel : Panel
             };
             _ = SetBinding(OverflowModeProperty, binding);
         }
+
+        //InvalidateMeasure();
     }
 
     private static bool IsWidthHeightValid(object value)
@@ -263,19 +269,9 @@ public class UniformToolBarPanel : Panel
 
     #region Layout
 
-    internal double MinLength
-    {
-        get;
-        private set;
-    }
+    //private bool _isModifyingChildLayout;
 
-    internal double MaxLength
-    {
-        get;
-        private set;
-    }
-
-    private bool MeasureItems(Size constraint, out ReadOnlyCollection<(int itemIndex, object item)> overflowItems, out Size newPanelSize)
+    private bool MeasureItems(Size constraint, out ReadOnlyCollection<(int itemIndex, object item)> overflowItems, out Size newUniformChildSize, out Size newPanelSize)
     {
         newPanelSize = new Size(double.PositiveInfinity, double.PositiveInfinity);
         var overflowItemsList = new List<(int itemIndex, object item)>();
@@ -289,6 +285,8 @@ public class UniformToolBarPanel : Panel
             return false;
         }
 
+        //_isModifyingChildLayout = true;
+
         ItemContainerGenerator? generator = null;
         if (IsItemsHost)
         {
@@ -296,16 +294,34 @@ public class UniformToolBarPanel : Panel
             generator = itemsControl.ItemContainerGenerator;
         }
 
+        List<ContentControl> measuredChildContainers = [];
+        Size oldMeasuredUniformSize = _measuredUniformSize;
+        Size oldMeasuredRequiredPanelSize = _measuredRequiredPanelSize;
         if (double.IsNaN(ItemWidth)
-            && double.IsNaN(ItemHeight))
+            || double.IsNaN(ItemHeight))
         {
-            foreach (UIElement childContainer in InternalChildren)
+            foreach (ContentControl childContainer in InternalChildren.OfType<ContentControl>())
             {
+                if (childContainer is UniformToolBarItem uniformToolBarItem)
+                {
+                    uniformToolBarItem.PrepareForMeasure();
+                }
+                else
+                {
+                    childContainer.MinWidth = 0;
+                    childContainer.MaxWidth = double.PositiveInfinity;
+                    childContainer.MinHeight = 0;
+                    childContainer.MaxHeight = double.PositiveInfinity;
+                    childContainer.Width = double.NaN;
+                    childContainer.Height = double.NaN;
+                }
+
                 // First measure pass: allow child to provide its natural desired size
                 childContainer.Measure(constraint);
                 Size childDesiredSize = childContainer.DesiredSize;
                 maxWidth = Math.Max(maxWidth, childDesiredSize.Width);
                 maxHeight = Math.Max(maxHeight, childDesiredSize.Height);
+                measuredChildContainers.Add(childContainer);
             }
         }
 
@@ -321,21 +337,47 @@ public class UniformToolBarPanel : Panel
             maxHeight = ItemHeight;
         }
 
-        double maxHorizontalLength = Orientation == Orientation.Horizontal ? constraint.Width : double.PositiveInfinity;
-        double maxVerticalLength = Orientation == Orientation.Vertical ? constraint.Height : double.PositiveInfinity;
-        double currentHorizontalLength = 0.0;
-        double currentVerticalLength = 0.0;
-        var requiredChildSize = new Size(maxWidth, maxHeight);
-        foreach (UIElement childContainer in InternalChildren)
+        newUniformChildSize = new Size(maxWidth, maxHeight);
+        if (newUniformChildSize == oldMeasuredUniformSize)
+        {
+            // If the uniform child size hasn't changed since the last measure, we can skip re-measuring the children
+            // because their desired size will be the same as before and thus the same items will be in the overflow.
+            newPanelSize = oldMeasuredRequiredPanelSize;
+            newUniformChildSize = oldMeasuredUniformSize;
+            //_isModifyingChildLayout = false;
+            return true;
+        }
+
+        bool isOrientationHorizontal = Orientation is Orientation.Horizontal;
+        double maxHorizontalLength = isOrientationHorizontal
+            ? constraint.Width
+            : double.PositiveInfinity;
+        double maxVerticalLength = !isOrientationHorizontal
+            ? constraint.Height
+            : double.PositiveInfinity;
+        double currentHorizontalLength = isOrientationHorizontal
+            ? 0.0
+            : newUniformChildSize.Width;
+        double currentVerticalLength = isOrientationHorizontal
+            ? newUniformChildSize.Height
+            : 0.0;
+        foreach (FrameworkElement childContainer in measuredChildContainers)
         {
             // If the total length of the children exceeds the available length in the orientation direction,
             // we can stop measuring and directly mark all remaining containers as overflow items.
             if (!hasOverflowItems)
             {
                 // Second measure pass: force child to apply the required size
-                childContainer.Measure(requiredChildSize);
-                currentHorizontalLength += requiredChildSize.Width;
-                currentVerticalLength += requiredChildSize.Height;
+                childContainer.Measure(newUniformChildSize);
+
+                if (isOrientationHorizontal)
+                {
+                    currentHorizontalLength += newUniformChildSize.Width;
+                }
+                else
+                {
+                    currentVerticalLength += newUniformChildSize.Height;
+                }
 
                 if (OverflowMode is OverflowMode.AsNeeded
                     && (DoubleUtil.GreaterThan(currentHorizontalLength, maxHorizontalLength)
@@ -359,190 +401,20 @@ public class UniformToolBarPanel : Panel
                         overflowItemsList.Add((itemIndex, item));
                     }
                 }
+
+                continue;
             }
+
+            childContainer.SetCurrentValue(WidthProperty, newUniformChildSize.Width);
+            childContainer.SetCurrentValue(HeightProperty, newUniformChildSize.Height);
+            Debug.WriteLine($"Measuring item at index {generator?.IndexFromContainer(childContainer) ?? -1} with size '{newUniformChildSize}' and forced to Size: '{new Size(childContainer.Width, childContainer.Height)}'");
         }
 
         newPanelSize = new Size(currentHorizontalLength, currentVerticalLength);
+        //_isModifyingChildLayout = false;
 
         return true;
     }
-
-    //private bool MeasureGeneratedItems(bool asNeededPass, Size constraint, bool horizontal, double maxExtent, ref Size panelDesiredSize, out double overflowExtent)
-    //{
-    //    bool sendToOverflow = false; // Becomes true when the first AsNeeded does not fit
-    //    bool hasOverflowItems = false;
-    //    bool overflowNeedsInvalidation = false;
-    //    overflowExtent = 0.0;
-    //    UIElementCollection children = InternalChildren;
-    //    int childrenCount = children.Count;
-    //    int childrenIndex = 0;
-
-    //    for (int i = 0; i < _generatedItemsCollection.Count; i++)
-    //    {
-    //        UIElement child = _generatedItemsCollection[i];
-    //        OverflowMode overflowMode = System.Windows.Controls.ToolBar.GetOverflowMode(child);
-    //        bool asNeededMode = overflowMode == OverflowMode.AsNeeded;
-
-    //        // MeasureGeneratedItems is called twice to do a complete measure.
-    //        // The first pass measures Always and Never items -- items that
-    //        // are guaranteed to be or not to be in the overflow menu.
-    //        // The second pass measures AsNeeded items and determines whether
-    //        // there is enough room for them in the main bar or if they should
-    //        // be placed in the overflow menu.
-    //        // Check here whether the overflow mode matches a mode we should be
-    //        // examining in this pass.
-    //        if (asNeededMode == asNeededPass)
-    //        {
-    //            DependencyObject visualParent = VisualTreeHelper.GetParent(child);
-
-    //            // In non-Always overflow modes, measure for main bar placement.
-    //            if ((overflowMode != OverflowMode.Always) && !sendToOverflow)
-    //            {
-    //                // Children may change their size depending on whether they are in the overflow
-    //                // menu or not. Ensure that when we measure, we are using the main bar size.
-    //                // If the item goes to overflow, this property will be updated later in this loop
-    //                // when it is removed from the visual tree.
-    //                UniformToolBar.SetIsOverflowItem(child, BooleanBoxes.FalseBox);
-    //                child.Measure(constraint);
-    //                Size childDesiredSize = child.DesiredSize;
-
-    //                // If the child is an AsNeeded, check if it fits. If it doesn't then
-    //                // this child and all subsequent AsNeeded children should be sent
-    //                // to the overflow menu.
-    //                if (asNeededMode)
-    //                {
-    //                    double newExtent;
-    //                    if (horizontal)
-    //                    {
-    //                        newExtent = childDesiredSize.Width + panelDesiredSize.Width;
-    //                    }
-    //                    else
-    //                    {
-    //                        newExtent = childDesiredSize.Height + panelDesiredSize.Height;
-    //                    }
-
-    //                    if (DoubleUtil.GreaterThan(newExtent, maxExtent))
-    //                    {
-    //                        // It doesn't fit, send to overflow
-    //                        sendToOverflow = true;
-    //                    }
-    //                }
-
-    //                // The child has been validated as belonging in the main bar.
-    //                // Update the panel desired size dimensions, and ensure the child
-    //                // is in the main bar's visual tree.
-    //                if (!sendToOverflow)
-    //                {
-    //                    if (horizontal)
-    //                    {
-    //                        panelDesiredSize.Width += childDesiredSize.Width;
-    //                        panelDesiredSize.Height = Math.Max(panelDesiredSize.Height, childDesiredSize.Height);
-    //                    }
-    //                    else
-    //                    {
-    //                        panelDesiredSize.Width = Math.Max(panelDesiredSize.Width, childDesiredSize.Width);
-    //                        panelDesiredSize.Height += childDesiredSize.Height;
-    //                    }
-
-    //                    if (visualParent != this)
-    //                    {
-    //                        if ((visualParent == overflowPanel) && (overflowPanel != null))
-    //                        {
-    //                            overflowPanel.Children.Remove(child);
-    //                        }
-
-    //                        if (childrenIndex < childrenCount)
-    //                        {
-    //                            children.Insert(childrenIndex, child);
-    //                        }
-    //                        else
-    //                        {
-    //                            _ = children.Add(child);
-    //                        }
-
-    //                        childrenCount++;
-    //                    }
-
-    //                    Debug.Assert(children[childrenIndex] == child, "InternalChildren is out of sync with _generatedItemsCollection.");
-    //                    childrenIndex++;
-    //                }
-    //            }
-
-    //            // The child should go to the overflow menu
-    //            if ((overflowMode == OverflowMode.Always) || sendToOverflow)
-    //            {
-    //                hasOverflowItems = true;
-
-    //                // If a child is in the overflow menu, we don't want to keep measuring.
-    //                // However, we need to calculate the MaxLength as well as set the desired height
-    //                // correctly. Thus, we will use the DesiredSize of the child. There is a problem
-    //                // that can occur if the child changes size while in the overflow menu and
-    //                // was recently displayed. It will be measure clean, yet its DesiredSize
-    //                // will not be accurate for the MaxLength calculation.
-    //                if (child.IsMeasureValid)
-    //                {
-    //                    // Set this temporarily in case the size is different while in the overflow area
-    //                    UniformToolBar.SetIsOverflowItem(child, BooleanBoxes.FalseBox);
-    //                    child.Measure(constraint);
-    //                }
-
-    //                // Even when in the overflow, we need two pieces of information:
-    //                // 1. We need to continue to track the maximum size of the non-logical direction
-    //                //    (i.e. height in horizontal bars). This way, ToolBars with everything in
-    //                //    the overflow will still have some height.
-    //                // 2. We want to track how much of the space we saved by placing the child in
-    //                //    the overflow menu. This is used to calculate MinLength and MaxLength.
-    //                Size childDesiredSize = child.DesiredSize;
-    //                if (horizontal)
-    //                {
-    //                    overflowExtent += childDesiredSize.Width;
-    //                    panelDesiredSize.Height = Math.Max(panelDesiredSize.Height, childDesiredSize.Height);
-    //                }
-    //                else
-    //                {
-    //                    overflowExtent += childDesiredSize.Height;
-    //                    panelDesiredSize.Width = Math.Max(panelDesiredSize.Width, childDesiredSize.Width);
-    //                }
-
-    //                // Set the flag to indicate that the child is in the overflow menu
-    //                UniformToolBar.SetIsOverflowItem(child, BooleanBoxes.TrueBox);
-
-    //                // If the child is in this panel's visual tree, remove it.
-    //                if (visualParent == this)
-    //                {
-    //                    Debug.Assert(children[childrenIndex] == child, "InternalChildren is out of sync with _generatedItemsCollection.");
-    //                    children.Remove(child);
-    //                    childrenCount--;
-    //                    overflowNeedsInvalidation = true;
-    //                }
-    //                // If the child isnt connected to the visual tree, notify the overflow panel to pick it up.
-    //                else if (visualParent == null)
-    //                {
-    //                    overflowNeedsInvalidation = true;
-    //                }
-    //            }
-    //        }
-    //        else
-    //        {
-    //            // We are not measure this child in this pass. Update the index into the
-    //            // visual children collection.
-    //            if ((childrenIndex < childrenCount) && (children[childrenIndex] == child))
-    //            {
-    //                childrenIndex++;
-    //            }
-    //        }
-    //    }
-
-    //    // A child was added to the overflow panel, but since we don't add it
-    //    // to the overflow panel's visual collection until that panel's measure
-    //    // pass, we need to mark it as measure dirty.
-    //    if (overflowNeedsInvalidation && (overflowPanel != null))
-    //    {
-    //        overflowPanel.InvalidateMeasure();
-    //    }
-
-    //    return hasOverflowItems;
-    //}
 
     /// <summary>
     /// Measure the content and store the desired size of the content
@@ -559,27 +431,12 @@ public class UniformToolBarPanel : Panel
         if (availableSize == new Size(double.PositiveInfinity, double.PositiveInfinity))
         {
             return base.MeasureOverride(availableSize);
-            double desiredPanelWidth = 0;
-            double desiredPanelHeight = 0;
-            double maxWidth = 0;
-            double maxHeight = 0;
-            // If the available size is infinite in both dimensions, we can skip the overflow logic and just measure the children with their natural desired size.
-            foreach (UIElement childContainer in InternalChildren)
-            {
-                childContainer.Measure(availableSize);
-                Size childDesiredSize = childContainer.DesiredSize;
-                desiredPanelWidth += childDesiredSize.Width;
-                desiredPanelHeight += childDesiredSize.Height;
-                maxWidth = Math.Max(maxWidth, childDesiredSize.Width);
-                maxHeight = Math.Max(maxHeight, childDesiredSize.Height);
-            }
-
-            _measuredUniformSize = new Size(double.IsNaN(ItemWidth) ? maxWidth : ItemWidth, double.IsNaN(ItemHeight) ? maxHeight : ItemHeight);
-            return new Size(desiredPanelWidth, desiredPanelHeight);
         }
 
-        if (MeasureItems(availableSize, out ReadOnlyCollection<(int itemIndex, object item)> overflowItems, out Size newPanelSize))
+        if (MeasureItems(availableSize, out ReadOnlyCollection<(int itemIndex, object item)> overflowItems, out Size newUniformChildSize, out Size newPanelSize))
         {
+            _measuredUniformSize = newUniformChildSize;
+            _measuredRequiredPanelSize = newPanelSize;
             if (overflowItems.Count > 0)
             {
                 RaiseEvent(new OverflowDetectedRoutedEventArgs(OverflowDetectedEvent, this, overflowItems));
@@ -587,48 +444,6 @@ public class UniformToolBarPanel : Panel
 
             return newPanelSize;
         }
-
-        //if (IsItemsHost)
-        //{
-        //    Size layoutSlotSize = availableSize;
-        //    double maxExtent;
-        //    bool horizontal = Orientation == Orientation.Horizontal;
-
-        //    if (horizontal)
-        //    {
-        //        layoutSlotSize.Width = double.PositiveInfinity;
-        //        maxExtent = availableSize.Width;
-        //    }
-        //    else
-        //    {
-        //        layoutSlotSize.Height = double.PositiveInfinity;
-        //        maxExtent = availableSize.Height;
-        //    }
-
-        //    // This first call will measure all of the non-AsNeeded elements (i.e. we know
-        //    // whether they're going into the overflow or not.
-        //    // overflowExtent will be the size of the Always elements, which is not actually
-        //    // needed for subsequent calculations.
-        //    bool hasAlwaysOverflowItems = MeasureGeneratedItems(/* asNeeded = */ false, layoutSlotSize, horizontal, maxExtent, ref stackDesiredSize, out _);
-
-        //    // At this point, the desired size is the minimum size of the ToolBar.
-        //    MinLength = horizontal ? stackDesiredSize.Width : stackDesiredSize.Height;
-
-        //    // This second call will measure all of the AsNeeded elements and place
-        //    // them in the appropriate location.
-        //    bool hasAsNeededOverflowItems = MeasureGeneratedItems(/* asNeeded = */ true, layoutSlotSize, horizontal, maxExtent, ref stackDesiredSize, out double overflowExtent);
-
-        //    // At this point, the desired size is complete. The desired size plus overflowExtent
-        //    // is the maximum size of the ToolBar.
-        //    MaxLength = (horizontal ? stackDesiredSize.Width : stackDesiredSize.Height) + overflowExtent;
-
-        //    UniformToolBar? toolbar = ToolBar;
-        //    toolbar?.SetValue(UniformToolBar.HasOverflowItemsPropertyKey, hasAlwaysOverflowItems || hasAsNeededOverflowItems);
-        //}
-        //else
-        //{
-        //    stackDesiredSize = base.MeasureOverride(availableSize);
-        //}
 
         return availableSize;
     }

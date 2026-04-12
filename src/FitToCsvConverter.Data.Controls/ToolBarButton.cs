@@ -110,9 +110,18 @@ public class ToolBarButton : Button
     {
         base.OnApplyTemplate();
 
-        _contentHost = GetTemplateChild("PART_ContentPresenter") as FrameworkElement;
+        _contentHost = GetTemplateChild("PART_ContentPresenterViewBox") as FrameworkElement;
         _label = GetTemplateChild("PART_Label") as TextBlock;
         _labelBorder = GetTemplateChild("PART_LabelBorder") as Border;
+    }
+
+    protected override Size MeasureOverride(Size constraint)
+    {
+        Size calculatedSize = base.MeasureOverride(constraint);
+
+        _ = DesiredSize;
+
+        return DesiredSize;
     }
 
     protected override void OnMouseEnter(MouseEventArgs e)

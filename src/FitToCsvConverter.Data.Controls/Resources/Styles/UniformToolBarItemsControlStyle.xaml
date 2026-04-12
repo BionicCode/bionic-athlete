@@ -1,0 +1,59 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:local="clr-namespace:FitToCsvConverter.Controls">
+
+    <Style x:Key="{x:Static local:UniformToolBar.UniformToolBarMainPanelStyleKey}"
+           TargetType="{x:Type local:UniformToolBarPanel}">
+        <Style.Triggers>
+            <Trigger Property="Orientation"
+                     Value="Vertical">
+                <Setter Property="Margin"
+                        Value="1,0,2,2" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style TargetType="local:UniformToolBarItemsControl">
+        <!--<Setter Property="HorizontalAlignment"
+                Value="Left" />
+        <Setter Property="VerticalAlignment"
+                Value="Top" />-->
+        <!--<Setter Property="HorizontalContentAlignment"
+                Value="Left" />
+        <Setter Property="VerticalContentAlignment"
+                Value="Top" />-->
+        <Setter Property="Padding"
+                Value="0" />
+        <Setter Property="ItemsPanel">
+            <Setter.Value>
+                <ItemsPanelTemplate>
+                    <local:UniformToolBarPanel x:Name="PART_UniformToolBarPanel"
+                                               IsItemsHost="true"
+                                               Margin="0,1,2,2"
+                                               Style="{DynamicResource {x:Static local:UniformToolBar.UniformToolBarMainPanelStyleKey}}"
+                                               SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"
+                                               ItemHeight="{Binding RelativeSource={RelativeSource AncestorType=local:UniformToolBar}, Path=ItemHeight}"
+                                               ItemWidth="{Binding RelativeSource={RelativeSource AncestorType=local:UniformToolBar}, Path=ItemWidth}"
+                                               Orientation="{Binding RelativeSource={RelativeSource AncestorType=local:UniformToolBar}, Path=Orientation}"/>
+                </ItemsPanelTemplate>
+            </Setter.Value>
+        </Setter>
+
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="local:UniformToolBarItemsControl">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            Padding="{TemplateBinding Padding}">
+                        <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                                      VerticalScrollBarVisibility="Disabled">
+                            <ItemsPresenter />
+                        </ScrollViewer>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+</ResourceDictionary>
