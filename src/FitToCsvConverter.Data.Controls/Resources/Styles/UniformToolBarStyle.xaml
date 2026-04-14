@@ -259,7 +259,18 @@
                                                                           VerticalAlignment="{TemplateBinding VerticalAlignment}"
                                                                           HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
                                                                           VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
-                                                                          ItemsSource="{TemplateBinding OverflowItems}" />
+                                                                          ItemsSource="{TemplateBinding OverflowItems}">
+                                            <local:UniformToolBarItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <local:UniformToolBarOverflowPanel x:Name="PART_UniformToolBarOverflowPanel"
+                                                                                       IsItemsHost="true"
+                                                                                       Margin="0,1,2,2"
+                                                                                       Style="{DynamicResource {x:Static local:UniformToolBar.UniformToolBarMainPanelStyleKey}}"
+                                                                                       SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"
+                                                                                       UniformSize="{Binding RelativeSource={RelativeSource AncestorType=local:UniformToolBar}, Path=UniformSize}" />
+                                                </ItemsPanelTemplate>
+                                            </local:UniformToolBarItemsControl.ItemsPanel>
+                                        </local:UniformToolBarItemsControl>
 
                                     </Border>
                                 </Border>

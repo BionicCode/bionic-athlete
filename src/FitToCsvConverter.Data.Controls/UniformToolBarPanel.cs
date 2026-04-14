@@ -10,9 +10,6 @@ using global::System.Windows.Data;
 
 public class UniformToolBarPanel : Panel
 {
-    private Size _measuredUniformSize;
-    private Size _measuredRequiredPanelSize;
-
     #region IsOverflowItem
     /// <summary>
     ///     The key needed set a read-only property.
@@ -95,7 +92,7 @@ public class UniformToolBarPanel : Panel
         typeof(double),
         typeof(UniformToolBarPanel),
         new FrameworkPropertyMetadata(
-            48d,
+            double.NaN,
             FrameworkPropertyMetadataOptions.AffectsMeasure),
         new ValidateValueCallback(IsWidthHeightValid));
     #endregion ItemHeight
@@ -114,10 +111,32 @@ public class UniformToolBarPanel : Panel
         typeof(double),
         typeof(UniformToolBarPanel),
         new FrameworkPropertyMetadata(
-            48d,
+            double.NaN,
             FrameworkPropertyMetadataOptions.AffectsMeasure),
         new ValidateValueCallback(IsWidthHeightValid));
     #endregion ItemWidth 
+
+    #region UniformSize
+    /// <summary>
+    ///     The key needed set a read-only property.
+    /// </summary>
+    protected static readonly DependencyProperty UniformSizeProperty =
+            DependencyProperty.Register(
+                    "UniformSize",
+                    typeof(Size),
+                    typeof(UniformToolBarPanel),
+                    new FrameworkPropertyMetadata(new Size(double.NaN, double.NaN)));
+
+    /// <summary>
+    /// The uniform item size as provided by <see cref="ItemHeight"/> and <see cref="ItemWidth"/>.
+    /// </summary>
+    public Size UniformSize
+    {
+        get => (Size)GetValue(UniformSizeProperty);
+
+        internal set => SetValue(UniformSizeProperty, value);
+    }
+    #endregion UniformSize
 
     #region OverflowMode
     /// <summary>
@@ -163,18 +182,6 @@ public class UniformToolBarPanel : Panel
     /// </summary>
     public UniformToolBarPanel() : base()
     { }
-
-    //private static void OnWidthChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-    //{
-    //    var uniformToolBarItem = (UniformToolBarPanel)d;
-    //    //uniformToolBarItem.InvalidateMeasure();
-    //}
-
-    //private static void OnHeightChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-    //{
-    //    var uniformToolBarItem = (UniformToolBarPanel)d;
-    //    //uniformToolBarItem.InvalidateMeasure();
-    //}
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
@@ -285,16 +292,14 @@ public class UniformToolBarPanel : Panel
         newPanelSize = new Size(double.PositiveInfinity, double.PositiveInfinity);
         var overflowItemsList = new List<(int itemIndex, object item)>();
         overflowItems = new ReadOnlyCollection<(int itemIndex, object item)>(overflowItemsList);
-        //double maxWidth = 0.0;
-        //double maxHeight = 0.0;
+        double maxWidth = 0.0;
+        double maxHeight = 0.0;
         bool hasOverflowItems = false;
 
         if (InternalChildren.Count == 0)
         {
             return false;
         }
-
-        //_isModifyingChildLayout = true;
 
         ItemContainerGenerator? generator = null;
         if (IsItemsHost)
@@ -303,65 +308,35 @@ public class UniformToolBarPanel : Panel
             generator = itemsControl.ItemContainerGenerator;
         }
 
-        //List<ContentControl> measuredChildContainers = [];
-        //Size oldMeasuredUniformSize = _measuredUniformSize;
-        //Size oldMeasuredRequiredPanelSize = _measuredRequiredPanelSize;
-        //if (double.IsNaN(ItemWidth)
-        //    || double.IsNaN(ItemHeight))
-        //{
-        //    foreach (ContentControl childContainer in InternalChildren.OfType<ContentControl>())
-        //    {
-        //        //if (childContainer is UniformToolBarItem uniformToolBarItem)
-        //        //{
-        //        //    uniformToolBarItem.PrepareForMeasure();
-        //        //}
-        //        //else
-        //        //{
-        //        //    childContainer.MinWidth = 0;
-        //        //    childContainer.MaxWidth = double.PositiveInfinity;
-        //        //    childContainer.MinHeight = 0;
-        //        //    childContainer.MaxHeight = double.PositiveInfinity;
-        //        //    childContainer.Width = double.NaN;
-        //        //    childContainer.Height = double.NaN;
-        //        //}
+        List<ContentControl> measuredChildContainers = [];
+        if (double.IsNaN(ItemWidth)
+            || double.IsNaN(ItemHeight))
+        {
+            foreach (ContentControl childContainer in InternalChildren.OfType<ContentControl>())
+            {
+                // First measure pass: allow child to provide its natural desired finalDesiredPanelSize
+                childContainer.Measure(constraint);
+                Size childDesiredSize = childContainer.DesiredSize;
+                maxWidth = Math.Max(maxWidth, childDesiredSize.Width);
+                maxHeight = Math.Max(maxHeight, childDesiredSize.Height);
+                measuredChildContainers.Add(childContainer);
+            }
+        }
 
-        //        // First measure pass: allow child to provide its natural desired finalDesiredPanelSize
-        //        childContainer.Measure(constraint);
-        //        Size childDesiredSize = childContainer.DesiredSize;
-        //        maxWidth = Math.Max(maxWidth, childDesiredSize.Width);
-        //        maxHeight = Math.Max(maxHeight, childDesiredSize.Height);
-        //        measuredChildContainers.Add(childContainer);
-        //    }
-        //}
+        // Enforce ItemWidth if not set to "Auto" (NaN)
+        if (!double.IsNaN(ItemWidth))
+        {
+            maxWidth = ItemWidth;
+        }
 
-        //// Enforce ItemWidth if not set to "Auto" (NaN)
-        //if (!double.IsNaN(ItemWidth))
-        //{
-        //    maxWidth = ItemWidth;
-        //}
+        // Enforce ItemHeight if not set to "Auto" (NaN)
+        if (!double.IsNaN(ItemHeight))
+        {
+            maxHeight = ItemHeight;
+        }
 
-        //// Enforce ItemHeight if not set to "Auto" (NaN)
-        //if (!double.IsNaN(ItemHeight))
-        //{
-        //    maxHeight = ItemHeight;
-        //}
-
-        //newUniformChildSize = new Size(maxWidth, maxHeight);
-        //if (newUniformChildSize == oldMeasuredUniformSize)
-        //{
-        //    // If the uniform child finalDesiredPanelSize hasn't changed since the last measure, we can skip re-measuring the children
-        //    // because their desired finalDesiredPanelSize will be the same as before and thus the same items will be in the overflow.
-        //    newPanelSize = oldMeasuredRequiredPanelSize;
-        //    newUniformChildSize = oldMeasuredUniformSize;
-        //    //_isModifyingChildLayout = false;
-        //    return true;
-        //}
-        double itemWidth = double.IsNaN(ItemWidth)
-            ? 0.0
-            : ItemWidth;
-        double itemHeight = double.IsNaN(ItemHeight)
-            ? 0.0
-            : ItemHeight;
+        double itemWidth = maxWidth;
+        double itemHeight = maxHeight;
         bool isOrientationHorizontal = Orientation is Orientation.Horizontal;
         double maxHorizontalLength = isOrientationHorizontal
             ? constraint.Width
@@ -421,14 +396,13 @@ public class UniformToolBarPanel : Panel
 
                 continue;
             }
-
-            //childContainer.SetCurrentValue(WidthProperty, newUniformChildSize.Width);
-            //childContainer.SetCurrentValue(HeightProperty, newUniformChildSize.Height);
-            //Debug.WriteLine($"Measuring item at index {generator?.IndexFromContainer(childContainer) ?? -1} with finalDesiredPanelSize '{newUniformChildSize}' and forced to Size: '{new Size(childContainer.Width, childContainer.Height)}'");
         }
 
+        // Sort in descending order to ensure UniformToolBar can remove items
+        // without shifting indices which would invalidate remaining indices
+        overflowItemsList.Sort((x, y) => y.itemIndex.CompareTo(x.itemIndex));
+
         newPanelSize = new Size(currentHorizontalLength, currentVerticalLength);
-        //_isModifyingChildLayout = false;
 
         return true;
     }
@@ -445,15 +419,9 @@ public class UniformToolBarPanel : Panel
             return base.MeasureOverride(availableSize);
         }
 
-        //if (availableSize == new Size(double.PositiveInfinity, double.PositiveInfinity))
-        //{
-        //    return base.MeasureOverride(availableSize);
-        //}
-
         if (MeasureItems(availableSize, out ReadOnlyCollection<(int itemIndex, object item)> overflowItems, out Size newUniformChildSize, out Size newPanelSize))
         {
-            _measuredUniformSize = newUniformChildSize;
-            _measuredRequiredPanelSize = newPanelSize;
+            UniformSize = newUniformChildSize;
             if (overflowItems.Count > 0)
             {
                 RaiseEvent(new OverflowDetectedRoutedEventArgs(OverflowDetectedEvent, this, overflowItems));
@@ -476,24 +444,21 @@ public class UniformToolBarPanel : Panel
             return base.ArrangeOverride(finalSize);
         }
 
-        Rect layoutSlot = new(_measuredUniformSize);
+        Rect layoutSlot = new(UniformSize);
         bool isOrientationHorizontal = Orientation is Orientation.Horizontal;
         Vector offset = isOrientationHorizontal
             ? new Vector(layoutSlot.Width, 0)
             : new Vector(0, layoutSlot.Height);
         layoutSlot.Offset(-offset);
 
-        //
-        // Arrange and Position Children.
-        //
         foreach (UIElement itemContainer in InternalChildren)
         {
             layoutSlot.Offset(offset);
             itemContainer.Arrange(layoutSlot);
         }
 
-        var finalDesiredPanelSize = new Size(Math.Max(_measuredUniformSize.Width, layoutSlot.Right), Math.Max(_measuredUniformSize.Height, layoutSlot.Bottom));
-        return finalDesiredPanelSize;
+        var finalRenderedPanelSize = new Size(layoutSlot.Right, layoutSlot.Bottom);
+        return finalRenderedPanelSize;
     }
 
     #endregion

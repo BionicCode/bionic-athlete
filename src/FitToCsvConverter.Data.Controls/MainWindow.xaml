@@ -351,8 +351,8 @@
                                               Margin="0,0,0,5"
                                               HorizontalAlignment="Left"
                                               VerticalAlignment="Top"
-                                              ItemWidth="60"
-                                              ItemHeight="40">
+                                              ItemWidth="Auto"
+                                              ItemHeight="Auto">
                             <Button Content="Hello" Style="{x:Null}" />
                             <Button Content="World"
                                     Style="{x:Null}" />
