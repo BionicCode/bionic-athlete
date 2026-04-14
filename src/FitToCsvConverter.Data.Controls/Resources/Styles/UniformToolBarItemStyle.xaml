@@ -22,9 +22,9 @@
         <Setter Property="VerticalAlignment"
                 Value="Top" />-->
         <Setter Property="HorizontalContentAlignment"
-                Value="Center" />
+                Value="Stretch" />
         <Setter Property="VerticalContentAlignment"
-                Value="Center" />
+                Value="Stretch" />
         <Setter Property="Padding"
                 Value="0" />
         <Setter Property="Template">

@@ -280,8 +280,6 @@ public class UniformToolBarPanel : Panel
 
     #region Layout
 
-    //private bool _isModifyingChildLayout;
-
     private bool MeasureItems(Size constraint, out ReadOnlyCollection<(int itemIndex, object item)> overflowItems, out Size newUniformChildSize, out Size newPanelSize)
     {
         newPanelSize = new Size(double.PositiveInfinity, double.PositiveInfinity);

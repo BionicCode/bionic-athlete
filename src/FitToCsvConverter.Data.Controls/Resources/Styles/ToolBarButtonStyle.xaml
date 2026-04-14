@@ -17,10 +17,10 @@
                 Value="1" />
         <Setter Property="Padding"
                 Value="5" />
-        <!--<Setter Property="HorizontalContentAlignment"
+        <Setter Property="HorizontalContentAlignment"
                 Value="Stretch" />
         <Setter Property="VerticalContentAlignment"
-                Value="Center" />-->
+                Value="Stretch" />
         <Setter Property="HorizontalAlignment"
                 Value="Stretch" />
         <Setter Property="VerticalAlignment"
@@ -85,20 +85,15 @@
                                 <RowDefinition Height="*" />
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
-
-                            <!--<Viewbox x:Name="PART_ContentPresenterViewBox"
-                                     Grid.Row="0"
-                                     Grid.RowSpan="2"
-                                     Margin="{TemplateBinding Padding}"
-                                     StretchDirection="Both"
-                                     Stretch="Fill">
-                                <ContentPresenter x:Name="PART_ContentPresenter" />
-                            </Viewbox>-->
+                            
                             <Border x:Name="PART_ContentPresenterViewBox"
                                     Grid.Row="0"
                                     Grid.RowSpan="2"
                                     Margin="{TemplateBinding Padding}">
-                                <ContentPresenter x:Name="PART_ContentPresenter" />
+                                <Viewbox Stretch="Uniform" 
+                                         StretchDirection="Both">
+                                    <ContentPresenter x:Name="PART_ContentPresenter" />
+                                </Viewbox>
                             </Border>
                             
                             <Border x:Name="PART_LabelBorder"
@@ -109,12 +104,10 @@
                                     CornerRadius="{StaticResource CornerRadius}"
                                     VerticalAlignment="Center"
                                     Padding="5,0">
-                                <!--<Viewbox>-->
                                 <TextBlock x:Name="PART_Label"
                                            Text="{TemplateBinding LabelText}"
                                            HorizontalAlignment="Center"
                                            FontSize="{TemplateBinding LabelFontSize}" />
-                                <!--</Viewbox>-->
                             </Border>
                         </Grid>
                     </Border>
