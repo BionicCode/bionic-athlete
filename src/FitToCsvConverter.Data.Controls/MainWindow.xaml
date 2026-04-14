@@ -351,9 +351,9 @@
                                               Margin="0,0,0,5"
                                               HorizontalAlignment="Left"
                                               VerticalAlignment="Top"
-                                              ItemWidth="Auto"
-                                              ItemHeight="Auto">
-                            <Button Content="Hello" Style="{x:Null}" />
+                                              ItemWidth="59"
+                                              ItemHeight="28">
+                            <!--<Button Content="Hello" Style="{x:Null}" />
                             <Button Content="World"
                                     Style="{x:Null}" />
                             <Button Content="Hello"
@@ -363,7 +363,7 @@
                             <Button Content="Hello"
                                     Style="{x:Null}" />
                             <Button Content="World"
-                                    Style="{x:Null}" />
+                                    Style="{x:Null}" />-->
                             <local:ToolBarButton Content="{StaticResource OpenFileIcon}"
                                                  LabelText="Open file"
                                                  Command="{Binding OpenFitFileCommand}"

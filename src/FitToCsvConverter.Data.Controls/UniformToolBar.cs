@@ -89,7 +89,7 @@ public class UniformToolBar : HeaderedItemsControl
     /// <summary>
     ///     The key needed set a read-only property.
     /// </summary>
-    protected static readonly DependencyProperty UniformSizeProperty =
+    public static readonly DependencyProperty UniformSizeProperty =
             DependencyProperty.Register(
                     "UniformSize",
                     typeof(Size),
@@ -130,7 +130,12 @@ public class UniformToolBar : HeaderedItemsControl
     /// <summary>
     /// Whether we have overflow items
     /// </summary>
-    public bool HasOverflowItems => (bool)GetValue(HasOverflowItemsProperty);
+    public bool HasOverflowItems
+    {
+        get => (bool)GetValue(HasOverflowItemsProperty);
+
+        protected set => SetValue(HasOverflowItemsPropertyKey, BooleanBoxes.Box(value));
+    }
     #endregion HasOverflowItems
 
     #region Orientation
@@ -313,13 +318,16 @@ public class UniformToolBar : HeaderedItemsControl
     private void UpdateOverflowItems(ReadOnlyCollection<(int itemIndex, object item)> overflowItems)
     {
         OverflowItems.Clear();
-        foreach ((int itemIndex, object item) in overflowItems)
+
+        foreach ((_, object item) in overflowItems)
         {
-            VisibleItems.RemoveAt(itemIndex);
+            //VisibleItems.RemoveAt(itemIndex);
             _ = OverflowItems.Add(item);
         }
 
-        _overflowPanelHost?.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        //IsOverflowOpen = OverflowItems.Count > 0;
+        HasOverflowItems = OverflowItems.Count > 0;
+        //_overflowPanelHost?.InvalidateVisual();
     }
 
     protected override void OnRenderSizeChanged(SizeChangedInfo sizeInfo)
@@ -409,8 +417,6 @@ public class UniformToolBar : HeaderedItemsControl
         }
     }
 
-    //private void OnUniformToolBarItemSizeChanged(object sender, UniformToolBarItemSizeChangedEventArgs e) => _ = Dispatcher.InvokeAsync(ApplyUniformSizing, DispatcherPriority.Render);
-
     public override void OnApplyTemplate()
     {
         base.OnApplyTemplate();
@@ -420,12 +426,7 @@ public class UniformToolBar : HeaderedItemsControl
         {
             _overflowPanelHost = overflowPanelHost;
         }
-
-        //_mainItemsHost?.Loaded += OnMainItemsHostLoaded;
-        //    ?? // Only thrown if Microsoft .NET source have drastically changed the template for ToolBar, which is unlikely.//       // We throw so we can update the code to match the new template.//       throw new InvalidOperationException("PART_ToolBarPanel not found in official .NET template.");//DependencyObject? panel = GetTemplateChild(ToolBarOverflowPanelTemplateName.ResourceId as string);//if (panel is not null and not System.Windows.Controls.Primitives.ToolBarOverflowPanel)//{//    throw new NotSupportedException("The template part named PART_ToolBarOverflowPanel must be of type ToolBarOverflowPanel.");//}//_toolBarOverflowPanel = panel as ToolBarOverflowPanel;
     }
-
-    //private void OnMainItemsHostLoaded(object sender, RoutedEventArgs e) => InvalidateMeasure();
 
     private bool TryFindVisualChild<TChild>(DependencyObject parent, string name, [NotNullWhen(true)] out TChild? child) where TChild : DependencyObject
     {
@@ -471,16 +472,18 @@ public class UniformToolBar : HeaderedItemsControl
         return false;
     }
 
-    //protected override Size MeasureOverride(Size constraint)
-    //{
-    //    if (_mainItemsHost is null)
-    //    {
-    //        return base.MeasureOverride(constraint);
-    //    }
+    protected override Size MeasureOverride(Size constraint)
+    {
+        HasOverflowItems = false;
+        OverflowItems.Clear();
+        //VisibleItems.Clear();
+        //foreach (object? item in Items)
+        //{
+        //    _ = VisibleItems.Add(item);
+        //}
 
-    //    _mainItemsHost.Measure(constraint);
-    //    return _mainItemsHost.DesiredSize;
-    //}
+        return base.MeasureOverride(constraint);
+    }
 
     //protected override void OnChildDesiredSizeChanged(UIElement child) => base.OnChildDesiredSizeChanged(child);//_ = Dispatcher.InvokeAsync(ApplyUniformSizing, DispatcherPriority.Render);
 

@@ -226,6 +226,10 @@
                 Value="0" />
         <Setter Property="Padding"
                 Value="0" />
+        <Setter Property="HorizontalContentAlignment"
+                Value="Stretch" />
+        <Setter Property="VerticalContentAlignment"
+                Value="Stretch" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type local:UniformToolBar}">
@@ -243,8 +247,9 @@
                             <Popup x:Name="OverflowPopup"
                                    AllowsTransparency="true"
                                    Focusable="false"
-                                   IsOpen="{Binding IsOverflowOpen, RelativeSource={RelativeSource Mode=TemplatedParent}}"
+                                   IsOpen="{Binding IsOverflowOpen, RelativeSource={RelativeSource TemplatedParent}}"
                                    Placement="Bottom"
+                                   PlacementTarget="{Binding ElementName=OverflowButton}"
                                    PopupAnimation="{DynamicResource {x:Static SystemParameters.ComboBoxPopupAnimationKey}}"
                                    StaysOpen="false">
                                 <Border x:Name="Shdw"
@@ -265,9 +270,8 @@
                                                     <local:UniformToolBarOverflowPanel x:Name="PART_UniformToolBarOverflowPanel"
                                                                                        IsItemsHost="true"
                                                                                        Margin="0,1,2,2"
-                                                                                       Style="{DynamicResource {x:Static local:UniformToolBar.UniformToolBarMainPanelStyleKey}}"
                                                                                        SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"
-                                                                                       UniformSize="{Binding RelativeSource={RelativeSource AncestorType=local:UniformToolBar}, Path=UniformSize}" />
+                                                                                       UniformSize="{Binding RelativeSource={RelativeSource AncestorType=Popup}, Path=PlacementTarget.TemplatedParent.UniformSize}" />
                                                 </ItemsPanelTemplate>
                                             </local:UniformToolBarItemsControl.ItemsPanel>
                                         </local:UniformToolBarItemsControl>
@@ -296,10 +300,10 @@
                                                   SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"
                                                   VerticalAlignment="Center" />
                                 <local:UniformToolBarItemsControl x:Name="MainPanelHost"
-                                                                  HorizontalAlignment="{TemplateBinding HorizontalAlignment}"
-                                                                  VerticalAlignment="{TemplateBinding VerticalAlignment}"
-                                                                  HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                                                  VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                                  HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                                  HorizontalContentAlignment="Stretch"
+                                                                  VerticalContentAlignment="Stretch"
                                                                   ItemsSource="{TemplateBinding VisibleItems}" />
 
                             </DockPanel>

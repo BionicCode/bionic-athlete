@@ -27,7 +27,7 @@
                                                ItemHeight="{Binding RelativeSource={RelativeSource AncestorType=local:UniformToolBar}, Path=ItemHeight}"
                                                ItemWidth="{Binding RelativeSource={RelativeSource AncestorType=local:UniformToolBar}, Path=ItemWidth}"
                                                Orientation="{Binding RelativeSource={RelativeSource AncestorType=local:UniformToolBar}, Path=Orientation}"
-                                               UniformSize="{Binding RelativeSource={RelativeSource AncestorType=local:UniformToolBar}, Path=UniformSize, Mode=TwoWay}" />
+                                               UniformSize="{Binding RelativeSource={RelativeSource AncestorType=local:UniformToolBar}, Path=UniformSize, Mode=OneWayToSource}" />
                 </ItemsPanelTemplate>
             </Setter.Value>
         </Setter>

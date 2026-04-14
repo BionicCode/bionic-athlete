@@ -30,7 +30,10 @@ internal class UniformToolBarOverflowPanel : Panel
 
     public UniformToolBarOverflowPanel()
     {
+        //Loaded += OnUniformToolBarOverflowPanelLoaded;
     }
+
+    private void OnUniformToolBarOverflowPanelLoaded(object sender, RoutedEventArgs e) => InvalidateMeasure();
 
     /// <summary>
     /// Measure the content and store the desired finalDesiredPanelSize of the content
@@ -39,7 +42,8 @@ internal class UniformToolBarOverflowPanel : Panel
     /// <returns></returns>
     protected override Size MeasureOverride(Size availableSize)
     {
-        if (InternalChildren.Count == 0)
+        if (!IsLoaded
+            || InternalChildren.Count == 0)
         {
             return base.MeasureOverride(availableSize);
         }
@@ -63,7 +67,8 @@ internal class UniformToolBarOverflowPanel : Panel
     /// <param name="finalSize">Arrange finalDesiredPanelSize</param>
     protected override Size ArrangeOverride(Size finalSize)
     {
-        if (InternalChildren.Count == 0)
+        if (!IsLoaded
+            || InternalChildren.Count == 0)
         {
             return base.ArrangeOverride(finalSize);
         }

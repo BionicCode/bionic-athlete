@@ -453,6 +453,11 @@ public class UniformToolBarPanel : Panel
 
         foreach (UIElement itemContainer in InternalChildren)
         {
+            if (GetIsOverflowItem(itemContainer))
+            {
+                continue;
+            }
+
             layoutSlot.Offset(offset);
             itemContainer.Arrange(layoutSlot);
         }
