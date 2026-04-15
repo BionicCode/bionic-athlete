@@ -1,0 +1,16 @@
+name: Sync .editorconfig from canonical redirect (PR-only)
+
+on:
+  push:
+    branches-ignore:
+      - "chore/sync-editorconfig/**"
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  call-sync:
+    uses: BionicCode/workflows/.github/workflows/sync-editorconfig-on-push.yml@main
+    with:
+      canonical_raw_url: "https://raw.githubusercontent.com/BionicCode/bioniccode-code-style/refs/heads/main/BionicCode.CodeStyle/BionicCode.CodeStyle/.editorconfig"
+      sync_branch_prefix: "chore/sync-editorconfig"
+    secrets: inherit
