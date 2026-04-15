@@ -24,6 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\FitToCsvConverter.Controls\FitToCsvConverter.Controls.csproj" />
     <ProjectReference Include="..\FitToCsvConverter.Data.Controls\FitToCsvConverter.Controls.csproj" />
     <ProjectReference Include="..\FitToCsvConverter.ViewMode\FitToCsvConverter.ViewModel.csproj" />
   </ItemGroup>
