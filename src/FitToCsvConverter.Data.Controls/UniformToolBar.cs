@@ -14,8 +14,8 @@ using BionicCode.Utilities.Net;
 
 public class UniformToolBar : HeaderedItemsControl
 {
-    private ItemsControl? _mainItemsHost;
-    private ItemsControl? _overflowPanelHost;
+    //private ItemsControl? _mainItemsHost;
+    //private ItemsControl? _overflowPanelHost;
     private Size _toolStripSize;
     private readonly ToolBarOverflowPanel? _toolBarOverflowPanel;
     private readonly Dictionary<FrameworkElement, Size> _originalDesiredSizes = [];
@@ -330,17 +330,13 @@ public class UniformToolBar : HeaderedItemsControl
         //_overflowPanelHost?.InvalidateVisual();
     }
 
-    protected override void OnLostFocus(RoutedEventArgs e)
-    {
-        base.OnLostFocus(e);
-        IsOverflowOpen = false;
-    }
+    //protected override void OnLostFocus(RoutedEventArgs e)
+    //{
+    //    base.OnLostFocus(e);
+    //    IsOverflowOpen = false;
+    //}
 
-    protected override void OnRenderSizeChanged(SizeChangedInfo sizeInfo)
-    {
-        base.OnRenderSizeChanged(sizeInfo);
-        //InvalidateMeasure();
-    }
+    protected override void OnRenderSizeChanged(SizeChangedInfo sizeInfo) => base.OnRenderSizeChanged(sizeInfo);//InvalidateMeasure();
 
     protected override void OnItemsSourceChanged(IEnumerable oldValue, IEnumerable newValue)
     {
@@ -423,16 +419,16 @@ public class UniformToolBar : HeaderedItemsControl
         }
     }
 
-    public override void OnApplyTemplate()
-    {
-        base.OnApplyTemplate();
-        _mainItemsHost = GetTemplateChild("MainPanelHost") as ItemsControl;
+    //public override void OnApplyTemplate()
+    //{
+    //    base.OnApplyTemplate();
+    //    _mainItemsHost = GetTemplateChild("MainPanelHost") as ItemsControl;
 
-        if (TryFindVisualChild(this, "OverflowPanelHost", out ItemsControl overflowPanelHost))
-        {
-            _overflowPanelHost = overflowPanelHost;
-        }
-    }
+    //    if (TryFindVisualChild(this, "OverflowPanelHost", out ItemsControl overflowPanelHost))
+    //    {
+    //        _overflowPanelHost = overflowPanelHost;
+    //    }
+    //}
 
     private bool TryFindVisualChild<TChild>(DependencyObject parent, string name, [NotNullWhen(true)] out TChild? child) where TChild : DependencyObject
     {

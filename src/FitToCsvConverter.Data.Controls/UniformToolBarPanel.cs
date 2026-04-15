@@ -8,7 +8,7 @@ using System.Windows.Media;
 using BionicCode.Utilities.Net;
 using global::System.Windows.Data;
 
-public class UniformToolBarPanel : Panel
+public class UniformToolBarPanel : VirtualizingPanel
 {
     #region IsOverflowItem
     /// <summary>
@@ -177,6 +177,7 @@ public class UniformToolBarPanel : Panel
     }
 
     #endregion OverflowChanged event
+
     /// <summary>
     ///     Instantiates a new instance of this class.
     /// </summary>
@@ -503,10 +504,4 @@ public class UniformToolBarPanel : Panel
     }
 
     #endregion
-}
-
-public class OverflowChangedRoutedEventArgs : RoutedEventArgs
-{
-    public ReadOnlyCollection<(int itemIndex, object item)> OverflowItems { get; }
-    public OverflowChangedRoutedEventArgs(RoutedEvent routedEvent, object source, ReadOnlyCollection<(int itemIndex, object item)> overflowItems) : base(routedEvent, source) => OverflowItems = overflowItems;
 }

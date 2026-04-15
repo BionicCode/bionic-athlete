@@ -52,9 +52,9 @@ internal class UniformToolBarOverflowPanel : Panel
         double newPanelHeight = 0.0;
         foreach (UIElement itemContainer in InternalChildren)
         {
-            itemContainer.Measure(availableSize);
+            itemContainer.Measure(UniformSize);
             newPanelHeight += itemContainer.DesiredSize.Height;
-            newPanelWidth = Math.Max(newPanelHeight, itemContainer.DesiredSize.Width);
+            newPanelWidth = Math.Max(newPanelWidth, itemContainer.DesiredSize.Width);
         }
 
         var newPanelSize = new Size(newPanelWidth, newPanelHeight);
