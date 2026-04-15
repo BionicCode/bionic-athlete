@@ -125,7 +125,7 @@ public class UniformToolBarPanel : Panel
                     "UniformSize",
                     typeof(Size),
                     typeof(UniformToolBarPanel),
-                    new FrameworkPropertyMetadata(new Size(double.NaN, double.NaN)));
+                    new FrameworkPropertyMetadata(new Size(double.NaN, double.NaN), FrameworkPropertyMetadataOptions.AffectsMeasure | FrameworkPropertyMetadataOptions.AffectsParentMeasure));
 
     /// <summary>
     /// The uniform item size as provided by <see cref="ItemHeight"/> and <see cref="ItemWidth"/>.
@@ -162,21 +162,21 @@ public class UniformToolBarPanel : Panel
         new FrameworkPropertyMetadata(OverflowMode.AsNeeded, FrameworkPropertyMetadataOptions.AffectsMeasure));
     #endregion OverflowMode
 
-    #region OverflowDetected event
+    #region OverflowChanged event
 
-    public static readonly RoutedEvent OverflowDetectedEvent = EventManager.RegisterRoutedEvent(
-        nameof(OverflowDetected),
+    public static readonly RoutedEvent OverflowChangedEvent = EventManager.RegisterRoutedEvent(
+        nameof(OverflowChanged),
         RoutingStrategy.Bubble,
-        typeof(EventHandler<OverflowDetectedRoutedEventArgs>),
+        typeof(EventHandler<OverflowChangedRoutedEventArgs>),
         typeof(UniformToolBarPanel));
 
-    public event EventHandler<OverflowDetectedRoutedEventArgs> OverflowDetected
+    public event EventHandler<OverflowChangedRoutedEventArgs> OverflowChanged
     {
-        add => AddHandler(OverflowDetectedEvent, value);
-        remove => RemoveHandler(OverflowDetectedEvent, value);
+        add => AddHandler(OverflowChangedEvent, value);
+        remove => RemoveHandler(OverflowChangedEvent, value);
     }
 
-    #endregion OverflowDetected event
+    #endregion OverflowChanged event
     /// <summary>
     ///     Instantiates a new instance of this class.
     /// </summary>
@@ -286,6 +286,39 @@ public class UniformToolBarPanel : Panel
     }
 
     #region Layout
+    //private bool MeasureItems(Size constraint, out Size newPanelSize)
+    //{
+    //    newPanelSize = new Size(double.PositiveInfinity, double.PositiveInfinity);
+
+    //    if (InternalChildren.Count == 0)
+    //    {
+    //        return false;
+    //    }
+
+    //    double currentHorizontalLength = 0.0;
+    //    double currentVerticalLength = 0.0;
+    //    bool isOrientationHorizontal = Orientation is Orientation.Horizontal;
+    //    foreach (FrameworkElement childContainer in InternalChildren.OfType<FrameworkElement>())
+    //    {
+    //        // Second measure pass: force child to apply the required finalDesiredPanelSize
+    //        childContainer.Measure(UniformSize);
+    //        Size desiredSize = childContainer.DesiredSize;
+    //        if (isOrientationHorizontal)
+    //        {
+    //            currentHorizontalLength += desiredSize.Width;
+    //            currentVerticalLength = Math.Max(currentVerticalLength, desiredSize.Height);
+    //        }
+    //        else
+    //        {
+    //            currentVerticalLength += desiredSize.Height;
+    //            currentHorizontalLength = Math.Max(currentHorizontalLength, desiredSize.Width);
+    //        }
+    //    }
+
+    //    newPanelSize = new Size(currentHorizontalLength, currentVerticalLength);
+
+    //    return true;
+    //}
 
     private bool MeasureItems(Size constraint, out ReadOnlyCollection<(int itemIndex, object item)> overflowItems, out Size newUniformChildSize, out Size newPanelSize)
     {
@@ -308,18 +341,16 @@ public class UniformToolBarPanel : Panel
             generator = itemsControl.ItemContainerGenerator;
         }
 
-        List<ContentControl> measuredChildContainers = [];
         if (double.IsNaN(ItemWidth)
             || double.IsNaN(ItemHeight))
         {
-            foreach (ContentControl childContainer in InternalChildren.OfType<ContentControl>())
+            foreach (FrameworkElement childContainer in InternalChildren.Cast<FrameworkElement>())
             {
                 // First measure pass: allow child to provide its natural desired finalDesiredPanelSize
                 childContainer.Measure(constraint);
                 Size childDesiredSize = childContainer.DesiredSize;
                 maxWidth = Math.Max(maxWidth, childDesiredSize.Width);
                 maxHeight = Math.Max(maxHeight, childDesiredSize.Height);
-                measuredChildContainers.Add(childContainer);
             }
         }
 
@@ -351,7 +382,7 @@ public class UniformToolBarPanel : Panel
             ? itemHeight
             : 0.0;
         newUniformChildSize = new Size(itemWidth, itemHeight);
-        foreach (FrameworkElement childContainer in InternalChildren.OfType<FrameworkElement>())
+        foreach (UIElement childContainer in InternalChildren)
         {
             SetIsOverflowItem(childContainer, BooleanBoxes.FalseBox);
 
@@ -387,7 +418,7 @@ public class UniformToolBarPanel : Panel
                 if (generator is not null)
                 {
                     int itemIndex = generator.IndexFromContainer(childContainer);
-                    if (itemIndex >= 0)
+                    if (itemIndex > -1)
                     {
                         object item = generator.ItemFromContainer(childContainer);
                         overflowItemsList.Add((itemIndex, item));
@@ -419,18 +450,20 @@ public class UniformToolBarPanel : Panel
             return base.MeasureOverride(availableSize);
         }
 
+        //RaiseEvent(new OverflowChangedRoutedEventArgs(OverflowChangedEvent, this, []));
         if (MeasureItems(availableSize, out ReadOnlyCollection<(int itemIndex, object item)> overflowItems, out Size newUniformChildSize, out Size newPanelSize))
         {
             UniformSize = newUniformChildSize;
-            if (overflowItems.Count > 0)
-            {
-                RaiseEvent(new OverflowDetectedRoutedEventArgs(OverflowDetectedEvent, this, overflowItems));
-            }
+            RaiseEvent(new OverflowChangedRoutedEventArgs(OverflowChangedEvent, this, overflowItems));
 
             return newPanelSize;
         }
 
-        return availableSize;
+        //return MeasureItems(availableSize, out Size newPanelSize) 
+        //    ? newPanelSize 
+        //    : availableSize;
+
+        return base.MeasureOverride(availableSize);
     }
 
     /// <summary>
@@ -445,6 +478,7 @@ public class UniformToolBarPanel : Panel
         }
 
         Rect layoutSlot = new(UniformSize);
+        Rect emptyLayoutSlot = new(0, 0, 0, 0);
         bool isOrientationHorizontal = Orientation is Orientation.Horizontal;
         Vector offset = isOrientationHorizontal
             ? new Vector(layoutSlot.Width, 0)
@@ -455,6 +489,8 @@ public class UniformToolBarPanel : Panel
         {
             if (GetIsOverflowItem(itemContainer))
             {
+                itemContainer.Arrange(emptyLayoutSlot);
+
                 continue;
             }
 
@@ -469,8 +505,8 @@ public class UniformToolBarPanel : Panel
     #endregion
 }
 
-public class OverflowDetectedRoutedEventArgs : RoutedEventArgs
+public class OverflowChangedRoutedEventArgs : RoutedEventArgs
 {
     public ReadOnlyCollection<(int itemIndex, object item)> OverflowItems { get; }
-    public OverflowDetectedRoutedEventArgs(RoutedEvent routedEvent, object source, ReadOnlyCollection<(int itemIndex, object item)> overflowItems) : base(routedEvent, source) => OverflowItems = overflowItems;
+    public OverflowChangedRoutedEventArgs(RoutedEvent routedEvent, object source, ReadOnlyCollection<(int itemIndex, object item)> overflowItems) : base(routedEvent, source) => OverflowItems = overflowItems;
 }

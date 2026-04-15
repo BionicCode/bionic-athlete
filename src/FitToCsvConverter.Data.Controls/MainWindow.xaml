@@ -6,7 +6,9 @@
         xmlns:local="clr-namespace:FitToCsvConverter.Controls"
         xmlns:viewModel="clr-namespace:FitToCsvConverter.ViewModel;assembly=FitToCsvConverter.ViewModel"
         mc:Ignorable="d"
-        Title="MainWindow" Height="900" SizeToContent="Width">
+        Title="MainWindow" Height="900" 
+        SizeToContent="Width"
+        SnapsToDevicePixels="True">
     <d:DesignerProperties.DataContext>
         <viewModel:MainViewModel />
     </d:DesignerProperties.DataContext>

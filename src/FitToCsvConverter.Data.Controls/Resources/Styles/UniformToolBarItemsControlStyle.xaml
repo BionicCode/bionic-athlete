@@ -8,7 +8,7 @@
             <Trigger Property="Orientation"
                      Value="Vertical">
                 <Setter Property="Margin"
-                        Value="1,0,2,2" />
+                        Value="0" />
             </Trigger>
         </Style.Triggers>
     </Style>
@@ -21,7 +21,8 @@
                 <ItemsPanelTemplate>
                     <local:UniformToolBarPanel x:Name="PART_UniformToolBarPanel"
                                                IsItemsHost="true"
-                                               Margin="0,1,2,2"
+                                               Margin="0"
+                                               HorizontalAlignment="Left"
                                                Style="{DynamicResource {x:Static local:UniformToolBar.UniformToolBarMainPanelStyleKey}}"
                                                SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"
                                                ItemHeight="{Binding RelativeSource={RelativeSource AncestorType=local:UniformToolBar}, Path=ItemHeight}"

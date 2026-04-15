@@ -15,11 +15,11 @@ using BionicCode.Utilities.Net;
 public class UniformToolBar : HeaderedItemsControl
 {
     private ItemsControl? _mainItemsHost;
-    private Size _currentUniformSize;
     private ItemsControl? _overflowPanelHost;
+    private Size _toolStripSize;
     private readonly ToolBarOverflowPanel? _toolBarOverflowPanel;
     private readonly Dictionary<FrameworkElement, Size> _originalDesiredSizes = [];
-    private readonly LayoutPlan _plan;
+    //private readonly LayoutPlan _plan;
     //private Size _lastMeasureConstraint;
     //private Panel? _mainPanel;
 
@@ -97,7 +97,7 @@ public class UniformToolBar : HeaderedItemsControl
                     new FrameworkPropertyMetadata(new Size(double.NaN, double.NaN)));
 
     /// <summary>
-    /// The uniform item size as provided by <see cref="ItemHeight"/> and <see cref="ItemWidth"/>.
+    /// The uniform item newUniformSize as provided by <see cref="ItemHeight"/> and <see cref="ItemWidth"/>.
     /// </summary>
     public Size UniformSize
     {
@@ -302,18 +302,18 @@ public class UniformToolBar : HeaderedItemsControl
 
     public UniformToolBar()
     {
-        _currentUniformSize = Size.Empty;
-        Loaded += OnLoaded;
-        _currentUniformSize = new Size(ItemWidth, ItemHeight);
+        _toolStripSize = Size.Empty;
+        //Loaded += OnLoaded;
+        //_currentUniformSize = new Size(ItemWidth, ItemHeight);
         //AddHandler(ToolBarButton.UniformToolBarItemSizeChangedEvent, new EventHandler<UniformToolBarItemSizeChangedEventArgs>(OnUniformToolBarItemSizeChanged!));
-        AddHandler(UniformToolBarPanel.OverflowDetectedEvent, new EventHandler<OverflowDetectedRoutedEventArgs>(OnOverflowDetected));
+        AddHandler(UniformToolBarPanel.OverflowChangedEvent, new EventHandler<OverflowChangedRoutedEventArgs>(OnOverflowChanged));
     }
 
     protected virtual void OnItemWidthChanged(double oldWidth, double newWidth) => SetCurrentValue(UniformSizeProperty, new Size(newWidth, ItemHeight));
 
     protected virtual void OnItemHeightChanged(double oldHeight, double newHeight) => SetCurrentValue(UniformSizeProperty, new Size(ItemWidth, newHeight));
 
-    private void OnOverflowDetected(object? sender, OverflowDetectedRoutedEventArgs e) => _ = Dispatcher.InvokeAsync(() => UpdateOverflowItems(e.OverflowItems), DispatcherPriority.ContextIdle);
+    private void OnOverflowChanged(object? sender, OverflowChangedRoutedEventArgs e) => _ = Dispatcher.InvokeAsync(() => UpdateOverflowItems(e.OverflowItems), DispatcherPriority.ContextIdle);
 
     private void UpdateOverflowItems(ReadOnlyCollection<(int itemIndex, object item)> overflowItems)
     {
@@ -330,10 +330,16 @@ public class UniformToolBar : HeaderedItemsControl
         //_overflowPanelHost?.InvalidateVisual();
     }
 
+    protected override void OnLostFocus(RoutedEventArgs e)
+    {
+        base.OnLostFocus(e);
+        IsOverflowOpen = false;
+    }
+
     protected override void OnRenderSizeChanged(SizeChangedInfo sizeInfo)
     {
         base.OnRenderSizeChanged(sizeInfo);
-        InvalidateMeasure();
+        //InvalidateMeasure();
     }
 
     protected override void OnItemsSourceChanged(IEnumerable oldValue, IEnumerable newValue)
@@ -472,18 +478,112 @@ public class UniformToolBar : HeaderedItemsControl
         return false;
     }
 
-    protected override Size MeasureOverride(Size constraint)
-    {
-        HasOverflowItems = false;
-        OverflowItems.Clear();
-        //VisibleItems.Clear();
-        //foreach (object? item in Items)
-        //{
-        //    _ = VisibleItems.Add(item);
-        //}
+    //protected override Size MeasureOverride(Size constraint)
+    //{
+    //    Size desiredSize = base.MeasureOverride(constraint);
 
-        return base.MeasureOverride(constraint);
-    }
+    //    _mainItemsHost.Measure(constraint);
+
+    //    _ = Orientation == Orientation.Horizontal
+    //        ? _mainItemsHost.DesiredSize.Width
+    //        : _mainItemsHost.DesiredSize.Height;
+
+    //    double currentHorizontalLength = 0.0;
+    //    double currentVerticalLength = 0.0;
+    //    bool isOrientationHorizontal = Orientation is Orientation.Horizontal;
+    //    double maxWidth = 0.0;
+    //    double maxHeight = 0.0;
+    //    bool hasOverflowingItems = false;
+
+    //    List<UIElement> measuredChildContainers = [];
+    //    bool isCalculateUniformSizeRequired = double.IsNaN(ItemWidth)
+    //        || double.IsNaN(ItemHeight);
+    //    if (isCalculateUniformSizeRequired)
+    //    {
+    //        for (int index = 0; index < Items.Count; index++)
+    //        {
+    //            if (_mainItemsHost.ItemContainerGenerator.ContainerFromIndex(index) is not UIElement childContainer)
+    //            {
+    //                continue;
+    //            }
+
+    //            measuredChildContainers.Add(childContainer);
+
+    //            // First measure pass: allow child to provide its natural desired finalDesiredPanelSize
+    //            childContainer.Measure(constraint);
+    //            Size childDesiredSize = childContainer.DesiredSize;
+    //            maxWidth = Math.Max(maxWidth, childDesiredSize.Width);
+    //            maxHeight = Math.Max(maxHeight, childDesiredSize.Height);
+    //        }
+
+    //        // Enforce ItemWidth if not set to "Auto" (NaN)
+    //        double itemWidth = double.IsNaN(ItemWidth)
+    //            ? maxWidth
+    //            : ItemWidth;
+
+    //        // Enforce ItemHeight if not set to "Auto" (NaN)
+    //        double itemHeight = double.IsNaN(ItemHeight)
+    //            ? maxHeight
+    //            : ItemHeight;
+
+    //        var newUniformSize = new Size(itemWidth, itemHeight);
+    //        if (UniformSize != newUniformSize)
+    //        {
+    //            SetCurrentValue(UniformSizeProperty, newUniformSize);
+    //        }
+    //    }
+
+    //    VisibleItems.Clear();
+    //    OverflowItems.Clear();
+    //    for (int index = 0; index < Items.Count; index++)
+    //    {
+    //        UIElement childContainer;
+    //        if (measuredChildContainers.Count > 0)
+    //        {
+    //            childContainer = measuredChildContainers[index];
+    //        }
+    //        else if (ItemContainerGenerator.ContainerFromIndex(index) is UIElement container)
+    //        {
+    //            childContainer = container;
+    //        }
+    //        else
+    //        {
+    //            continue;
+    //        }
+
+    //        if (hasOverflowingItems)
+    //        {
+    //            _ = OverflowItems.Add(Items[index]);
+
+    //            continue;
+    //        }
+
+    //        Size desiredToolbarItemSize = childContainer.DesiredSize;
+    //        if (isOrientationHorizontal)
+    //        {
+    //            currentHorizontalLength += desiredToolbarItemSize.Width;
+    //            currentVerticalLength = Math.Max(currentVerticalLength, desiredToolbarItemSize.Height);
+    //        }
+    //        else
+    //        {
+    //            currentVerticalLength += desiredSize.Height;
+    //            currentHorizontalLength = Math.Max(currentHorizontalLength, desiredSize.Width);
+    //        }
+
+    //        if (DoubleUtil.GreaterThan(currentHorizontalLength, _mainItemsHost.DesiredSize.Width)
+    //            || DoubleUtil.GreaterThan(currentVerticalLength, _mainItemsHost.DesiredSize.Height))
+    //        {
+    //            hasOverflowingItems = true;
+    //            _ = OverflowItems.Add(Items[index]);
+    //        }
+    //        else
+    //        {
+    //            _ = VisibleItems.Add(Items[index]);
+    //        }
+    //    }
+
+    //    return desiredSize;
+    //}
 
     //protected override void OnChildDesiredSizeChanged(UIElement child) => base.OnChildDesiredSizeChanged(child);//_ = Dispatcher.InvokeAsync(ApplyUniformSizing, DispatcherPriority.Render);
 
@@ -499,7 +599,7 @@ public class UniformToolBar : HeaderedItemsControl
     //    Items.RemoveAt(Items.Count - 1);
     //}
 
-    private void OnLoaded(object sender, RoutedEventArgs e) { }
+    //private void OnLoaded(object sender, RoutedEventArgs e) { }
     //if (TryFindVisualChild(_mainItemsHost, out ItemsPresenter? itemsPresenter))
     //{
     //    if (TryFindVisualChild(itemsPresenter, out Panel? mainPanel))
@@ -574,7 +674,7 @@ public class UniformToolBar : HeaderedItemsControl
     //        _currentUniformSize = new Size(newWith, newHeight);
 
     //        // Perform a second pass over collected candidates to filter out any elements
-    //        // that may already have the new uniform size, so we don't unnecessarily update them
+    //        // that may already have the new uniform newUniformSize, so we don't unnecessarily update them
     //        // and cause extra layout passes.
     //        foreach (FrameworkElement element in candidates)
     //        {
@@ -610,8 +710,8 @@ public class UniformToolBar : HeaderedItemsControl
         public Size UniformItemSize { get; init; }
         public int VisibleCount { get; init; }
         public double LogicalMainLength { get; init; }
-        public IReadOnlyList<UIElement> VisibleChildren { get; init; }
-        public IReadOnlyList<Rect> Slots { get; init; }
+        public required IReadOnlyList<UIElement> VisibleChildren { get; init; }
+        public required IReadOnlyList<Rect> Slots { get; init; }
     }
 }
 
@@ -680,8 +780,8 @@ internal class UniformToolBarItem : ContentControl
 
     //private static bool IsWidthHeightValid(object value)
     //{
-    //    double v = (double)value;
-    //    return !double.IsNaN(v) && v >= 0.0d && !double.IsPositiveInfinity(v);
+    //    double isCalculateUniformSizeRequired = (double)value;
+    //    return !double.IsNaN(isCalculateUniformSizeRequired) && isCalculateUniformSizeRequired >= 0.0d && !double.IsPositiveInfinity(isCalculateUniformSizeRequired);
     //}
 
     public virtual void PrepareForMeasure()
