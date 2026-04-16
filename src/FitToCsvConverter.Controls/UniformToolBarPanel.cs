@@ -2,8 +2,10 @@
 
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using BionicCode.Utilities.Net;
 using global::System.Windows.Data;
@@ -182,7 +184,8 @@ public class UniformToolBarPanel : VirtualizingPanel
     ///     Instantiates a new instance of this class.
     /// </summary>
     public UniformToolBarPanel() : base()
-    { }
+    {
+    }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
@@ -321,32 +324,62 @@ public class UniformToolBarPanel : VirtualizingPanel
     //    return true;
     //}
 
-    private bool MeasureItems(Size constraint, out ReadOnlyCollection<(int itemIndex, object item)> overflowItems, out Size newUniformChildSize, out Size newPanelSize)
+    protected virtual IList<ContainerInfo> GenerateChildren(bool isAddGeneratedItemsToPanelRequested)
     {
-        newPanelSize = new Size(double.PositiveInfinity, double.PositiveInfinity);
-        var overflowItemsList = new List<(int itemIndex, object item)>();
-        overflowItems = new ReadOnlyCollection<(int itemIndex, object item)>(overflowItemsList);
-        double maxWidth = 0.0;
-        double maxHeight = 0.0;
-        bool hasOverflowItems = false;
+        InternalChildren.Clear();
 
-        if (InternalChildren.Count == 0)
+        using IDisposable generatorScop = ItemContainerGenerator.StartAt(ItemContainerGenerator.GeneratorPositionFromIndex(0), GeneratorDirection.Forward, true);
+        ReadOnlyCollection<object> items = (ItemContainerGenerator as ItemContainerGenerator)?.Items ?? [];
+        var generatedItems = new List<ContainerInfo>();
+        for (int index = 0; index < items.Count; index++)
+        {
+            var child = ItemContainerGenerator.GenerateNext(out bool isNewlyRealized) as UIElement;
+            if (child is not null
+                && isNewlyRealized)
+            {
+                ItemContainerGenerator.PrepareItemContainer(child);
+                generatedItems.Add(new ContainerInfo(index, items[index], child));
+
+                if (isAddGeneratedItemsToPanelRequested)
+                {
+                    AddInternalChild(child);
+                }
+            }
+        }
+
+        return generatedItems;
+    }
+
+    private bool MeasureItems(
+        Size constraint,
+        IList<ContainerInfo> generatedItems,
+        out UniformToolBarLayoutResult layoutPlan,
+        out Size newPanelSize)
+    {
+        Debug.Assert(InternalChildren.Count == 0, "MeasureItems should be called with an empty InternalChildren collection");
+
+        layoutPlan = UniformToolBarLayoutResult.Empty;
+        newPanelSize = new Size(double.PositiveInfinity, double.PositiveInfinity);
+
+        if (generatedItems.Count == 0)
         {
             return false;
         }
 
-        ItemContainerGenerator? generator = null;
-        if (IsItemsHost)
-        {
-            var itemsControl = ItemsControl.GetItemsOwner(this);
-            generator = itemsControl.ItemContainerGenerator;
-        }
-
+        double maxWidth = 0.0;
+        double maxHeight = 0.0;
         if (double.IsNaN(ItemWidth)
             || double.IsNaN(ItemHeight))
         {
-            foreach (FrameworkElement childContainer in InternalChildren.Cast<FrameworkElement>())
+            for (int index = generatedItems.Count - 1; index >= 0; index--)
             {
+                ContainerInfo containerInfo = generatedItems[index];
+                if (containerInfo.Container is not FrameworkElement childContainer)
+                {
+                    generatedItems.RemoveAt(index);
+                    continue;
+                }
+
                 // First measure pass: allow child to provide its natural desired finalDesiredPanelSize
                 childContainer.Measure(constraint);
                 Size childDesiredSize = childContainer.DesiredSize;
@@ -382,12 +415,15 @@ public class UniformToolBarPanel : VirtualizingPanel
         double currentVerticalLength = isOrientationHorizontal
             ? itemHeight
             : 0.0;
-        newUniformChildSize = new Size(itemWidth, itemHeight);
-        foreach (UIElement childContainer in InternalChildren)
+        var newUniformChildSize = new Size(itemWidth, itemHeight);
+        int overflowStartIndex = -1;
+        bool hasOverflowItems = OverflowMode is OverflowMode.Always;
+        foreach (ContainerInfo containerInfo in generatedItems)
         {
-            SetIsOverflowItem(childContainer, BooleanBoxes.FalseBox);
+            UIElement childContainer = containerInfo.Container;
 
             // If the total length of the children exceeds the available length in the orientation direction,
+            // or 'OverflowMode.Always' is configured
             // we can stop measuring and directly mark all remaining containers as overflow items.
             if (!hasOverflowItems)
             {
@@ -410,30 +446,30 @@ public class UniformToolBarPanel : VirtualizingPanel
                     // Flag to stop measuring further items
                     hasOverflowItems = true;
                 }
+                else
+                {
+                    AddInternalChild(childContainer);
+                }
             }
 
-            if (hasOverflowItems
-                || OverflowMode is OverflowMode.Always)
+            if (hasOverflowItems)
             {
-                SetIsOverflowItem(childContainer, BooleanBoxes.TrueBox);
-                if (generator is not null)
-                {
-                    int itemIndex = generator.IndexFromContainer(childContainer);
-                    if (itemIndex > -1)
-                    {
-                        object item = generator.ItemFromContainer(childContainer);
-                        overflowItemsList.Add((itemIndex, item));
-                    }
-                }
+                overflowStartIndex = containerInfo.ItemIndex;
 
-                continue;
+                break;
             }
         }
 
-        // Sort in descending order to ensure UniformToolBar can remove items
-        // without shifting indices which would invalidate remaining indices
-        overflowItemsList.Sort((x, y) => y.itemIndex.CompareTo(x.itemIndex));
-
+        layoutPlan = new UniformToolBarLayoutResult
+        {
+            UniformSize = newUniformChildSize,
+            VisibleCount = overflowStartIndex != -1
+                ? overflowStartIndex
+                : generatedItems.Count,
+            OverflowCount = overflowStartIndex != -1
+                ? generatedItems.Count - overflowStartIndex
+                : 0
+        };
         newPanelSize = new Size(currentHorizontalLength, currentVerticalLength);
 
         return true;
@@ -446,23 +482,15 @@ public class UniformToolBarPanel : VirtualizingPanel
     /// <returns></returns>
     protected override Size MeasureOverride(Size availableSize)
     {
-        if (InternalChildren.Count == 0)
-        {
-            return base.MeasureOverride(availableSize);
-        }
+        IList<ContainerInfo> generatedContainerInfo = GenerateChildren(isAddGeneratedItemsToPanelRequested: false);
 
-        //RaiseEvent(new OverflowChangedRoutedEventArgs(OverflowChangedEvent, this, []));
-        if (MeasureItems(availableSize, out ReadOnlyCollection<(int itemIndex, object item)> overflowItems, out Size newUniformChildSize, out Size newPanelSize))
+        if (MeasureItems(availableSize, generatedContainerInfo, out UniformToolBarLayoutResult layoutPlan, out Size newPanelSize))
         {
-            UniformSize = newUniformChildSize;
-            RaiseEvent(new OverflowChangedRoutedEventArgs(OverflowChangedEvent, this, overflowItems));
+            UniformSize = layoutPlan.UniformSize;
+            RaiseEvent(new OverflowChangedRoutedEventArgs(OverflowChangedEvent, this, layoutPlan));
 
             return newPanelSize;
         }
-
-        //return MeasureItems(availableSize, out Size newPanelSize) 
-        //    ? newPanelSize 
-        //    : availableSize;
 
         return base.MeasureOverride(availableSize);
     }
@@ -479,7 +507,6 @@ public class UniformToolBarPanel : VirtualizingPanel
         }
 
         Rect layoutSlot = new(UniformSize);
-        Rect emptyLayoutSlot = new(0, 0, 0, 0);
         bool isOrientationHorizontal = Orientation is Orientation.Horizontal;
         Vector offset = isOrientationHorizontal
             ? new Vector(layoutSlot.Width, 0)
@@ -488,13 +515,6 @@ public class UniformToolBarPanel : VirtualizingPanel
 
         foreach (UIElement itemContainer in InternalChildren)
         {
-            if (GetIsOverflowItem(itemContainer))
-            {
-                itemContainer.Arrange(emptyLayoutSlot);
-
-                continue;
-            }
-
             layoutSlot.Offset(offset);
             itemContainer.Arrange(layoutSlot);
         }
@@ -504,4 +524,17 @@ public class UniformToolBarPanel : VirtualizingPanel
     }
 
     #endregion
+}
+
+public class ContainerInfo
+{
+    public int ItemIndex { get; }
+    public object Item { get; }
+    public UIElement Container { get; }
+    public ContainerInfo(int itemIndex, object item, UIElement container)
+    {
+        ItemIndex = itemIndex;
+        Item = item;
+        Container = container;
+    }
 }
