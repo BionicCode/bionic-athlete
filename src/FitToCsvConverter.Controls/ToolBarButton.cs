@@ -91,15 +91,6 @@ public class ToolBarButton : Button
         RaiseEvent(new UniformToolBarItemSizeChangedEventArgs(UniformToolBarItemSizeChangedEvent, this, e));
     }
 
-    //protected override void OnChildDesiredSizeChanged(UIElement child)
-    //{
-    //    ArgumentNullExceptionAdvanced.ThrowIfNull(child);
-
-    //    base.OnChildDesiredSizeChanged(child);
-    //    UpdateSizeRelatedResources();
-    //    RaiseEvent(new UniformToolBarItemSizeChangedEventArgs(UniformToolBarItemSizeChangedEvent, this, true, true, child.RenderSize, child.RenderSize));
-    //}
-
     private void UpdateSizeRelatedResources()
     {
         BuildMouseOverStoryboard();
@@ -121,15 +112,6 @@ public class ToolBarButton : Button
         _ = _labelBorder?.RenderTransform = new ScaleTransform(1, 1);
         _ = (_labelBorder?.RenderTransformOrigin = new Point(0.5, 0.5));
     }
-
-    //protected override Size MeasureOverride(Size constraint)
-    //{
-    //    Size calculatedSize = base.MeasureOverride(constraint);
-
-    //    _ = DesiredSize;
-
-    //    return DesiredSize;
-    //}
 
     protected override void OnMouseEnter(MouseEventArgs e)
     {
@@ -172,15 +154,6 @@ public class ToolBarButton : Button
             && _labelBorder is not null)
         {
             _mouseOverStoryboard = new Storyboard() { FillBehavior = FillBehavior.HoldEnd };
-            //var colorAnimation = new ColorAnimation
-            //{
-            //    To = (Color)FindResource("MouseOverTextColor"),
-            //    Duration = (Duration)FindResource("MouseOverAnimationDuration"),
-            //    AutoReverse = false,
-            //};
-            //Storyboard.SetTarget(colorAnimation, this);
-            //Storyboard.SetTargetProperty(colorAnimation, new PropertyPath("(Button.Foreground).(SolidColorBrush.Color)"));
-            //_mouseOverForegroundStoryboard.Children.Add(colorAnimation);
 
             var opacityAnimation = new DoubleAnimation
             {
@@ -256,15 +229,6 @@ public class ToolBarButton : Button
             && _labelBorder is not null)
         {
             _revertMouseOverStoryboard = new Storyboard() { FillBehavior = FillBehavior.HoldEnd };
-            //var colorAnimation = new ColorAnimation
-            //{
-            //    To = (Color)FindResource("TextColor"),
-            //    Duration = (Duration)FindResource("MouseOverAnimationDuration"),
-            //    AutoReverse = false,
-            //};
-            //Storyboard.SetTarget(colorAnimation, this);
-            //Storyboard.SetTargetProperty(colorAnimation, new PropertyPath("(Button.Foreground).(SolidColorBrush.Color)"));
-            //_revertForegroundStoryboard.Children.Add(colorAnimation);
 
             var opacityAnimation = new DoubleAnimation
             {
@@ -325,6 +289,8 @@ public class ToolBarButton : Button
             Storyboard.SetTarget(contentWidthAnimation, _contentHost);
             Storyboard.SetTargetProperty(contentWidthAnimation, new PropertyPath("RenderTransform.ScaleX"));
             _revertMouseOverStoryboard.Children.Add(contentWidthAnimation);
+
+            Grid.SetRowSpan(_contentHost, 2);
         }
     }
 }

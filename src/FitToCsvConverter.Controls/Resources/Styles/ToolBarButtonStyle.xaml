@@ -6,6 +6,10 @@
         <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/ViewRessources.xaml" />
     </ResourceDictionary.MergedDictionaries>
 
+    <SolidColorBrush x:Key="LabelBackgroundBrush"
+                     Opacity="0.8">
+        <SolidColorBrush.Color>#656565</SolidColorBrush.Color>
+    </SolidColorBrush>
     <Style TargetType="{x:Type local:ToolBarButton}">
         <Setter Property="Background"
                 Value="{StaticResource DarkThemeButtonBackgroundBrush}" />
@@ -85,26 +89,25 @@
                                 <RowDefinition Height="*" />
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
-                            
-                            <Border x:Name="PART_ContentPresenterViewBox"
-                                    Grid.Row="0"
-                                    Grid.RowSpan="2"
-                                    Margin="{TemplateBinding Padding}">
-                                <Viewbox Stretch="Uniform" 
-                                         StretchDirection="Both">
-                                    <ContentPresenter x:Name="PART_ContentPresenter" />
-                                </Viewbox>
-                            </Border>
-                            
+
+                            <Viewbox x:Name="PART_ContentPresenterViewBox"
+                                     Grid.Row="0"
+                                     Grid.RowSpan="2"
+                                     Margin="{TemplateBinding Padding}"
+                                     Stretch="Uniform"
+                                     StretchDirection="Both">
+                                <ContentPresenter x:Name="PART_ContentPresenter" />
+                            </Viewbox>
+
                             <Border x:Name="PART_LabelBorder"
                                     Grid.Row="1"
-                                    Panel.ZIndex="10"
                                     Opacity="0"
-                                    Background="#656565"
+                                    Background="{StaticResource LabelBackgroundBrush}"
                                     CornerRadius="{StaticResource CornerRadius}"
                                     VerticalAlignment="Center"
                                     Padding="5,0">
                                 <TextBlock x:Name="PART_Label"
+                                           Opacity="1"
                                            Text="{TemplateBinding LabelText}"
                                            HorizontalAlignment="Center"
                                            FontSize="{TemplateBinding LabelFontSize}" />

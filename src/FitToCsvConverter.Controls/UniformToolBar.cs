@@ -319,8 +319,9 @@ public class UniformToolBar : HeaderedItemsControl
     {
         OverflowItems.Clear();
         SetCurrentValue(UniformSizeProperty, layoutResult.UniformSize);
+        HasOverflowItems = layoutResult.HasOverflowItems;
 
-        if (!layoutResult.HasOverflowItems)
+        if (!HasOverflowItems)
         {
             return;
         }
@@ -330,8 +331,6 @@ public class UniformToolBar : HeaderedItemsControl
             object item = Items[index];
             _ = OverflowItems.Add(item);
         }
-
-        HasOverflowItems = OverflowItems.Count > 0;
     }
 
     protected override void OnRenderSizeChanged(SizeChangedInfo sizeInfo) => base.OnRenderSizeChanged(sizeInfo);//InvalidateMeasure();

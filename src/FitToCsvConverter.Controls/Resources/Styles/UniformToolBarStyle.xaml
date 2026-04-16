@@ -75,12 +75,12 @@
                                     TargetName="Bd"
                                     Value="{StaticResource DarkThemeHoveredButtonBackgroundBrush}" />
                         </Trigger>
-                        <Trigger Property="IsKeyboardFocused"
+                        <!--<Trigger Property="IsKeyboardFocused"
                                  Value="true">
                             <Setter Property="Background"
                                     TargetName="Bd"
                                     Value="{StaticResource ToolBarButtonHover}" />
-                        </Trigger>
+                        </Trigger>-->
                         <Trigger Property="IsEnabled"
                                  Value="false">
                             <Setter Property="Foreground"
@@ -232,7 +232,9 @@
         <Setter Property="ItemsPanel">
             <Setter.Value>
                 <ItemsPanelTemplate>
-                    <local:UniformToolBarPanel ItemHeight="{Binding RelativeSource={RelativeSource AncestorType=local:UniformToolBar}, Path=ItemHeight}"
+                    <local:UniformToolBarPanel HorizontalAlignment="{Binding RelativeSource={RelativeSource AncestorType=local:UniformToolBar}, Path=HorizontalContentAlignment}" 
+                                               VerticalAlignment="{Binding RelativeSource={RelativeSource AncestorType=local:UniformToolBar}, Path=VerticalContentAlignment}"
+                                               ItemHeight="{Binding RelativeSource={RelativeSource AncestorType=local:UniformToolBar}, Path=ItemHeight}"
                                                ItemWidth="{Binding RelativeSource={RelativeSource AncestorType=local:UniformToolBar}, Path=ItemWidth}" />
                 </ItemsPanelTemplate>
             </Setter.Value>
@@ -309,7 +311,7 @@
                                PopupAnimation="{DynamicResource {x:Static SystemParameters.ComboBoxPopupAnimationKey}}"
                                StaysOpen="false">
                             <Border x:Name="Shdw"
-                                        Background="Transparent">
+                                    Background="Transparent">
                                     <Border x:Name="ToolBarSubMenuBorder"
                                             Background="{StaticResource ToolBarSubMenuBackground}"
                                             BorderBrush="{StaticResource ToolBarMenuBorder}"
@@ -335,9 +337,6 @@
                                     </Border>
                                 </Border>
                             </Popup>
-                        <!--<Grid x:Name="OverflowGrid"
-                              HorizontalAlignment="Right">
-                        </Grid>-->
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsOverflowOpen"
@@ -346,7 +345,7 @@
                                     TargetName="ToolBarThumb"
                                     Value="false" />
                             <!--<Setter Property="FocusManager.FocusedElement"
-                                    Value="{Binding ElementName=OverflowPanelHost}" />-->
+                                    Value="{Binding ElementName=PART_UniformToolBarOverflowPanel}" />-->
                         </Trigger>
                         <Trigger Property="Header"
                                  Value="{x:Null}">

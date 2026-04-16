@@ -28,10 +28,9 @@ internal class UniformToolBarOverflowPanel : Panel
     }
     #endregion UniformSize
 
-    public UniformToolBarOverflowPanel()
-    {
-        //Loaded += OnUniformToolBarOverflowPanelLoaded;
-    }
+    protected bool HasValidUniformSize => !double.IsNaN(UniformSize.Width) && !double.IsNaN(UniformSize.Height);
+
+    public UniformToolBarOverflowPanel() => Loaded += OnUniformToolBarOverflowPanelLoaded;
 
     private void OnUniformToolBarOverflowPanelLoaded(object sender, RoutedEventArgs e) => InvalidateMeasure();
 
@@ -42,7 +41,8 @@ internal class UniformToolBarOverflowPanel : Panel
     /// <returns></returns>
     protected override Size MeasureOverride(Size availableSize)
     {
-        if (InternalChildren.Count == 0)
+        if (InternalChildren.Count == 0
+            || !HasValidUniformSize)
         {
             return base.MeasureOverride(availableSize);
         }
@@ -66,8 +66,8 @@ internal class UniformToolBarOverflowPanel : Panel
     /// <param name="finalSize">Arrange finalDesiredPanelSize</param>
     protected override Size ArrangeOverride(Size finalSize)
     {
-        if (!IsLoaded
-            || InternalChildren.Count == 0)
+        if (InternalChildren.Count == 0
+            || !HasValidUniformSize)
         {
             return base.ArrangeOverride(finalSize);
         }
