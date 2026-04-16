@@ -1,7 +1,6 @@
 ﻿namespace FitToCsvConverter.Controls;
 
 using System.Collections.ObjectModel;
-using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Windows;
@@ -181,9 +180,6 @@ public class UniformToolBarPanel : VirtualizingPanel
 
     #endregion OverflowChanged event
 
-    protected internal new static System.Windows.Controls.UIElementCollection InternalChildren => Generate
-
-
     /// <summary>
     ///     Instantiates a new instance of this class.
     /// </summary>
@@ -303,7 +299,12 @@ public class UniformToolBarPanel : VirtualizingPanel
     #region Layout
     protected virtual IList<ContainerInfo> GenerateChildren(bool isAddGeneratedItemsToPanelRequested)
     {
-        InternalChildren.Clear();
+        if (ItemContainerGenerator is null)
+        {
+            return [];
+        }
+
+        ItemContainerGenerator.RemoveAll();
 
         using IDisposable generatorScop = ItemContainerGenerator.StartAt(ItemContainerGenerator.GeneratorPositionFromIndex(0), GeneratorDirection.Forward, allowStartAtRealizedItem: true);
         ReadOnlyCollection<object> items = (ItemContainerGenerator as ItemContainerGenerator)?.Items ?? [];

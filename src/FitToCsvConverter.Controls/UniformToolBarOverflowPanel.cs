@@ -42,8 +42,7 @@ internal class UniformToolBarOverflowPanel : Panel
     /// <returns></returns>
     protected override Size MeasureOverride(Size availableSize)
     {
-        if (!IsLoaded
-            || InternalChildren.Count == 0)
+        if (InternalChildren.Count == 0)
         {
             return base.MeasureOverride(availableSize);
         }

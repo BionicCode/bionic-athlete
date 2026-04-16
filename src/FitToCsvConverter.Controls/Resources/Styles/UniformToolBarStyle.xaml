@@ -283,7 +283,8 @@
                                                   Margin="4,0"
                                                   SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"
                                                   VerticalAlignment="Center" />
-                                <ItemsPresenter DockPanel.Dock="Left"
+                                <ItemsPresenter x:Name="MainPanelHost" 
+                                                DockPanel.Dock="Left"
                                                 HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                                 VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
 
