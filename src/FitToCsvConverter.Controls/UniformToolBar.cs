@@ -306,35 +306,33 @@ public class UniformToolBar : HeaderedItemsControl
         //Loaded += OnLoaded;
         //_currentUniformSize = new Size(ItemWidth, ItemHeight);
         //AddHandler(ToolBarButton.UniformToolBarItemSizeChangedEvent, new EventHandler<UniformToolBarItemSizeChangedEventArgs>(OnUniformToolBarItemSizeChanged!));
-        AddHandler(UniformToolBarPanel.OverflowChangedEvent, new EventHandler<OverflowChangedRoutedEventArgs>(OnOverflowChanged));
+        AddHandler(UniformToolBarPanel.LayoutChangedEvent, new EventHandler<LayoutChangedRoutedEventArgs>(OnOverflowChanged));
     }
 
     protected virtual void OnItemWidthChanged(double oldWidth, double newWidth) => SetCurrentValue(UniformSizeProperty, new Size(newWidth, ItemHeight));
 
     protected virtual void OnItemHeightChanged(double oldHeight, double newHeight) => SetCurrentValue(UniformSizeProperty, new Size(ItemWidth, newHeight));
 
-    private void OnOverflowChanged(object? sender, OverflowChangedRoutedEventArgs e) => _ = Dispatcher.InvokeAsync(() => UpdateOverflowItems(e.OverflowItems), DispatcherPriority.ContextIdle);
+    private void OnOverflowChanged(object? sender, LayoutChangedRoutedEventArgs e) => _ = Dispatcher.InvokeAsync(() => UpdateOverflowItems(e.LayoutResult), DispatcherPriority.ContextIdle);
 
-    private void UpdateOverflowItems(ReadOnlyCollection<(int itemIndex, object item)> overflowItems)
+    private void UpdateOverflowItems(UniformToolBarLayoutResult layoutResult)
     {
         OverflowItems.Clear();
+        SetCurrentValue(UniformSizeProperty, layoutResult.UniformSize);
 
-        foreach ((_, object item) in overflowItems)
+        if (!layoutResult.HasOverflowItems)
         {
-            //VisibleItems.RemoveAt(itemIndex);
+            return;
+        }
+
+        for (int index = layoutResult.VisibleCount; index < Items.Count; index++)
+        {
+            object item = Items[index];
             _ = OverflowItems.Add(item);
         }
 
-        //IsOverflowOpen = OverflowItems.Count > 0;
         HasOverflowItems = OverflowItems.Count > 0;
-        //_overflowPanelHost?.InvalidateVisual();
     }
-
-    //protected override void OnLostFocus(RoutedEventArgs e)
-    //{
-    //    base.OnLostFocus(e);
-    //    IsOverflowOpen = false;
-    //}
 
     protected override void OnRenderSizeChanged(SizeChangedInfo sizeInfo) => base.OnRenderSizeChanged(sizeInfo);//InvalidateMeasure();
 

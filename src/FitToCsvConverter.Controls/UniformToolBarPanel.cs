@@ -1,6 +1,7 @@
 ﻿namespace FitToCsvConverter.Controls;
 
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Windows;
@@ -166,19 +167,22 @@ public class UniformToolBarPanel : VirtualizingPanel
 
     #region OverflowChanged event
 
-    public static readonly RoutedEvent OverflowChangedEvent = EventManager.RegisterRoutedEvent(
-        nameof(OverflowChanged),
+    public static readonly RoutedEvent LayoutChangedEvent = EventManager.RegisterRoutedEvent(
+        nameof(LayoutChanged),
         RoutingStrategy.Bubble,
-        typeof(EventHandler<OverflowChangedRoutedEventArgs>),
+        typeof(EventHandler<LayoutChangedRoutedEventArgs>),
         typeof(UniformToolBarPanel));
 
-    public event EventHandler<OverflowChangedRoutedEventArgs> OverflowChanged
+    public event EventHandler<LayoutChangedRoutedEventArgs> LayoutChanged
     {
-        add => AddHandler(OverflowChangedEvent, value);
-        remove => RemoveHandler(OverflowChangedEvent, value);
+        add => AddHandler(LayoutChangedEvent, value);
+        remove => RemoveHandler(LayoutChangedEvent, value);
     }
 
     #endregion OverflowChanged event
+
+    protected internal new static System.Windows.Controls.UIElementCollection InternalChildren => Generate
+
 
     /// <summary>
     ///     Instantiates a new instance of this class.
@@ -289,46 +293,19 @@ public class UniformToolBarPanel : VirtualizingPanel
         return double.IsNaN(v) || (v >= 0.0d && !double.IsPositiveInfinity(v));
     }
 
+    protected override void OnItemsChanged(object sender, ItemsChangedEventArgs args)
+    {
+        base.OnItemsChanged(sender, args);
+
+        InvalidateMeasure();
+    }
+
     #region Layout
-    //private bool MeasureItems(Size constraint, out Size newPanelSize)
-    //{
-    //    newPanelSize = new Size(double.PositiveInfinity, double.PositiveInfinity);
-
-    //    if (InternalChildren.Count == 0)
-    //    {
-    //        return false;
-    //    }
-
-    //    double currentHorizontalLength = 0.0;
-    //    double currentVerticalLength = 0.0;
-    //    bool isOrientationHorizontal = Orientation is Orientation.Horizontal;
-    //    foreach (FrameworkElement childContainer in InternalChildren.OfType<FrameworkElement>())
-    //    {
-    //        // Second measure pass: force child to apply the required finalDesiredPanelSize
-    //        childContainer.Measure(UniformSize);
-    //        Size desiredSize = childContainer.DesiredSize;
-    //        if (isOrientationHorizontal)
-    //        {
-    //            currentHorizontalLength += desiredSize.Width;
-    //            currentVerticalLength = Math.Max(currentVerticalLength, desiredSize.Height);
-    //        }
-    //        else
-    //        {
-    //            currentVerticalLength += desiredSize.Height;
-    //            currentHorizontalLength = Math.Max(currentHorizontalLength, desiredSize.Width);
-    //        }
-    //    }
-
-    //    newPanelSize = new Size(currentHorizontalLength, currentVerticalLength);
-
-    //    return true;
-    //}
-
     protected virtual IList<ContainerInfo> GenerateChildren(bool isAddGeneratedItemsToPanelRequested)
     {
         InternalChildren.Clear();
 
-        using IDisposable generatorScop = ItemContainerGenerator.StartAt(ItemContainerGenerator.GeneratorPositionFromIndex(0), GeneratorDirection.Forward, true);
+        using IDisposable generatorScop = ItemContainerGenerator.StartAt(ItemContainerGenerator.GeneratorPositionFromIndex(0), GeneratorDirection.Forward, allowStartAtRealizedItem: true);
         ReadOnlyCollection<object> items = (ItemContainerGenerator as ItemContainerGenerator)?.Items ?? [];
         var generatedItems = new List<ContainerInfo>();
         for (int index = 0; index < items.Count; index++)
@@ -487,7 +464,7 @@ public class UniformToolBarPanel : VirtualizingPanel
         if (MeasureItems(availableSize, generatedContainerInfo, out UniformToolBarLayoutResult layoutPlan, out Size newPanelSize))
         {
             UniformSize = layoutPlan.UniformSize;
-            RaiseEvent(new OverflowChangedRoutedEventArgs(OverflowChangedEvent, this, layoutPlan));
+            RaiseEvent(new LayoutChangedRoutedEventArgs(LayoutChangedEvent, this, layoutPlan));
 
             return newPanelSize;
         }
