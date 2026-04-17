@@ -13,7 +13,7 @@
         </Style.Triggers>
     </Style>
 
-    <Style TargetType="local:UniformToolBarItemsControl">
+    <!--<Style TargetType="local:UniformToolBarItemsControl">
         <Setter Property="Padding"
                 Value="0" />
         <Setter Property="ItemsPanel">
@@ -48,6 +48,6 @@
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
-    </Style>
+    </Style>-->
 
 </ResourceDictionary>

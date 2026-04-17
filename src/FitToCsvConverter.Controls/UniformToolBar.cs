@@ -9,7 +9,6 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Media;
-using System.Windows.Threading;
 using BionicCode.Utilities.Net;
 
 public class UniformToolBar : HeaderedItemsControl
@@ -313,7 +312,7 @@ public class UniformToolBar : HeaderedItemsControl
 
     protected virtual void OnItemHeightChanged(double oldHeight, double newHeight) => SetCurrentValue(UniformSizeProperty, new Size(ItemWidth, newHeight));
 
-    private void OnOverflowChanged(object? sender, LayoutChangedRoutedEventArgs e) => _ = Dispatcher.InvokeAsync(() => UpdateOverflowItems(e.LayoutResult), DispatcherPriority.ContextIdle);
+    private void OnOverflowChanged(object? sender, LayoutChangedRoutedEventArgs e) => UpdateOverflowItems(e.LayoutResult);
 
     private void UpdateOverflowItems(UniformToolBarLayoutResult layoutResult)
     {
@@ -705,85 +704,5 @@ public class UniformToolBar : HeaderedItemsControl
         public double LogicalMainLength { get; init; }
         public required IReadOnlyList<UIElement> VisibleChildren { get; init; }
         public required IReadOnlyList<Rect> Slots { get; init; }
-    }
-}
-
-public class UniformToolBarItemsControl : ItemsControl
-{
-    static UniformToolBarItemsControl() => DefaultStyleKeyProperty.OverrideMetadata(typeof(UniformToolBarItemsControl), new FrameworkPropertyMetadata(typeof(UniformToolBarItemsControl)));
-
-    protected override DependencyObject GetContainerForItemOverride() => new UniformToolBarItem();
-    protected override bool IsItemItsOwnContainerOverride(object item) => item is UniformToolBarItem;
-}
-
-internal class UniformToolBarItem : ContentControl
-{
-    //#region ItemHeight
-    //[TypeConverter(typeof(LengthConverter))]
-    //public double ItemHeight
-    //{
-    //    get => (double)GetValue(ItemHeightProperty);
-    //    set => SetValue(ItemHeightProperty, value);
-    //}
-
-    //[TypeConverter(typeof(LengthConverter))]
-    //public static readonly DependencyProperty ItemHeightProperty = DependencyProperty.Register(
-    //    nameof(ItemHeight),
-    //    typeof(double),
-    //    typeof(UniformToolBarItem),
-    //    new FrameworkPropertyMetadata(
-    //        48d,
-    //        FrameworkPropertyMetadataOptions.AffectsMeasure | FrameworkPropertyMetadataOptions.AffectsParentMeasure,
-    //        OnItemHeightChanged),
-    //    new ValidateValueCallback(IsWidthHeightValid));
-    //#endregion ItemHeight
-
-    //#region ItemWidth
-    //[TypeConverter(typeof(LengthConverter))]
-    //public double ItemWidth
-    //{
-    //    get => (double)GetValue(ItemWidthProperty);
-    //    set => SetValue(ItemWidthProperty, value);
-    //}
-
-    //[TypeConverter(typeof(LengthConverter))]
-    //public static readonly DependencyProperty ItemWidthProperty = DependencyProperty.Register(
-    //    nameof(ItemWidth),
-    //    typeof(double),
-    //    typeof(UniformToolBarItem),
-    //    new FrameworkPropertyMetadata(
-    //        48d,
-    //        FrameworkPropertyMetadataOptions.AffectsMeasure | FrameworkPropertyMetadataOptions.AffectsParentMeasure,
-    //        OnItemWidthChanged),
-    //    new ValidateValueCallback(IsWidthHeightValid));
-    //#endregion ItemWidth 
-    //static UniformToolBarItem() => DefaultStyleKeyProperty.OverrideMetadata(typeof(UniformToolBarItem), new FrameworkPropertyMetadata(typeof(UniformToolBarItem)));
-
-    //private static void OnItemWidthChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-    //{
-    //    var uniformToolBarItem = (UniformToolBarItem)d;
-    //    uniformToolBarItem.SetCurrentValue(WidthProperty, e.NewValue);
-    //}
-
-    //private static void OnItemHeightChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-    //{
-    //    var uniformToolBarItem = (UniformToolBarItem)d;
-    //    uniformToolBarItem.SetCurrentValue(HeightProperty, e.NewValue);
-    //}
-
-    //private static bool IsWidthHeightValid(object value)
-    //{
-    //    double isCalculateUniformSizeRequired = (double)value;
-    //    return !double.IsNaN(isCalculateUniformSizeRequired) && isCalculateUniformSizeRequired >= 0.0d && !double.IsPositiveInfinity(isCalculateUniformSizeRequired);
-    //}
-
-    public virtual void PrepareForMeasure()
-    {
-        SetCurrentValue(MinWidthProperty, 0.0);
-        SetCurrentValue(MaxWidthProperty, double.PositiveInfinity);
-        SetCurrentValue(MinHeightProperty, 0.0);
-        SetCurrentValue(MaxHeightProperty, double.PositiveInfinity);
-        SetCurrentValue(WidthProperty, double.NaN);
-        SetCurrentValue(HeightProperty, double.NaN);
     }
 }

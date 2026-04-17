@@ -145,6 +145,14 @@ public partial class MainWindow : Window, IDisposableAdvanced
             executed: async (s, e) => await OnExecutedAddFitFileCommandAsync(s, e),
             canExecute: (s, e) => e.CanExecute = true);
         _ = CommandBindings.Add(addFitFileCommandBinding);
+
+        AddHandler(MouseDownEvent, new MouseButtonEventHandler((s, e) =>
+        {
+            if (e.ChangedButton == MouseButton.Left)
+            {
+                ;
+            }
+        }), handledEventsToo: true);
     }
 
     private async Task OnExecutedAddFitFileCommandAsync(object sender, ExecutedRoutedEventArgs e)

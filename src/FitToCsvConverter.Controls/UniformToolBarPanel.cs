@@ -12,6 +12,8 @@ using global::System.Windows.Data;
 
 public class UniformToolBarPanel : VirtualizingPanel
 {
+    protected UniformToolBarLayoutResult _currentLayoutBrief;
+
     #region IsOverflowItem
     /// <summary>
     ///     The key needed set a read-only property.
@@ -183,9 +185,7 @@ public class UniformToolBarPanel : VirtualizingPanel
     /// <summary>
     ///     Instantiates a new instance of this class.
     /// </summary>
-    public UniformToolBarPanel() : base()
-    {
-    }
+    public UniformToolBarPanel() : base() => Loaded += OnLoaded;
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
@@ -247,7 +247,6 @@ public class UniformToolBarPanel : VirtualizingPanel
                 Path = new PropertyPath(UniformToolBar.ItemHeightProperty)
             };
             _ = SetBinding(ItemHeightProperty, binding);
-            //BindingOperations.GetBindingExpression(this, ItemHeightProperty)?.UpdateTarget();
         }
 
         source = DependencyPropertyHelper.GetValueSource(this, ItemWidthProperty);
@@ -279,8 +278,6 @@ public class UniformToolBarPanel : VirtualizingPanel
             };
             _ = SetBinding(OverflowModeProperty, binding);
         }
-
-        //InvalidateMeasure();
     }
 
     private static bool IsWidthHeightValid(object value)
@@ -289,11 +286,118 @@ public class UniformToolBarPanel : VirtualizingPanel
         return double.IsNaN(v) || (v >= 0.0d && !double.IsPositiveInfinity(v));
     }
 
+    private bool IsUniformSizeFromUser => !double.IsNaN(ItemWidth) && !double.IsNaN(ItemHeight);
+
+    protected virtual void OnLayoutChanged(UniformToolBarLayoutResult layoutPlan) => RaiseEvent(new LayoutChangedRoutedEventArgs(LayoutChangedEvent, this, layoutPlan));
+
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "args is a framework callback parameter with non-null contract semantics")]
     protected override void OnItemsChanged(object sender, ItemsChangedEventArgs args)
     {
         base.OnItemsChanged(sender, args);
 
-        InvalidateMeasure();
+        if (!IsUniformSizeFromUser)
+        {
+            // User uses "Auto" or double.NaN for ItemWidth/ItemHeight:
+            // UniformSize must be recalculated dynamically based on the size of the children, so we need to invalidate measure whenever the items change in any way.
+            InvalidateMeasure();
+
+            return;
+        }
+
+        if (!_currentLayoutBrief.HasOverflowItems)
+        {
+            // No overflow, so we can just invalidate measure to re-layout the children with the new total items count.
+            InvalidateMeasure();
+            return;
+        }
+
+        if (!IsMeasureValid)
+        {
+            // If measure is not valid, it means a new layout pass will be triggered soon, so we can skip handling the item change here to avoid redundant measure/arrange passes.
+            return;
+        }
+
+        switch (args.Action)
+        {
+            case System.Collections.Specialized.NotifyCollectionChangedAction.Add:
+                int addIndex = ItemContainerGenerator.IndexFromGeneratorPosition(args.Position);
+                if (addIndex >= _currentLayoutBrief.VisibleCount)
+                {
+                    _currentLayoutBrief = new UniformToolBarLayoutResult
+                    {
+                        UniformSize = UniformSize,
+                        VisibleCount = _currentLayoutBrief.VisibleCount,
+                        OverflowCount = _currentLayoutBrief.OverflowCount + 1
+                    };
+                    OnLayoutChanged(_currentLayoutBrief);
+                }
+                else
+                {
+                    InvalidateMeasure();
+                }
+
+                break;
+            case System.Collections.Specialized.NotifyCollectionChangedAction.Remove:
+                int removeIndex = ItemContainerGenerator.IndexFromGeneratorPosition(args.OldPosition);
+                if (removeIndex >= _currentLayoutBrief.VisibleCount)
+                {
+                    _currentLayoutBrief = new UniformToolBarLayoutResult
+                    {
+                        UniformSize = UniformSize,
+                        VisibleCount = _currentLayoutBrief.VisibleCount,
+                        OverflowCount = _currentLayoutBrief.OverflowCount - 1
+                    };
+                    OnLayoutChanged(_currentLayoutBrief);
+                }
+                else
+                {
+                    InvalidateMeasure();
+                }
+
+                break;
+            case System.Collections.Specialized.NotifyCollectionChangedAction.Replace:
+                int changeIndex = ItemContainerGenerator.IndexFromGeneratorPosition(args.Position);
+                if (changeIndex >= _currentLayoutBrief.VisibleCount)
+                {
+                    _currentLayoutBrief = new UniformToolBarLayoutResult
+                    {
+                        UniformSize = UniformSize,
+                        VisibleCount = _currentLayoutBrief.VisibleCount,
+                        OverflowCount = _currentLayoutBrief.OverflowCount
+                    };
+                    OnLayoutChanged(_currentLayoutBrief);
+                }
+                else
+                {
+                    InvalidateMeasure();
+                }
+
+                break;
+            case System.Collections.Specialized.NotifyCollectionChangedAction.Move:
+                int oldIndex = ItemContainerGenerator.IndexFromGeneratorPosition(args.OldPosition);
+                int newIndex = ItemContainerGenerator.IndexFromGeneratorPosition(args.Position);
+                if (oldIndex >= _currentLayoutBrief.VisibleCount
+                    && newIndex >= _currentLayoutBrief.VisibleCount)
+                {
+                    _currentLayoutBrief = new UniformToolBarLayoutResult
+                    {
+                        UniformSize = UniformSize,
+                        VisibleCount = _currentLayoutBrief.VisibleCount,
+                        OverflowCount = _currentLayoutBrief.OverflowCount
+                    };
+                    OnLayoutChanged(_currentLayoutBrief);
+                }
+                else
+                {
+                    InvalidateMeasure();
+                }
+
+                break;
+            case System.Collections.Specialized.NotifyCollectionChangedAction.Reset:
+            default:
+                InvalidateMeasure();
+                break;
+        }
     }
 
     #region Layout
@@ -304,24 +408,28 @@ public class UniformToolBarPanel : VirtualizingPanel
             return [];
         }
 
-        ItemContainerGenerator.RemoveAll();
+        RemoveInternalChildRange(0, InternalChildren.Count);
 
         using IDisposable generatorScop = ItemContainerGenerator.StartAt(ItemContainerGenerator.GeneratorPositionFromIndex(0), GeneratorDirection.Forward, allowStartAtRealizedItem: true);
         ReadOnlyCollection<object> items = (ItemContainerGenerator as ItemContainerGenerator)?.Items ?? [];
         var generatedItems = new List<ContainerInfo>();
         for (int index = 0; index < items.Count; index++)
         {
-            var child = ItemContainerGenerator.GenerateNext(out bool isNewlyRealized) as UIElement;
-            if (child is not null
-                && isNewlyRealized)
+            if (ItemContainerGenerator.GenerateNext(out bool isNewlyRealized) is not UIElement child)
+            {
+                continue;
+            }
+
+            if (isNewlyRealized)
             {
                 ItemContainerGenerator.PrepareItemContainer(child);
-                generatedItems.Add(new ContainerInfo(index, items[index], child));
+            }
 
-                if (isAddGeneratedItemsToPanelRequested)
-                {
-                    AddInternalChild(child);
-                }
+            generatedItems.Add(new ContainerInfo(index, items[index], child));
+
+            if (isAddGeneratedItemsToPanelRequested)
+            {
+                AddInternalChild(child);
             }
         }
 
@@ -346,8 +454,7 @@ public class UniformToolBarPanel : VirtualizingPanel
 
         double maxWidth = 0.0;
         double maxHeight = 0.0;
-        if (double.IsNaN(ItemWidth)
-            || double.IsNaN(ItemHeight))
+        if (!IsUniformSizeFromUser)
         {
             for (int index = generatedItems.Count - 1; index >= 0; index--)
             {
@@ -408,24 +515,28 @@ public class UniformToolBarPanel : VirtualizingPanel
                 // Second measure pass: force child to apply the required finalDesiredPanelSize
                 childContainer.Measure(newUniformChildSize);
 
+                double tempCurrentHorizontalLength = currentHorizontalLength;
+                double tempCurrentVerticalLength = currentVerticalLength;
                 if (isOrientationHorizontal)
                 {
-                    currentHorizontalLength += newUniformChildSize.Width;
+                    tempCurrentHorizontalLength += newUniformChildSize.Width;
                 }
                 else
                 {
-                    currentVerticalLength += newUniformChildSize.Height;
+                    tempCurrentVerticalLength += newUniformChildSize.Height;
                 }
 
                 if (OverflowMode is OverflowMode.AsNeeded
-                    && (DoubleUtil.GreaterThan(currentHorizontalLength, maxHorizontalLength)
-                        || DoubleUtil.GreaterThan(currentVerticalLength, maxVerticalLength)))
+                    && (DoubleUtil.GreaterThan(tempCurrentHorizontalLength, maxHorizontalLength)
+                        || DoubleUtil.GreaterThan(tempCurrentVerticalLength, maxVerticalLength)))
                 {
                     // Flag to stop measuring further items
                     hasOverflowItems = true;
                 }
                 else
                 {
+                    currentHorizontalLength = tempCurrentHorizontalLength;
+                    currentVerticalLength = tempCurrentVerticalLength;
                     AddInternalChild(childContainer);
                 }
             }
@@ -465,7 +576,8 @@ public class UniformToolBarPanel : VirtualizingPanel
         if (MeasureItems(availableSize, generatedContainerInfo, out UniformToolBarLayoutResult layoutPlan, out Size newPanelSize))
         {
             UniformSize = layoutPlan.UniformSize;
-            RaiseEvent(new LayoutChangedRoutedEventArgs(LayoutChangedEvent, this, layoutPlan));
+            _currentLayoutBrief = layoutPlan;
+            OnLayoutChanged(layoutPlan);
 
             return newPanelSize;
         }
@@ -502,17 +614,4 @@ public class UniformToolBarPanel : VirtualizingPanel
     }
 
     #endregion
-}
-
-public class ContainerInfo
-{
-    public int ItemIndex { get; }
-    public object Item { get; }
-    public UIElement Container { get; }
-    public ContainerInfo(int itemIndex, object item, UIElement container)
-    {
-        ItemIndex = itemIndex;
-        Item = item;
-        Container = container;
-    }
 }

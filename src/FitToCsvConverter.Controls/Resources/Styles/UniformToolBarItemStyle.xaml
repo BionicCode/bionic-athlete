@@ -6,7 +6,7 @@
         <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/ViewRessources.xaml" />
     </ResourceDictionary.MergedDictionaries>
 
-    <Style TargetType="local:UniformToolBarItem">
+    <!--<Style TargetType="local:UniformToolBarItem">
         <Setter Property="Background"
                 Value="Transparent" />
         <Setter Property="BorderBrush"
@@ -17,10 +17,10 @@
                 Value="{Binding RelativeSource={RelativeSource AncestorType=local:UniformToolBar}, Path=ItemWidth}" />
         <Setter Property="Height"
                 Value="{Binding RelativeSource={RelativeSource AncestorType=local:UniformToolBar}, Path=ItemHeight}" />
-        <!--<Setter Property="HorizontalAlignment"
+        --><!--<Setter Property="HorizontalAlignment"
                 Value="Left" />
         <Setter Property="VerticalAlignment"
-                Value="Top" />-->
+                Value="Top" />--><!--
         <Setter Property="HorizontalContentAlignment"
                 Value="Stretch" />
         <Setter Property="VerticalContentAlignment"
@@ -41,6 +41,6 @@
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
-    </Style>
+    </Style>-->
 
 </ResourceDictionary>

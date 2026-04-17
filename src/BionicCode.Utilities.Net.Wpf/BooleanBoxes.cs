@@ -1,17 +1,17 @@
-﻿namespace FitToCsvConverter.Controls;
+﻿namespace BionicCode.Utilities.Net;
 
 /// <summary>
 /// Dependency properties of type bool are boxed when stored in the property system. 
 /// This class provides boxed values for <see langword="true"/> and <see langword="false"/> to avoid unnecessary allocations.
 /// </summary>
-internal static class BooleanBoxes
+public static class BooleanBoxes
 {
-    internal static readonly object TrueBox = true;
-    internal static readonly object FalseBox = false;
+    public static readonly object TrueBox = true;
+    public static readonly object FalseBox = false;
 
-    internal static object Box(bool value) => value ? TrueBox : FalseBox;
+    public static object Box(bool value) => value ? TrueBox : FalseBox;
 
-    internal static object? Box(bool? value) => value switch
+    public static object? Box(bool? value) => value switch
     {
         true => TrueBox,
         false => FalseBox,
