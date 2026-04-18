@@ -4,15 +4,19 @@ using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Data;
+using System.Windows.Threading;
 
 /// <summary>
 /// Base class recommended to use for view models across the application. Encapsulates implementations of <see cref="INotifyPropertyChanged"/> and <see cref="INotifyDataErrorInfo"/>.
 /// </summary>
 public abstract class ViewModel : ViewModelCommon, IViewModel
 {
+    private readonly object _progressDataCollectionSyncRoot = new();
     protected ViewModel()
     {
         _progressDataCollectionInternal = [];
+        Application.Current.Dispatcher.Invoke(() => BindingOperations.EnableCollectionSynchronization(_progressDataCollectionInternal, _progressDataCollectionSyncRoot), DispatcherPriority.Send);
         ProgressDataCollection = new ReadOnlyObservableCollection<ObservableProgressData>(_progressDataCollectionInternal);
         _selectedProgressIndex = 0;
     }
@@ -83,14 +87,17 @@ public abstract class ViewModel : ViewModelCommon, IViewModel
     /// <param name="operationTitle">The title of the progress operation.</param>
     /// <param name="maxValue">The maximum value for the progress operation.</param>
     /// <param name="isIndeterminate">Indicates whether the progress operation is indeterminate.</param>
+    /// <param name="isCapturingUiThread">Indicates whether the progress operation is capturing the current UI thread.</param>
     /// <returns>An <see cref="ObservableProgressReporter"/> instance casted to <see cref="IProgress{ProgressData}"/> instance that reports progress to the UI thread.</returns>
-    public IProgress<ProgressData> StartNewObservableProgressReporting(string initialMessage = "", string operationTitle = "", double maxValue = 100, bool isIndeterminate = false)
+    public IProgress<ProgressData> StartNewObservableProgressReporting(string initialMessage = "", string operationTitle = "", double maxValue = 1, bool isIndeterminate = false, bool isCapturingUiThread = true)
     {
         var progressData = new ObservableProgressData(0, maxValue, initialMessage, operationTitle) { IsIndeterminate = isIndeterminate };
-        _progressDataCollectionInternal.Add(progressData);
+        Application.Current.Dispatcher.Invoke(() => _progressDataCollectionInternal.Add(progressData));
         UpdateSelectedProgressData();
 
-        var reporter = new ObservableProgressReporter(OnProgress, progressData);
+        ObservableProgressReporter reporter = isCapturingUiThread
+            ? Application.Current.Dispatcher.Invoke(() => new ObservableProgressReporter(OnProgress, progressData))
+            : new ObservableProgressReporter(OnProgress, progressData);
         reporter.ProgressReported += OnObservableProgressReporterProgressReported;
         reporter.Completed += OnObservableProgressReporterCompleted;
 
@@ -113,19 +120,22 @@ public abstract class ViewModel : ViewModelCommon, IViewModel
     /// <param name="maxValue">The maximum value for the progress operation.</param>
     /// <param name="onProgress">An additional progress callback that is invoked when progress is reported. The <see cref="ProgressChanged"/> event is also raised.</param>
     /// <param name="isIndeterminate">Indicates whether the progress operation is indeterminate.</param>
+    /// <param name="isCapturingUiThread">Indicates whether the progress operation is capturing the current UI thread.</param>  
     /// <returns>An <see cref="ObservableProgressReporter"/> instance casted to <see cref="IProgress{ProgressData}"/> instance that reports progress to the UI thread.</returns>
     /// <exception cref="ArgumentNullException">Thrown when the <paramref name="onProgress"/> argument is <see langword="null"/>.</exception>"
-    public IProgress<ProgressData> StartNewObservableProgressReporting(Action<ObservableProgressData> onProgress, string initialMessage = "", string operationTitle = "", double maxValue = 100, bool isIndeterminate = false)
+    public IProgress<ProgressData> StartNewObservableProgressReporting(Action<ObservableProgressData> onProgress, string initialMessage = "", string operationTitle = "", double maxValue = 100, bool isIndeterminate = false, bool isCapturingUiThread = true)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(onProgress);
 
         var progressData = new ObservableProgressData(0, maxValue, initialMessage, operationTitle) { IsIndeterminate = isIndeterminate };
-        _progressDataCollectionInternal.Add(progressData);
+        Application.Current.Dispatcher.Invoke(() => _progressDataCollectionInternal.Add(progressData));
         UpdateSelectedProgressData();
 
         Action<ObservableProgressData> reportAction = onProgress + OnProgress;
 
-        var reporter = new ObservableProgressReporter(reportAction, progressData);
+        ObservableProgressReporter reporter = isCapturingUiThread
+            ? Application.Current.Dispatcher.Invoke(() => new ObservableProgressReporter(reportAction, progressData))
+            : new ObservableProgressReporter(reportAction, progressData);
         reporter.ProgressReported += OnObservableProgressReporterProgressReported;
         reporter.Completed += OnObservableProgressReporterCompleted;
 

@@ -317,6 +317,12 @@ public class UniformToolBar : HeaderedItemsControl
     private void UpdateOverflowItems(UniformToolBarLayoutResult layoutResult)
     {
         OverflowItems.Clear();
+
+        if (!layoutResult.IsValid)
+        {
+            return;
+        }
+
         SetCurrentValue(UniformSizeProperty, layoutResult.UniformSize);
         HasOverflowItems = layoutResult.HasOverflowItems;
 

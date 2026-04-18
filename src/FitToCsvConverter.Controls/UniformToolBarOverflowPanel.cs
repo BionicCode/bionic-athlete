@@ -47,16 +47,14 @@ internal class UniformToolBarOverflowPanel : Panel
             return base.MeasureOverride(availableSize);
         }
 
-        double newPanelWidth = 0.0;
         double newPanelHeight = 0.0;
         foreach (UIElement itemContainer in InternalChildren)
         {
             itemContainer.Measure(UniformSize);
-            newPanelHeight += itemContainer.DesiredSize.Height;
-            newPanelWidth = Math.Max(newPanelWidth, itemContainer.DesiredSize.Width);
+            newPanelHeight += UniformSize.Height;
         }
 
-        var newPanelSize = new Size(newPanelWidth, newPanelHeight);
+        var newPanelSize = new Size(UniformSize.Width, newPanelHeight);
         return newPanelSize;
     }
 

@@ -32,8 +32,9 @@ public partial class MainWindow : Window, IDisposableAdvanced
     public static readonly RoutedCommand RemoveExtraFileCommand = new(nameof(RemoveExtraFileCommand), typeof(MainWindow));
     public static readonly RoutedCommand SelectAllExtraFilesForRenameCommand = new(nameof(SelectAllExtraFilesForRenameCommand), typeof(MainWindow));
     public static readonly RoutedCommand UnselectAllExtraFilesForRenameCommand = new(nameof(UnselectAllExtraFilesForRenameCommand), typeof(MainWindow));
-    public static readonly RoutedCommand AddFitFileCommand = new(nameof(AddFitFileCommand), typeof(MainWindow));
+    public static readonly RoutedCommand OpenFitFileCommand = new(nameof(OpenFitFileCommand), typeof(MainWindow));
     public static readonly RoutedCommand RemoveFitFileCommand = new(nameof(RemoveFitFileCommand), typeof(MainWindow));
+    public static readonly RoutedCommand RemoveAllFitFilesCommand = new(nameof(RemoveAllFitFilesCommand), typeof(MainWindow));
 
     public MainWindow(MainViewModel viewModel)
     {
@@ -141,21 +142,19 @@ public partial class MainWindow : Window, IDisposableAdvanced
         _ = CommandBindings.Add(removeFitFileCommandBinding);
 
         var addFitFileCommandBinding = new CommandBinding(
-            AddFitFileCommand,
-            executed: async (s, e) => await OnExecutedAddFitFileCommandAsync(s, e),
+            OpenFitFileCommand,
+            executed: async (s, e) => await OnExecutedOpenFitFileCommandAsync(s, e),
             canExecute: (s, e) => e.CanExecute = true);
         _ = CommandBindings.Add(addFitFileCommandBinding);
 
-        AddHandler(MouseDownEvent, new MouseButtonEventHandler((s, e) =>
-        {
-            if (e.ChangedButton == MouseButton.Left)
-            {
-                ;
-            }
-        }), handledEventsToo: true);
+        var removeAllFitFilesCommandBinding = new CommandBinding(
+            RemoveAllFitFilesCommand,
+            executed: (s, e) => _viewModel.RemoveAllFitFilePaths(),
+            canExecute: (s, e) => e.CanExecute = _viewModel.FitFilePaths?.Any() ?? false);
+        _ = CommandBindings.Add(removeAllFitFilesCommandBinding);
     }
 
-    private async Task OnExecutedAddFitFileCommandAsync(object sender, ExecutedRoutedEventArgs e)
+    private async Task OnExecutedOpenFitFileCommandAsync(object sender, ExecutedRoutedEventArgs e)
     {
         var openFileDialog = new OpenFileDialog
         {

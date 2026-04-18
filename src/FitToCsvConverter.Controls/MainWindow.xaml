@@ -5,6 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:FitToCsvConverter.Controls"
         xmlns:viewModel="clr-namespace:FitToCsvConverter.ViewModel;assembly=FitToCsvConverter.ViewModel"
+        xmlns:bionicNet="clr-namespace:BionicCode.Utilities.Net;assembly=BionicCode.Utilities.Net.Wpf"
         mc:Ignorable="d"
         Title="MainWindow" Height="900" 
         SizeToContent="Width"
@@ -241,7 +242,7 @@
                           Command="{x:Static local:MainWindow.RemoveFitFileCommand}"
                           CommandParameter="{Binding}" />
                 <MenuItem Header="Add FIT file"
-                          Command="{x:Static local:MainWindow.AddFitFileCommand}" />
+                          Command="{x:Static local:MainWindow.OpenFitFileCommand}" />
             </ContextMenu>
         </ResourceDictionary>
     </Window.Resources>
@@ -271,62 +272,9 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <!--<StackPanel Grid.Row="1"
-                            Grid.Column="0"
-                            Grid.ColumnSpan="2"
-                            Margin="5">
-                    <TextBlock Text="FIT File:"
-                               Style="{StaticResource LabelTextBlockStyle}" />
-                    <ListBox ItemsSource="{Binding FitFilePaths}"
-                             SelectedItem="{Binding SelectedFitFilePath}"
-                             Background="Transparent"
-                             BorderBrush="Gray"
-                             BorderThickness="1"
-                             Height="100"
-                             Padding="0,5"
-                             AllowDrop="True"
-                             ToolTip="Drag and drop FIT files here, either raw or as ZIP files."
-                             Drop="OnFitFilesDropped"
-                             DragEnter="PrepareFitFileDropTargetFeedBack"
-                             DragOver="ProvideFitFileDropTargetFeedBack"
-                             DragLeave="ClearFitFileDropTargetFeedBack"
-                             ContextMenu="{StaticResource FitFileListContextMenu}">
-                        <ListBox.Template>
-                            <ControlTemplate TargetType="ListBox">
-                                <Border BorderBrush="{TemplateBinding BorderBrush}"
-                                        BorderThickness="{TemplateBinding BorderThickness}"
-                                        Padding="{TemplateBinding Padding}"
-                                        Background="{TemplateBinding Background}">
-                                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                        <Grid>
-                                            <ContentControl Content="{StaticResource FitFileDropTargetIcon}" />
-                                            <ItemsPresenter />
-                                        </Grid>
-                                    </ScrollViewer>
-                                </Border>
-                            </ControlTemplate>
-                        </ListBox.Template>
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding}" />
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-
-                </StackPanel>-->
-
-                <Separator Grid.Row="2"
-                           Grid.Column="0"
-                           Grid.ColumnSpan="2"
-                           Margin="0,10" />
-
-                <Grid Grid.Row="3"
+                <Grid Grid.Row="0"
                       Margin="5,0">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -351,36 +299,36 @@
                                    Style="{StaticResource LabelTextBlockStyle}" />
                         <local:UniformToolBar Grid.Row="1"
                                               Margin="0,0,0,5"
-                                              Orientation="Vertical"
+                                              Orientation="Horizontal"
                                               HorizontalAlignment="Left"
                                               VerticalAlignment="Top"
                                               ItemWidth="59"
                                               ItemHeight="28">
-                            <!--<Button Content="Hello" Style="{x:Null}" />
+                            <Button Content="Hello" Style="{x:Null}" />
                             <Button Content="World"
                                     Style="{x:Null}" />
                             <Button Content="Hello"
                                     Style="{x:Null}" />
                             <Button Content="World"
                                     Style="{x:Null}" />
-                            <Button Content="Hello"
-                                    Style="{x:Null}" />
-                            <Button Content="World"
-                                    Style="{x:Null}" />-->
                             <local:ToolBarButton Content="{StaticResource OpenFileIcon}"
                                                  LabelText="Open file"
-                                                 Command="{Binding OpenFitFileCommand}"
-                                                 CommandParameter="{Binding SelectedExportData}"
+                                                 Command="{x:Static local:MainWindow.OpenFitFileCommand}"
                                                  LabelFontSize="12"/>
                             <local:ToolBarButton Content="{StaticResource DeleteIcon}"
                                                  LabelText="Clear all"
-                                                 Command="{Binding RemoveFitFileCommand}"
-                                                 CommandParameter="{Binding SelectedExportData}"
+                                                 Command="{x:Static local:MainWindow.RemoveAllFitFilesCommand}"
                                                  LabelFontSize="12"/>
+                            <Button Content="Hello"
+                                    Style="{x:Null}" />
+                            <Button Content="World"
+                                    Style="{x:Null}" />
                         </local:UniformToolBar>
-                            <Grid
-                                                      Grid.Row="2">
-                                <ContentControl Content="{StaticResource FitFileDropTargetIcon}"
+                        <Grid Grid.Row="2"
+                              Height="400"
+                              HorizontalAlignment="Left"
+                              VerticalAlignment="Top">
+                            <ContentControl Content="{StaticResource FitFileDropTargetIcon}"
                                                 Height="120"
                                                 VerticalAlignment="Center" />
                                 <Border x:Name="ToolBarSubMenuBorder"
@@ -645,12 +593,12 @@
                     </Grid>
                 </Grid>
 
-                <Separator Grid.Row="4"
+                <Separator Grid.Row="1"
                            Grid.Column="0"
                            Grid.ColumnSpan="2"
                            Margin="0,10" />
 
-                <StackPanel Grid.Row="5"
+                <StackPanel Grid.Row="2"
                             Margin="5,0">
                     <TextBlock Text="Destination Folder:"
                                Style="{StaticResource LabelTextBlockStyle}" />
@@ -678,54 +626,8 @@
 
                     </Grid>
                 </StackPanel>
-
-                <StackPanel Grid.Row="6"
-                            Margin="0,20,0,0"
-                            Visibility="{Binding HasProgressData, Converter={StaticResource BooleanToVisibilityConverter}}">
-                    <Separator Margin="0,20" />
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="{Binding ProgressDataCollection[0].OperationTitle}" />
-                        <TextBlock Text=":" />
-                    </StackPanel>
-                    <local:AdvancedProgressBar Maximum="1"
-                                               Height="42"
-                                               CornerRadius="{StaticResource CornerRadius}"
-                                               ProgressTextAlignment="BottomCenter"
-                                               ProgressTextSize="18"
-                                               Value="{Binding ProgressDataCollection[0].Progress, Mode=OneWay}"
-                                               HorizontalAlignment="Stretch"
-                                               IsIndeterminate="false" />
-                    <TextBlock Text="{Binding ProgressDataCollection[0].Message}"
-                               HorizontalAlignment="Left"
-                               VerticalAlignment="Center"
-                               Foreground="Gray"
-                               FontStyle="Italic" />
-                </StackPanel>
-
-                <StackPanel Grid.Row="7"
-                            Margin="0,0,0,20"
-                            Visibility="{Binding HasProgressData, Converter={StaticResource BooleanToVisibilityConverter}}">
-                    <Separator Margin="50,20" />
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="{Binding ProgressDataCollection[1].OperationTitle}" />
-                        <TextBlock Text=":" />
-                    </StackPanel>
-                    <local:AdvancedProgressBar Maximum="1"
-                                               Height="42"
-                                               CornerRadius="{StaticResource CornerRadius}"
-                                               ProgressTextAlignment="BottomCenter"
-                                               ProgressTextSize="18"
-                                               Value="{Binding ProgressDataCollection[1].Progress, Mode=OneWay}"
-                                               HorizontalAlignment="Stretch"
-                                               IsIndeterminate="false" />
-                    <TextBlock Text="{Binding ProgressDataCollection[1].Message}"
-                               HorizontalAlignment="Left"
-                               VerticalAlignment="Center"
-                               Foreground="Gray"
-                               FontStyle="Italic" />
-                </StackPanel>
-
-                <Button Grid.Row="8"
+                
+                <Button Grid.Row="3"
                         Margin="10,120,0,0"
                         VerticalAlignment="Top"
                         Height="{Binding ElementName=DestinationFolderTextBox, Path=ActualHeight}"
@@ -737,6 +639,46 @@
                         VerticalContentAlignment="Center"
                         Command="{Binding ExportCommand}">
                 </Button>
+
+                <StackPanel Grid.Row="4"
+                            Margin="0,20,0,0"
+                            Visibility="{Binding HasProgressData, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Separator Margin="0,20" />
+                    <ItemsControl ItemsSource="{Binding ProgressDataCollection, Mode=OneTime}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="bionicNet:ObservableProgressData">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+
+                                    <StackPanel Grid.Row="0" 
+                                                Orientation="Horizontal">
+                                        <TextBlock Text="{Binding OperationTitle}" />
+                                        <TextBlock Text=":" />
+                                    </StackPanel>
+                                    <local:AdvancedProgressBar Grid.Row="1" 
+                                                               Maximum="{Binding MaxValue, Mode=OneWay}"
+                                                               Height="42"
+                                                               CornerRadius="{StaticResource CornerRadius}"
+                                                               ProgressTextAlignment="BottomCenter"
+                                                               ProgressTextSize="18"
+                                                               Value="{Binding Progress, Mode=OneWay}"
+                                                               HorizontalAlignment="Stretch"
+                                                               IsIndeterminate="false" />
+                                    <TextBlock Grid.Row="2" 
+                                               Text="{Binding Message, Mode=OneWay}"
+                                               HorizontalAlignment="Left"
+                                               VerticalAlignment="Center"
+                                               Foreground="Gray"
+                                               FontStyle="Italic" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
             </Grid>
         </ScrollViewer>
     </Grid>

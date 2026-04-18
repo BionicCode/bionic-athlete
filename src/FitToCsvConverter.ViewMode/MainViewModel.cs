@@ -69,7 +69,8 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
         ExportData.Clear();
         _fitFilePathToExportDataLookup.Clear();
         SelectedExportData = null;
-        RemoveAllObservableProgressData();
+
+        RemoveAllCompletedObservableProgressData();
     }
 
     public PropertyValidationResult IsFitFilePathValid(string fitFilePath)
@@ -104,9 +105,11 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
         return new PropertyValidationResult(true, Array.Empty<string>());
     }
 
-    public async Task AddFitFilePathsAsync(IEnumerable<string> fitFilePaths, CancellationToken cancellationToken)
+    public async Task AddFitFilePathsAsync(IList<string> fitFilePaths, CancellationToken cancellationToken)
     {
         ArgumentExceptionAdvanced.ThrowIfNullOrEmpty(fitFilePaths);
+
+        RemoveAllCompletedObservableProgressData();
 
         bool isSemaphoreEntered = false;
         var addedFitFilePathsLookup = new HashSet<string>();
@@ -119,21 +122,20 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
             await _addFitFilesSemaphore.WaitAsync(cancellationToken);
             isSemaphoreEntered = true;
 
-            IProgress<ProgressData> progressReporter = StartNewObservableProgressReporting(string.Empty, $"Adding files...", isIndeterminate: true);
-            foreach (string fitFilePath in fitFilePaths)
+            IProgress<ProgressData> addFileProgressReporter = StartNewObservableProgressReporting(string.Empty, $"Adding files...", isIndeterminate: false, maxValue: fitFilePaths.Count);
+            for (int index = 0; index < fitFilePaths.Count; index++)
             {
+                string fitFilePath = fitFilePaths[index];
                 cancellationToken.ThrowIfCancellationRequested();
 
-                progressReporter.Report(new ProgressData { Message = $"Adding '{Path.GetFileName(fitFilePath)}'..." });
+                addFileProgressReporter.Report(new ProgressData(index + 1, fitFilePaths.Count, $"Adding '{Path.GetFileName(fitFilePath)}'..."));
                 if (_zipArchiveManager.IsFileTypeSupportedArchive(fitFilePath))
                 {
-                    await foreach (string extractedFilePath in _zipArchiveManager.ExtractArchiveAsync(fitFilePath, progressReporter, cancellationToken).ConfigureAwait(true))
+                    await foreach (string extractedFilePath in _zipArchiveManager.ExtractArchiveAsync(fitFilePath, (int maxValue, string operationTitle) => StartNewObservableProgressReporting(string.Empty, operationTitle, isIndeterminate: false, maxValue: maxValue), cancellationToken).ConfigureAwait(true))
                     {
                         wasAdded = await AddFitFilePathAsync(extractedFilePath, cancellationToken);
                         addedFilePath = extractedFilePath;
                     }
-
-                    RemoveAllObservableProgressData();
                 }
                 else
                 {
@@ -184,8 +186,21 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
         SelectedExportData.AddExtraFilePaths(filePaths);
     }
 
+    public void RemoveAllFitFilePaths()
+    {
+        RemoveAllCompletedObservableProgressData();
+
+        SelectedExportData = null;
+        SelectedFitFilePath = string.Empty;
+        FitFilePaths.Clear();
+        _fitFilePathToExportDataLookup.Clear();
+        ExportData.Clear();
+    }
+
     public void RemoveFitFilePath(string filePath)
     {
+        RemoveAllCompletedObservableProgressData();
+
         if (FitFilePaths.Contains(filePath))
         {
             Debug.Assert(_fitFilePathToExportDataLookup.ContainsKey(filePath), $"File path '{filePath}' is in '{nameof(FitFilePaths)}' collection but not in '{nameof(_fitFilePathToExportDataLookup)}' lookup.");
@@ -249,6 +264,8 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
 
     private async Task ExecuteExportCommandAsync()
     {
+        RemoveAllCompletedObservableProgressData();
+
         IEnumerable<ConversionInfo> conversionInfoEnumerable = EnumerateConversionInfo();
         IProgress<ProgressData> exportProgressReporter = StartNewObservableProgressReporting(string.Empty, "Export FIT to CSV");
         await _garminFitCsvToolConverter.ExportToCsvAsync(conversionInfoEnumerable, ExportData.Count, exportProgressReporter);
@@ -308,7 +325,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
     public string? SelectedFitFilePath
     {
         get => _selectedFitFilePath;
-        set => _ = TrySetValue(value, value => value is null || FitFilePaths.IsEmpty() || FitFilePaths.Contains(value) ? new PropertyValidationResult(true, []) : new PropertyValidationResult(false, ["Selected file is not in the list of fit files."]), ref _selectedFitFilePath, _setValueOptions);
+        set => _ = TrySetValue(value, value => string.IsNullOrEmpty(value) || FitFilePaths.Contains(value) ? new PropertyValidationResult(true, []) : new PropertyValidationResult(false, ["Selected file is not in the list of fit files."]), ref _selectedFitFilePath, _setValueOptions);
     }
 
     public ObservableFileSystemPathHashSet FitFilePaths { get; }

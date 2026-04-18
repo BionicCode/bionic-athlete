@@ -43,7 +43,7 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
             .ToFrozenSet();
     }
 
-    public async IAsyncEnumerable<string> ExtractArchivesAsync(IEnumerable<string> archivePaths, IProgress<ProgressData>? progressReporter, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    public async IAsyncEnumerable<string> ExtractArchivesAsync(IEnumerable<string> archivePaths, Func<int, string, IProgress<ProgressData>>? progressReporterFactory, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(archivePaths);
 
@@ -51,7 +51,7 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            await foreach (string extractedFile in ExtractArchiveAsync(archivePath, progressReporter, cancellationToken).ConfigureAwait(false))
+            await foreach (string extractedFile in ExtractArchiveAsync(archivePath, progressReporterFactory, cancellationToken).ConfigureAwait(false))
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -60,7 +60,7 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
         }
     }
 
-    public async IAsyncEnumerable<string> ExtractArchiveAsync(string archivePath, IProgress<ProgressData> progressReporter, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    public async IAsyncEnumerable<string> ExtractArchiveAsync(string archivePath, Func<int, string, IProgress<ProgressData>>? progressReporterFactory, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(archivePath);
 
@@ -71,41 +71,51 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
             throw new NotSupportedException($"Invalid file type: only .zip files are supported. Found: '{archivePath}'.");
         }
 
-        progressReporter?.Report(new ProgressData
-        {
-            Progress = 0.0,
-            MaxValue = 1.0,
-            Message = $"Extracting archive: {archivePath}"
-        });
-
         await using ZipArchive zip = await ZipFile.OpenAsync(archivePath, ZipArchiveMode.Read, cancellationToken).ConfigureAwait(false);
 
-        int count = 0;
-        IEnumerable<ZipArchiveEntry> entriesWithoutDirectories = zip.Entries.Where(entry => !string.IsNullOrEmpty(entry.Name));
-        foreach (ZipArchiveEntry entry in entriesWithoutDirectories)
+        int count = 1;
+        IEnumerable<ZipArchiveEntry> entriesWithoutDirectories = zip.Entries;
+        IProgress<ProgressData>? progressReporter = progressReporterFactory?.Invoke(zip.Entries.Count, $"Extracting archive: {archivePath}");
+        foreach (ZipArchiveEntry entry in zip.Entries)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
             progressReporter?.Report(new ProgressData
             {
-                Progress = (double)count / zip.Entries.Count,
-                MaxValue = 1.0,
-                Message = $"Extracting file: {count + 1} of {zip.Entries.Count} from archive: {entry.Name}"
+                Progress = count,
+                MaxValue = zip.Entries.Count,
+                Message = $"Extracting file: {count} of {zip.Entries.Count} from archive: {entry.Name}"
             });
+
+            if (string.IsNullOrEmpty(entry.Name))
+            {
+                continue;
+            }
 
             string temporaryFileName = _temporaryFileManager.MakeFileNameUnique(entry.Name);
             string destinationFileName = _temporaryFileManager.CreateTemporaryFilePath(temporaryFileName);
             _temporaryFileManager.RegisterTemporaryFilePath(destinationFileName);
             await entry.ExtractToFileAsync(destinationFileName, overwrite: true, cancellationToken).ConfigureAwait(false);
 
-            yield return destinationFileName;
+            if (Path.GetExtension(entry.Name).Equals(ZipFileExtension, StringComparison.OrdinalIgnoreCase))
+            {
+                await foreach (string nestedFile in ExtractArchiveAsync(destinationFileName, progressReporterFactory, cancellationToken).ConfigureAwait(false))
+                {
+                    yield return nestedFile;
+                }
+            }
+            else
+            {
+                yield return destinationFileName;
+            }
+
             count++;
         }
 
         progressReporter?.Report(new ProgressData
         {
-            Progress = 1.0,
-            MaxValue = 1.0,
+            Progress = zip.Entries.Count,
+            MaxValue = zip.Entries.Count,
             Message = $"Finished extracting archive: {archivePath}"
         });
     }
@@ -115,7 +125,7 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
         ArgumentNullExceptionAdvanced.ThrowIfDefault(conversionInfoBatches);
         ArgumentNullExceptionAdvanced.ThrowIfNull(progressReporter);
 
-        int completedCount = 0;
+        int completedCount = 1;
         foreach (FileBatch batch in conversionInfoBatches.Batches)
         {
             string zipFileName = $"{batch.BatchName}{ZipFileExtension}";
@@ -133,7 +143,8 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
                 {
                     progressReporter.Report(new ProgressData
                     {
-                        Progress = (double)completedCount / conversionInfoBatches.BatchesCount,
+                        Progress = completedCount,
+                        MaxValue = conversionInfoBatches.BatchesCount,
                         Message = $"Renaming file from {sourceFileDescriptor.OriginalName} to {sourceFileDescriptor.Name}"
                     });
 
@@ -149,8 +160,9 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
 
                 progressReporter.Report(new ProgressData
                 {
-                    Progress = (double)completedCount / conversionInfoBatches.BatchesCount,
-                    Message = $"Packing file #{completedCount + 1} of {conversionInfoBatches.BatchesCount} files to {zipFileName}: {sourceFileDescriptor.Name}"
+                    Progress = completedCount,
+                    MaxValue = conversionInfoBatches.BatchesCount,
+                    Message = $"Packing file #{completedCount} of {conversionInfoBatches.BatchesCount} files to {zipFileName}: {sourceFileDescriptor.Name}"
                 });
 
                 _ = await zipArchive.CreateEntryFromFileAsync(sourceFileDescriptor.FullPath, sourceFileDescriptor.Name, batch.CompressionLevel, cancellationToken);
@@ -160,7 +172,8 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
 
         progressReporter.Report(new ProgressData
         {
-            Progress = 1.0,
+            Progress = conversionInfoBatches.BatchesCount,
+            MaxValue = conversionInfoBatches.BatchesCount,
             Message = "All fit files have been successfully exported."
         });
     }

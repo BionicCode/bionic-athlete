@@ -1212,6 +1212,10 @@ public abstract partial class ViewModelCommon : IViewModelCommon
     private Dictionary<string, IList<object>> Errors { get; }
     private HashSet<string> ValidatedAttributedProperties { get; }
     private bool IsSilent { get; set; }
+    /// <inheritdoc/>
+    [Obsolete($"This property is deprecated. Use 'ObservableProgressData' infrastructure of the 'BionicCode.Utilities.Net.Wpf' assembly instead.", error: false)]
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    [Browsable(false)]
     public double MaxProgressValue { get; set; }
 
     /// <summary>

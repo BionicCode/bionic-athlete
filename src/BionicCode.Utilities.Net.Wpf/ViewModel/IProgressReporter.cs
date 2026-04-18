@@ -55,8 +55,9 @@ public interface IProgressReporter : INotifyPropertyChanged
     /// <param name="operationTitle">The title of the progress operation.</param>
     /// <param name="maxValue">The maximum value for the progress operation.</param>
     /// <param name="isIndeterminate">Indicates whether the progress operation is indeterminate.</param>
+    /// <param name="isCapturingUiThread">Indicates whether the progress operation is capturing the current UI thread.</param>
     /// <returns>An <see cref="ObservableProgressReporter"/> instance casted to <see cref="IProgress{ProgressData}"/> instance that reports progress to the UI thread.</returns>
-    IProgress<ProgressData> StartNewObservableProgressReporting(string initialMessage = "", string operationTitle = "", double maxValue = 100, bool isIndeterminate = false);
+    IProgress<ProgressData> StartNewObservableProgressReporting(string initialMessage = "", string operationTitle = "", double maxValue = 100, bool isIndeterminate = false, bool isCapturingUiThread = true);
 
     /// <summary>
     /// Starts a new progress reporting operation by creating a new instance of <see cref="ObservableProgressData"/> with the specified parameters and adding it to the internal collection and assigns it to the <see cref="SelectedProgress"/> property.
@@ -73,8 +74,9 @@ public interface IProgressReporter : INotifyPropertyChanged
     /// <param name="maxValue">The maximum value for the progress operation.</param>
     /// <param name="onProgress">An additional progress callback that is invoked when progress is reported.</param>
     /// <param name="isIndeterminate">Indicates whether the progress operation is indeterminate.</param>
+    /// <param name="isCapturingUiThread">Indicates whether the progress operation is capturing the current UI thread.</param>
     /// <returns>An <see cref="ObservableProgressReporter"/> instance casted to <see cref="IProgress{ProgressData}"/> instance that reports progress to the UI thread.</returns>
-    IProgress<ProgressData> StartNewObservableProgressReporting(Action<ObservableProgressData> onProgress, string initialMessage = "", string operationTitle = "", double maxValue = 100, bool isIndeterminate = false);
+    IProgress<ProgressData> StartNewObservableProgressReporting(Action<ObservableProgressData> onProgress, string initialMessage = "", string operationTitle = "", double maxValue = 100, bool isIndeterminate = false, bool isCapturingUiThread = true);
 
     ObservableProgressData RemoveObservableProgressData(int index);
 
