@@ -70,7 +70,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
         _fitFilePathToExportDataLookup.Clear();
         SelectedExportData = null;
 
-        RemoveAllCompletedObservableProgressData();
+        RemoveAllObservableProgressData();
     }
 
     public PropertyValidationResult IsFitFilePathValid(string fitFilePath)
@@ -122,7 +122,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
             await _addFitFilesSemaphore.WaitAsync(cancellationToken);
             isSemaphoreEntered = true;
 
-            IProgress<ProgressData> addFileProgressReporter = StartNewObservableProgressReporting(string.Empty, $"Adding files...", isIndeterminate: false, maxValue: fitFilePaths.Count);
+            IProgress<ProgressData> addFileProgressReporter = StartNewObservableProgressReporting(string.Empty, $"Adding .fit files...", isIndeterminate: false, maxValue: fitFilePaths.Count);
             for (int index = 0; index < fitFilePaths.Count; index++)
             {
                 string fitFilePath = fitFilePaths[index];
@@ -148,6 +148,12 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
                     _ = addedFitFilePathsLookup.Add(addedFilePath);
                 }
             }
+
+            // Works and properly reports 100 %
+            addFileProgressReporter.Report(new ProgressData(fitFilePaths.Count, fitFilePaths.Count, "Completed adding .fit files.", isIndeterminate: false));
+
+            // Does not work and for some reason reporst 3 %
+            addFileProgressReporter.Report(new ProgressData(1, 1, "Completed adding .fit files.", isIndeterminate: false));
         }
         catch (OperationCanceledException)
         {

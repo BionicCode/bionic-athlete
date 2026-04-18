@@ -20,7 +20,7 @@
                 <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/FlipSwitchToggleButtonStyle.xaml" />
                 <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/ScrollBarStyle.xaml" />
                 <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/WatermarkTextBoxStyle.xaml" />
-                <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/ProgressbarStyle.xaml" />
+                <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/AdvancedProgressbarStyle.xaml" />
                 <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/ToolBarButtonStyle.xaml" />
                 <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/UniformToolBarStyle.xaml" />
             </ResourceDictionary.MergedDictionaries>
@@ -644,8 +644,13 @@
                             Margin="0,20,0,0"
                             Visibility="{Binding HasProgressData, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <Separator Margin="0,20" />
-                    <ItemsControl ItemsSource="{Binding ProgressDataCollection, Mode=OneTime}">
-                        <ItemsControl.ItemTemplate>
+
+                    <Button Content="Clear completed progress"
+                            Command="{Binding ClearAllProgressCommand}" />
+
+                    <ListBox ItemsSource="{Binding ProgressDataCollection, Mode=OneTime}"
+                             IsHitTestVisible="False">
+                        <ListBox.ItemTemplate>
                             <DataTemplate DataType="bionicNet:ObservableProgressData">
                                 <Grid>
                                     <Grid.RowDefinitions>
@@ -664,10 +669,11 @@
                                                                Height="42"
                                                                CornerRadius="{StaticResource CornerRadius}"
                                                                ProgressTextAlignment="BottomCenter"
+                                                               ProgressPercentage="{Binding ProgressPercentage, Mode=OneWay}"
                                                                ProgressTextSize="18"
                                                                Value="{Binding Progress, Mode=OneWay}"
                                                                HorizontalAlignment="Stretch"
-                                                               IsIndeterminate="false" />
+                                                               IsIndeterminate="{Binding IsIndeterminate, Mode=OneWay}" />
                                     <TextBlock Grid.Row="2" 
                                                Text="{Binding Message, Mode=OneWay}"
                                                HorizontalAlignment="Left"
@@ -676,8 +682,8 @@
                                                FontStyle="Italic" />
                                 </Grid>
                             </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
                 </StackPanel>
             </Grid>
         </ScrollViewer>

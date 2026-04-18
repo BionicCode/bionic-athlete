@@ -45,15 +45,23 @@ public class ObservableProgressData : ViewModel
         get => _progress;
         internal set
         {
-            _ = TrySetValue(value, ref _progress, _setValueOptions);
-            OnPropertyChanged(nameof(ProgressPercentage));
+            if (TrySetValue(value, ref _progress, _setValueOptions))
+            {
+                OnPropertyChanged(nameof(ProgressPercentage));
+            }
         }
     }
 
     public double MaxValue
     {
         get => _maxValue;
-        internal set => _ = TrySetValue(value, ref _maxValue, _setValueOptions);
+        internal set
+        {
+            if (TrySetValue(value, ref _maxValue, _setValueOptions))
+            {
+                OnPropertyChanged(nameof(ProgressPercentage));
+            }
+        }
     }
     /// <summary>
     /// The progress value as percentage.
@@ -79,5 +87,5 @@ public class ObservableProgressData : ViewModel
 
     public Guid Id { get; }
 
-    public bool IsCompleted => Progress >= 1.0;
+    public bool IsCompleted => MaxValue > 0 && Progress >= MaxValue;
 }

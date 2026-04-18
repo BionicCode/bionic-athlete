@@ -5,8 +5,6 @@
     <ResourceDictionary.MergedDictionaries>
         <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/ViewRessources.xaml" />
         <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/ScrollBarStyle.xaml" />
-        <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/UniformToolBarItemStyle.xaml" />
-        <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/UniformToolBarItemsControlStyle.xaml" />
     </ResourceDictionary.MergedDictionaries>
 
     <SolidColorBrush x:Key="ToolBarButtonHover"

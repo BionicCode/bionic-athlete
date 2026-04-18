@@ -84,6 +84,8 @@ public interface IProgressReporter : INotifyPropertyChanged
 
     void RemoveAllObservableProgressData();
 
+    RelayCommand ClearAllProgressCommand { get; }
+
     /// <summary>
     /// When overridden, handles the <see cref="IProgress{ObservableProgressData}.Report(ObservableProgressData)"/> 
     /// that is invoked by the <see cref="IProgress{ObservableProgressData}"/> instance 

@@ -116,7 +116,7 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
         {
             Progress = zip.Entries.Count,
             MaxValue = zip.Entries.Count,
-            Message = $"Finished extracting archive: {archivePath}"
+            Message = $"Completed extracting archive: {archivePath}"
         });
     }
 

@@ -22,6 +22,7 @@ public abstract class ViewModel : ViewModelCommon, IViewModel
     }
 
     #region IProgressReporter
+    public RelayCommand ClearAllProgressCommand => new(RemoveAllCompletedObservableProgressData, () => HasProgressDataCollectionItems);
     public ReadOnlyObservableCollection<ObservableProgressData> ProgressDataCollection { get; }
     public bool HasProgressDataCollectionItems => ProgressDataCollection.Count > 0;
     public bool IsProgressDataCollectionEmpty => ProgressDataCollection.Count == 0;
@@ -177,7 +178,7 @@ public abstract class ViewModel : ViewModelCommon, IViewModel
     public void RemoveAllCompletedObservableProgressData()
     {
         foreach (ObservableProgressData? progressData in _progressDataCollectionInternal
-            .Where(progressData => progressData.Progress >= 1.0).ToList())
+            .Where(progressData => progressData.IsCompleted).ToList())
         {
             _ = _progressDataCollectionInternal.Remove(progressData);
         }
@@ -208,10 +209,7 @@ public abstract class ViewModel : ViewModelCommon, IViewModel
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(progress);
 
-        if (SelectedProgress != progress)
-        {
-            SelectedProgress = progress;
-        }
+        UpdateSelectedProgressData();
     }
 
     /// <inheritdoc/>
