@@ -5,7 +5,10 @@
     <!--<Style TargetType="ProgressBar">
     </Style>-->
 
-    <SolidColorBrush x:Key="ProgressBar.Progress" Color="CadetBlue"/>
+    <SolidColorBrush x:Key="ProgressBar.Progress"
+                     Color="Yellow" />
+    <SolidColorBrush x:Key="ProgressBar.Completed"
+                     Color="LightGreen" />
     <SolidColorBrush x:Key="ProgressBar.Background" Color="#FFE6E6E6"/>
     <SolidColorBrush x:Key="ProgressBar.Border" Color="#FFBCBCBC"/>
 
@@ -118,6 +121,11 @@
                         <Trigger Property="IsIndeterminate" Value="true">
                             <Setter Property="Visibility"
                                     TargetName="Indicator" Value="Collapsed"/>
+                        </Trigger>
+                        <Trigger Property="ProgressPercentage"
+                                 Value="100">
+                            <Setter Property="Foreground"
+                                    Value="{StaticResource ProgressBar.Completed}"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

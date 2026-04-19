@@ -666,11 +666,11 @@
                                     </StackPanel>
                                     <local:AdvancedProgressBar Grid.Row="1" 
                                                                Maximum="{Binding MaxValue, Mode=OneWay}"
-                                                               Height="42"
+                                                               Height="Auto"
                                                                CornerRadius="{StaticResource CornerRadius}"
-                                                               ProgressTextAlignment="BottomCenter"
+                                                               ProgressTextAlignment="Center"
                                                                ProgressPercentage="{Binding ProgressPercentage, Mode=OneWay}"
-                                                               ProgressTextSize="18"
+                                                               ProgressTextSize="14"
                                                                Value="{Binding Progress, Mode=OneWay}"
                                                                HorizontalAlignment="Stretch"
                                                                IsIndeterminate="{Binding IsIndeterminate, Mode=OneWay}" />

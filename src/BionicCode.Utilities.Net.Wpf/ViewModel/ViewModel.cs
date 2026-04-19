@@ -2,6 +2,7 @@ namespace BionicCode.Utilities.Net;
 
 using System;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Data;
@@ -13,12 +14,24 @@ using System.Windows.Threading;
 public abstract class ViewModel : ViewModelCommon, IViewModel
 {
     private readonly object _progressDataCollectionSyncRoot = new();
+    private readonly ObservableCollection<ObservableProgressData> _progressDataCollectionInternal;
+    private ObservableProgressData? _selectedProgress;
+    private Index _selectedProgressIndex;
+
     protected ViewModel()
     {
         _progressDataCollectionInternal = [];
         Application.Current.Dispatcher.Invoke(() => BindingOperations.EnableCollectionSynchronization(_progressDataCollectionInternal, _progressDataCollectionSyncRoot), DispatcherPriority.Send);
         ProgressDataCollection = new ReadOnlyObservableCollection<ObservableProgressData>(_progressDataCollectionInternal);
+        _progressDataCollectionInternal.CollectionChanged += OnProgressDataCollectionChanged;
         _selectedProgressIndex = 0;
+    }
+
+    protected virtual void OnProgressDataCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        OnPropertyChanged(nameof(HasProgressDataCollectionItems));
+        OnPropertyChanged(nameof(HasProgressData));
+        OnPropertyChanged(nameof(IsProgressDataCollectionEmpty));
     }
 
     #region IProgressReporter
@@ -27,26 +40,32 @@ public abstract class ViewModel : ViewModelCommon, IViewModel
     public bool HasProgressDataCollectionItems => ProgressDataCollection.Count > 0;
     public bool IsProgressDataCollectionEmpty => ProgressDataCollection.Count == 0;
     public bool HasProgressData => HasProgressDataCollectionItems || SelectedProgress is not null;
-    private readonly ObservableCollection<ObservableProgressData> _progressDataCollectionInternal;
-    private ObservableProgressData? _selectedProgress;
-    private int _selectedProgressIndex;
 
     public virtual ObservableProgressData? SelectedProgress
     {
         get => _selectedProgress;
-        private set => TrySetValue(value, ref _selectedProgress);
+        private set
+        {
+            if (TrySetValue(value, ref _selectedProgress))
+            {
+                OnPropertyChanged(nameof(HasProgressData));
+            }
+        }
     }
 
     /// <summary>
     /// Sets the selected <see cref="ObservableProgressData"/> item in the <see cref="ProgressDataCollection"/> by the specified index and assigns it to the <see cref="SelectedProgress"/> property."/>
     /// </summary>
     /// <remarks>Setting this property will update the <see cref="SelectedProgress"/> property and raise the <see cref="HasProgressData"/> property changed notification.
-    /// <para/>The index specifies the default position that is mapped to the <see cref="SelectedProgress"/>. For example, if an items gets removed from or added to the <see cref="ProgressDataCollection"/> at the current <see cref="SelectedProgressIndex"/> index, the new item will be selected automatically based on that index.</remarks>
-    /// <value>The index of the selected progress data item in the <see cref="ProgressDataCollection"/>. A value of -1 indicates that no item is selected and <see langword="null" /> is assigned to the <see cref="SelectedProgress"/> property. The default value is 0 resulting in always the first item being selected if available.</value>
-    public virtual int SelectedProgressIndex
+    /// <para/>The index specifies the default position that is mapped to the <see cref="SelectedProgress"/>. For example, if an items gets removed from or added to the <see cref="ProgressDataCollection"/> at the current <see cref="SelectedProgressIndex"/> index, the new item will be selected automatically based on that index.
+    /// <para/>The value can be out of range and describes general behavior based on the current <see cref="ProgressDataCollection"/> size.
+    /// <br/>If <see cref="Index"/> is &lt; zero then <see cref="SelectedProgress"/> will be set to <see langword="null" />. If the <see cref="Index"/> is greater than or equal to the number of items in the <see cref="ProgressDataCollection"/> then the last item will be selected. Otherwise, the item at the specified index will be selected.
+    /// <para/>Use <c>new Index(1, true)</c> or <c>SelectedProgressIndex = ^1</c> to specify an index from the end of the collection i.e. to always select the last progress item from <see cref="ProgressDataCollection"/>.</remarks>
+    /// <value>The <see cref="Index"/> of the selected progress data item in the <see cref="ProgressDataCollection"/>. A value of -1 indicates that no item is selected and <see langword="null" /> is assigned to the <see cref="SelectedProgress"/> property. The default value is 0 resulting in always the first item being selected if available.</value>
+    public virtual Index SelectedProgressIndex
     {
         get => _selectedProgressIndex;
-        private set
+        protected set
         {
             if (TrySetValue(value, ref _selectedProgressIndex))
             {
@@ -55,11 +74,30 @@ public abstract class ViewModel : ViewModelCommon, IViewModel
         }
     }
 
-    private void SetSelectedProgress(int progressDataIndex)
+    protected void SetSelectedProgress() => SetSelectedProgress(SelectedProgressIndex);
+
+    protected void SetSelectedProgress(Index progressDataIndex)
     {
-        SelectedProgress = progressDataIndex >= 0 && progressDataIndex < _progressDataCollectionInternal.Count
-            ? _progressDataCollectionInternal[progressDataIndex]
-            : null;
+        if (IsSelectedProgressIndexValid(progressDataIndex))
+        {
+            // If provided index is greater than collection count try to project on current collection.
+            // If value is from end then the caller is obviously not interested in the last element so we provide the element
+            // that is farthest away from the end, which in this specific case is always the first item.
+            // If value is from start then we provide the last item, which is the farthest away from the start.
+            if (progressDataIndex.Value > _progressDataCollectionInternal.Count)
+            {
+                progressDataIndex = progressDataIndex.IsFromEnd
+                    ? 0
+                    : ^1;
+            }
+
+            SelectedProgress = _progressDataCollectionInternal[progressDataIndex];
+        }
+        else
+        {
+            SelectedProgress = null;
+        }
+
         OnPropertyChanged(nameof(HasProgressData));
     }
 
@@ -163,17 +201,15 @@ public abstract class ViewModel : ViewModelCommon, IViewModel
         return progressData;
     }
 
-    private void UpdateSelectedProgressData()
-    {
-        if (_progressDataCollectionInternal.Count > SelectedProgressIndex)
-        {
-            SetSelectedProgress(SelectedProgressIndex);
-        }
-        else
-        {
-            SetSelectedProgress(-1);
-        }
-    }
+    private void UpdateSelectedProgressData() => SetSelectedProgress();
+
+    /// <summary>
+    /// Checks whether the current <see cref="SelectedProgressIndex"/> is valid based on the current count of items in the <see cref="ProgressDataCollection"/>.
+    /// </summary>
+    /// <remarks>Valid if the index is greater than '-1' and the <see cref="ProgressDataCollection"/> is not empty. Validity in this context means that the <see cref="SelectedProgressIndex"/> is projectible to an actual <see cref="ObservableProgressData"/> within the <see cref="ProgressDataCollection"/>.</remarks>
+    /// <value><see langword="true"/> if the <see cref="SelectedProgressIndex"/> is valid, which is when the index is greater than '-1' and the <see cref="ProgressDataCollection"/> is not empty; otherwise, <see langword="false"/>.</value>
+    protected bool IsSelectedProgressIndexValid(Index progressDataIndex) => _progressDataCollectionInternal.Any()
+        && progressDataIndex.GetOffset(_progressDataCollectionInternal.Count) >= 0;
 
     public void RemoveAllCompletedObservableProgressData()
     {

@@ -23,10 +23,14 @@ public class ObservableProgressData : ViewModel
 
     public void Update(ProgressData value)
     {
-        Progress = value.Progress;
-        MaxValue = value.MaxValue;
+        _maxValue = value.MaxValue;
+        _progress = value.Progress;
         Message = value.Message;
         IsIndeterminate = value.IsIndeterminate;
+
+        OnPropertyChanged(nameof(Progress));
+        OnPropertyChanged(nameof(MaxValue));
+        OnPropertyChanged(nameof(ProgressPercentage));
     }
 
     /// <summary>

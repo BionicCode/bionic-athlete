@@ -51,16 +51,13 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
         _allowedFileExtensions = _zipArchiveManager.SupportedArchiveFileExtensions.Concat([FitFileExtension]).JoinToString();
     }
 
+#if DEBUG
     // For design-time data only
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
-    public MainViewModel()
-#pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
-    {
+    public MainViewModel() =>
         // CHeck if in debug mode and throw if not, to prevent usage of this constructor in production code.
-#if !DEBUG
-        throw new InvalidOperationException("This constructor is for design-time data only and should not be used in production code."); 
+        throw new InvalidOperationException("This constructor is for design-time data only and should not be used in production code.");
 #endif
-    }
 
     public void StartNewSession()
     {
@@ -151,9 +148,6 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
 
             // Works and properly reports 100 %
             addFileProgressReporter.Report(new ProgressData(fitFilePaths.Count, fitFilePaths.Count, "Completed adding .fit files.", isIndeterminate: false));
-
-            // Does not work and for some reason reporst 3 %
-            addFileProgressReporter.Report(new ProgressData(1, 1, "Completed adding .fit files.", isIndeterminate: false));
         }
         catch (OperationCanceledException)
         {

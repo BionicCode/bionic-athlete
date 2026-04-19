@@ -87,11 +87,22 @@ public class AdvancedProgressBar : ProgressBar
     protected override void OnValueChanged(double oldValue, double newValue)
     {
         base.OnValueChanged(oldValue, newValue);
-        if (oldValue != newValue)
-        {
-            ProgressPercentage = Maximum != 0 && Maximum > Minimum
-            ? (newValue - Minimum) / (Maximum - Minimum) * 100
-            : 0;
-        }
+        UpdateProgressPercentageProperty();
     }
+
+    protected override void OnMaximumChanged(double oldMaximum, double newMaximum)
+    {
+        base.OnMaximumChanged(oldMaximum, newMaximum);
+        UpdateProgressPercentageProperty();
+    }
+
+    protected override void OnMinimumChanged(double oldMinimum, double newMinimum)
+    {
+        base.OnMinimumChanged(oldMinimum, newMinimum);
+        UpdateProgressPercentageProperty();
+    }
+
+    protected virtual void UpdateProgressPercentageProperty() => ProgressPercentage = Maximum != 0 && Maximum > Minimum
+        ? (Value - Minimum) / (Maximum - Minimum) * 100
+        : 0;
 }
