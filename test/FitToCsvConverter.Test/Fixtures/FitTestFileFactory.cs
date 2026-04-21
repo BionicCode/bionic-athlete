@@ -202,6 +202,8 @@ internal static class FitTestFileFactory
                 "..",
                 "..",
                 "..",
+                "..",
+                "src",
                 "FitToCsvConverter.Data",
                 "ExampleFiles",
                 "2026-03-17_22204467914_ACTIVITY.fit"));

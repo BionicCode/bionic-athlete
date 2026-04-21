@@ -1,4 +1,4 @@
-﻿namespace FitToCsvConverter.Data;
+namespace FitToCsvConverter.Data;
 
 using System.Collections.Frozen;
 using System.IO.Compression;
@@ -74,7 +74,6 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
         await using ZipArchive zip = await ZipFile.OpenAsync(archivePath, ZipArchiveMode.Read, cancellationToken).ConfigureAwait(false);
 
         int count = 1;
-        IEnumerable<ZipArchiveEntry> entriesWithoutDirectories = zip.Entries;
         IProgress<ProgressData>? progressReporter = progressReporterFactory?.Invoke(zip.Entries.Count, $"Extracting archive: {archivePath}");
         foreach (ZipArchiveEntry entry in zip.Entries)
         {
@@ -120,13 +119,14 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
         });
     }
 
-    public async Task CreateArchivesAsync(FileBatches conversionInfoBatches, IProgress<ProgressData> progressReporter, CancellationToken cancellationToken = default)
+    public async Task CreateArchivesAsync(FileBatches fileBatches, IProgress<ProgressData> progressReporter, CancellationToken cancellationToken = default)
     {
-        ArgumentNullExceptionAdvanced.ThrowIfDefault(conversionInfoBatches);
+        ArgumentNullExceptionAdvanced.ThrowIfDefault(fileBatches);
         ArgumentNullExceptionAdvanced.ThrowIfNull(progressReporter);
 
+        int totalFileCount = fileBatches.Batches.Sum(batch => batch.FileDescriptorsCount);
         int completedCount = 1;
-        foreach (FileBatch batch in conversionInfoBatches.Batches)
+        foreach (FileBatch batch in fileBatches.Batches)
         {
             string zipFileName = $"{batch.BatchName}{ZipFileExtension}";
             string zipFilePath = Path.Combine(batch.DestinationDirectory, zipFileName);
@@ -144,7 +144,7 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
                     progressReporter.Report(new ProgressData
                     {
                         Progress = completedCount,
-                        MaxValue = conversionInfoBatches.BatchesCount,
+                        MaxValue = totalFileCount,
                         Message = $"Renaming file from {sourceFileDescriptor.OriginalName} to {sourceFileDescriptor.Name}"
                     });
 
@@ -161,8 +161,8 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
                 progressReporter.Report(new ProgressData
                 {
                     Progress = completedCount,
-                    MaxValue = conversionInfoBatches.BatchesCount,
-                    Message = $"Packing file #{completedCount} of {conversionInfoBatches.BatchesCount} files to {zipFileName}: {sourceFileDescriptor.Name}"
+                    MaxValue = totalFileCount,
+                    Message = $"Packing file #{completedCount} of {totalFileCount} files to {zipFileName}: {sourceFileDescriptor.Name}"
                 });
 
                 _ = await zipArchive.CreateEntryFromFileAsync(sourceFileDescriptor.FullPath, sourceFileDescriptor.Name, batch.CompressionLevel, cancellationToken);
@@ -172,9 +172,9 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
 
         progressReporter.Report(new ProgressData
         {
-            Progress = conversionInfoBatches.BatchesCount,
-            MaxValue = conversionInfoBatches.BatchesCount,
-            Message = "All fit files have been successfully exported."
+            Progress = totalFileCount,
+            MaxValue = totalFileCount,
+            Message = "All ZIP archives have been successfully created."
         });
     }
 

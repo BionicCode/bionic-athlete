@@ -1,4 +1,4 @@
-﻿namespace FitToCsvConverter.ViewModel;
+namespace FitToCsvConverter.ViewModel;
 
 using BionicCode.Utilities.Net;
 using FitToCsvConverter.Data.Fields;
@@ -8,11 +8,13 @@ public class DataField : ViewModel
     private readonly SetValueOptions _setValueOptions;
     private bool _isSelected;
 
-    public DataField(FitField fitField)
+    public DataField(FitField fitField, int displayOrder)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(fitField);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(displayOrder);
 
         FitField = fitField;
+        DisplayOrder = displayOrder;
 
         _isSelected = true;
         _setValueOptions = SetValueOptions.Default with
@@ -24,6 +26,7 @@ public class DataField : ViewModel
     }
 
     internal FitField FitField { get; }
+    internal int DisplayOrder { get; }
     public string Name => FitField.State.DisplayName;
     public FitFieldKey Id => FitField.Original.Key;
 

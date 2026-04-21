@@ -1,4 +1,4 @@
-﻿namespace FitToCsvConverter.ViewModel;
+namespace FitToCsvConverter.ViewModel;
 
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -8,6 +8,7 @@ using System.Text;
 using BionicCode.Utilities.Net;
 using FitToCsvConverter.Data;
 using FitToCsvConverter.Data.Decoding;
+using FitToCsvConverter.Data.Exporting;
 
 public class MainViewModel : ViewModel, IDisposableAdvanced
 {
@@ -20,7 +21,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
     private readonly PropertyValidationDelegate<string> _folderPathValidator;
     private readonly SetValueOptions _setValueOptions;
     private readonly IArchiveManager _zipArchiveManager;
-    private readonly IFitToCsvConverter _garminFitCsvToolConverter;
+    private readonly ICsvActivityExporter _csvActivityExporter;
     private readonly ITemporaryFileManager _temporaryFileManager;
     private readonly Func<IFitActivityDecoder> _cachingFitActivityDecoderFactory;
     private readonly Dictionary<string, ExportData> _fitFilePathToExportDataLookup;
@@ -28,7 +29,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
     private readonly SemaphoreSlim _addFitFilesSemaphore;
 
     public MainViewModel(IZipArchiveManager zipArchiveManager,
-        IGarminFitCsvToolConverter garminFitCsvToolConverter,
+        ICsvActivityExporter csvActivityExporter,
         ITemporaryFileManager temporaryFileManager,
         Func<IFitActivityDecoder> cachingFitActivityDecoderFactory)
     {
@@ -43,7 +44,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
         _selectedFitFilePath = string.Empty;
         _destinationFolder = string.Empty;
         _zipArchiveManager = zipArchiveManager;
-        _garminFitCsvToolConverter = garminFitCsvToolConverter;
+        _csvActivityExporter = csvActivityExporter;
         _temporaryFileManager = temporaryFileManager;
         _cachingFitActivityDecoderFactory = cachingFitActivityDecoderFactory;
         ExportCommand = new AsyncRelayCommand(ExecuteExportCommandAsync, CanExecuteExportCommand);
@@ -55,7 +56,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
     // For design-time data only
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
     public MainViewModel() =>
-        // CHeck if in debug mode and throw if not, to prevent usage of this constructor in production code.
+        // Check if in debug mode and throw if not, to prevent usage of this constructor in production code.
         throw new InvalidOperationException("This constructor is for design-time data only and should not be used in production code.");
 #endif
 
@@ -240,17 +241,6 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
         var exportData = new ExportData(_filePathsValidator, _cachingFitActivityDecoderFactory.Invoke());
         await exportData.SetFitFileAsync(fitFilePath, cancellationToken).ConfigureAwait(true);
 
-        string csvFileName = $"{exportData.FitFileNameWithoutExtension}.csv";
-        string temporaryDestinationFilePath = Path.Combine(Path.GetTempPath(), csvFileName);
-        if (File.Exists(temporaryDestinationFilePath))
-        {
-            string temporaryUniqueFileName = _temporaryFileManager.MakeFileNameUnique(csvFileName);
-            temporaryDestinationFilePath = Path.Combine(Path.GetTempPath(), temporaryUniqueFileName);
-        }
-
-        exportData.ExportedFilePath = temporaryDestinationFilePath;
-        exportData.AddExtraFilePaths([temporaryDestinationFilePath], isRenamingRequired: false);
-
         ExportData.Add(exportData);
         _fitFilePathToExportDataLookup.Add(fitFilePath, exportData);
         SelectedExportData ??= exportData;
@@ -266,27 +256,59 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
     {
         RemoveAllCompletedObservableProgressData();
 
-        IEnumerable<ConversionInfo> conversionInfoEnumerable = EnumerateConversionInfo();
-        IProgress<ProgressData> exportProgressReporter = StartNewObservableProgressReporting(string.Empty, "Export FIT to CSV");
-        await _garminFitCsvToolConverter.ExportToCsvAsync(conversionInfoEnumerable, ExportData.Count, exportProgressReporter);
+        IProgress<ProgressData> exportProgressReporter = StartNewObservableProgressReporting(
+            string.Empty,
+            "Export FIT to CSV",
+            isIndeterminate: false,
+            maxValue: ExportData.Count);
+
+        int completedCount = 0;
+        foreach (ExportData exportData in ExportData)
+        {
+            exportProgressReporter.Report(new ProgressData(
+                progress: completedCount,
+                maxValue: ExportData.Count,
+                message: $"Exporting decoded activity {completedCount + 1} of {ExportData.Count}: {exportData.FitFileName}"));
+
+            string exportOutputDirectoryPath = CreateExportOutputDirectory(exportData.FitFileNameWithoutExtension);
+            CsvExportRequest exportRequest = exportData.CreateCsvExportRequest(exportOutputDirectoryPath);
+            CsvExportResult exportResult = await _csvActivityExporter.ExportAsync(exportRequest).ConfigureAwait(true);
+            exportData.SetExportArtifacts(exportResult.ExportedArtifacts);
+
+            foreach (ExportedArtifact exportedArtifact in exportResult.ExportedArtifacts)
+            {
+                _temporaryFileManager.RegisterTemporaryFilePath(exportedArtifact.FilePath);
+            }
+
+            completedCount++;
+            exportProgressReporter.Report(new ProgressData(
+                progress: completedCount,
+                maxValue: ExportData.Count,
+                message: $"Completed exporting decoded activity {completedCount} of {ExportData.Count}: {exportData.FitFileName}"));
+        }
+
         await CreateArchivesAsync();
     }
 
-    private IEnumerable<ConversionInfo> EnumerateConversionInfo()
+    private string CreateExportOutputDirectory(string fitFileNameWithoutExtension)
     {
-        foreach (ExportData exportData in ExportData)
-        {
-            var conversionInfo = new ConversionInfo(exportData.FitFilePath, exportData.ExportedFilePath);
-
-            yield return conversionInfo;
-        }
+        // Keep generated CSV file names stable inside the archive while isolating each export run in its own
+        // temporary directory to avoid collisions between activities that share the same source file name.
+        string directoryName = _temporaryFileManager.MakeFileNameUnique(fitFileNameWithoutExtension);
+        string exportOutputDirectoryPath = Path.Combine(_temporaryFileManager.TemporaryDirectoryPath, directoryName);
+        _ = Directory.CreateDirectory(exportOutputDirectoryPath);
+        return exportOutputDirectoryPath;
     }
 
     private async Task CreateArchivesAsync()
     {
-        IEnumerable<FileBatch> enumerableFileBatches = EnumerateFileBatches();
+        List<FileBatch> batchesToArchive = EnumerateFileBatches().ToList();
+        if (batchesToArchive.Count == 0)
+        {
+            return;
+        }
 
-        var batches = new FileBatches(enumerableFileBatches, ExportData.Count);
+        var batches = new FileBatches(batchesToArchive, batchesToArchive.Count);
         IProgress<ProgressData> packProgressReporter = StartNewObservableProgressReporting(string.Empty, "Pack files to ZIP archives.");
         await _zipArchiveManager.CreateArchivesAsync(batches, packProgressReporter);
     }
@@ -295,16 +317,18 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
     {
         foreach (ExportData exportData in ExportData)
         {
-            IEnumerable<FileDescriptor> fileDescriptors = exportData.SelectedExtraFilePaths
-                .Select(observableFileDescriptor => observableFileDescriptor.ToFileDescriptor());
+            List<FileDescriptor> fileDescriptors = exportData.EnumerateArchiveFileDescriptors().ToList();
+            if (fileDescriptors.Count == 0)
+            {
+                continue;
+            }
 
             string batchName = exportData.IsAutoRenamingEnabled || string.IsNullOrWhiteSpace(exportData.BatchName)
                 ? exportData.AutoRenameBatchName
                 : exportData.BatchName;
-            int sourceFilesCount = exportData.SelectedExtraFilePaths.Count;
             var batch = new FileBatch(
                 fileDescriptors,
-                sourceFilesCount,
+                fileDescriptors.Count,
                 DestinationFolder,
                 batchName,
                 Encoding.UTF8,
@@ -354,7 +378,11 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
 
             foreach (string fitFilePath in fitFilePaths)
             {
-                PropertyValidationResult result = IsFitFilePathValid(fitFilePath);
+                PropertyValidationResult validationResult = IsFitFilePathValid(fitFilePath);
+                if (!validationResult.IsValid)
+                {
+                    return validationResult;
+                }
             }
 
             return new PropertyValidationResult(true, Array.Empty<string>());
@@ -364,8 +392,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
         {
             ArgumentNullExceptionAdvanced.ThrowIfNull(filePath);
 
-            PropertyValidationResult result = IsFilePathValid(filePath);
-            return new PropertyValidationResult(true, Array.Empty<string>());
+            return IsFilePathValid(filePath);
         };
 
     private static PropertyValidationDelegate<string> IsFolderPathValid() => folderPath => new PropertyValidationResult(

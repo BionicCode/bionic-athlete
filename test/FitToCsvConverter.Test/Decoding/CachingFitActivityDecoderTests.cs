@@ -10,16 +10,17 @@ using FitToCsvConverter.Data.Fields;
 public sealed class CachingFitActivityDecoderTests
 {
     [Fact]
-    public async Task DecodeAsync_ReusesCachedContentAcrossDifferentSourceNames()
+    public async Task DecodeAsyncReusesCachedContentAcrossDifferentSourceNames()
     {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
         RecordingDecoder innerDecoder = new();
         CachingFitActivityDecoder decoder = new(innerDecoder, new InMemoryFitActivityCache());
 
         await using MemoryStream firstStream = new([1, 2, 3]);
         await using MemoryStream secondStream = new([1, 2, 3]);
 
-        FitActivityDecodeResult firstResult = await decoder.DecodeAsync(firstStream, "first.fit");
-        FitActivityDecodeResult secondResult = await decoder.DecodeAsync(secondStream, "second.fit");
+        FitActivityDecodeResult firstResult = await decoder.DecodeAsync(firstStream, "first.fit", cancellationToken);
+        FitActivityDecodeResult secondResult = await decoder.DecodeAsync(secondStream, "second.fit", cancellationToken);
 
         Assert.Equal(1, innerDecoder.StreamDecodeCallCount);
         Assert.False(firstResult.IsFromCache);
@@ -29,18 +30,19 @@ public sealed class CachingFitActivityDecoderTests
     }
 
     [Fact]
-    public async Task DecodeAsync_ReturnsIndependentMutableStateFromCache()
+    public async Task DecodeAsyncReturnsIndependentMutableStateFromCache()
     {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
         RecordingDecoder innerDecoder = new();
         CachingFitActivityDecoder decoder = new(innerDecoder, new InMemoryFitActivityCache());
 
         await using MemoryStream firstStream = new([5, 0, 0]);
-        FitActivityDecodeResult firstResult = await decoder.DecodeAsync(firstStream, "first.fit");
+        FitActivityDecodeResult firstResult = await decoder.DecodeAsync(firstStream, "first.fit", cancellationToken);
         FitField firstField = Assert.IsType<FitActivity>(firstResult.Activity).Sessions[0].Records[0].Fields[0];
         firstField.SetEditedDecodedValues([999]);
 
         await using MemoryStream secondStream = new([5, 0, 0]);
-        FitActivityDecodeResult secondResult = await decoder.DecodeAsync(secondStream, "second.fit");
+        FitActivityDecodeResult secondResult = await decoder.DecodeAsync(secondStream, "second.fit", cancellationToken);
         FitField secondField = Assert.IsType<FitActivity>(secondResult.Activity).Sessions[0].Records[0].Fields[0];
 
         Assert.Equal(1, innerDecoder.StreamDecodeCallCount);
@@ -50,16 +52,17 @@ public sealed class CachingFitActivityDecoderTests
     }
 
     [Fact]
-    public async Task DecodeAsync_DifferentContentProducesDifferentCacheEntries()
+    public async Task DecodeAsyncDifferentContentProducesDifferentCacheEntries()
     {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
         RecordingDecoder innerDecoder = new();
         CachingFitActivityDecoder decoder = new(innerDecoder, new InMemoryFitActivityCache());
 
         await using MemoryStream firstStream = new([1, 2, 3]);
         await using MemoryStream secondStream = new([9, 2, 3]);
 
-        FitActivityDecodeResult firstResult = await decoder.DecodeAsync(firstStream, "first.fit");
-        FitActivityDecodeResult secondResult = await decoder.DecodeAsync(secondStream, "first.fit");
+        FitActivityDecodeResult firstResult = await decoder.DecodeAsync(firstStream, "first.fit", cancellationToken);
+        FitActivityDecodeResult secondResult = await decoder.DecodeAsync(secondStream, "first.fit", cancellationToken);
 
         Assert.Equal(2, innerDecoder.StreamDecodeCallCount);
         Assert.False(firstResult.IsFromCache);

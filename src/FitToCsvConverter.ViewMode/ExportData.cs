@@ -1,15 +1,18 @@
-﻿namespace FitToCsvConverter.ViewModel;
+namespace FitToCsvConverter.ViewModel;
 
+using System.Collections.Immutable;
 using System.Collections.Specialized;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using BionicCode.Utilities.Net;
 using FitToCsvConverter.Data.Activities;
 using FitToCsvConverter.Data.Decoding;
+using FitToCsvConverter.Data.Exporting;
 using FitToCsvConverter.Data.Fields;
 
 public class ExportData : ViewModel
 {
+    private const char DefaultCsvDelimiter = ',';
     private readonly PropertyValidationDelegate<string> _filePathsValidator;
     private readonly HashSet<string> _newFilenames = [];
     private readonly ObservableHashSet<DataField> _activityFields;
@@ -25,6 +28,7 @@ public class ExportData : ViewModel
     private string? _fitFileNameWithoutExtension;
     private bool _isIncludeFitFileEnabled;
     private string _fitFilePath;
+    private ImmutableArray<ExportedArtifact> _exportedArtifacts;
     private readonly IFitActivityDecoder _fitActivityDecoder;
 
     public ObservableFileDescriptor FitFileDescriptor { get; private set; }
@@ -43,7 +47,7 @@ public class ExportData : ViewModel
         _newFilenames = [];
         _fitFilePath = string.Empty;
         _batchName = string.Empty;
-        ExportedFilePath = string.Empty;
+        _exportedArtifacts = ImmutableArray<ExportedArtifact>.Empty;
         _isAutoRenamingEnabled = true;
         _isIncludeFitFileEnabled = true;
 
@@ -105,10 +109,14 @@ public class ExportData : ViewModel
     {
         FitActivityDecodeResult result = await _fitActivityDecoder.DecodeFileAsync(fitFilePath, cancellationToken);
         Activity = result.GetActivityOrThrowIfDecodingFailed();
+        int activityFieldDisplayOrder = 0;
+        int sessionFieldDisplayOrder = 0;
+        int recordFieldDisplayOrder = 0;
+        int lapFieldDisplayOrder = 0;
 
         foreach (FitField field in Activity.Fields)
         {
-            var dataField = new DataField(field);
+            var dataField = new DataField(field, activityFieldDisplayOrder++);
             if (IsFieldValid(dataField))
             {
                 _ = _activityFields.Add(dataField);
@@ -119,7 +127,7 @@ public class ExportData : ViewModel
         {
             foreach (FitField field in session.Fields)
             {
-                var dataField = new DataField(field);
+                var dataField = new DataField(field, sessionFieldDisplayOrder++);
                 if (IsFieldValid(dataField))
                 {
                     _ = _sessionFields.Add(dataField);
@@ -130,7 +138,7 @@ public class ExportData : ViewModel
             {
                 foreach (FitField field in record.Fields)
                 {
-                    var dataField = new DataField(field);
+                    var dataField = new DataField(field, recordFieldDisplayOrder++);
                     if (IsFieldValid(dataField))
                     {
                         _ = _recordFields.Add(dataField);
@@ -142,7 +150,7 @@ public class ExportData : ViewModel
             {
                 foreach (FitField field in lap.Fields)
                 {
-                    var dataField = new DataField(field);
+                    var dataField = new DataField(field, lapFieldDisplayOrder++);
                     if (IsFieldValid(dataField))
                     {
                         _ = _lapFields.Add(dataField);
@@ -225,7 +233,7 @@ public class ExportData : ViewModel
         if (_autoRenameBatchName is null)
         {
             // TODO::Replace with new API call
-            //DateTime dataDate = FitFileAnalyzer.GetSessionDate(FitFilePath);
+            // DateTime dataDate = FitFileAnalyzer.GetSessionDate(FitFilePath);
             string batchFileName = $"{DateTime.Now:yyyy-MM-dd}_{FitFileNameWithoutExtension}";
             _autoRenameBatchName = batchFileName;
         }
@@ -239,9 +247,9 @@ public class ExportData : ViewModel
         {
             case NotifyCollectionChangedAction.Add:
             case NotifyCollectionChangedAction.Replace:
-                foreach (string newFilePath in e.NewItems?.OfType<string>() ?? [])
+                foreach (ObservableFileDescriptor fileDescriptor in e.NewItems?.OfType<ObservableFileDescriptor>() ?? [])
                 {
-                    PropertyValidationResult validationResult = _filePathsValidator.Invoke(newFilePath);
+                    PropertyValidationResult validationResult = _filePathsValidator.Invoke(fileDescriptor.OriginalFullPath);
                     if (!validationResult.IsValid)
                     {
                         throw new InvalidOperationException(validationResult.ErrorMessages.JoinToString($",{Environment.NewLine}"));
@@ -300,6 +308,77 @@ public class ExportData : ViewModel
             }
         }
     }
+
+    /// <summary>
+    /// Creates a CSV export request from the current UI-facing export state.
+    /// </summary>
+    /// <param name="outputDirectoryPath">The temporary output directory for generated CSV files.</param>
+    /// <returns>The CSV export request that represents the current field selections.</returns>
+    internal CsvExportRequest CreateCsvExportRequest(string outputDirectoryPath)
+    {
+        ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(outputDirectoryPath);
+
+        if (Activity is null)
+        {
+            throw new InvalidOperationException("A decoded activity must be available before a CSV export request can be created.");
+        }
+
+        ImmutableArray<CsvExportColumnRequest>.Builder columnRequests = ImmutableArray.CreateBuilder<CsvExportColumnRequest>(
+            _activityFields.Count + _sessionFields.Count + _lapFields.Count + _recordFields.Count);
+        AddColumnRequests(_activityFields, columnRequests);
+        AddColumnRequests(_sessionFields, columnRequests);
+        AddColumnRequests(_lapFields, columnRequests);
+        AddColumnRequests(_recordFields, columnRequests);
+
+        return CsvExportRequestFactory.Create(
+            Activity,
+            FitFileNameWithoutExtension,
+            outputDirectoryPath,
+            columnRequests.ToImmutable(),
+            delimiter: DefaultCsvDelimiter);
+    }
+
+    /// <summary>
+    /// Replaces the generated export artifacts that should be packaged into the ZIP archive.
+    /// </summary>
+    /// <param name="exportedArtifacts">The generated CSV artifacts from the latest export run.</param>
+    internal void SetExportArtifacts(ImmutableArray<ExportedArtifact> exportedArtifacts)
+        => _exportedArtifacts = exportedArtifacts.IsDefault ? ImmutableArray<ExportedArtifact>.Empty : exportedArtifacts;
+
+    /// <summary>
+    /// Enumerates the files that should be packaged for this export batch.
+    /// </summary>
+    /// <returns>The generated CSV artifacts followed by the user-selected extra files.</returns>
+    internal IEnumerable<FileDescriptor> EnumerateArchiveFileDescriptors()
+    {
+        foreach (ExportedArtifact exportedArtifact in _exportedArtifacts.OrderBy(exportedArtifact => exportedArtifact.NodeType))
+        {
+            yield return new FileDescriptor(exportedArtifact.FilePath, isRenamingRequired: false);
+        }
+
+        foreach (ObservableFileDescriptor observableFileDescriptor in SelectedExtraFilePaths)
+        {
+            yield return observableFileDescriptor.ToFileDescriptor();
+        }
+    }
+
+    private static void AddColumnRequests(
+        IEnumerable<DataField> fields,
+        ImmutableArray<CsvExportColumnRequest>.Builder columnRequests)
+    {
+        foreach (DataField field in fields)
+        {
+            columnRequests.Add(CreateColumnRequest(field));
+        }
+    }
+
+    private static CsvExportColumnRequest CreateColumnRequest(DataField field)
+        => new(
+            field.FitField.Original.ExportColumnKey,
+            field.FitField.Original.OriginalName,
+            field.FitField.State.ColumnName,
+            field.DisplayOrder,
+            field.IsSelected);
 
     internal void SetAllActivityFieldsSelected(bool isSelected)
     {
@@ -417,7 +496,6 @@ public class ExportData : ViewModel
     }
 
     internal FitActivity Activity { get; private set; }
-    internal string ExportedFilePath { get; set; }
     public ReadOnlyObservableHashSet<DataField> ActivityFields { get; }
     public ReadOnlyObservableHashSet<DataField> SessionFields { get; }
     public ReadOnlyObservableHashSet<DataField> RecordFields { get; }

@@ -1,4 +1,4 @@
-﻿using System.Runtime.CompilerServices;
+using System.Runtime.CompilerServices;
 
 [assembly: RuntimeCompatibilityAttribute(WrapNonExceptionThrows = true)]
 
@@ -15,6 +15,7 @@ using FitToCsvConverter.Data;
 using FitToCsvConverter.Data.Caching;
 using FitToCsvConverter.Data.Decoding;
 using FitToCsvConverter.Data.Decoding.Garmin;
+using FitToCsvConverter.Data.Exporting;
 using FitToCsvConverter.Shared.Logging;
 using FitToCsvConverter.ViewModel;
 using Microsoft.Extensions.DependencyInjection;
@@ -154,7 +155,7 @@ public partial class App : Application
         _ = hostBuilder.Services.AddSingleton(typeof(IApplicationLogger<>), typeof(ApplicationLogger<>))
             .AddSingleton<ITemporaryFileManager, TemporaryFileManager>()
             .AddSingleton<IZipArchiveManager, ZipArchiveManager>()
-            .AddSingleton<IGarminFitCsvToolConverter, GarminFitCsvToolConverter>()
+            .AddSingleton<ICsvActivityExporter, CsvActivityExporter>()
             .AddKeyedSingleton<IFitActivityDecoder, GarminFitActivityDecoder>(CoreDecoderServiceKey)
             .AddSingleton<IFitActivityCache, InMemoryFitActivityCache>()
             .AddSingleton<IFitActivityDecoder>(serviceProvider =>

@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -16,14 +16,4 @@
     <ProjectReference Include="..\BionicCode.Utilities.Net\BionicCode.Utilities.Net.Common.csproj" />
     <ProjectReference Include="..\FitToCsvConverter.Shared\FitToCsvConverter.Shared.csproj" />
   </ItemGroup>
-
-  <ItemGroup>
-    <None Update="Tools\fit2Csv.ps1">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Tools\FitCSVTool.jar">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-
 </Project>
