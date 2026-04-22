@@ -55,7 +55,14 @@ public static class CsvExportRequestFactory
             .Select(group => CreateNodeRequest(group, sourceFileNameWithoutExtension, outputDirectoryPath))
             .ToImmutableArray();
 
-        return new CsvExportRequest(sourceActivity, nodeRequests, encoding, options, delimiter);
+        return new CsvExportRequest(
+            sourceActivity,
+            sourceFileNameWithoutExtension,
+            outputDirectoryPath,
+            nodeRequests,
+            encoding,
+            options,
+            delimiter);
     }
 
     private static CsvNodeExportRequest CreateNodeRequest(

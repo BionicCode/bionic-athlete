@@ -14,6 +14,17 @@ The current exporter does not implement the future human-readable presentation e
 - [`FitExportOptions`](../src/FitToCsvConverter.Data/Exporting/FitExportOptions.cs)
 - [`CsvActivityExporter`](../src/FitToCsvConverter.Data/Exporting/CsvActivityExporter.cs)
 
+## Bundle contents
+
+One structured export request can currently produce three artifact kinds:
+
+- Node CSVs for the selected activity-tree levels (`activity`, `session`, `lap`, `record`)
+- Ancillary message-family CSVs for preserved non-tree FIT messages such as `file_id`, `event`, `device_info`, `time_in_zone`, `hrv`, or unknown/vendor-specific message families
+- One manifest JSON file that describes schema version, timezone semantics, included and omitted message families, and the bundle field dictionary
+
+Ancillary message families are exported automatically when they are present on `FitActivity.AncillaryData`.
+They are not filtered through the UI field-selection layer because their purpose is completeness and auditability.
+
 ## Structured CSV rules
 
 - `FitExportTarget.StructuredCsv` is the only supported export target in the current pass.
@@ -34,12 +45,38 @@ The current exporter does not implement the future human-readable presentation e
   - Imperial export uses `mi`.
 - Headers include explicit unit or timestamp qualifiers by default.
 - Array-valued FIT fields still map to one CSV column and are joined in source order using ` | `.
+- Session CSVs may append derived completeness columns when the source activity can support them.
+  - `active_calories = total_calories - metabolic_calories`
+  - `moving_time` uses direct `total_moving_time` when present and otherwise derives it from record intervals where movement is detected
+  - `avg_moving_speed = total_distance / moving_time`
+  - `max_avg_power_20min` is the maximum rolling 20-minute average from the record power stream using one-second sample-hold interpolation
+
+## Manifest semantics
+
+The manifest is machine-readable and is intended to answer two questions:
+
+1. Which message families and fields made it into this bundle?
+2. Which values are direct FIT data versus exporter-derived completeness values?
+
+The field dictionary currently classifies entries with these values:
+
+- `DirectStandardFit`
+- `DirectDeveloperField`
+- `DerivedFromFit`
+- `DerivedFromRestoredFitMessages`
+- `GarminConnectOnlyOrUnconfirmed`
+- `Unavailable`
+
+Direct tree fields and direct ancillary fields are exported with source message and field metadata.
+Developer fields retain their developer-field identity and any Garmin SDK metadata that was available during decode.
+Unknown and vendor-specific data is preserved rather than dropped; when the SDK cannot provide a semantic name, the export keeps the raw `unknown_*` field naming plus source metadata in the manifest.
 
 ## Current limitations
 
 - Presentation-oriented scaling, report layouts, charting, and Garmin-Connect-style readable formatting are intentionally deferred.
 - Structured CSV currently keeps arrays in a single cell rather than expanding them into separate columns.
-- The exporter supports the current FIT activity tree only: activity, session, lap, and record node CSV outputs.
+- PDF/report equivalence is intentionally honest rather than speculative.
+  - When a Garmin Connect value is not directly present in the FIT file and is not reliably derivable from FIT data, the manifest should classify it as `GarminConnectOnlyOrUnconfirmed` instead of fabricating it as source-native FIT data.
 
 ## Deferred presentation export
 

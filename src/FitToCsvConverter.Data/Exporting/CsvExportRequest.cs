@@ -19,6 +19,10 @@ public sealed class CsvExportRequest
     /// Initializes a new instance of the <see cref="CsvExportRequest"/> class.
     /// </summary>
     /// <param name="sourceActivity">The decoded activity that acts as the export source.</param>
+    /// <param name="sourceFileNameWithoutExtension">
+    /// The source file stem used when generating structured export artifacts for message families and manifests.
+    /// </param>
+    /// <param name="outputDirectoryPath">The destination directory for generated structured export artifacts.</param>
     /// <param name="nodeRequests">The node-specific CSV outputs to generate.</param>
     /// <param name="encoding">
     /// The text encoding to use when writing the CSV files.
@@ -37,15 +41,21 @@ public sealed class CsvExportRequest
     /// </exception>
     public CsvExportRequest(
         FitActivity sourceActivity,
+        string sourceFileNameWithoutExtension,
+        string outputDirectoryPath,
         ImmutableArray<CsvNodeExportRequest> nodeRequests,
         Encoding? encoding = null,
         FitExportOptions? options = null,
         char delimiter = ',')
     {
         ArgumentNullException.ThrowIfNull(sourceActivity);
+        ArgumentException.ThrowIfNullOrWhiteSpace(sourceFileNameWithoutExtension);
+        ArgumentException.ThrowIfNullOrWhiteSpace(outputDirectoryPath);
         ValidateDelimiter(delimiter);
 
         SourceActivity = sourceActivity;
+        SourceFileNameWithoutExtension = sourceFileNameWithoutExtension;
+        OutputDirectoryPath = outputDirectoryPath;
         NodeRequests = nodeRequests.IsDefault ? ImmutableArray<CsvNodeExportRequest>.Empty : nodeRequests;
         Encoding = encoding ?? s_defaultEncoding;
         Options = options ?? new FitExportOptions();
@@ -56,6 +66,16 @@ public sealed class CsvExportRequest
     /// Gets the decoded activity that acts as the export source.
     /// </summary>
     public FitActivity SourceActivity { get; }
+
+    /// <summary>
+    /// Gets the source file stem used for generated artifact names.
+    /// </summary>
+    public string SourceFileNameWithoutExtension { get; }
+
+    /// <summary>
+    /// Gets the destination directory for generated structured export artifacts.
+    /// </summary>
+    public string OutputDirectoryPath { get; }
 
     /// <summary>
     /// Gets the node-specific CSV outputs to generate.

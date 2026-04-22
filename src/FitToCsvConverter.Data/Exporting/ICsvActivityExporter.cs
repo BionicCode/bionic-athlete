@@ -1,7 +1,7 @@
 namespace FitToCsvConverter.Data.Exporting;
 
 /// <summary>
-/// Exports decoded FIT activity data to CSV artifacts.
+/// Exports decoded FIT activity data to structured export artifacts.
 /// </summary>
 /// <remarks>
 /// This contract is intentionally limited to outward-facing file export.
@@ -12,10 +12,10 @@ namespace FitToCsvConverter.Data.Exporting;
 public interface ICsvActivityExporter
 {
     /// <summary>
-    /// Exports the selected portions of a decoded activity to one or more CSV files.
+    /// Exports the selected portions of a decoded activity to a structured bundle of CSV files and metadata artifacts.
     /// </summary>
     /// <param name="request">The export request that describes which nodes and columns to write.</param>
     /// <param name="cancellationToken">A token that can cancel the export operation.</param>
-    /// <returns>A result that describes the generated CSV artifacts.</returns>
+    /// <returns>A result that describes the generated export artifacts.</returns>
     Task<CsvExportResult> ExportAsync(CsvExportRequest request, CancellationToken cancellationToken = default);
 }

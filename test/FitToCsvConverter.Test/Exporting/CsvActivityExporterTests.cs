@@ -1,6 +1,10 @@
 namespace FitToCsvConverter.Test.Exporting;
 
+using System.Collections.Immutable;
+using System.Text.Json;
 using FitToCsvConverter.Data.Activities;
+using FitToCsvConverter.Data.Decoding;
+using FitToCsvConverter.Data.Decoding.Garmin;
 using FitToCsvConverter.Data.Exporting;
 using FitToCsvConverter.Data.Fields;
 using FitToCsvConverter.Test.Fixtures;
@@ -8,7 +12,7 @@ using FitToCsvConverter.Test.Fixtures;
 public sealed class CsvActivityExporterTests
 {
     [Fact]
-    public async Task ShouldWriteSeparateCsvFilesWhenNodeRequestsAreSelected()
+    public async Task ShouldWriteSeparateCsvFilesAndManifestWhenNodeRequestsAreSelected()
     {
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
         FitActivity activity = FitActivityModelFactory.CreateActivityForExport();
@@ -34,27 +38,38 @@ public sealed class CsvActivityExporterTests
                 result.ExportedArtifacts,
                 artifact =>
                 {
+                    Assert.Equal(ExportedArtifactKind.NodeCsv, artifact.Kind);
                     Assert.Equal(FitNodeType.Activity, artifact.NodeType);
                     Assert.EndsWith("_activity.csv", artifact.FilePath, StringComparison.OrdinalIgnoreCase);
                     Assert.Equal(1, artifact.RowCount);
                 },
                 artifact =>
                 {
+                    Assert.Equal(ExportedArtifactKind.NodeCsv, artifact.Kind);
                     Assert.Equal(FitNodeType.Session, artifact.NodeType);
                     Assert.EndsWith("_session.csv", artifact.FilePath, StringComparison.OrdinalIgnoreCase);
                     Assert.Equal(1, artifact.RowCount);
                 },
                 artifact =>
                 {
+                    Assert.Equal(ExportedArtifactKind.NodeCsv, artifact.Kind);
                     Assert.Equal(FitNodeType.Lap, artifact.NodeType);
                     Assert.EndsWith("_lap.csv", artifact.FilePath, StringComparison.OrdinalIgnoreCase);
                     Assert.Equal(1, artifact.RowCount);
                 },
                 artifact =>
                 {
+                    Assert.Equal(ExportedArtifactKind.NodeCsv, artifact.Kind);
                     Assert.Equal(FitNodeType.Record, artifact.NodeType);
                     Assert.EndsWith("_record.csv", artifact.FilePath, StringComparison.OrdinalIgnoreCase);
                     Assert.Equal(2, artifact.RowCount);
+                },
+                artifact =>
+                {
+                    Assert.Equal(ExportedArtifactKind.Manifest, artifact.Kind);
+                    Assert.Equal("manifest", artifact.ArtifactName);
+                    Assert.EndsWith("_manifest.json", artifact.FilePath, StringComparison.OrdinalIgnoreCase);
+                    Assert.Equal(1, artifact.RowCount);
                 });
         }
         finally
@@ -82,9 +97,9 @@ public sealed class CsvActivityExporterTests
                 [CreateColumnRequest(field, order: 0)]);
 
             CsvExportResult result = await exporter.ExportAsync(request, cancellationToken);
-            string[] lines = await File.ReadAllLinesAsync(result.ExportedArtifacts[0].FilePath, cancellationToken);
+            string[] lines = await ReadAllLinesAsync(result, ExportedArtifactKind.NodeCsv, FitNodeType.Record, cancellationToken);
 
-            Assert.Equal("Heart Rate (BPM)", lines[0]);
+            Assert.Equal("Heart Rate (BPM)", SplitCsvLine(lines[0])[0]);
         }
         finally
         {
@@ -110,9 +125,9 @@ public sealed class CsvActivityExporterTests
                 [CreateColumnRequest(field, order: 0)]);
 
             CsvExportResult result = await exporter.ExportAsync(request, cancellationToken);
-            string[] lines = await File.ReadAllLinesAsync(result.ExportedArtifacts[0].FilePath, cancellationToken);
+            string[] lines = await ReadAllLinesAsync(result, ExportedArtifactKind.NodeCsv, FitNodeType.Record, cancellationToken);
 
-            Assert.Equal("1 | 2 | 3", lines[1]);
+            Assert.Equal("1 | 2 | 3", SplitCsvLine(lines[1])[0]);
         }
         finally
         {
@@ -139,9 +154,9 @@ public sealed class CsvActivityExporterTests
                 [CreateColumnRequest(firstRecordField, order: 0)]);
 
             CsvExportResult result = await exporter.ExportAsync(request, cancellationToken);
-            string[] lines = await File.ReadAllLinesAsync(result.ExportedArtifacts[0].FilePath, cancellationToken);
+            string[] lines = await ReadAllLinesAsync(result, ExportedArtifactKind.NodeCsv, FitNodeType.Record, cancellationToken);
 
-            Assert.Equal("999", lines[1]);
+            Assert.Equal("999", SplitCsvLine(lines[1])[0]);
         }
         finally
         {
@@ -168,9 +183,9 @@ public sealed class CsvActivityExporterTests
                 [CreateColumnRequest(field, order: 0)]);
 
             CsvExportResult result = await exporter.ExportAsync(request, cancellationToken);
-            string[] lines = await File.ReadAllLinesAsync(result.ExportedArtifacts[0].FilePath, cancellationToken);
+            string[] lines = await ReadAllLinesAsync(result, ExportedArtifactKind.NodeCsv, FitNodeType.Record, cancellationToken);
 
-            Assert.Equal("Manual", lines[1]);
+            Assert.Equal("Manual", SplitCsvLine(lines[1])[0]);
         }
         finally
         {
@@ -197,10 +212,12 @@ public sealed class CsvActivityExporterTests
                 options: new FitExportOptions(unitSystem: FitExportUnitSystem.Metric));
 
             CsvExportResult result = await exporter.ExportAsync(request, cancellationToken);
-            string[] lines = await File.ReadAllLinesAsync(result.ExportedArtifacts[0].FilePath, cancellationToken);
+            string[] lines = await ReadAllLinesAsync(result, ExportedArtifactKind.NodeCsv, FitNodeType.Session, cancellationToken);
+            string[] headerCells = SplitCsvLine(lines[0]);
+            string[] valueCells = SplitCsvLine(lines[1]);
 
-            Assert.Equal("enhanced_avg_speed [km/h]", lines[0]);
-            Assert.Equal("18.3888", lines[1]);
+            Assert.Equal("enhanced_avg_speed [km/h]", headerCells[0]);
+            Assert.Equal("18.3888", valueCells[0]);
         }
         finally
         {
@@ -227,10 +244,12 @@ public sealed class CsvActivityExporterTests
                 options: new FitExportOptions(unitSystem: FitExportUnitSystem.Metric));
 
             CsvExportResult result = await exporter.ExportAsync(request, cancellationToken);
-            string[] lines = await File.ReadAllLinesAsync(result.ExportedArtifacts[0].FilePath, cancellationToken);
+            string[] lines = await ReadAllLinesAsync(result, ExportedArtifactKind.NodeCsv, FitNodeType.Session, cancellationToken);
+            string[] headerCells = SplitCsvLine(lines[0]);
+            string[] valueCells = SplitCsvLine(lines[1]);
 
-            Assert.Equal("total_distance [km]", lines[0]);
-            Assert.Equal("6.14749", lines[1]);
+            Assert.Equal("total_distance [km]", headerCells[0]);
+            Assert.Equal("6.14749", valueCells[0]);
         }
         finally
         {
@@ -256,10 +275,12 @@ public sealed class CsvActivityExporterTests
                 [CreateColumnRequest(field, order: 0)]);
 
             CsvExportResult result = await exporter.ExportAsync(request, cancellationToken);
-            string[] lines = await File.ReadAllLinesAsync(result.ExportedArtifacts[0].FilePath, cancellationToken);
+            string[] lines = await ReadAllLinesAsync(result, ExportedArtifactKind.NodeCsv, FitNodeType.Session, cancellationToken);
+            string[] headerCells = SplitCsvLine(lines[0]);
+            string[] valueCells = SplitCsvLine(lines[1]);
 
-            Assert.Equal("total_elapsed_time [s]", lines[0]);
-            Assert.Equal("1247.782", lines[1]);
+            Assert.Equal("total_elapsed_time [s]", headerCells[0]);
+            Assert.Equal("1247.782", valueCells[0]);
         }
         finally
         {
@@ -289,10 +310,14 @@ public sealed class CsvActivityExporterTests
                 ]);
 
             CsvExportResult result = await exporter.ExportAsync(request, cancellationToken);
-            string[] lines = await File.ReadAllLinesAsync(result.ExportedArtifacts[0].FilePath, cancellationToken);
+            string[] lines = await ReadAllLinesAsync(result, ExportedArtifactKind.NodeCsv, FitNodeType.Session, cancellationToken);
+            string[] headerCells = SplitCsvLine(lines[0]);
+            string[] valueCells = SplitCsvLine(lines[1]);
 
-            Assert.Equal("total_elapsed_time [s],total_timer_time [s]", lines[0]);
-            Assert.Equal("1247.782,1203.591", lines[1]);
+            Assert.Equal("total_elapsed_time [s]", headerCells[0]);
+            Assert.Equal("total_timer_time [s]", headerCells[1]);
+            Assert.Equal("1247.782", valueCells[0]);
+            Assert.Equal("1203.591", valueCells[1]);
         }
         finally
         {
@@ -318,10 +343,12 @@ public sealed class CsvActivityExporterTests
                 [CreateColumnRequest(field, order: 0)]);
 
             CsvExportResult result = await exporter.ExportAsync(request, cancellationToken);
-            string[] lines = await File.ReadAllLinesAsync(result.ExportedArtifacts[0].FilePath, cancellationToken);
+            string[] lines = await ReadAllLinesAsync(result, ExportedArtifactKind.NodeCsv, FitNodeType.Session, cancellationToken);
+            string[] headerCells = SplitCsvLine(lines[0]);
+            string[] valueCells = SplitCsvLine(lines[1]);
 
-            Assert.Equal("avg_power_position [watts]", lines[0]);
-            Assert.Equal(string.Empty, lines[1]);
+            Assert.Equal("avg_power_position [watts]", headerCells[0]);
+            Assert.Equal(string.Empty, valueCells[0]);
         }
         finally
         {
@@ -347,11 +374,12 @@ public sealed class CsvActivityExporterTests
                 [CreateColumnRequest(field, order: 0)]);
 
             CsvExportResult result = await exporter.ExportAsync(request, cancellationToken);
-            string[] lines = await File.ReadAllLinesAsync(result.ExportedArtifacts[0].FilePath, cancellationToken);
+            string[] lines = await ReadAllLinesAsync(result, ExportedArtifactKind.NodeCsv, FitNodeType.Record, cancellationToken);
+            string[] headerCells = SplitCsvLine(lines[0]);
 
-            Assert.Equal("enhanced_speed [km/h]", lines[0]);
-            Assert.Equal("18", lines[1]);
-            Assert.Equal("21.6", lines[2]);
+            Assert.Equal("enhanced_speed [km/h]", headerCells[0]);
+            Assert.Equal("18", SplitCsvLine(lines[1])[0]);
+            Assert.Equal("21.6", SplitCsvLine(lines[2])[0]);
         }
         finally
         {
@@ -379,12 +407,247 @@ public sealed class CsvActivityExporterTests
                 options: new FitExportOptions(includeLocalTimeColumns: true, localTimeZone: localTimeZone));
 
             CsvExportResult result = await exporter.ExportAsync(request, cancellationToken);
-            string[] lines = await File.ReadAllLinesAsync(result.ExportedArtifacts[0].FilePath, cancellationToken);
+            string[] lines = await ReadAllLinesAsync(result, ExportedArtifactKind.NodeCsv, FitNodeType.Record, cancellationToken);
 
             Assert.Equal("timestamp [UTC],timestamp [Local]", lines[0]);
             Assert.Equal(
                 $"{new DateTimeOffset(2024, 07, 14, 08, 35, 00, TimeSpan.Zero):O},{new DateTimeOffset(2024, 07, 14, 10, 35, 00, TimeSpan.FromHours(2)):O}",
                 lines[1]);
+        }
+        finally
+        {
+            DeleteTemporaryDirectory(outputDirectoryPath);
+        }
+    }
+
+    [Fact]
+    public async Task ShouldWriteDerivedSessionColumnsWhenStructuredSummaryValuesAreDerivable()
+    {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        FitActivity activity = FitActivityModelFactory.CreateActivityForDerivedSessionExport();
+        CsvActivityExporter exporter = new();
+        string outputDirectoryPath = CreateTemporaryDirectory();
+
+        try
+        {
+            CsvExportRequest request = CsvExportRequestFactory.Create(
+                activity,
+                "derived",
+                outputDirectoryPath,
+                [CreateColumnRequest(GetSessionField(activity, "total_distance"), order: 0)]);
+
+            CsvExportResult result = await exporter.ExportAsync(request, cancellationToken);
+            string[] lines = await ReadAllLinesAsync(result, ExportedArtifactKind.NodeCsv, FitNodeType.Session, cancellationToken);
+            string[] headerCells = SplitCsvLine(lines[0]);
+            string[] valueCells = SplitCsvLine(lines[1]);
+
+            Assert.Equal(
+                [
+                    "total_distance [km]",
+                    "active_calories [kcal]",
+                    "moving_time [s]",
+                    "avg_moving_speed [km/h]",
+                    "max_avg_power_20min [watts]"
+                ],
+                headerCells);
+            Assert.Equal(["10", "380", "1800", "20", "250"], valueCells);
+        }
+        finally
+        {
+            DeleteTemporaryDirectory(outputDirectoryPath);
+        }
+    }
+
+    [Fact]
+    public async Task ShouldPreferDirectMovingTimeWhenStructuredSummaryContainsTotalMovingTime()
+    {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        FitActivity activity = FitActivityModelFactory.CreateActivityForDirectMovingTimeExport();
+        CsvActivityExporter exporter = new();
+        string outputDirectoryPath = CreateTemporaryDirectory();
+
+        try
+        {
+            CsvExportRequest request = CsvExportRequestFactory.Create(
+                activity,
+                "direct-moving",
+                outputDirectoryPath,
+                [CreateColumnRequest(GetSessionField(activity, "total_distance"), order: 0)]);
+
+            CsvExportResult result = await exporter.ExportAsync(request, cancellationToken);
+            string[] lines = await ReadAllLinesAsync(result, ExportedArtifactKind.NodeCsv, FitNodeType.Session, cancellationToken);
+            string[] valueCells = SplitCsvLine(lines[1]);
+
+            Assert.Equal("1500", valueCells[2]);
+            Assert.Equal("24", valueCells[3]);
+        }
+        finally
+        {
+            DeleteTemporaryDirectory(outputDirectoryPath);
+        }
+    }
+
+    [Fact]
+    public async Task ShouldExportAncillaryArtifactsWhenUnknownAncillaryMessagesArePresent()
+    {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        FitActivity activity = FitActivityModelFactory.CreateActivityWithUnknownAncillaryDataForExport();
+        CsvActivityExporter exporter = new();
+        string outputDirectoryPath = CreateTemporaryDirectory();
+
+        try
+        {
+            CsvExportRequest request = CsvExportRequestFactory.Create(
+                activity,
+                "ancillary",
+                outputDirectoryPath,
+                [CreateColumnRequest(activity.Fields.Single(), order: 0)]);
+
+            CsvExportResult result = await exporter.ExportAsync(request, cancellationToken);
+
+            ExportedArtifact unknownArtifact = Assert.Single(
+                result.ExportedArtifacts.Where(artifact =>
+                    artifact.Kind == ExportedArtifactKind.AncillaryCsv
+                    && artifact.ArtifactName.Contains("unknown_250", StringComparison.OrdinalIgnoreCase)));
+            string[] unknownLines = await File.ReadAllLinesAsync(unknownArtifact.FilePath, cancellationToken);
+
+            Assert.Contains(result.ExportedArtifacts, artifact =>
+                artifact.Kind == ExportedArtifactKind.AncillaryCsv
+                && artifact.ArtifactName.Contains("file_id_0", StringComparison.OrdinalIgnoreCase));
+            Assert.Equal("message_name,message_number,sequence_number,message_index,local_message_number,timestamp [UTC],unknown_0", unknownLines[0]);
+            Assert.Equal("unknown,250,1,,0,2024-07-14T08:30:01.0000000+00:00,98", unknownLines[1]);
+        }
+        finally
+        {
+            DeleteTemporaryDirectory(outputDirectoryPath);
+        }
+    }
+
+    [Fact]
+    public async Task ShouldGenerateStableManifestMetadataWhenStructuredExportCompletes()
+    {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        FitActivity activity = FitActivityModelFactory.CreateActivityForDirectMovingTimeExport();
+        CsvActivityExporter exporter = new();
+        string outputDirectoryPath = CreateTemporaryDirectory();
+
+        try
+        {
+            CsvExportRequest request = CsvExportRequestFactory.Create(
+                activity,
+                "manifest",
+                outputDirectoryPath,
+                [CreateColumnRequest(GetSessionField(activity, "total_distance"), order: 0)]);
+
+            CsvExportResult result = await exporter.ExportAsync(request, cancellationToken);
+            using JsonDocument manifest = await ReadManifestAsync(result, cancellationToken);
+            JsonElement root = manifest.RootElement;
+            JsonElement fieldDictionary = root.GetProperty("fieldDictionary");
+
+            Assert.Equal("1.0.0", root.GetProperty("exportSchemaVersion").GetString());
+            Assert.Equal("UTC ISO-8601", root.GetProperty("timezoneSemantics").GetProperty("canonicalTimestampColumns").GetString());
+            Assert.Equal("Exercise Load", FindFieldDictionaryEntry(fieldDictionary, "training_load_peak").GetProperty("alias").GetString());
+            Assert.Equal("Total Strokes", FindFieldDictionaryEntry(fieldDictionary, "total_cycles").GetProperty("alias").GetString());
+        }
+        finally
+        {
+            DeleteTemporaryDirectory(outputDirectoryPath);
+        }
+    }
+
+    [Fact]
+    public async Task ShouldDeduplicateManifestFieldDictionaryEntriesWhenRepeatedRecordFieldsExist()
+    {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        FitActivity activity = FitActivityModelFactory.CreateActivityForExport();
+        CsvActivityExporter exporter = new();
+        string outputDirectoryPath = CreateTemporaryDirectory();
+
+        try
+        {
+            CsvExportRequest request = CsvExportRequestFactory.Create(
+                activity,
+                "dedupe",
+                outputDirectoryPath,
+                CreateAllColumnRequests(activity));
+
+            CsvExportResult result = await exporter.ExportAsync(request, cancellationToken);
+            using JsonDocument manifest = await ReadManifestAsync(result, cancellationToken);
+            JsonElement fieldDictionary = manifest.RootElement.GetProperty("fieldDictionary");
+
+            int heartRateEntryCount = fieldDictionary.EnumerateArray().Count(entry =>
+                entry.GetProperty("sourceMessageFamily").GetString() == "record"
+                && entry.GetProperty("sourceFieldName").GetString() == "heart_rate");
+
+            Assert.Equal(1, heartRateEntryCount);
+        }
+        finally
+        {
+            DeleteTemporaryDirectory(outputDirectoryPath);
+        }
+    }
+
+    [Fact]
+    public async Task ShouldMarkUnknownRawCoverageInManifestWhenUnknownAncillaryMessagesArePresent()
+    {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        FitActivity activity = FitActivityModelFactory.CreateActivityWithUnknownAncillaryDataForExport();
+        CsvActivityExporter exporter = new();
+        string outputDirectoryPath = CreateTemporaryDirectory();
+
+        try
+        {
+            CsvExportRequest request = CsvExportRequestFactory.Create(
+                activity,
+                "manifest-unknown",
+                outputDirectoryPath,
+                [CreateColumnRequest(activity.Fields.Single(), order: 0)]);
+
+            CsvExportResult result = await exporter.ExportAsync(request, cancellationToken);
+            using JsonDocument manifest = await ReadManifestAsync(result, cancellationToken);
+            JsonElement root = manifest.RootElement;
+            JsonElement unknownEntry = FindFieldDictionaryEntry(root.GetProperty("fieldDictionary"), "unknown_0");
+
+            Assert.True(root.GetProperty("hasUnknownOrVendorFields").GetBoolean());
+            Assert.Equal("DirectStandardFit", unknownEntry.GetProperty("classification").GetString());
+            Assert.Contains(
+                "unknown_* export name",
+                unknownEntry.GetProperty("notes").GetString(),
+                StringComparison.Ordinal);
+        }
+        finally
+        {
+            DeleteTemporaryDirectory(outputDirectoryPath);
+        }
+    }
+
+    [Fact]
+    public async Task ShouldExportAllDecodedMessageFamiliesWhenExampleFitFileIsExported()
+    {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        GarminFitActivityDecoder decoder = new();
+        CsvActivityExporter exporter = new();
+        string outputDirectoryPath = CreateTemporaryDirectory();
+
+        try
+        {
+            FitActivityDecodeResult decodeResult = await decoder.DecodeFileAsync(FitTestFileFactory.GetExampleFitFilePath(), cancellationToken);
+            Assert.True(decodeResult.IsSuccess);
+            FitActivity activity = Assert.IsType<FitActivity>(decodeResult.Activity);
+
+            CsvExportRequest request = CsvExportRequestFactory.Create(
+                activity,
+                "example",
+                outputDirectoryPath,
+                CreateAllColumnRequests(activity));
+
+            CsvExportResult result = await exporter.ExportAsync(request, cancellationToken);
+            using JsonDocument manifest = await ReadManifestAsync(result, cancellationToken);
+            JsonElement root = manifest.RootElement;
+
+            Assert.NotEmpty(activity.AncillaryData.Messages);
+            Assert.NotEmpty(result.ExportedArtifacts.Where(artifact => artifact.Kind == ExportedArtifactKind.AncillaryCsv));
+            Assert.Empty(root.GetProperty("omittedMessageFamilies").EnumerateArray());
         }
         finally
         {
@@ -417,6 +680,83 @@ public sealed class CsvActivityExporterTests
             DeleteTemporaryDirectory(outputDirectoryPath);
         }
     }
+
+    private static ImmutableArray<CsvExportColumnRequest> CreateAllColumnRequests(FitActivity activity)
+    {
+        ImmutableArray<CsvExportColumnRequest>.Builder builder = ImmutableArray.CreateBuilder<CsvExportColumnRequest>();
+        HashSet<FitExportColumnKey> seenColumnKeys = [];
+        int order = 0;
+
+        foreach (FitField field in activity.Fields)
+        {
+            AddColumnRequestIfMissing(field, builder, seenColumnKeys, ref order);
+        }
+
+        foreach (FitSession session in activity.Sessions)
+        {
+            foreach (FitField field in session.Fields)
+            {
+                AddColumnRequestIfMissing(field, builder, seenColumnKeys, ref order);
+            }
+
+            foreach (FitLap lap in session.Laps)
+            {
+                foreach (FitField field in lap.Fields)
+                {
+                    AddColumnRequestIfMissing(field, builder, seenColumnKeys, ref order);
+                }
+            }
+
+            foreach (FitRecord record in session.Records)
+            {
+                foreach (FitField field in record.Fields)
+                {
+                    AddColumnRequestIfMissing(field, builder, seenColumnKeys, ref order);
+                }
+            }
+        }
+
+        return builder.ToImmutable();
+    }
+
+    private static void AddColumnRequestIfMissing(
+        FitField field,
+        ImmutableArray<CsvExportColumnRequest>.Builder builder,
+        HashSet<FitExportColumnKey> seenColumnKeys,
+        ref int order)
+    {
+        if (!seenColumnKeys.Add(field.Original.ExportColumnKey))
+        {
+            return;
+        }
+
+        builder.Add(CreateColumnRequest(field, order));
+        order++;
+    }
+
+    private static JsonElement FindFieldDictionaryEntry(JsonElement fieldDictionary, string exportName)
+        => fieldDictionary.EnumerateArray().Single(entry => entry.GetProperty("exportName").GetString() == exportName);
+
+    private static async Task<string[]> ReadAllLinesAsync(
+        CsvExportResult result,
+        ExportedArtifactKind kind,
+        FitNodeType nodeType,
+        CancellationToken cancellationToken)
+    {
+        ExportedArtifact artifact = result.ExportedArtifacts.Single(exportedArtifact =>
+            exportedArtifact.Kind == kind && exportedArtifact.NodeType == nodeType);
+        return await File.ReadAllLinesAsync(artifact.FilePath, cancellationToken);
+    }
+
+    private static async Task<JsonDocument> ReadManifestAsync(CsvExportResult result, CancellationToken cancellationToken)
+    {
+        ExportedArtifact manifestArtifact = result.ExportedArtifacts.Single(artifact => artifact.Kind == ExportedArtifactKind.Manifest);
+        string json = await File.ReadAllTextAsync(manifestArtifact.FilePath, cancellationToken);
+        return JsonDocument.Parse(json);
+    }
+
+    private static string[] SplitCsvLine(string line)
+        => line.Split(',', StringSplitOptions.None);
 
     private static CsvExportColumnRequest CreateColumnRequest(FitField field, int order)
         => new(

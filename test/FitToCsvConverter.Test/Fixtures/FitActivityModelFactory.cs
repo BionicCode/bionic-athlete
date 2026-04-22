@@ -260,6 +260,70 @@ internal static class FitActivityModelFactory
             FitActivityAncillaryData.Empty);
     }
 
+    public static FitActivity CreateActivityForDerivedSessionExport()
+        => CreateDerivedSessionExportActivity(includeDirectMovingTime: false);
+
+    public static FitActivity CreateActivityForDirectMovingTimeExport()
+        => CreateDerivedSessionExportActivity(includeDirectMovingTime: true);
+
+    public static FitActivity CreateActivityWithUnknownAncillaryDataForExport()
+    {
+        FitActivity activity = CreateActivityForExport();
+
+        FitAncillaryMessage fileIdMessage = new(
+            CreateNodeSnapshot(
+                FitNodeType.Ancillary,
+                sequenceNumber: 0,
+                messageIndex: null,
+                messageNumber: 0,
+                messageName: "file_id",
+                timestampUtc: activity.CanonicalStartTimeUtc,
+                startTimeUtc: null),
+            ImmutableArray.Create(
+                CreateFieldSnapshot(
+                    FitNodeType.Ancillary,
+                    FitFieldKind.Standard,
+                    messageNumber: 0,
+                    fieldNumber: 3,
+                    originalName: "serial_number",
+                    messageName: "file_id",
+                    originalValues: [CreateFieldValue(rawValue: 123456u, decodedValue: 123456u)],
+                    profileTypeName: "Uint32",
+                    baseTypeName: "uint32",
+                    baseType: 6,
+                    units: null)));
+
+        FitAncillaryMessage unknownMessage = new(
+            CreateNodeSnapshot(
+                FitNodeType.Ancillary,
+                sequenceNumber: 1,
+                messageIndex: null,
+                messageNumber: 250,
+                messageName: "unknown",
+                timestampUtc: activity.CanonicalStartTimeUtc?.AddSeconds(1),
+                startTimeUtc: null),
+            ImmutableArray.Create(
+                CreateFieldSnapshot(
+                    FitNodeType.Ancillary,
+                    FitFieldKind.Unknown,
+                    messageNumber: 250,
+                    fieldNumber: 0,
+                    originalName: "unknown_0",
+                    messageName: "unknown",
+                    originalValues: [CreateFieldValue(rawValue: 98, decodedValue: 98)],
+                    profileTypeName: "Uint8",
+                    baseTypeName: "uint8",
+                    baseType: 2,
+                    units: null)));
+
+        return new FitActivity(
+            activity.Original,
+            activity.Fields,
+            activity.Sessions,
+            activity.Source,
+            new FitActivityAncillaryData(ImmutableArray.Create(fileIdMessage, unknownMessage)));
+    }
+
     private static FitRecord CreateRecord(
         int sequenceNumber,
         DateTimeOffset timestampUtc,
@@ -368,6 +432,231 @@ internal static class FitActivityModelFactory
             ImmutableArray.Create(timestampField, speedField, distanceField));
     }
 
+    private static FitActivity CreateDerivedSessionExportActivity(bool includeDirectMovingTime)
+    {
+        DateTimeOffset activityStartTimeUtc = new(2024, 09, 21, 09, 00, 00, TimeSpan.Zero);
+        DateTimeOffset sessionStartTimeUtc = activityStartTimeUtc;
+
+        FitField totalDistanceField = CreateField(
+            FitNodeType.Session,
+            messageNumber: 18,
+            fieldNumber: 9,
+            originalName: "total_distance",
+            messageName: "session",
+            originalValues:
+            [
+                CreateFieldValue(rawValue: 1000000u, decodedValue: 10000d)
+            ],
+            profileTypeName: "Uint32",
+            baseTypeName: "uint32",
+            baseType: 6,
+            units: "m",
+            scale: 100d);
+
+        FitField totalCaloriesField = CreateField(
+            FitNodeType.Session,
+            messageNumber: 18,
+            fieldNumber: 11,
+            originalName: "total_calories",
+            messageName: "session",
+            originalValues:
+            [
+                CreateFieldValue(rawValue: 500, decodedValue: 500)
+            ],
+            profileTypeName: "Uint16",
+            baseTypeName: "uint16",
+            baseType: 4,
+            units: "kcal");
+
+        FitField metabolicCaloriesField = CreateField(
+            FitNodeType.Session,
+            messageNumber: 18,
+            fieldNumber: 108,
+            originalName: "metabolic_calories",
+            messageName: "session",
+            originalValues:
+            [
+                CreateFieldValue(rawValue: 120, decodedValue: 120)
+            ],
+            profileTypeName: "Uint16",
+            baseTypeName: "uint16",
+            baseType: 4,
+            units: "kcal");
+
+        FitField trainingLoadPeakField = CreateField(
+            FitNodeType.Session,
+            messageNumber: 18,
+            fieldNumber: 130,
+            originalName: "training_load_peak",
+            messageName: "session",
+            originalValues:
+            [
+                CreateFieldValue(rawValue: 9672u, decodedValue: 9.672d)
+            ],
+            profileTypeName: "Float32",
+            baseTypeName: "float32",
+            baseType: 136,
+            units: null);
+
+        FitField totalCyclesField = CreateField(
+            FitNodeType.Session,
+            messageNumber: 18,
+            fieldNumber: 10,
+            originalName: "total_cycles",
+            messageName: "session",
+            originalValues:
+            [
+                CreateFieldValue(rawValue: 1600u, decodedValue: 1600u)
+            ],
+            profileTypeName: "Uint32",
+            baseTypeName: "uint32",
+            baseType: 6,
+            units: "cycles");
+
+        ImmutableArray<FitField>.Builder sessionFields = ImmutableArray.CreateBuilder<FitField>(6);
+        sessionFields.Add(totalDistanceField);
+        sessionFields.Add(totalCaloriesField);
+        sessionFields.Add(metabolicCaloriesField);
+        sessionFields.Add(trainingLoadPeakField);
+        sessionFields.Add(totalCyclesField);
+
+        if (includeDirectMovingTime)
+        {
+            sessionFields.Add(
+                CreateField(
+                    FitNodeType.Session,
+                    messageNumber: 18,
+                    fieldNumber: 110,
+                    originalName: "total_moving_time",
+                    messageName: "session",
+                    originalValues:
+                    [
+                        CreateFieldValue(rawValue: 1500000u, decodedValue: 1500d)
+                    ],
+                    profileTypeName: "Uint32",
+                    baseTypeName: "uint32",
+                    baseType: 6,
+                    units: "s",
+                    scale: 1000d));
+        }
+
+        ImmutableArray<FitRecord> records =
+        [
+            CreatePowerRecord(sequenceNumber: 0, sessionStartTimeUtc, speedMetersPerSecond: 5d, distanceMeters: 0d, powerWatts: 100),
+            CreatePowerRecord(sequenceNumber: 1, sessionStartTimeUtc.AddSeconds(600), speedMetersPerSecond: 6d, distanceMeters: 3000d, powerWatts: 200),
+            CreatePowerRecord(sequenceNumber: 2, sessionStartTimeUtc.AddSeconds(1200), speedMetersPerSecond: 7d, distanceMeters: 7000d, powerWatts: 300),
+            CreatePowerRecord(sequenceNumber: 3, sessionStartTimeUtc.AddSeconds(1800), speedMetersPerSecond: 0d, distanceMeters: 10000d, powerWatts: 0),
+        ];
+
+        FitSession session = new(
+            CreateNodeSnapshot(
+                FitNodeType.Session,
+                sequenceNumber: 0,
+                messageIndex: 0,
+                messageNumber: 18,
+                messageName: "session",
+                timestampUtc: sessionStartTimeUtc.AddSeconds(1800),
+                startTimeUtc: sessionStartTimeUtc),
+            sessionFields.ToImmutable(),
+            ImmutableArray<FitLap>.Empty,
+            records);
+
+        return new FitActivity(
+            CreateNodeSnapshot(
+                FitNodeType.Activity,
+                sequenceNumber: 0,
+                messageIndex: null,
+                messageNumber: 34,
+                messageName: "activity",
+                timestampUtc: sessionStartTimeUtc.AddSeconds(1805),
+                startTimeUtc: null),
+            ImmutableArray<FitField>.Empty,
+            ImmutableArray.Create(session),
+            new FitFileSource(includeDirectMovingTime ? "direct-moving-time.fit" : "derived-session.fit"),
+            FitActivityAncillaryData.Empty);
+    }
+
+    private static FitRecord CreatePowerRecord(
+        int sequenceNumber,
+        DateTimeOffset timestampUtc,
+        double speedMetersPerSecond,
+        double distanceMeters,
+        ushort powerWatts)
+    {
+        FitField timestampField = CreateField(
+            FitNodeType.Record,
+            messageNumber: 20,
+            fieldNumber: 253,
+            originalName: "timestamp",
+            messageName: "record",
+            originalValues:
+            [
+                CreateFieldValue(rawValue: 0u, decodedValue: timestampUtc)
+            ],
+            profileTypeName: "DateTime",
+            baseTypeName: "uint32",
+            baseType: 6,
+            units: "s");
+
+        FitField speedField = CreateField(
+            FitNodeType.Record,
+            messageNumber: 20,
+            fieldNumber: 124,
+            originalName: "enhanced_speed",
+            messageName: "record",
+            originalValues:
+            [
+                CreateFieldValue(rawValue: (uint)Math.Round(speedMetersPerSecond * 1000d), decodedValue: speedMetersPerSecond)
+            ],
+            profileTypeName: "Uint32",
+            baseTypeName: "uint32",
+            baseType: 6,
+            units: "m/s",
+            scale: 1000d);
+
+        FitField distanceField = CreateField(
+            FitNodeType.Record,
+            messageNumber: 20,
+            fieldNumber: 5,
+            originalName: "distance",
+            messageName: "record",
+            originalValues:
+            [
+                CreateFieldValue(rawValue: (uint)Math.Round(distanceMeters * 100d), decodedValue: distanceMeters)
+            ],
+            profileTypeName: "Uint32",
+            baseTypeName: "uint32",
+            baseType: 6,
+            units: "m",
+            scale: 100d);
+
+        FitField powerField = CreateField(
+            FitNodeType.Record,
+            messageNumber: 20,
+            fieldNumber: 7,
+            originalName: "power",
+            messageName: "record",
+            originalValues:
+            [
+                CreateFieldValue(rawValue: powerWatts, decodedValue: powerWatts)
+            ],
+            profileTypeName: "Uint16",
+            baseTypeName: "uint16",
+            baseType: 4,
+            units: "watts");
+
+        return new FitRecord(
+            CreateNodeSnapshot(
+                FitNodeType.Record,
+                sequenceNumber,
+                messageIndex: null,
+                messageNumber: 20,
+                messageName: "record",
+                timestampUtc,
+                startTimeUtc: null),
+            ImmutableArray.Create(timestampField, speedField, distanceField, powerField));
+    }
+
     private static FitNodeSnapshot CreateNodeSnapshot(
         FitNodeType nodeType,
         int sequenceNumber,
@@ -423,29 +712,65 @@ internal static class FitActivityModelFactory
         bool isAccumulated = false,
         bool isExpandedField = false)
     {
-        FitFieldKey key = new(nodeType, FitFieldKind.Standard, messageNumber, fieldNumber);
+        FitFieldSnapshot snapshot = CreateFieldSnapshot(
+            nodeType,
+            FitFieldKind.Standard,
+            messageNumber,
+            fieldNumber,
+            originalName,
+            messageName,
+            originalValues,
+            profileTypeName,
+            baseTypeName,
+            baseType,
+            units,
+            scale,
+            offset,
+            isAccumulated,
+            isExpandedField);
 
-        return new FitField(
-            new FitFieldSnapshot(
-                key,
-                FitExportColumnKey.FromField(key),
-                originalName,
-                messageName,
-                FitFieldKind.Standard,
-                baseType,
-                baseTypeName,
-                profileTypeName,
-                units,
-                scale,
-                offset,
-                isAccumulated,
-                isExpandedField,
-                developerApplicationIdBytes: ImmutableArray<byte>.Empty,
-                developerApplicationVersion: null,
-                nativeOverrideFieldNumber: null,
-                nativeOverrideMessageNumber: null,
-                isArray: originalValues.Length > 1,
-                originalValues));
+        return new FitField(snapshot);
+    }
+
+    private static FitFieldSnapshot CreateFieldSnapshot(
+        FitNodeType nodeType,
+        FitFieldKind kind,
+        ushort messageNumber,
+        byte fieldNumber,
+        string originalName,
+        string messageName,
+        ImmutableArray<FitFieldValue> originalValues,
+        string profileTypeName,
+        string baseTypeName,
+        byte baseType,
+        string? units,
+        double scale = 1d,
+        double offset = 0d,
+        bool isAccumulated = false,
+        bool isExpandedField = false)
+    {
+        FitFieldKey key = new(nodeType, kind, messageNumber, fieldNumber);
+
+        return new FitFieldSnapshot(
+            key,
+            FitExportColumnKey.FromField(key),
+            originalName,
+            messageName,
+            kind,
+            baseType,
+            baseTypeName,
+            profileTypeName,
+            units,
+            scale,
+            offset,
+            isAccumulated,
+            isExpandedField,
+            developerApplicationIdBytes: ImmutableArray<byte>.Empty,
+            developerApplicationVersion: null,
+            nativeOverrideFieldNumber: null,
+            nativeOverrideMessageNumber: null,
+            isArray: originalValues.Length > 1,
+            originalValues);
     }
 
     private static FitFieldValue CreateFieldValue(object? rawValue, object? decodedValue)

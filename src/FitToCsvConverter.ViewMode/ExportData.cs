@@ -162,8 +162,7 @@ public class ExportData : ViewModel
     }
 
     private static bool IsFieldValid([NotNullWhen(true)] DataField? field) => field is not null
-        && !string.IsNullOrWhiteSpace(field.Name)
-        && !field.Name.Contains("unknown", StringComparison.OrdinalIgnoreCase);
+        && !string.IsNullOrWhiteSpace(field.Name);
 
     private bool IsDataFieldEqual(DataField? field1, DataField? field2)
     {
@@ -343,17 +342,18 @@ public class ExportData : ViewModel
     /// <summary>
     /// Replaces the generated export artifacts that should be packaged into the ZIP archive.
     /// </summary>
-    /// <param name="exportedArtifacts">The generated CSV artifacts from the latest export run.</param>
+    /// <param name="exportedArtifacts">The generated export artifacts from the latest export run.</param>
     internal void SetExportArtifacts(ImmutableArray<ExportedArtifact> exportedArtifacts)
         => _exportedArtifacts = exportedArtifacts.IsDefault ? ImmutableArray<ExportedArtifact>.Empty : exportedArtifacts;
 
     /// <summary>
     /// Enumerates the files that should be packaged for this export batch.
     /// </summary>
-    /// <returns>The generated CSV artifacts followed by the user-selected extra files.</returns>
+    /// <returns>The generated export artifacts followed by the user-selected extra files.</returns>
     internal IEnumerable<FileDescriptor> EnumerateArchiveFileDescriptors()
     {
-        foreach (ExportedArtifact exportedArtifact in _exportedArtifacts.OrderBy(exportedArtifact => exportedArtifact.NodeType))
+        // Preserve exporter order so ancillary families and the manifest keep a stable bundle layout.
+        foreach (ExportedArtifact exportedArtifact in _exportedArtifacts)
         {
             yield return new FileDescriptor(exportedArtifact.FilePath, isRenamingRequired: false);
         }
