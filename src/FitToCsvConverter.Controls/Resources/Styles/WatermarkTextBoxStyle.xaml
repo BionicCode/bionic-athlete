@@ -1,8 +1,11 @@
 ﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:local="clr-namespace:FitToCsvConverter.Controls">
-        <ResourceDictionary.MergedDictionaries>
-            <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/ViewRessources.xaml" />
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Constants.xaml" />
+        <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Colors.xaml" />
+        <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Icons.xaml" />
+        <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/ViewRessources.xaml" />
             <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/ScrollBarStyle.xaml" />
         </ResourceDictionary.MergedDictionaries>
 

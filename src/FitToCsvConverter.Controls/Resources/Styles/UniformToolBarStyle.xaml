@@ -3,6 +3,9 @@
                     xmlns:local="clr-namespace:FitToCsvConverter.Controls"
                     xmlns:bionicNet="clr-namespace:BionicCode.Utilities.Net;assembly=BionicCode.Utilities.Net.Wpf">
     <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Constants.xaml" />
+        <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Colors.xaml" />
+        <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Icons.xaml" />
         <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/ViewRessources.xaml" />
         <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/ScrollBarStyle.xaml" />
     </ResourceDictionary.MergedDictionaries>

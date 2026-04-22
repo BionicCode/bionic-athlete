@@ -394,26 +394,44 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
 
     private static bool TryNormalizeDurationValue(object value, string? sourceUnit, out double normalizedValue)
     {
-        if (!TryConvertToDouble(value, out double numericValue))
-        {
-            normalizedValue = default;
-            return false;
-        }
-
         string normalizedUnit = NormalizeUnit(sourceUnit);
         switch (normalizedUnit)
         {
             case "s":
-                normalizedValue = numericValue;
+                if (!TryConvertToDouble(value, out double numericValueInSeconds))
+                {
+                    normalizedValue = default;
+                    return false;
+                }
+
+                normalizedValue = numericValueInSeconds;
                 return true;
             case "ms":
-                normalizedValue = numericValue / 1000d;
+                if (!TryConvertToDouble(value, out double numericValueInMilliseconds))
+                {
+                    normalizedValue = default;
+                    return false;
+                }
+
+                normalizedValue = numericValueInMilliseconds / 1000d;
                 return true;
             case "min":
-                normalizedValue = numericValue * 60d;
+                if (!TryConvertToDouble(value, out double numericValueInMinutes))
+                {
+                    normalizedValue = default;
+                    return false;
+                }
+
+                normalizedValue = numericValueInMinutes * 60d;
                 return true;
             case "h":
-                normalizedValue = numericValue * 3600d;
+                if (!TryConvertToDouble(value, out double numericValueInHours))
+                {
+                    normalizedValue = default;
+                    return false;
+                }
+
+                normalizedValue = numericValueInHours * 3600d;
                 return true;
             default:
                 normalizedValue = default;
@@ -427,13 +445,14 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
         FitExportUnitSystem unitSystem,
         out double normalizedValue)
     {
-        if (!TryConvertToDouble(value, out double numericValue))
+        string normalizedUnit = NormalizeUnit(sourceUnit);
+        if (!IsDistanceUnit(normalizedUnit) || !TryConvertToDouble(value, out double numericValue))
         {
             normalizedValue = default;
             return false;
         }
 
-        double distanceInMeters = NormalizeUnit(sourceUnit) switch
+        double distanceInMeters = normalizedUnit switch
         {
             "m" => numericValue,
             "km" => numericValue / KilometersPerMeter,
@@ -460,13 +479,14 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
         FitExportUnitSystem unitSystem,
         out double normalizedValue)
     {
-        if (!TryConvertToDouble(value, out double numericValue))
+        string normalizedUnit = NormalizeUnit(sourceUnit);
+        if (!IsSpeedUnit(normalizedUnit) || !TryConvertToDouble(value, out double numericValue))
         {
             normalizedValue = default;
             return false;
         }
 
-        double speedInMetersPerSecond = NormalizeUnit(sourceUnit) switch
+        double speedInMetersPerSecond = normalizedUnit switch
         {
             "m/s" => numericValue,
             "km/h" => numericValue / KilometersPerHourPerMeterPerSecond,
@@ -488,32 +508,46 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
 
     private static bool TryConvertToDouble(object value, out double numericValue)
     {
-        try
+        // Structured CSV normalization only applies to true numeric payloads.
+        // Edited/export values can intentionally be text labels, and those should round-trip unchanged.
+        switch (value)
         {
-            switch (value)
-            {
-                case IConvertible convertibleValue:
-                    numericValue = convertibleValue.ToDouble(CultureInfo.InvariantCulture);
-                    return true;
-                default:
-                    numericValue = default;
-                    return false;
-            }
-        }
-        catch (FormatException)
-        {
-            numericValue = default;
-            return false;
-        }
-        catch (InvalidCastException)
-        {
-            numericValue = default;
-            return false;
-        }
-        catch (OverflowException)
-        {
-            numericValue = default;
-            return false;
+            case byte byteValue:
+                numericValue = byteValue;
+                return true;
+            case sbyte signedByteValue:
+                numericValue = signedByteValue;
+                return true;
+            case short shortValue:
+                numericValue = shortValue;
+                return true;
+            case ushort unsignedShortValue:
+                numericValue = unsignedShortValue;
+                return true;
+            case int integerValue:
+                numericValue = integerValue;
+                return true;
+            case uint unsignedIntegerValue:
+                numericValue = unsignedIntegerValue;
+                return true;
+            case long longValue:
+                numericValue = longValue;
+                return true;
+            case ulong unsignedLongValue:
+                numericValue = unsignedLongValue;
+                return true;
+            case float singleValue:
+                numericValue = singleValue;
+                return true;
+            case double doubleValue:
+                numericValue = doubleValue;
+                return true;
+            case decimal decimalValue:
+                numericValue = Convert.ToDouble(decimalValue, CultureInfo.InvariantCulture);
+                return true;
+            default:
+                numericValue = default;
+                return false;
         }
     }
 
@@ -605,6 +639,12 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
         => string.IsNullOrWhiteSpace(unit)
             ? string.Empty
             : unit.Trim().ToLowerInvariant();
+
+    private static bool IsDistanceUnit(string normalizedUnit)
+        => normalizedUnit is "m" or "km" or "ft" or "mi";
+
+    private static bool IsSpeedUnit(string normalizedUnit)
+        => normalizedUnit is "m/s" or "km/h" or "mph";
 
     private static string RenderMissingValue(FitExportOptions exportOptions)
         => exportOptions.MissingValueStyle == FitExportMissingValueStyle.Literal

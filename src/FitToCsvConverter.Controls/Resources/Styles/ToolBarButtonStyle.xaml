@@ -3,6 +3,8 @@
                     xmlns:local="clr-namespace:FitToCsvConverter.Controls"
                     xmlns:theme="clr-namespace:Microsoft.Windows.Themes;assembly=PresentationFramework.Aero2">
     <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Constants.xaml" />
+        <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Colors.xaml" />
         <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/ViewRessources.xaml" />
     </ResourceDictionary.MergedDictionaries>
 

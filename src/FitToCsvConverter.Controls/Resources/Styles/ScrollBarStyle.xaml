@@ -3,6 +3,7 @@
   <ResourceDictionary.MergedDictionaries>
         <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Colors.xaml" />
         <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Constants.xaml" />
+        <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/ViewRessources.xaml" />
   </ResourceDictionary.MergedDictionaries>
 
   <Style x:Key="ScrollBarLineButton" TargetType="{x:Type RepeatButton}">
@@ -104,24 +105,42 @@
                 <RowDefinition Height="0.00001*" />
                 <RowDefinition MaxHeight="18" />
             </Grid.RowDefinitions>
-            <Border x:Name="Border" Grid.RowSpan="3" CornerRadius="0" Background="Transparent" />
-      <RepeatButton Grid.Row="0"
-                    Visibility="Collapsed"
-                    x:Name="TopScrollButton" Style="{StaticResource ScrollBarLineButton}" Height="18" Command="{x:Static ScrollBar.LineUpCommand}" Content="M 0 4 L 8 4 L 4 0 Z" />
-            <Track x:Name="PART_Track" Grid.Row="1" IsDirectionReversed="true">
+            <Border x:Name="Border"
+                    Grid.RowSpan="3"
+                    CornerRadius="0"
+                    Background="Transparent" />
+            <RepeatButton Grid.Row="0"
+                          Visibility="Hidden"
+                          x:Name="TopScrollButton"
+                          Style="{StaticResource ScrollBarLineButton}"
+                          Height="18"
+                          Command="{x:Static ScrollBar.LineUpCommand}"
+                          Content="M 0 4 L 8 4 L 4 0 Z" />
+            <Track x:Name="PART_Track"
+                   Grid.Row="1"
+                   IsDirectionReversed="true">
                 <Track.DecreaseRepeatButton>
-                    <RepeatButton Style="{StaticResource ScrollBarPageButton}" Command="{x:Static ScrollBar.PageUpCommand}" />
+                    <RepeatButton Style="{StaticResource ScrollBarPageButton}"
+                                  Command="{x:Static ScrollBar.PageUpCommand}" />
                 </Track.DecreaseRepeatButton>
                 <Track.Thumb>
-                    <Thumb Style="{StaticResource ScrollBarThumb}" Margin="1,0,1,0" />
+                    <Thumb Style="{StaticResource ScrollBarThumb}"
+                           Margin="1,0,1,0" />
                 </Track.Thumb>
                 <Track.IncreaseRepeatButton>
-                    <RepeatButton Style="{StaticResource ScrollBarPageButton}" Command="{x:Static ScrollBar.PageDownCommand}" />
+                    <RepeatButton Style="{StaticResource ScrollBarPageButton}"
+                                  Command="{x:Static ScrollBar.PageDownCommand}" />
                 </Track.IncreaseRepeatButton>
             </Track>
-      <RepeatButton x:Name="BottomScrollButton" Grid.Row="2" Visibility="Collapsed" Style="{StaticResource ScrollBarLineButton}" Height="18" Command="{x:Static ScrollBar.LineDownCommand}" Content="M 0 0 L 4 4 L 8 0 Z" />
-    </Grid>
-      <ControlTemplate.Triggers>
+            <RepeatButton x:Name="BottomScrollButton"
+                          Grid.Row="2"
+                          Visibility="Hidden"
+                          Style="{StaticResource ScrollBarLineButton}"
+                          Height="18"
+                          Command="{x:Static ScrollBar.LineDownCommand}"
+                          Content="M 0 0 L 4 4 L 8 0 Z" />
+        </Grid>
+        <ControlTemplate.Triggers>
         <Trigger Property="IsMouseOver"
                  Value="True">
           <Setter TargetName="TopScrollButton"
@@ -147,7 +166,7 @@
               Background="Transparent" />
       <RepeatButton x:Name="LeftScrollButton"
                     Grid.Column="0"
-                    Visibility="Collapsed"
+                    Visibility="Hidden"
                     Style="{StaticResource ScrollBarLineButton}"
                     Width="18"
                     Command="ScrollBar.LineLeftCommand"
@@ -168,7 +187,7 @@
         </Track.IncreaseRepeatButton>
       </Track>
       <RepeatButton x:Name="RightScrollButton"
-                    Visibility="Collapsed"
+                    Visibility="Hidden"
                     Grid.Column="2"
                     Style="{StaticResource ScrollBarLineButton}"
                     Width="18"

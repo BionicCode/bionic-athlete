@@ -7,7 +7,9 @@
         xmlns:viewModel="clr-namespace:FitToCsvConverter.ViewModel;assembly=FitToCsvConverter.ViewModel"
         xmlns:bionicNet="clr-namespace:BionicCode.Utilities.Net;assembly=BionicCode.Utilities.Net.Wpf"
         mc:Ignorable="d"
-        Title="MainWindow" Height="900" 
+        Title="MainWindow" 
+        Height="900" 
+        Padding="10"
         Background="{DynamicResource DarkThemeControlBackgroundBrush}"
         Foreground="{DynamicResource DarkThemeTextBrush}"
         SizeToContent="Width"
@@ -18,6 +20,9 @@
     <Window.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Constants.xaml" />
+                <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Colors.xaml" />
+                <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Icons.xaml" />
                 <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/ViewRessources.xaml" />
                 <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/FlipSwitchToggleButtonStyle.xaml" />
                 <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/ScrollBarStyle.xaml" />
@@ -95,6 +100,7 @@
                         <DataTemplate DataType="{x:Type viewModel:DataField}">
                             <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
                                       Content="{Binding Name, Mode=OneTime}"
+                                      HorizontalAlignment="Left"
                                       VerticalAlignment="Center"
                                       Margin="0,0,5,0" />
                         </DataTemplate>
@@ -257,7 +263,7 @@
         </ResourceDictionary>
     </Window.Resources>
 
-    <Grid Margin="10">
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -274,7 +280,8 @@
                    Grid.ColumnSpan="2"
                    Margin="0,10" />
 
-        <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Auto" Padding="30">
+        <ScrollViewer Grid.Row="2" 
+                      HorizontalScrollBarVisibility="Auto">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -325,7 +332,7 @@
                         </local:UniformToolBar>
                         <Grid Grid.Row="2"
                               Height="400"
-                              HorizontalAlignment="Left"
+                              HorizontalAlignment="Stretch"
                               VerticalAlignment="Top">
                             <ContentControl Content="{StaticResource FitFileDropTargetIcon}"
                                                 Height="120"
@@ -342,6 +349,7 @@
                                              Background="Transparent"
                                              BorderThickness="1"
                                              Padding="0,5"
+                                             Margin="5"
                                              Width="Auto"
                                              AllowDrop="True"
                                              ToolTip="Drag and drop FIT files here, either raw or as ZIP files."
@@ -437,6 +445,7 @@
                         <ContentControl Grid.Column="0"
                                         Grid.Row="2"
                                         Grid.RowSpan="2"
+                                        Margin="10"
                                         Content="{StaticResource ExtraFilesDropTargetIcon}" />
                         
                         <TextBlock Grid.Row="0"
@@ -448,7 +457,7 @@
                         <ListBox Grid.Row="2"
                                  Grid.RowSpan="2"
                                  Grid.Column="0"
-                                 Height="150"
+                                 Height="190"
                                  Width="500"
                                  ItemsSource="{Binding SelectedExportData.SelectedExtraFilePaths}"
                                  SelectedItem="{Binding SelectedExtraFilePath}"
@@ -490,7 +499,7 @@
                                                 Content="{StaticResource DeleteIcon}"
                                                 Command="{Binding DeleteExtraFileCommand}"
                                                 CommandParameter="{Binding}"
-                                                FontFamily="{StaticResource SegoeMDL2Assets}"
+                                                FontFamily="{StaticResource SegoeMDL2FluentAssets}"
                                                 ToolTip="Remove file"
                                                 Margin="5,0"
                                                 Padding="3"
@@ -627,7 +636,7 @@
                 </StackPanel>
                 
                 <Button Grid.Row="3"
-                        Margin="10,120,0,0"
+                        Margin="10,12,0,0"
                         VerticalAlignment="Top"
                         Height="{Binding ElementName=DestinationFolderTextBox, Path=ActualHeight}"
                         Width="80"
@@ -661,8 +670,7 @@
                                                                ProgressMessage="{Binding Message}"
                                                                ProgressMessageBrush="{StaticResource DarkThemeTextBrush}"
                                                                Maximum="{Binding MaxValue, Mode=OneWay}"
-                                                               Height="Auto"
-                                                               CornerRadius="{StaticResource CornerRadiusDouble}"
+                                                               CornerRadius="{StaticResource CornerRadius}"
                                                                ProgressPercentageAlignment="Center"
                                                                ProgressPercentage="{Binding ProgressPercentage, Mode=OneWay}"
                                                                ProgressPercentageSize="14"

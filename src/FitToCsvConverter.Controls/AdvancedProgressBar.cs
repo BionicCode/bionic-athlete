@@ -8,18 +8,18 @@ using System.Windows.Media;
 
 public class AdvancedProgressBar : ProgressBar
 {
-    public double CornerRadius
+    public CornerRadius CornerRadius
     {
-        get => (double)GetValue(CornerRadiusProperty);
+        get => (CornerRadius)GetValue(CornerRadiusProperty);
         set => SetValue(CornerRadiusProperty, value);
     }
 
     public static readonly DependencyProperty CornerRadiusProperty =
         DependencyProperty.Register(
             nameof(CornerRadius),
-            typeof(double),
+            typeof(CornerRadius),
             typeof(AdvancedProgressBar),
-            new FrameworkPropertyMetadata(4.0, FrameworkPropertyMetadataOptions.AffectsMeasure));
+            new FrameworkPropertyMetadata(new CornerRadius(4), FrameworkPropertyMetadataOptions.AffectsMeasure));
 
     public double ProgressPercentageSize
     {
@@ -189,4 +189,15 @@ public class SizeToRectConverter : IValueConverter
         ? new Rect(hostRenderSize)
         : Rect.Empty;
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotSupportedException();
+}
+
+[ValueConversion(typeof(CornerRadius), typeof(double))]
+public class CornerRadiusToDoubleConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture) => value is CornerRadius cornerRadius
+        ? cornerRadius.TopLeft
+        : 0.0;
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => value is double doubleValue
+        ? new CornerRadius(doubleValue)
+        : new CornerRadius(0);
 }

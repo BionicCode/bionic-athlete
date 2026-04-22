@@ -150,6 +150,35 @@ public sealed class CsvActivityExporterTests
     }
 
     [Fact]
+    public async Task ShouldWriteNonNumericTextValuesWhenStructuredCsvIsRequested()
+    {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        FitActivity activity = FitActivityModelFactory.CreateActivityForExport();
+        FitField field = GetRecordField(activity, "heart_rate");
+        field.SetEditedDecodedValues(["Manual"]);
+        CsvActivityExporter exporter = new();
+        string outputDirectoryPath = CreateTemporaryDirectory();
+
+        try
+        {
+            CsvExportRequest request = CsvExportRequestFactory.Create(
+                activity,
+                "sample",
+                outputDirectoryPath,
+                [CreateColumnRequest(field, order: 0)]);
+
+            CsvExportResult result = await exporter.ExportAsync(request, cancellationToken);
+            string[] lines = await File.ReadAllLinesAsync(result.ExportedArtifacts[0].FilePath, cancellationToken);
+
+            Assert.Equal("Manual", lines[1]);
+        }
+        finally
+        {
+            DeleteTemporaryDirectory(outputDirectoryPath);
+        }
+    }
+
+    [Fact]
     public async Task ShouldNormalizeAverageSpeedToKilometersPerHourWhenMetricStructuredCsvIsRequested()
     {
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;

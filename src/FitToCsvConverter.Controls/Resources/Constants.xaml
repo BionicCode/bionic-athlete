@@ -2,7 +2,9 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:system="clr-namespace:System;assembly=System.Runtime">
 
-  <CornerRadius x:Key="CornerRadius">8,8,8,8</CornerRadius>
+    <Duration x:Key="MouseOverAnimationDuration">0:0:0.3</Duration>
+    <CornerRadius x:Key="CornerRadius">4</CornerRadius>
+    <system:Double x:Key="CornerRadiusDouble">4</system:Double>
   <system:Double x:Key="ToolButtonFontSize">10</system:Double>
   <FontStretch x:Key="ToolButtonFontStretch">UltraExpanded</FontStretch>
   <FontWeight  x:Key="ToolButtonFontWeight">Light</FontWeight>
