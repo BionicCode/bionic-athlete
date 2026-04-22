@@ -149,6 +149,246 @@ public sealed class CsvActivityExporterTests
         }
     }
 
+    [Fact]
+    public async Task ShouldNormalizeAverageSpeedToKilometersPerHourWhenMetricStructuredCsvIsRequested()
+    {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        FitActivity activity = FitActivityModelFactory.CreateActivityForStructuredCsvExport();
+        FitField field = GetSessionField(activity, "enhanced_avg_speed");
+        CsvActivityExporter exporter = new();
+        string outputDirectoryPath = CreateTemporaryDirectory();
+
+        try
+        {
+            CsvExportRequest request = CsvExportRequestFactory.Create(
+                activity,
+                "sample",
+                outputDirectoryPath,
+                [CreateColumnRequest(field, order: 0)],
+                options: new FitExportOptions(unitSystem: FitExportUnitSystem.Metric));
+
+            CsvExportResult result = await exporter.ExportAsync(request, cancellationToken);
+            string[] lines = await File.ReadAllLinesAsync(result.ExportedArtifacts[0].FilePath, cancellationToken);
+
+            Assert.Equal("enhanced_avg_speed [km/h]", lines[0]);
+            Assert.Equal("18.3888", lines[1]);
+        }
+        finally
+        {
+            DeleteTemporaryDirectory(outputDirectoryPath);
+        }
+    }
+
+    [Fact]
+    public async Task ShouldNormalizeDistanceToKilometersWhenMetricStructuredCsvIsRequested()
+    {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        FitActivity activity = FitActivityModelFactory.CreateActivityForStructuredCsvExport();
+        FitField field = GetSessionField(activity, "total_distance");
+        CsvActivityExporter exporter = new();
+        string outputDirectoryPath = CreateTemporaryDirectory();
+
+        try
+        {
+            CsvExportRequest request = CsvExportRequestFactory.Create(
+                activity,
+                "sample",
+                outputDirectoryPath,
+                [CreateColumnRequest(field, order: 0)],
+                options: new FitExportOptions(unitSystem: FitExportUnitSystem.Metric));
+
+            CsvExportResult result = await exporter.ExportAsync(request, cancellationToken);
+            string[] lines = await File.ReadAllLinesAsync(result.ExportedArtifacts[0].FilePath, cancellationToken);
+
+            Assert.Equal("total_distance [km]", lines[0]);
+            Assert.Equal("6.14749", lines[1]);
+        }
+        finally
+        {
+            DeleteTemporaryDirectory(outputDirectoryPath);
+        }
+    }
+
+    [Fact]
+    public async Task ShouldNormalizeDurationsToSecondsWhenStructuredCsvIsRequested()
+    {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        FitActivity activity = FitActivityModelFactory.CreateActivityForStructuredCsvExport();
+        FitField field = GetSessionField(activity, "total_elapsed_time");
+        CsvActivityExporter exporter = new();
+        string outputDirectoryPath = CreateTemporaryDirectory();
+
+        try
+        {
+            CsvExportRequest request = CsvExportRequestFactory.Create(
+                activity,
+                "sample",
+                outputDirectoryPath,
+                [CreateColumnRequest(field, order: 0)]);
+
+            CsvExportResult result = await exporter.ExportAsync(request, cancellationToken);
+            string[] lines = await File.ReadAllLinesAsync(result.ExportedArtifacts[0].FilePath, cancellationToken);
+
+            Assert.Equal("total_elapsed_time [s]", lines[0]);
+            Assert.Equal("1247.782", lines[1]);
+        }
+        finally
+        {
+            DeleteTemporaryDirectory(outputDirectoryPath);
+        }
+    }
+
+    [Fact]
+    public async Task ShouldPreserveDistinctDurationSemanticsWhenElapsedAndTimerTimeAreSelected()
+    {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        FitActivity activity = FitActivityModelFactory.CreateActivityForStructuredCsvExport();
+        FitField elapsedTimeField = GetSessionField(activity, "total_elapsed_time");
+        FitField timerTimeField = GetSessionField(activity, "total_timer_time");
+        CsvActivityExporter exporter = new();
+        string outputDirectoryPath = CreateTemporaryDirectory();
+
+        try
+        {
+            CsvExportRequest request = CsvExportRequestFactory.Create(
+                activity,
+                "sample",
+                outputDirectoryPath,
+                [
+                    CreateColumnRequest(elapsedTimeField, order: 0),
+                    CreateColumnRequest(timerTimeField, order: 1)
+                ]);
+
+            CsvExportResult result = await exporter.ExportAsync(request, cancellationToken);
+            string[] lines = await File.ReadAllLinesAsync(result.ExportedArtifacts[0].FilePath, cancellationToken);
+
+            Assert.Equal("total_elapsed_time [s],total_timer_time [s]", lines[0]);
+            Assert.Equal("1247.782,1203.591", lines[1]);
+        }
+        finally
+        {
+            DeleteTemporaryDirectory(outputDirectoryPath);
+        }
+    }
+
+    [Fact]
+    public async Task ShouldWriteBlankCellWhenFieldUsesFitInvalidSentinel()
+    {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        FitActivity activity = FitActivityModelFactory.CreateActivityForStructuredCsvExport();
+        FitField field = GetSessionField(activity, "avg_power_position");
+        CsvActivityExporter exporter = new();
+        string outputDirectoryPath = CreateTemporaryDirectory();
+
+        try
+        {
+            CsvExportRequest request = CsvExportRequestFactory.Create(
+                activity,
+                "sample",
+                outputDirectoryPath,
+                [CreateColumnRequest(field, order: 0)]);
+
+            CsvExportResult result = await exporter.ExportAsync(request, cancellationToken);
+            string[] lines = await File.ReadAllLinesAsync(result.ExportedArtifacts[0].FilePath, cancellationToken);
+
+            Assert.Equal("avg_power_position [watts]", lines[0]);
+            Assert.Equal(string.Empty, lines[1]);
+        }
+        finally
+        {
+            DeleteTemporaryDirectory(outputDirectoryPath);
+        }
+    }
+
+    [Fact]
+    public async Task ShouldKeepOneUnitPerColumnWhenMultipleRecordRowsAreExported()
+    {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        FitActivity activity = FitActivityModelFactory.CreateActivityForStructuredCsvExport();
+        FitField field = GetRecordField(activity, "enhanced_speed");
+        CsvActivityExporter exporter = new();
+        string outputDirectoryPath = CreateTemporaryDirectory();
+
+        try
+        {
+            CsvExportRequest request = CsvExportRequestFactory.Create(
+                activity,
+                "sample",
+                outputDirectoryPath,
+                [CreateColumnRequest(field, order: 0)]);
+
+            CsvExportResult result = await exporter.ExportAsync(request, cancellationToken);
+            string[] lines = await File.ReadAllLinesAsync(result.ExportedArtifacts[0].FilePath, cancellationToken);
+
+            Assert.Equal("enhanced_speed [km/h]", lines[0]);
+            Assert.Equal("18", lines[1]);
+            Assert.Equal("21.6", lines[2]);
+        }
+        finally
+        {
+            DeleteTemporaryDirectory(outputDirectoryPath);
+        }
+    }
+
+    [Fact]
+    public async Task ShouldWriteUtcAndLocalTimestampColumnsWhenLocalTimestampDuplicationIsEnabled()
+    {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        FitActivity activity = FitActivityModelFactory.CreateActivityForStructuredCsvExport();
+        FitField field = GetRecordField(activity, "timestamp");
+        CsvActivityExporter exporter = new();
+        string outputDirectoryPath = CreateTemporaryDirectory();
+        TimeZoneInfo localTimeZone = TimeZoneInfo.CreateCustomTimeZone("UTC+02", TimeSpan.FromHours(2), "UTC+02", "UTC+02");
+
+        try
+        {
+            CsvExportRequest request = CsvExportRequestFactory.Create(
+                activity,
+                "sample",
+                outputDirectoryPath,
+                [CreateColumnRequest(field, order: 0)],
+                options: new FitExportOptions(includeLocalTimeColumns: true, localTimeZone: localTimeZone));
+
+            CsvExportResult result = await exporter.ExportAsync(request, cancellationToken);
+            string[] lines = await File.ReadAllLinesAsync(result.ExportedArtifacts[0].FilePath, cancellationToken);
+
+            Assert.Equal("timestamp [UTC],timestamp [Local]", lines[0]);
+            Assert.Equal(
+                $"{new DateTimeOffset(2024, 07, 14, 08, 35, 00, TimeSpan.Zero):O},{new DateTimeOffset(2024, 07, 14, 10, 35, 00, TimeSpan.FromHours(2)):O}",
+                lines[1]);
+        }
+        finally
+        {
+            DeleteTemporaryDirectory(outputDirectoryPath);
+        }
+    }
+
+    [Fact]
+    public async Task ShouldThrowNotSupportedExceptionWhenPresentationExportIsRequested()
+    {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        FitActivity activity = FitActivityModelFactory.CreateActivityForStructuredCsvExport();
+        FitField field = GetSessionField(activity, "enhanced_avg_speed");
+        CsvActivityExporter exporter = new();
+        string outputDirectoryPath = CreateTemporaryDirectory();
+
+        try
+        {
+            CsvExportRequest request = CsvExportRequestFactory.Create(
+                activity,
+                "sample",
+                outputDirectoryPath,
+                [CreateColumnRequest(field, order: 0)],
+                options: new FitExportOptions(target: FitExportTarget.PresentationExport));
+
+            _ = await Assert.ThrowsAsync<NotSupportedException>(() => exporter.ExportAsync(request, cancellationToken));
+        }
+        finally
+        {
+            DeleteTemporaryDirectory(outputDirectoryPath);
+        }
+    }
+
     private static CsvExportColumnRequest CreateColumnRequest(FitField field, int order)
         => new(
             field.Original.ExportColumnKey,
@@ -174,4 +414,7 @@ public sealed class CsvActivityExporterTests
 
     private static FitField GetRecordField(FitActivity activity, string originalName)
         => activity.Sessions[0].Records[0].Fields.Single(field => field.Original.OriginalName == originalName);
+
+    private static FitField GetSessionField(FitActivity activity, string originalName)
+        => activity.Sessions[0].Fields.Single(field => field.Original.OriginalName == originalName);
 }

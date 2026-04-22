@@ -65,8 +65,9 @@
                                    Foreground="{TemplateBinding TitleBrush}"
                                    FontSize="{TemplateBinding TitleSize}"
                                    FontWeight="Bold" />
-                        
+
                         <Grid x:Name="ProgressBarHost"
+                              MinHeight="18"
                               Grid.Row="1">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />

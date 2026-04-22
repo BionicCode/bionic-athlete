@@ -113,6 +113,49 @@ public sealed class CsvExportRequestFactoryTests
             nodeRequest => Assert.Equal(FitNodeType.Record, nodeRequest.NodeType));
     }
 
+    [Fact]
+    public void ShouldDefaultToStructuredCsvOptionsWhenNoExportOptionsAreProvided()
+    {
+        FitActivity activity = FitActivityModelFactory.CreateActivityForExport();
+        FitField field = GetRecordField(activity, "heart_rate");
+
+        CsvExportRequest request = CsvExportRequestFactory.Create(
+            activity,
+            "sample",
+            @"C:\exports",
+            [CreateColumnRequest(field, order: 0)]);
+
+        Assert.Equal(FitExportTarget.StructuredCsv, request.Options.Target);
+        Assert.Equal(FitExportUnitSystem.Metric, request.Options.UnitSystem);
+        Assert.True(request.Options.IncludeUnitSuffixInHeaders);
+        Assert.False(request.Options.IncludeLocalTimeColumns);
+        Assert.Equal(FitExportMissingValueStyle.Blank, request.Options.MissingValueStyle);
+    }
+
+    [Fact]
+    public void ShouldPreserveExplicitExportOptionsWhenOptionsAreProvided()
+    {
+        FitActivity activity = FitActivityModelFactory.CreateActivityForExport();
+        FitField field = GetRecordField(activity, "heart_rate");
+        TimeZoneInfo localTimeZone = TimeZoneInfo.CreateCustomTimeZone("UTC+01", TimeSpan.FromHours(1), "UTC+01", "UTC+01");
+        FitExportOptions options = new(
+            unitSystem: FitExportUnitSystem.Imperial,
+            includeUnitSuffixInHeaders: false,
+            includeLocalTimeColumns: true,
+            missingValueStyle: FitExportMissingValueStyle.Literal,
+            missingValueLiteral: "NA",
+            localTimeZone: localTimeZone);
+
+        CsvExportRequest request = CsvExportRequestFactory.Create(
+            activity,
+            "sample",
+            @"C:\exports",
+            [CreateColumnRequest(field, order: 0)],
+            options: options);
+
+        Assert.Same(options, request.Options);
+    }
+
     private static CsvExportColumnRequest CreateColumnRequest(FitField field, int order, bool isSelected = true)
         => new(
             field.Original.ExportColumnKey,

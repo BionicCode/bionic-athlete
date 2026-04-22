@@ -32,7 +32,7 @@ public class ExportData : ViewModel
     private ImmutableArray<ExportedArtifact> _exportedArtifacts;
     private readonly IFitActivityDecoder _fitActivityDecoder;
 
-    public ObservableFileDescriptor FitFileDescriptor { get; private set; }
+    public ObservableFileDescriptor FitFileDescriptor { get; private set; } = null!;
 
     private readonly SetValueOptions _setValueOptions;
 
@@ -336,6 +336,7 @@ public class ExportData : ViewModel
             FitFileNameWithoutExtension,
             outputDirectoryPath,
             columnRequests.ToImmutable(),
+            options: new FitExportOptions(target: FitExportTarget.StructuredCsv),
             delimiter: DefaultCsvDelimiter);
     }
 
@@ -496,7 +497,7 @@ public class ExportData : ViewModel
         }
     }
 
-    internal FitActivity Activity { get; private set; }
+    internal FitActivity Activity { get; private set; } = null!;
     public ReadOnlyObservableHashSet<DataField> ActivityFields { get; }
     public ReadOnlyObservableHashSet<DataField> SessionFields { get; }
     public ReadOnlyObservableHashSet<DataField> RecordFields { get; }
