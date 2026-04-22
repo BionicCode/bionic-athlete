@@ -3,15 +3,19 @@
                     xmlns:local="clr-namespace:FitToCsvConverter.Controls">
     <ResourceDictionary.MergedDictionaries>
         <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Constants.xaml" />
-        <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Colors.xaml" />
         <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Icons.xaml" />
         <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/ViewRessources.xaml" />
             <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Styles/ScrollBarStyle.xaml" />
+        <ResourceDictionary Source="/FitToCsvConverter.Controls;component/Resources/Colors.xaml" />
         </ResourceDictionary.MergedDictionaries>
 
         <Style TargetType="{x:Type local:WatermarkTextBox}">
         <Setter Property="BorderThickness"
                 Value="1" />
+            <Setter Property="WatermarkForeground"
+                Value="{DynamicResource WatermarkTextBrush}" />
+        <Setter Property="Foreground"
+                Value="{DynamicResource TextBrush}" />
         <Setter Property="BorderBrush"
                 Value="#ced4da" />
         <Setter Property="Background"
@@ -36,6 +40,7 @@
 
                             <ContentControl x:Name="PART_WatermarkHost"
                                             Panel.ZIndex="0"
+                                            Foreground="{TemplateBinding WatermarkForeground}"
                                             VerticalAlignment="Center"
                                             HorizontalAlignment="Left"
                                             Focusable="False" />

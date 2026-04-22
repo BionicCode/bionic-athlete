@@ -10,6 +10,10 @@
   <Color x:Key="DisabledForegroundColor">#FF888888</Color>
     <Color x:Key="ControlPressedColor">LightBlue</Color>
 
+    <Color x:Key="WatermarkTextColor">#656565</Color>
+    <SolidColorBrush x:Key="WatermarkTextBrush"
+                     Color="{DynamicResource WatermarkTextColor}"
+                     Opacity="0.5" />
     <Color x:Key="DarkThemeControlBackgroundColor">#FF252526</Color>
     <SolidColorBrush x:Key="DarkThemeControlBackgroundBrush"
                      Color="{DynamicResource DarkThemeControlBackgroundColor}"

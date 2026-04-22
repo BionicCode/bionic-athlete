@@ -33,6 +33,10 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
         ITemporaryFileManager temporaryFileManager,
         Func<IFitActivityDecoder> cachingFitActivityDecoderFactory)
     {
+        _temporaryFileManager = temporaryFileManager;
+        _zipArchiveManager = zipArchiveManager;
+        _csvActivityExporter = csvActivityExporter;
+        _cachingFitActivityDecoderFactory = cachingFitActivityDecoderFactory;
         _addFitFilesSemaphore = new SemaphoreSlim(1, 1);
         _fitFilePathsValidator = IsFitFilePathsValid();
         _filePathsValidator = IsFilePathsValid();
@@ -42,11 +46,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
         FitFilePaths = [];
         _fitFilePathToExportDataLookup = [];
         _selectedFitFilePath = string.Empty;
-        _destinationFolder = string.Empty;
-        _zipArchiveManager = zipArchiveManager;
-        _csvActivityExporter = csvActivityExporter;
-        _temporaryFileManager = temporaryFileManager;
-        _cachingFitActivityDecoderFactory = cachingFitActivityDecoderFactory;
+        _destinationFolder = _temporaryFileManager.TemporaryDirectoryPath;
         ExportCommand = new AsyncRelayCommand(ExecuteExportCommandAsync, CanExecuteExportCommand);
         StartNewSessionCommand = new RelayCommand(ExecuteStartNewSessionCommand, () => !((IProgressReporter)this).IsReportingProgress);
         _allowedFileExtensions = _zipArchiveManager.SupportedArchiveFileExtensions.Concat([FitFileExtension]).JoinToString();
@@ -55,9 +55,9 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
 #if DEBUG
     // For design-time data only
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
-    public MainViewModel() =>
+    public MainViewModel()
         // Check if in debug mode and throw if not, to prevent usage of this constructor in production code.
-        throw new InvalidOperationException("This constructor is for design-time data only and should not be used in production code.");
+        => throw new InvalidOperationException("This constructor is for design-time data only and should not be used in production code.");
 #endif
 
     public void StartNewSession()
@@ -343,7 +343,17 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
     public string DestinationFolder
     {
         get => _destinationFolder;
-        set => _ = TrySetValue(value, _folderPathValidator, ref _destinationFolder, _setValueOptions);
+        set
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                _destinationFolder = _temporaryFileManager.TemporaryDirectoryPath;
+            }
+            else
+            {
+                _ = TrySetValue(value, _folderPathValidator, ref _destinationFolder, _setValueOptions);
+            }
+        }
     }
 
     public string? SelectedFitFilePath
