@@ -104,7 +104,9 @@
     <Style x:Key="ToolBarVerticalOverflowButtonStyle"
            TargetType="{x:Type ToggleButton}">
         <Setter Property="Background"
-                Value="{StaticResource ToolBarToggleButtonVerticalBackground}" />
+                Value="{StaticResource DarkThemeButtonBackgroundBrush}" />
+        <Setter Property="Foreground"
+                Value="{StaticResource DarkThemeTextBrush}" />
         <Setter Property="MinHeight"
                 Value="0" />
         <Setter Property="MinWidth"
@@ -183,7 +185,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type Thumb}">
-                    <Border Background="#FF1B1B1C"
+                    <Border Background="{StaticResource DarkThemeControlBackgroundBrush}"
                             Padding="{TemplateBinding Padding}"
                             SnapsToDevicePixels="True">
                         <Rectangle>
@@ -219,7 +221,7 @@
 
     <Style TargetType="{x:Type local:UniformToolBar}">
         <Setter Property="Background"
-                Value="#FF1B1B1C" />
+                Value="{StaticResource DarkThemeControlBackgroundBrush}" />
         <Setter Property="BorderThickness"
                 Value="0" />
         <Setter Property="Padding"

@@ -24,6 +24,10 @@ public sealed class CsvExportRequest
     /// The text encoding to use when writing the CSV files.
     /// When <see langword="null"/>, UTF-8 without BOM is used.
     /// </param>
+    /// <param name="options">
+    /// Export-level policy that controls target intent, normalization, and timestamp projection.
+    /// When <see langword="null"/>, machine-parseable structured CSV defaults are used.
+    /// </param>
     /// <param name="delimiter">The CSV delimiter to use when writing files.</param>
     /// <exception cref="ArgumentNullException">
     /// Thrown when <paramref name="sourceActivity"/> is <see langword="null"/>.
@@ -35,6 +39,7 @@ public sealed class CsvExportRequest
         FitActivity sourceActivity,
         ImmutableArray<CsvNodeExportRequest> nodeRequests,
         Encoding? encoding = null,
+        FitExportOptions? options = null,
         char delimiter = ',')
     {
         ArgumentNullException.ThrowIfNull(sourceActivity);
@@ -43,6 +48,7 @@ public sealed class CsvExportRequest
         SourceActivity = sourceActivity;
         NodeRequests = nodeRequests.IsDefault ? ImmutableArray<CsvNodeExportRequest>.Empty : nodeRequests;
         Encoding = encoding ?? s_defaultEncoding;
+        Options = options ?? new FitExportOptions();
         Delimiter = delimiter;
     }
 
@@ -60,6 +66,11 @@ public sealed class CsvExportRequest
     /// Gets the text encoding used for generated CSV files.
     /// </summary>
     public Encoding Encoding { get; }
+
+    /// <summary>
+    /// Gets the export-level policy that controls target intent and normalization.
+    /// </summary>
+    public FitExportOptions Options { get; }
 
     /// <summary>
     /// Gets the delimiter used for generated CSV files.

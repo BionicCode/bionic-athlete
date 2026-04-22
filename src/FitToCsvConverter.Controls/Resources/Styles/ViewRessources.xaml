@@ -92,7 +92,12 @@
 
     <Duration x:Key="MouseOverAnimationDuration">0:0:0.3</Duration>
     <CornerRadius x:Key="CornerRadius">4</CornerRadius>
+    <sys:Double x:Key="CornerRadiusDouble">4</sys:Double>
 
+    <Color x:Key="DarkThemeControlBackgroundColor">#FF252526</Color>
+    <SolidColorBrush x:Key="DarkThemeControlBackgroundBrush"
+                     Color="{DynamicResource DarkThemeControlBackgroundColor}"
+                     Opacity="1" />
     <Color x:Key="MouseOverTextColor">White</Color>
     <SolidColorBrush x:Key="MouseOverTextBrush"
                      Color="{DynamicResource MouseOverTextColor}"
@@ -169,7 +174,7 @@
     <SolidColorBrush x:Key="ExtraFileItemButtonHighlightBrush"
                      Color="{DynamicResource ExtraFileItemButtonHighlightColor}"
                      Opacity="0.8" />
-    <Color x:Key="DefaultListItemBackgroundColor">#9bc3c5</Color>
+    <Color x:Key="DefaultListItemBackgroundColor">#FF333337</Color>
     <SolidColorBrush x:Key="DefaultListItemBackgroundBrush"
                      Color="{DynamicResource DefaultListItemBackgroundColor}"
                      Opacity="0.8" />
@@ -213,7 +218,7 @@
             <Trigger Property="IsMouseOver"
                      Value="True">
                 <Trigger.EnterActions>
-                    <BeginStoryboard x:Name="MouseOverStoryboard">
+                    <BeginStoryboard>
                         <Storyboard>
                             <ColorAnimation Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
                                             To="{StaticResource DarkThemeHoveredButtonBackgroundColor}"
@@ -225,30 +230,80 @@
                     </BeginStoryboard>
                 </Trigger.EnterActions>
                 <Trigger.ExitActions>
-                    <StopStoryboard BeginStoryboardName="MouseOverStoryboard" />
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <ColorAnimation Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
+                                            To="{StaticResource DarkThemeButtonBackgroundColor}"
+                                            Duration="{StaticResource MouseOverAnimationDuration}" />
+                            <ColorAnimation Storyboard.TargetProperty="(Foreground).(SolidColorBrush.Color)"
+                                            To="{StaticResource DarkThemeTextColor}"
+                                            Duration="{StaticResource MouseOverAnimationDuration}" />
+                        </Storyboard>
+                    </BeginStoryboard>
                 </Trigger.ExitActions>
-                <!--<Setter Property="Foreground"                       
-                        Value="{StaticResource MouseOverTextBrush}" />-->
             </Trigger>
+        </Style.Triggers>
+    </Style>
+    
+    <Style TargetType="CheckBox">
+        <Style.Setters>
+            <Setter Property="Background"
+                    Value="{StaticResource DarkThemeButtonBackgroundBrush}" />
+            <Setter Property="Foreground"
+                    Value="{StaticResource DarkThemeTextBrush}" />
+            <Setter Property="BorderThickness"
+                    Value="0" />
+            <Setter Property="Padding"
+                    Value="5" />
+            <Setter Property="HorizontalContentAlignment"
+                    Value="Center" />
+            <Setter Property="VerticalContentAlignment"
+                    Value="Center" />
+            <!--<Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Border CornerRadius="{StaticResource CornerRadius}"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              Content="{TemplateBinding Content}" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>-->
+        </Style.Setters>
 
-            <!--<EventTrigger RoutedEvent="MouseEnter">
-                <BeginStoryboard>
-                    <Storyboard>
-                        <ColorAnimation Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
-                                        To="{StaticResource ExtraFileItemButtonHighlightColor}"
-                                        Duration="{StaticResource MouseOverAnimationDuration}" />
-                    </Storyboard>
-                </BeginStoryboard>
-            </EventTrigger>
-            <EventTrigger RoutedEvent="MouseLeave">
-                <BeginStoryboard>
-                    <Storyboard>
-                        <ColorAnimation Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
-                                        To="{StaticResource ExtraFileItemButtonBackgroundColor}"
-                                        Duration="{StaticResource MouseOverAnimationDuration}" />
-                    </Storyboard>
-                </BeginStoryboard>
-            </EventTrigger>-->
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver"
+                     Value="True">
+                <Trigger.EnterActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <ColorAnimation Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
+                                            To="{StaticResource DarkThemeHoveredButtonBackgroundColor}"
+                                            Duration="{StaticResource MouseOverAnimationDuration}" />
+                            <ColorAnimation Storyboard.TargetProperty="(Foreground).(SolidColorBrush.Color)"
+                                            To="{StaticResource DarkThemeHoveredButtonTextColor}"
+                                            Duration="{StaticResource MouseOverAnimationDuration}" />
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.EnterActions>
+                <Trigger.ExitActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <ColorAnimation Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
+                                            To="{StaticResource DarkThemeButtonBackgroundColor}"
+                                            Duration="{StaticResource MouseOverAnimationDuration}" />
+                            <ColorAnimation Storyboard.TargetProperty="(Foreground).(SolidColorBrush.Color)"
+                                            To="{StaticResource DarkThemeTextColor}"
+                                            Duration="{StaticResource MouseOverAnimationDuration}" />
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.ExitActions>
+            </Trigger>
         </Style.Triggers>
     </Style>
 </ResourceDictionary>

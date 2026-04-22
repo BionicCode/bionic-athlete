@@ -5,6 +5,7 @@ using System.Collections.Specialized;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using BionicCode.Utilities.Net;
+using FitToCsvConverter.Data;
 using FitToCsvConverter.Data.Activities;
 using FitToCsvConverter.Data.Decoding;
 using FitToCsvConverter.Data.Exporting;

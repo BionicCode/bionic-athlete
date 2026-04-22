@@ -1,46 +1,100 @@
 ﻿namespace FitToCsvConverter.Controls;
 
+using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Media;
 
 public class AdvancedProgressBar : ProgressBar
 {
-    public CornerRadius CornerRadius
+    public double CornerRadius
     {
-        get => (CornerRadius)GetValue(CornerRadiusProperty);
+        get => (double)GetValue(CornerRadiusProperty);
         set => SetValue(CornerRadiusProperty, value);
     }
 
     public static readonly DependencyProperty CornerRadiusProperty =
         DependencyProperty.Register(
             nameof(CornerRadius),
-            typeof(CornerRadius),
+            typeof(double),
             typeof(AdvancedProgressBar),
-            new FrameworkPropertyMetadata(new CornerRadius(4), FrameworkPropertyMetadataOptions.AffectsMeasure));
+            new FrameworkPropertyMetadata(4.0, FrameworkPropertyMetadataOptions.AffectsMeasure));
 
-    public double ProgressTextSize
+    public double ProgressPercentageSize
     {
-        get => (double)GetValue(ProgressTextSizeProperty);
-        set => SetValue(ProgressTextSizeProperty, value);
+        get => (double)GetValue(ProgressPercentageSizeProperty);
+        set => SetValue(ProgressPercentageSizeProperty, value);
     }
 
-    public static readonly DependencyProperty ProgressTextSizeProperty =
+    public static readonly DependencyProperty ProgressPercentageSizeProperty =
         DependencyProperty.Register(
-            nameof(ProgressTextSize),
+            nameof(ProgressPercentageSize),
             typeof(double),
             typeof(AdvancedProgressBar),
             new FrameworkPropertyMetadata(12.0, FrameworkPropertyMetadataOptions.AffectsMeasure));
 
-    public Brush ProgressTextBrush
+    public double ProgressMessageSize
     {
-        get => (Brush)GetValue(ProgressTextBrushProperty);
-        set => SetValue(ProgressTextBrushProperty, value);
+        get => (double)GetValue(ProgressMessageSizeProperty);
+        set => SetValue(ProgressMessageSizeProperty, value);
     }
 
-    public static readonly DependencyProperty ProgressTextBrushProperty =
+    public static readonly DependencyProperty ProgressMessageSizeProperty =
         DependencyProperty.Register(
-            nameof(ProgressTextBrush),
+            nameof(ProgressMessageSize),
+            typeof(double),
+            typeof(AdvancedProgressBar),
+            new FrameworkPropertyMetadata(12.0, FrameworkPropertyMetadataOptions.AffectsMeasure));
+
+    public double TitleSize
+    {
+        get => (double)GetValue(TitleSizeProperty);
+        set => SetValue(TitleSizeProperty, value);
+    }
+
+    public static readonly DependencyProperty TitleSizeProperty =
+        DependencyProperty.Register(
+            nameof(TitleSize),
+            typeof(double),
+            typeof(AdvancedProgressBar),
+            new FrameworkPropertyMetadata(12.0, FrameworkPropertyMetadataOptions.AffectsMeasure));
+
+    public Brush ProgressPercentageBrush
+    {
+        get => (Brush)GetValue(ProgressPercentageBrushProperty);
+        set => SetValue(ProgressPercentageBrushProperty, value);
+    }
+
+    public static readonly DependencyProperty ProgressPercentageBrushProperty =
+        DependencyProperty.Register(
+            nameof(ProgressPercentageBrush),
+            typeof(Brush),
+            typeof(AdvancedProgressBar),
+            new FrameworkPropertyMetadata(Brushes.Black));
+
+    public Brush ProgressMessageBrush
+    {
+        get => (Brush)GetValue(ProgressMessageBrushProperty);
+        set => SetValue(ProgressMessageBrushProperty, value);
+    }
+
+    public static readonly DependencyProperty ProgressMessageBrushProperty =
+        DependencyProperty.Register(
+            nameof(ProgressMessageBrush),
+            typeof(Brush),
+            typeof(AdvancedProgressBar),
+            new FrameworkPropertyMetadata(Brushes.Black));
+
+    public Brush TitleBrush
+    {
+        get => (Brush)GetValue(TitleBrushProperty);
+        set => SetValue(TitleBrushProperty, value);
+    }
+
+    public static readonly DependencyProperty TitleBrushProperty =
+        DependencyProperty.Register(
+            nameof(TitleBrush),
             typeof(Brush),
             typeof(AdvancedProgressBar),
             new FrameworkPropertyMetadata(Brushes.Black));
@@ -58,31 +112,53 @@ public class AdvancedProgressBar : ProgressBar
             typeof(AdvancedProgressBar),
             new FrameworkPropertyMetadata(0.0));
 
-    public Thickness ProgressTextMargin
+    public Thickness ProgressPercentageMargin
     {
-        get => (Thickness)GetValue(ProgressTextMarginProperty);
-        set => SetValue(ProgressTextMarginProperty, value);
+        get => (Thickness)GetValue(ProgressPercentageMarginProperty);
+        set => SetValue(ProgressPercentageMarginProperty, value);
     }
 
-    public static readonly DependencyProperty ProgressTextMarginProperty =
+    public static readonly DependencyProperty ProgressPercentageMarginProperty =
         DependencyProperty.Register(
-            nameof(ProgressTextMargin),
+            nameof(ProgressPercentageMargin),
             typeof(Thickness),
             typeof(AdvancedProgressBar),
             new FrameworkPropertyMetadata(new Thickness(4)));
 
-    public ProgressTextAlignment ProgressTextAlignment
+    public ProgressTextAlignment ProgressPercentageAlignment
     {
-        get => (ProgressTextAlignment)GetValue(ProgressTextAlignmentProperty);
-        set => SetValue(ProgressTextAlignmentProperty, value);
+        get => (ProgressTextAlignment)GetValue(ProgressPercentageAlignmentProperty);
+        set => SetValue(ProgressPercentageAlignmentProperty, value);
     }
 
-    public static readonly DependencyProperty ProgressTextAlignmentProperty =
+    public static readonly DependencyProperty ProgressPercentageAlignmentProperty =
         DependencyProperty.Register(
-            nameof(ProgressTextAlignment),
+            nameof(ProgressPercentageAlignment),
             typeof(ProgressTextAlignment),
             typeof(AdvancedProgressBar),
             new FrameworkPropertyMetadata(ProgressTextAlignment.Center));
+
+    public string Title
+    {
+        get => (string)GetValue(TitleProperty); set => SetValue(TitleProperty, value);
+    }
+
+    public static readonly DependencyProperty TitleProperty = DependencyProperty.Register(
+        nameof(Title),
+        typeof(string),
+        typeof(AdvancedProgressBar),
+        new PropertyMetadata(string.Empty));
+
+    public string ProgressMessage
+    {
+        get => (string)GetValue(ProgressMessageProperty); set => SetValue(ProgressMessageProperty, value);
+    }
+
+    public static readonly DependencyProperty ProgressMessageProperty = DependencyProperty.Register(
+        nameof(ProgressMessage),
+        typeof(string),
+        typeof(AdvancedProgressBar),
+        new PropertyMetadata(string.Empty));
 
     protected override void OnValueChanged(double oldValue, double newValue)
     {
@@ -105,4 +181,12 @@ public class AdvancedProgressBar : ProgressBar
     protected virtual void UpdateProgressPercentageProperty() => ProgressPercentage = Maximum != 0 && Maximum > Minimum
         ? (Value - Minimum) / (Maximum - Minimum) * 100
         : 0;
+}
+
+public class SizeToRectConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture) => value is Size hostRenderSize
+        ? new Rect(hostRenderSize)
+        : Rect.Empty;
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotSupportedException();
 }

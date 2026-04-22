@@ -26,6 +26,10 @@ public static class CsvExportRequestFactory
     /// The text encoding to use when writing the CSV files.
     /// When <see langword="null"/>, UTF-8 without BOM is used.
     /// </param>
+    /// <param name="options">
+    /// Export-level policy that controls target intent, normalization, and timestamp projection.
+    /// When <see langword="null"/>, machine-parseable structured CSV defaults are used.
+    /// </param>
     /// <param name="delimiter">The CSV delimiter to use when writing files.</param>
     /// <returns>The final CSV export request.</returns>
     public static CsvExportRequest Create(
@@ -34,6 +38,7 @@ public static class CsvExportRequestFactory
         string outputDirectoryPath,
         IEnumerable<CsvExportColumnRequest> columnRequests,
         Encoding? encoding = null,
+        FitExportOptions? options = null,
         char delimiter = ',')
     {
         ArgumentNullException.ThrowIfNull(sourceActivity);
@@ -50,7 +55,7 @@ public static class CsvExportRequestFactory
             .Select(group => CreateNodeRequest(group, sourceFileNameWithoutExtension, outputDirectoryPath))
             .ToImmutableArray();
 
-        return new CsvExportRequest(sourceActivity, nodeRequests, encoding, delimiter);
+        return new CsvExportRequest(sourceActivity, nodeRequests, encoding, options, delimiter);
     }
 
     private static CsvNodeExportRequest CreateNodeRequest(

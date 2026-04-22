@@ -302,7 +302,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
 
     private async Task CreateArchivesAsync()
     {
-        List<FileBatch> batchesToArchive = EnumerateFileBatches().ToList();
+        var batchesToArchive = EnumerateFileBatches().ToList();
         if (batchesToArchive.Count == 0)
         {
             return;
@@ -317,7 +317,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
     {
         foreach (ExportData exportData in ExportData)
         {
-            List<FileDescriptor> fileDescriptors = exportData.EnumerateArchiveFileDescriptors().ToList();
+            var fileDescriptors = exportData.EnumerateArchiveFileDescriptors().ToList();
             if (fileDescriptors.Count == 0)
             {
                 continue;

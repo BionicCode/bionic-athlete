@@ -8,6 +8,8 @@
         xmlns:bionicNet="clr-namespace:BionicCode.Utilities.Net;assembly=BionicCode.Utilities.Net.Wpf"
         mc:Ignorable="d"
         Title="MainWindow" Height="900" 
+        Background="{DynamicResource DarkThemeControlBackgroundBrush}"
+        Foreground="{DynamicResource DarkThemeTextBrush}"
         SizeToContent="Width"
         SnapsToDevicePixels="True">
     <d:DesignerProperties.DataContext>
@@ -45,7 +47,7 @@
                     <Style x:Key="FieldListItemStyle"
                            TargetType="ListBoxItem">
                         <Setter Property="Background"
-                                Value="Transparent" />
+                                Value="{StaticResource DarkThemeControlBackgroundBrush}" />
                         <Setter Property="BorderBrush"
                                 Value="Transparent" />
                         <Setter Property="BorderThickness"
@@ -74,6 +76,8 @@
                     </Style>
                 </Style.Resources>
 
+                <Setter Property="Background"
+                        Value="{StaticResource DarkThemeControlBackgroundBrush}" />
                 <Setter Property="ItemContainerStyle"
                         Value="{StaticResource FieldListItemStyle}" />
                 <Setter Property="Height"
@@ -102,6 +106,8 @@
                    x:Key="ExtraFileListBoxItem">
                 <Setter Property="Background"
                         Value="{StaticResource DefaultListItemBackgroundBrush}" />
+                <Setter Property="Foreground"
+                        Value="{StaticResource DarkThemeTextBrush}" />
                 <Setter Property="BorderThickness"
                         Value="1" />
                 <Setter Property="BorderBrush"
@@ -153,6 +159,8 @@
             <Style TargetType="ListBoxItem">
                 <Setter Property="Background"
                         Value="{StaticResource DefaultListItemBackgroundBrush}" />
+                <Setter Property="Foreground"
+                        Value="{StaticResource DarkThemeTextBrush}" />
                 <Setter Property="BorderThickness"
                         Value="1" />
                 <Setter Property="BorderBrush"
@@ -183,7 +191,9 @@
                                 <Trigger Property="IsSelected"
                                          Value="True">
                                     <Setter Property="Background"
-                                            Value="{StaticResource DefaultListItemHighlightBrush}" />
+                                            Value="{StaticResource DarkThemeTextBrush}" />
+                                    <Setter Property="Foreground"
+                                            Value="{StaticResource DefaultListItemBackgroundBrush}" />
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -264,7 +274,7 @@
                    Grid.ColumnSpan="2"
                    Margin="0,10" />
 
-        <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Auto">
+        <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Auto" Padding="30">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -304,13 +314,6 @@
                                               VerticalAlignment="Top"
                                               ItemWidth="59"
                                               ItemHeight="28">
-                            <Button Content="Hello" Style="{x:Null}" />
-                            <Button Content="World"
-                                    Style="{x:Null}" />
-                            <Button Content="Hello"
-                                    Style="{x:Null}" />
-                            <Button Content="World"
-                                    Style="{x:Null}" />
                             <local:ToolBarButton Content="{StaticResource OpenFileIcon}"
                                                  LabelText="Open file"
                                                  Command="{x:Static local:MainWindow.OpenFitFileCommand}"
@@ -319,10 +322,6 @@
                                                  LabelText="Clear all"
                                                  Command="{x:Static local:MainWindow.RemoveAllFitFilesCommand}"
                                                  LabelFontSize="12"/>
-                            <Button Content="Hello"
-                                    Style="{x:Null}" />
-                            <Button Content="World"
-                                    Style="{x:Null}" />
                         </local:UniformToolBar>
                         <Grid Grid.Row="2"
                               Height="400"
@@ -478,7 +477,7 @@
                                         <CheckBox x:Name="ManualRenameCheckBox"
                                                   Grid.Column="1"
                                                   IsChecked="{Binding IsRenamingEnabled}"
-                                                  Foreground="{StaticResource TextBrush}"
+                                                  Foreground="{StaticResource DarkThemeTextBrush}"
                                                   Content="Rename"
                                                   Margin="5,0,20,0"
                                                   VerticalAlignment="Center"
@@ -649,37 +648,27 @@
                             Command="{Binding ClearAllProgressCommand}" />
 
                     <ListBox ItemsSource="{Binding ProgressDataCollection, Mode=OneTime}"
-                             IsHitTestVisible="False">
+                             IsHitTestVisible="False"
+                             BorderThickness="0"
+                             Margin="0,5"
+                             Background="{StaticResource DarkThemeControlBackgroundBrush}">
                         <ListBox.ItemTemplate>
                             <DataTemplate DataType="bionicNet:ObservableProgressData">
                                 <Grid>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
-                                    </Grid.RowDefinitions>
-
-                                    <StackPanel Grid.Row="0" 
-                                                Orientation="Horizontal">
-                                        <TextBlock Text="{Binding OperationTitle}" />
-                                        <TextBlock Text=":" />
-                                    </StackPanel>
-                                    <local:AdvancedProgressBar Grid.Row="1" 
+                                    <local:AdvancedProgressBar Grid.Row="1"
+                                                               Title="{Binding OperationTitle}"
+                                                               TitleBrush="{StaticResource DarkThemeTextBrush}"
+                                                               ProgressMessage="{Binding Message}"
+                                                               ProgressMessageBrush="{StaticResource DarkThemeTextBrush}"
                                                                Maximum="{Binding MaxValue, Mode=OneWay}"
                                                                Height="Auto"
-                                                               CornerRadius="{StaticResource CornerRadius}"
-                                                               ProgressTextAlignment="Center"
+                                                               CornerRadius="{StaticResource CornerRadiusDouble}"
+                                                               ProgressPercentageAlignment="Center"
                                                                ProgressPercentage="{Binding ProgressPercentage, Mode=OneWay}"
-                                                               ProgressTextSize="14"
+                                                               ProgressPercentageSize="14"
                                                                Value="{Binding Progress, Mode=OneWay}"
                                                                HorizontalAlignment="Stretch"
                                                                IsIndeterminate="{Binding IsIndeterminate, Mode=OneWay}" />
-                                    <TextBlock Grid.Row="2" 
-                                               Text="{Binding Message, Mode=OneWay}"
-                                               HorizontalAlignment="Left"
-                                               VerticalAlignment="Center"
-                                               Foreground="Gray"
-                                               FontStyle="Italic" />
                                 </Grid>
                             </DataTemplate>
                         </ListBox.ItemTemplate>

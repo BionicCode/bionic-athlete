@@ -6,6 +6,8 @@ namespace FitToCsvConverter.Data.Exporting;
 /// <remarks>
 /// This contract is intentionally limited to outward-facing file export.
 /// It does not define the application's persistence model or any remote sync shape.
+/// The current implementation supports <see cref="FitExportTarget.StructuredCsv"/> requests and reserves
+/// presentation-oriented export targets for future work.
 /// </remarks>
 public interface ICsvActivityExporter
 {

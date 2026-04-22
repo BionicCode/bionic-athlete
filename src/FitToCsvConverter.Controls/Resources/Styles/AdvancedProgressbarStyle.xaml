@@ -14,6 +14,7 @@
 
     <local:ProgressTextAlignmentToGridColumnConverter x:Key="ProgressTextAlignmentToGridColumnConverter" />
     <local:ProgressTextAlignmentToGridRowConverter x:Key="ProgressTextAlignmentToGridRowConverter" />
+    <local:SizeToRectConverter x:Key="SizeToRectConverter" />
 
     <Style x:Key="{x:Type local:AdvancedProgressBar}" 
            TargetType="{x:Type local:AdvancedProgressBar}">
@@ -30,12 +31,7 @@
                             <RowDefinition Height="*" />
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        
+
                         <VisualStateManager.VisualStateGroups>
                             <VisualStateGroup x:Name="CommonStates">
                                 <VisualState x:Name="Determinate" />
@@ -63,52 +59,91 @@
                                 </VisualState>
                             </VisualStateGroup>
                         </VisualStateManager.VisualStateGroups>
-                        <Border Grid.Row="1"
-                                Grid.Column="1"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="{TemplateBinding CornerRadius}" /> 
 
-                        <Rectangle x:Name="PART_Track"
-                                   Grid.Row="1"
-                                   Grid.Column="1"
-                                   RadiusX="{TemplateBinding CornerRadius}"
-                                   RadiusY="{TemplateBinding CornerRadius}" />
+                        <TextBlock Grid.Row="0"
+                                   Text="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=Title, StringFormat={}{0}:}"
+                                   Foreground="{TemplateBinding TitleBrush}"
+                                   FontSize="{TemplateBinding TitleSize}"
+                                   FontWeight="Bold" />
+                        
+                        <Grid x:Name="ProgressBarHost"
+                              Grid.Row="1">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Row="1"
+                                    Grid.Column="1"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}" />
 
-                        <Grid x:Name="PART_Indicator"
-                              Grid.Row="1"
-                              Grid.Column="1"
-                              ClipToBounds="true"
-                              HorizontalAlignment="Left">
-                            <Rectangle x:Name="Indicator"
-                                       Fill="{TemplateBinding Foreground}"
+                            <Rectangle x:Name="PART_Track"
+                                       Grid.Row="1"
+                                       Grid.Column="1"
                                        RadiusX="{TemplateBinding CornerRadius}"
                                        RadiusY="{TemplateBinding CornerRadius}" />
-                            <Rectangle x:Name="Animation"
-                                       Fill="{TemplateBinding Foreground}"
-                                       RenderTransformOrigin="0.5,0.5"
-                                       RadiusX="{TemplateBinding CornerRadius}"
-                                       RadiusY="{TemplateBinding CornerRadius}">
-                                <Rectangle.RenderTransform>
-                                    <TransformGroup>
-                                        <ScaleTransform />
-                                        <SkewTransform />
-                                        <RotateTransform />
-                                        <TranslateTransform />
-                                    </TransformGroup>
-                                </Rectangle.RenderTransform>
-                            </Rectangle>
+
+                            <!--<Border
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="{TemplateBinding CornerRadius}"
+                                    Padding="0"
+                                    ClipToBounds="True">-->
+                                <Grid x:Name="PART_Indicator" Grid.Row="1"
+                                    Grid.Column="1"
+                                      ClipToBounds="true"
+                                      HorizontalAlignment="Left">
+                                    <Rectangle x:Name="Indicator"
+                                               Fill="{TemplateBinding Foreground}"
+                                               RadiusX="{TemplateBinding CornerRadius}"
+                                               RadiusY="{TemplateBinding CornerRadius}" />
+                                    <Rectangle x:Name="Animation"
+                                               Fill="{TemplateBinding Foreground}"
+                                               RenderTransformOrigin="0.5,0.5"
+                                               RadiusX="{TemplateBinding CornerRadius}"
+                                               RadiusY="{TemplateBinding CornerRadius}">
+                                        <!--<Rectangle.Clip>
+                                            <RectangleGeometry Rect="{Binding ElementName=PART_Indicator, Path=RenderSize, Converter={StaticResource SizeToRectConverter}}"
+                                                               RadiusX="34"
+                                                               RadiusY="34" />
+                                        </Rectangle.Clip>-->
+                                        <Rectangle.RenderTransform>
+                                            <TransformGroup>
+                                                <ScaleTransform />
+                                                <SkewTransform />
+                                                <RotateTransform />
+                                                <TranslateTransform />
+                                            </TransformGroup>
+                                        </Rectangle.RenderTransform>
+                                    </Rectangle>
+                                </Grid>
+                            <!--</Border>-->
+                            <TextBlock Grid.Row="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=ProgressPercentageAlignment, Converter={StaticResource ProgressTextAlignmentToGridRowConverter}}"
+                                       Grid.Column="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=ProgressPercentageAlignment, Converter={StaticResource ProgressTextAlignmentToGridColumnConverter}}"
+                                       Text="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=ProgressPercentage, StringFormat={}{0:F0} %}"
+                                       Foreground="{TemplateBinding ProgressPercentageBrush}"
+                                       FontSize="{TemplateBinding ProgressPercentageSize}"
+                                       FontWeight="Bold"
+                                       Margin="5"
+                                       VerticalAlignment="Center"
+                                       HorizontalAlignment="Center" />
                         </Grid>
-                        <TextBlock Grid.Row="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=ProgressTextAlignment, Converter={StaticResource ProgressTextAlignmentToGridRowConverter}}"
-                                   Grid.Column="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=ProgressTextAlignment, Converter={StaticResource ProgressTextAlignmentToGridColumnConverter}}"
-                                   Text="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=ProgressPercentage, StringFormat={}{0:F0} %}"
-                                   Foreground="{TemplateBinding ProgressTextBrush}"
-                                   FontSize="{TemplateBinding ProgressTextSize}"
-                                   FontWeight="Bold"
-                                   Margin="5"
+                        
+                        <TextBlock Grid.Row="2"
+                                   Text="{TemplateBinding ProgressMessage}"
+                                   HorizontalAlignment="Left"
                                    VerticalAlignment="Center"
-                                   HorizontalAlignment="Center" />
+                                   FontSize="{TemplateBinding ProgressMessageSize}"
+                                   Foreground="{TemplateBinding ProgressMessageBrush}"
+                                   FontStyle="Italic" />
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="Orientation" Value="Vertical">
