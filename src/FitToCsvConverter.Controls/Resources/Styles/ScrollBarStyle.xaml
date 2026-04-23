@@ -210,66 +210,92 @@
 <Style x:Key="{x:Type ScrollBar}" TargetType="{x:Type ScrollBar}">
   <Setter Property="UseLayoutRounding" Value="True" />
   <Setter Property="OverridesDefaultStyle" Value="true" />
+    <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
   <Style.Triggers>
-    <MultiTrigger>
-      <MultiTrigger.Conditions>
-        <Condition Property="Orientation"
-                    Value="Horizontal" />
-        <Condition Property="IsMouseOver"
-                    Value="False" />
-      </MultiTrigger.Conditions>
-      <Setter Property="Width"
-              Value="Auto" />
-      <Setter Property="Height"
-              Value="8" />
-      <Setter Property="Template"
-              Value="{StaticResource HorizontalScrollBar}" />
-    </MultiTrigger>
+            <MultiTrigger>
+                <MultiTrigger.Conditions>
+                    <Condition Property="IsMouseOver"
+                               Value="True" />
+                    <Condition Property="Orientation"
+                               Value="Horizontal" />
+                </MultiTrigger.Conditions>  
+                <MultiTrigger.EnterActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY"
+                                             To="1"
+                                             Duration="0:0:0.1" />
+                        </Storyboard>
+                    </BeginStoryboard>
+                </MultiTrigger.EnterActions>
+                <MultiTrigger.ExitActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY"
+                                             To="0.2"
+                                             Duration="{StaticResource MouseOverAnimationDuration}" />
+                        </Storyboard>
+                    </BeginStoryboard>
+                </MultiTrigger.ExitActions>
+            </MultiTrigger>
+            <MultiTrigger>
+                <MultiTrigger.Conditions>
+                    <Condition Property="IsMouseOver"
+                               Value="True" />
+                    <Condition Property="Orientation"
+                               Value="Vertical" />
+                </MultiTrigger.Conditions>
+                <MultiTrigger.EnterActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX"
+                                             To="1"
+                                             Duration="0:0:0.1" />
+                        </Storyboard>
+                    </BeginStoryboard>
+                </MultiTrigger.EnterActions>
+                <MultiTrigger.ExitActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX"
+                                             To="0.2"
+                                             Duration="{StaticResource MouseOverAnimationDuration}" />
+                        </Storyboard>
+                    </BeginStoryboard>
+                </MultiTrigger.ExitActions>
+            </MultiTrigger>
 
-    <MultiTrigger>
-      <MultiTrigger.Conditions>
-        <Condition Property="Orientation"
-                    Value="Horizontal" />
-        <Condition Property="IsMouseOver"
-                    Value="True" />
-      </MultiTrigger.Conditions>
-      <Setter Property="Width"
-              Value="Auto" />
-      <Setter Property="Height"
-              Value="18" />
-      <Setter Property="Template"
-              Value="{StaticResource HorizontalScrollBar}" />
-    </MultiTrigger>
+            <Trigger Property="Orientation"
+               Value="Horizontal">
+        <Setter Property="Width"
+                Value="Auto" />
+        <Setter Property="Height"
+                Value="18" />
+        <Setter Property="Template"
+                        Value="{StaticResource HorizontalScrollBar}" />
+                <Setter Property="RenderTransform">
+                    <Setter.Value>
+                        <ScaleTransform ScaleX="1"
+                                        ScaleY="0.2" />
+                    </Setter.Value>
+                </Setter>
+            </Trigger>
 
-    <MultiTrigger>
-      <MultiTrigger.Conditions>
-        <Condition Property="Orientation"
-                    Value="Vertical" />
-        <Condition Property="IsMouseOver"
-                    Value="False" />
-      </MultiTrigger.Conditions>
-      <Setter Property="Height"
-              Value="Auto" />
-      <Setter Property="Width"
-              Value="8" />
-      <Setter Property="Template"
-              Value="{StaticResource VerticalScrollBar}" />
-    </MultiTrigger>
-
-    <MultiTrigger>
-      <MultiTrigger.Conditions>
-        <Condition Property="Orientation"
-                    Value="Vertical" />
-        <Condition Property="IsMouseOver"
-                    Value="True" />
-      </MultiTrigger.Conditions>
-      <Setter Property="Height"
-              Value="Auto" />
-      <Setter Property="Width"
-              Value="18" />
-      <Setter Property="Template"
-              Value="{StaticResource VerticalScrollBar}" />
-    </MultiTrigger>
-      </Style.Triggers>
+            <Trigger Property="Orientation"
+                     Value="Vertical">
+                <Setter Property="Height"
+                        Value="Auto" />
+                <Setter Property="Width"
+                        Value="18" />
+                <Setter Property="Template"
+                        Value="{StaticResource VerticalScrollBar}" />
+                <Setter Property="RenderTransform">
+                    <Setter.Value>
+                        <ScaleTransform ScaleX="0.2"
+                                        ScaleY="1" />
+                    </Setter.Value>
+                </Setter>
+            </Trigger>
+        </Style.Triggers>
   </Style>
 </ResourceDictionary>
