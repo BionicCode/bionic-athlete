@@ -540,13 +540,12 @@ internal static class FitActivityModelFactory
                     scale: 1000d));
         }
 
-        ImmutableArray<FitRecord> records =
-        [
-            CreatePowerRecord(sequenceNumber: 0, sessionStartTimeUtc, speedMetersPerSecond: 5d, distanceMeters: 0d, powerWatts: 100),
-            CreatePowerRecord(sequenceNumber: 1, sessionStartTimeUtc.AddSeconds(600), speedMetersPerSecond: 6d, distanceMeters: 3000d, powerWatts: 200),
-            CreatePowerRecord(sequenceNumber: 2, sessionStartTimeUtc.AddSeconds(1200), speedMetersPerSecond: 7d, distanceMeters: 7000d, powerWatts: 300),
-            CreatePowerRecord(sequenceNumber: 3, sessionStartTimeUtc.AddSeconds(1800), speedMetersPerSecond: 0d, distanceMeters: 10000d, powerWatts: 0),
-        ];
+        ImmutableArray<FitRecord> records = CreateDensePowerRecords(
+            startTimeUtc: sessionStartTimeUtc,
+            movingDurationSeconds: 1800,
+            totalDistanceMeters: 10000d,
+            speedMetersPerSecond: 5.55555555555556d,
+            powerWatts: 250);
 
         FitSession session = new(
             CreateNodeSnapshot(
@@ -655,6 +654,30 @@ internal static class FitActivityModelFactory
                 timestampUtc,
                 startTimeUtc: null),
             ImmutableArray.Create(timestampField, speedField, distanceField, powerField));
+    }
+
+    private static ImmutableArray<FitRecord> CreateDensePowerRecords(
+        DateTimeOffset startTimeUtc,
+        int movingDurationSeconds,
+        double totalDistanceMeters,
+        double speedMetersPerSecond,
+        ushort powerWatts)
+    {
+        ImmutableArray<FitRecord>.Builder builder = ImmutableArray.CreateBuilder<FitRecord>(movingDurationSeconds + 1);
+        double distancePerSecond = totalDistanceMeters / movingDurationSeconds;
+
+        for (int second = 0; second <= movingDurationSeconds; second++)
+        {
+            builder.Add(
+                CreatePowerRecord(
+                    sequenceNumber: second,
+                    timestampUtc: startTimeUtc.AddSeconds(second),
+                    speedMetersPerSecond: speedMetersPerSecond,
+                    distanceMeters: distancePerSecond * second,
+                    powerWatts: powerWatts));
+        }
+
+        return builder.ToImmutable();
     }
 
     private static FitNodeSnapshot CreateNodeSnapshot(

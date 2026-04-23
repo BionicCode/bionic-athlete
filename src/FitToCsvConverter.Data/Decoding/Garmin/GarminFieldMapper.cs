@@ -67,7 +67,7 @@ internal sealed class GarminFieldMapper
             null,
             null,
             null,
-            isArray: field.GetNumValues() > 1 || HasSingleArrayEncodedValue(field, field.Type),
+            isArray: IsLogicalArrayField(field, field.Type),
             CreateFieldValues(field, field.Type, field.ProfileType.ToString(), preserveSingleArrayValueAsCollection: true));
     }
 
@@ -110,9 +110,8 @@ internal sealed class GarminFieldMapper
             applicationVersion,
             nativeOverrideFieldNumber,
             fieldDescription?.NativeMessageNumber,
-            isArray: fieldDescription?.IsArray == true
-                || developerField.GetNumValues() > 1
-                || HasSingleArrayEncodedValue(developerField, developerField.Type),
+            isArray: (fieldDescription?.IsArray == true || IsLogicalArrayField(developerField, developerField.Type))
+                && !IsStringBaseType(developerField.Type),
             CreateFieldValues(developerField, developerField.Type, "DeveloperField", preserveSingleArrayValueAsCollection: true));
     }
 
@@ -122,6 +121,11 @@ internal sealed class GarminFieldMapper
         string profileTypeName,
         bool preserveSingleArrayValueAsCollection)
     {
+        if (IsStringBaseType(baseType))
+        {
+            return CreateStringFieldValues(fieldBase, baseType, profileTypeName);
+        }
+
         int valueCount = fieldBase.GetNumValues();
         if (preserveSingleArrayValueAsCollection
             && valueCount == 1
@@ -156,15 +160,33 @@ internal sealed class GarminFieldMapper
         return builder.MoveToImmutable();
     }
 
+    private static ImmutableArray<FitFieldValue> CreateStringFieldValues(FieldBase fieldBase, byte baseType, string profileTypeName)
+    {
+        if (fieldBase.GetNumValues() == 0)
+        {
+            return ImmutableArray<FitFieldValue>.Empty;
+        }
+
+        object? rawValue = NormalizeRawValue(fieldBase.GetRawValue(0));
+        object? decodedValue = NormalizeDecodedValue(baseType, profileTypeName, fieldBase.GetValue(), rawValue);
+        return ImmutableArray.Create(new FitFieldValue(rawValue, decodedValue));
+    }
+
+    private static bool IsLogicalArrayField(FieldBase fieldBase, byte baseType)
+        => !IsStringBaseType(baseType)
+            && (fieldBase.GetNumValues() > 1 || HasSingleArrayEncodedValue(fieldBase, baseType));
+
     private static bool HasSingleArrayEncodedValue(FieldBase fieldBase, byte baseType)
         => fieldBase.GetNumValues() == 1
             && (TryExpandArrayValue(fieldBase.GetRawValue(0), baseType, out _)
                 || TryExpandArrayValue(fieldBase.GetValue(), baseType, out _));
 
+    private static bool IsStringBaseType(byte baseType) => (baseType & Fit.BaseTypeNumMask) == Fit.String;
+
     private static bool TryExpandArrayValue(object? value, byte baseType, out ImmutableArray<object?> values)
     {
         values = default;
-        if ((baseType & Fit.BaseTypeNumMask) == Fit.String || value is not Array arrayValue || arrayValue.Rank != 1)
+        if (IsStringBaseType(baseType) || value is not Array arrayValue || arrayValue.Rank != 1)
         {
             return false;
         }
@@ -194,7 +216,7 @@ internal sealed class GarminFieldMapper
             return null;
         }
 
-        if ((baseType & Fit.BaseTypeNumMask) == Fit.String)
+        if (IsStringBaseType(baseType))
         {
             byte[] bytes = normalizedRawValue switch
             {
@@ -347,7 +369,9 @@ internal sealed class GarminFieldMapper
     }
 
     private static string GetMessageName(Mesg mesg)
-        => string.IsNullOrWhiteSpace(mesg.Name) ? $"mesg_{mesg.Num}" : mesg.Name;
+        => string.IsNullOrWhiteSpace(mesg.Name)
+            ? $"mesg_{mesg.Num}"
+            : NormalizeSchemaIdentifier(mesg.Name);
 
     private static string GetStandardFieldName(Field field)
     {
@@ -358,7 +382,7 @@ internal sealed class GarminFieldMapper
 
         return string.Equals(field.Name, "unknown", StringComparison.OrdinalIgnoreCase)
             ? $"unknown_{field.Num}"
-            : field.Name;
+            : NormalizeSchemaIdentifier(field.Name);
     }
 
     private static string GetDeveloperFieldName(
@@ -367,15 +391,78 @@ internal sealed class GarminFieldMapper
     {
         if (!string.IsNullOrWhiteSpace(developerField.Name))
         {
-            return developerField.Name;
+            return NormalizeSchemaIdentifier(developerField.Name);
         }
 
         if (!string.IsNullOrWhiteSpace(fieldDescription?.Name))
         {
-            return fieldDescription.Name!;
+            return NormalizeSchemaIdentifier(fieldDescription.Name!);
         }
 
         return $"developer_{developerField.DeveloperDataIndex}_{developerField.Num}";
+    }
+
+    private static string NormalizeSchemaIdentifier(string value)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(value);
+
+        // Garmin SDK metadata is inconsistent here: profile names from real files often surface as CLR-style
+        // identifiers such as "SportProfileName" or "FileId", while FitCSVTool and the machine export contract
+        // use stable snake_case names. Normalize once at the decoder boundary so downstream schema logic,
+        // alias lookup, and completeness auditing all speak the same canonical language.
+        StringBuilder builder = new(value.Length + 8);
+        bool previousWasSeparator = false;
+
+        for (int index = 0; index < value.Length; index++)
+        {
+            char currentCharacter = value[index];
+            if (!char.IsLetterOrDigit(currentCharacter))
+            {
+                if (builder.Length > 0 && !previousWasSeparator)
+                {
+                    _ = builder.Append('_');
+                    previousWasSeparator = true;
+                }
+
+                continue;
+            }
+
+            if (builder.Length > 0 && ShouldInsertWordSeparator(value, index))
+            {
+                _ = builder.Append('_');
+            }
+
+            _ = builder.Append(char.ToLowerInvariant(currentCharacter));
+            previousWasSeparator = false;
+        }
+
+        return builder.ToString().Trim('_');
+    }
+
+    private static bool ShouldInsertWordSeparator(string value, int index)
+    {
+        if (index <= 0)
+        {
+            return false;
+        }
+
+        char previousCharacter = value[index - 1];
+        char currentCharacter = value[index];
+        char? nextCharacter = index + 1 < value.Length ? value[index + 1] : null;
+
+        if (!char.IsLetterOrDigit(previousCharacter) || !char.IsLetterOrDigit(currentCharacter))
+        {
+            return false;
+        }
+
+        if (char.IsDigit(previousCharacter) != char.IsDigit(currentCharacter))
+        {
+            return true;
+        }
+
+        return char.IsUpper(currentCharacter)
+            && (char.IsLower(previousCharacter)
+                || (char.IsUpper(previousCharacter) && nextCharacter is char lookaheadCharacter && char.IsLower(lookaheadCharacter)));
     }
 
     private static string GetBaseTypeName(byte baseType)

@@ -20,6 +20,7 @@ One structured export request can currently produce three artifact kinds:
 
 - Node CSVs for the selected activity-tree levels (`activity`, `session`, `lap`, `record`)
 - Ancillary message-family CSVs for preserved non-tree FIT messages such as `file_id`, `event`, `device_info`, `time_in_zone`, `hrv`, or unknown/vendor-specific message families
+- Grouped consolidated ancillary CSVs under `metadata/`, `analytics/`, and `raw_unmapped/` so machine consumers do not have to ingest the raw-lossless pile first
 - One manifest JSON file that describes schema version, timezone semantics, included and omitted message families, and the bundle field dictionary
 
 Ancillary message families are exported automatically when they are present on `FitActivity.AncillaryData`.
@@ -29,6 +30,7 @@ They are not filtered through the UI field-selection layer because their purpose
 
 - `FitExportTarget.StructuredCsv` is the only supported export target in the current pass.
 - Column normalization policy lives on `FitExportOptions`, not on `FitField` or other decoded-model types.
+- Garmin SDK message and standard-field identifiers are normalized to canonical `snake_case` at the decoder boundary so the machine schema matches FitCSVTool-style profile naming instead of CLR-style SDK casing.
 - Selected FIT fields are exported from effective decoded values, so edited values still override the original decoded values.
 - Invalid FIT sentinels are normalized to missing values before writing CSV.
   - The exporter uses the Garmin FIT SDK 21.195.0 base-type invalid markers for numeric types.
@@ -70,6 +72,8 @@ The field dictionary currently classifies entries with these values:
 Direct tree fields and direct ancillary fields are exported with source message and field metadata.
 Developer fields retain their developer-field identity and any Garmin SDK metadata that was available during decode.
 Unknown and vendor-specific data is preserved rather than dropped; when the SDK cannot provide a semantic name, the export keeps the raw `unknown_*` field naming plus source metadata in the manifest.
+`exportName` reflects the actual column name written to one artifact, while `canonicalName` is the stable cross-artifact identifier.
+This distinction matters because names like `total_work` can legitimately appear in more than one node family (`session.total_work`, `lap.total_work`).
 
 ## Current limitations
 

@@ -1,6 +1,7 @@
 namespace FitToCsvConverter.Test.Exporting;
 
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Text.Json;
 using FitToCsvConverter.Data.Activities;
 using FitToCsvConverter.Data.Decoding;
@@ -41,6 +42,7 @@ public sealed class CsvActivityExporterTests
                     Assert.Equal(ExportedArtifactKind.NodeCsv, artifact.Kind);
                     Assert.Equal(FitNodeType.Activity, artifact.NodeType);
                     Assert.EndsWith("_activity.csv", artifact.FilePath, StringComparison.OrdinalIgnoreCase);
+                    Assert.Contains($"{Path.DirectorySeparatorChar}core{Path.DirectorySeparatorChar}", artifact.FilePath, StringComparison.OrdinalIgnoreCase);
                     Assert.Equal(1, artifact.RowCount);
                 },
                 artifact =>
@@ -48,6 +50,7 @@ public sealed class CsvActivityExporterTests
                     Assert.Equal(ExportedArtifactKind.NodeCsv, artifact.Kind);
                     Assert.Equal(FitNodeType.Session, artifact.NodeType);
                     Assert.EndsWith("_session.csv", artifact.FilePath, StringComparison.OrdinalIgnoreCase);
+                    Assert.Contains($"{Path.DirectorySeparatorChar}core{Path.DirectorySeparatorChar}", artifact.FilePath, StringComparison.OrdinalIgnoreCase);
                     Assert.Equal(1, artifact.RowCount);
                 },
                 artifact =>
@@ -55,6 +58,7 @@ public sealed class CsvActivityExporterTests
                     Assert.Equal(ExportedArtifactKind.NodeCsv, artifact.Kind);
                     Assert.Equal(FitNodeType.Lap, artifact.NodeType);
                     Assert.EndsWith("_lap.csv", artifact.FilePath, StringComparison.OrdinalIgnoreCase);
+                    Assert.Contains($"{Path.DirectorySeparatorChar}core{Path.DirectorySeparatorChar}", artifact.FilePath, StringComparison.OrdinalIgnoreCase);
                     Assert.Equal(1, artifact.RowCount);
                 },
                 artifact =>
@@ -62,6 +66,7 @@ public sealed class CsvActivityExporterTests
                     Assert.Equal(ExportedArtifactKind.NodeCsv, artifact.Kind);
                     Assert.Equal(FitNodeType.Record, artifact.NodeType);
                     Assert.EndsWith("_record.csv", artifact.FilePath, StringComparison.OrdinalIgnoreCase);
+                    Assert.Contains($"{Path.DirectorySeparatorChar}core{Path.DirectorySeparatorChar}", artifact.FilePath, StringComparison.OrdinalIgnoreCase);
                     Assert.Equal(2, artifact.RowCount);
                 },
                 artifact =>
@@ -514,7 +519,8 @@ public sealed class CsvActivityExporterTests
             Assert.Contains(result.ExportedArtifacts, artifact =>
                 artifact.Kind == ExportedArtifactKind.AncillaryCsv
                 && artifact.ArtifactName.Contains("file_id_0", StringComparison.OrdinalIgnoreCase));
-            Assert.Equal("message_name,message_number,sequence_number,message_index,local_message_number,timestamp [UTC],unknown_0", unknownLines[0]);
+            Assert.Contains($"{Path.DirectorySeparatorChar}raw_lossless{Path.DirectorySeparatorChar}", unknownArtifact.FilePath, StringComparison.OrdinalIgnoreCase);
+            Assert.Equal("message_name,message_number,sequence_number,message_index,local_message_number,message_timestamp [UTC],unknown_0", unknownLines[0]);
             Assert.Equal("unknown,250,1,,0,2024-07-14T08:30:01.0000000+00:00,98", unknownLines[1]);
         }
         finally
@@ -544,7 +550,7 @@ public sealed class CsvActivityExporterTests
             JsonElement root = manifest.RootElement;
             JsonElement fieldDictionary = root.GetProperty("fieldDictionary");
 
-            Assert.Equal("1.0.0", root.GetProperty("exportSchemaVersion").GetString());
+            Assert.Equal("2.0.0", root.GetProperty("exportSchemaVersion").GetString());
             Assert.Equal("UTC ISO-8601", root.GetProperty("timezoneSemantics").GetProperty("canonicalTimestampColumns").GetString());
             Assert.Equal("Exercise Load", FindFieldDictionaryEntry(fieldDictionary, "training_load_peak").GetProperty("alias").GetString());
             Assert.Equal("Total Strokes", FindFieldDictionaryEntry(fieldDictionary, "total_cycles").GetProperty("alias").GetString());
@@ -609,9 +615,9 @@ public sealed class CsvActivityExporterTests
             JsonElement unknownEntry = FindFieldDictionaryEntry(root.GetProperty("fieldDictionary"), "unknown_0");
 
             Assert.True(root.GetProperty("hasUnknownOrVendorFields").GetBoolean());
-            Assert.Equal("DirectStandardFit", unknownEntry.GetProperty("classification").GetString());
+            Assert.Equal("UnknownMessageFamily", unknownEntry.GetProperty("classification").GetString());
             Assert.Contains(
-                "unknown_* export name",
+                "unknown FIT message family",
                 unknownEntry.GetProperty("notes").GetString(),
                 StringComparison.Ordinal);
         }
@@ -648,6 +654,143 @@ public sealed class CsvActivityExporterTests
             Assert.NotEmpty(activity.AncillaryData.Messages);
             Assert.NotEmpty(result.ExportedArtifacts.Where(artifact => artifact.Kind == ExportedArtifactKind.AncillaryCsv));
             Assert.Empty(root.GetProperty("omittedMessageFamilies").EnumerateArray());
+        }
+        finally
+        {
+            DeleteTemporaryDirectory(outputDirectoryPath);
+        }
+    }
+
+    [Fact]
+    public async Task ShouldWriteGroupedMachineArtifactsAndRawUnmappedCoverageWhenReferenceActivityIsExported()
+    {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        GarminFitActivityDecoder decoder = new();
+        CsvActivityExporter exporter = new();
+        string outputDirectoryPath = CreateTemporaryDirectory();
+
+        try
+        {
+            FitActivityDecodeResult decodeResult = await decoder.DecodeFileAsync(FitTestFileFactory.GetReferenceArtifactFitFilePath(), cancellationToken);
+            Assert.True(decodeResult.IsSuccess);
+            FitActivity activity = Assert.IsType<FitActivity>(decodeResult.Activity);
+
+            CsvExportRequest request = CsvExportRequestFactory.Create(
+                activity,
+                "reference",
+                outputDirectoryPath,
+                CreateAllColumnRequests(activity));
+
+            CsvExportResult result = await exporter.ExportAsync(request, cancellationToken);
+
+            Assert.Contains(result.ExportedArtifacts, artifact =>
+                artifact.Kind == ExportedArtifactKind.ConsolidatedCsv
+                && artifact.FilePath.Contains($"{Path.DirectorySeparatorChar}metadata{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase));
+            Assert.Contains(result.ExportedArtifacts, artifact =>
+                artifact.Kind == ExportedArtifactKind.ConsolidatedCsv
+                && artifact.FilePath.Contains($"{Path.DirectorySeparatorChar}analytics{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase));
+
+            ExportedArtifact rawUnmappedArtifact = Assert.Single(result.ExportedArtifacts.Where(artifact =>
+                artifact.Kind == ExportedArtifactKind.ConsolidatedCsv
+                && artifact.FilePath.Contains($"{Path.DirectorySeparatorChar}raw_unmapped{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase)));
+            string[] rawUnmappedLines = await File.ReadAllLinesAsync(rawUnmappedArtifact.FilePath, cancellationToken);
+
+            Assert.Contains(rawUnmappedLines, line => line.Contains(",unknown_178,", StringComparison.OrdinalIgnoreCase));
+            Assert.Contains(rawUnmappedLines, line => line.Contains(",unknown_205,", StringComparison.OrdinalIgnoreCase));
+            Assert.Contains(rawUnmappedLines, line => line.Contains(",unknown_206,", StringComparison.OrdinalIgnoreCase));
+            Assert.Contains(rawUnmappedLines, line => line.Contains(",unknown_207,", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            DeleteTemporaryDirectory(outputDirectoryPath);
+        }
+    }
+
+    [Fact]
+    public async Task ShouldExportCleanedReferenceSessionValuesAndRestoredDerivedFields()
+    {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        GarminFitActivityDecoder decoder = new();
+        CsvActivityExporter exporter = new();
+        string outputDirectoryPath = CreateTemporaryDirectory();
+
+        try
+        {
+            FitActivityDecodeResult decodeResult = await decoder.DecodeFileAsync(FitTestFileFactory.GetReferenceArtifactFitFilePath(), cancellationToken);
+            Assert.True(decodeResult.IsSuccess);
+            FitActivity activity = Assert.IsType<FitActivity>(decodeResult.Activity);
+
+            CsvExportRequest request = CsvExportRequestFactory.Create(
+                activity,
+                "reference",
+                outputDirectoryPath,
+                CreateAllColumnRequests(activity));
+
+            CsvExportResult result = await exporter.ExportAsync(request, cancellationToken);
+            string[] lines = await ReadAllLinesAsync(result, ExportedArtifactKind.NodeCsv, FitNodeType.Session, cancellationToken);
+            string[] headerCells = SplitCsvLine(lines[0]);
+            string[] valueCells = SplitCsvLine(lines[1]);
+
+            Assert.Equal("INDOOR", GetColumnValue(headerCells, valueCells, "sport_profile_name"));
+            Assert.DoesNotContain('|', GetColumnValue(headerCells, valueCells, "sport_profile_name"));
+            Assert.Equal("77", GetColumnValue(headerCells, valueCells, "est_sweat_loss [ml]"));
+            Assert.Equal("100", GetColumnValue(headerCells, valueCells, "beginning_potential [%]"));
+            Assert.Equal("92", GetColumnValue(headerCells, valueCells, "ending_potential [%]"));
+            Assert.Equal("92", GetColumnValue(headerCells, valueCells, "min_stamina [%]"));
+
+            double averageMovingSpeed = double.Parse(GetColumnValue(headerCells, valueCells, "avg_moving_speed [km/h]"), CultureInfo.InvariantCulture);
+            double maxAveragePowerTwentyMinutes = double.Parse(GetColumnValue(headerCells, valueCells, "max_avg_power_20min [watts]"), CultureInfo.InvariantCulture);
+
+            Assert.InRange(averageMovingSpeed, 18.5d, 18.6d);
+            Assert.InRange(maxAveragePowerTwentyMinutes, 72.1d, 72.3d);
+        }
+        finally
+        {
+            DeleteTemporaryDirectory(outputDirectoryPath);
+        }
+    }
+
+    [Fact]
+    public async Task ShouldDescribeAliasAndGroupingMetadataInManifestWhenReferenceActivityIsExported()
+    {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        GarminFitActivityDecoder decoder = new();
+        CsvActivityExporter exporter = new();
+        string outputDirectoryPath = CreateTemporaryDirectory();
+
+        try
+        {
+            FitActivityDecodeResult decodeResult = await decoder.DecodeFileAsync(FitTestFileFactory.GetReferenceArtifactFitFilePath(), cancellationToken);
+            Assert.True(decodeResult.IsSuccess);
+            FitActivity activity = Assert.IsType<FitActivity>(decodeResult.Activity);
+
+            CsvExportRequest request = CsvExportRequestFactory.Create(
+                activity,
+                "reference",
+                outputDirectoryPath,
+                CreateAllColumnRequests(activity));
+
+            CsvExportResult result = await exporter.ExportAsync(request, cancellationToken);
+            using JsonDocument manifest = await ReadManifestAsync(result, cancellationToken);
+            JsonElement root = manifest.RootElement;
+            JsonElement fieldDictionary = root.GetProperty("fieldDictionary");
+            JsonElement artifacts = root.GetProperty("artifacts");
+
+            JsonElement totalWorkEntry = FindFieldDictionaryEntryByCanonicalName(fieldDictionary, "session.total_work");
+            JsonElement restoredSweatLossEntry = FindFieldDictionaryEntryByCanonicalName(fieldDictionary, "session.est_sweat_loss");
+
+            Assert.Contains(artifacts.EnumerateArray(), artifact =>
+                artifact.GetProperty("artifactGroup").GetString() == "Metadata");
+            Assert.Contains(artifacts.EnumerateArray(), artifact =>
+                artifact.GetProperty("artifactGroup").GetString() == "Analytics");
+            Assert.Contains(artifacts.EnumerateArray(), artifact =>
+                artifact.GetProperty("artifactGroup").GetString() == "RawUnmapped");
+
+            Assert.Equal("kJ", totalWorkEntry.GetProperty("unit").GetString());
+            Assert.Equal("Work", totalWorkEntry.GetProperty("aliasMetadata").GetProperty("displayAliasDefault").GetString());
+            Assert.Equal("GarminConnectPdf", totalWorkEntry.GetProperty("aliasMetadata").GetProperty("displayAliasSource").GetString());
+            Assert.Equal("DirectFieldAlias", totalWorkEntry.GetProperty("aliasMetadata").GetProperty("aliasKind").GetString());
+            Assert.Equal("DerivedFromRestoredFitMessages", restoredSweatLossEntry.GetProperty("classification").GetString());
         }
         finally
         {
@@ -736,6 +879,12 @@ public sealed class CsvActivityExporterTests
 
     private static JsonElement FindFieldDictionaryEntry(JsonElement fieldDictionary, string exportName)
         => fieldDictionary.EnumerateArray().Single(entry => entry.GetProperty("exportName").GetString() == exportName);
+
+    private static JsonElement FindFieldDictionaryEntryByCanonicalName(JsonElement fieldDictionary, string canonicalName)
+        => fieldDictionary.EnumerateArray().Single(entry => entry.GetProperty("canonicalName").GetString() == canonicalName);
+
+    private static string GetColumnValue(string[] headerCells, string[] valueCells, string columnName)
+        => valueCells[Array.IndexOf(headerCells, columnName)];
 
     private static async Task<string[]> ReadAllLinesAsync(
         CsvExportResult result,

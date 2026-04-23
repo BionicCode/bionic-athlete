@@ -85,6 +85,7 @@ public static class CsvExportRequestFactory
 
         string destinationFilePath = Path.Combine(
             outputDirectoryPath,
+            "core",
             $"{sourceFileNameWithoutExtension}_{columnGroup.Key.ToString().ToLowerInvariant()}.csv");
 
         return new CsvNodeExportRequest(columnGroup.Key, destinationFilePath, orderedColumns);

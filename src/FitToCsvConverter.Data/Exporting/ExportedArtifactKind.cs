@@ -16,7 +16,12 @@ public enum ExportedArtifactKind
     AncillaryCsv = 1,
 
     /// <summary>
+    /// A CSV artifact that represents a grouped machine-friendly projection built on top of decoded FIT data.
+    /// </summary>
+    ConsolidatedCsv = 2,
+
+    /// <summary>
     /// A machine-readable manifest that describes schema, coverage, and field classifications for the bundle.
     /// </summary>
-    Manifest = 2
+    Manifest = 3
 }

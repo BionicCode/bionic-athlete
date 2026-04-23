@@ -208,6 +208,21 @@ internal static class FitTestFileFactory
                 "ExampleFiles",
                 "2026-03-17_22204467914_ACTIVITY.fit"));
 
+    public static string GetReferenceArtifactFitFilePath()
+        => Path.GetFullPath(
+            Path.Combine(
+                AppContext.BaseDirectory,
+                "..",
+                "..",
+                "..",
+                "..",
+                "..",
+                "src",
+                "FitToCsvConverter.Data",
+                "ExampleFiles",
+                "Reference artifacts",
+                "2026-03-23_22272539791_ACTIVITY.fit"));
+
     private static void AddRecord(List<Mesg> messages, FitDateTime timestamp, byte heartRate, float distance)
     {
         RecordMesg record = new();

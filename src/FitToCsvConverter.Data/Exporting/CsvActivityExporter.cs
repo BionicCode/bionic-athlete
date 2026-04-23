@@ -23,29 +23,52 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
     private const string ActiveCaloriesExportName = "active_calories";
     private const string ActiveCaloriesFormula = "total_calories - metabolic_calories";
     private const string ArrayValueSeparator = " | ";
+    private const string ArrayValueOrdering = "Source order";
+    private const string ArrayValueShape = "Array";
+    private const string BeginningPotentialAlias = "Beginning Potential";
+    private const string BeginningPotentialExportName = "beginning_potential";
     private const string AvgMovingSpeedAlias = "Avg Moving Speed";
     private const string AvgMovingSpeedExportName = "avg_moving_speed";
     private const string AvgMovingSpeedFormula = "total_distance / moving_time";
     private const string CanonicalTimestampSemantics = "UTC ISO-8601";
     private const string DurationSemantics = "Numeric duration columns are normalized to seconds.";
+    private const string EndingPotentialAlias = "Ending Potential";
+    private const string EndingPotentialExportName = "ending_potential";
+    private const string EstimatedSweatLossAlias = "Est. Sweat Loss";
+    private const string EstimatedSweatLossExportName = "est_sweat_loss";
     private const double FeetPerMeter = 3.28083989501312;
+    private const string GarminConnectAliasLocale = "en";
+    private const string GarminConnectPdfAliasSource = "GarminConnectPdf";
+    private const double JoulesPerKilojoule = 1000d;
+    private const string CoreDirectoryName = "core";
+    private const string RawLosslessDirectoryName = "raw_lossless";
+    private const string MetadataDirectoryName = "metadata";
+    private const string AnalyticsDirectoryName = "analytics";
+    private const string RawUnmappedDirectoryName = "raw_unmapped";
+    private const string LocalSourceTimestampQualifier = "Local Source";
     private const string ManifestArtifactName = "manifest";
     private const string ManifestFileNameSuffix = "_manifest.json";
-    private const string ManifestSchemaVersion = "1.0.0";
+    private const string ManifestSchemaVersion = "2.0.0";
     private const double KilometersPerMeter = 0.001;
     private const double KilometersPerHourPerMeterPerSecond = 3.6;
     private const string MaxAveragePowerTwentyMinutesAlias = "Max Avg Power (20 min)";
     private const string MaxAveragePowerTwentyMinutesExportName = "max_avg_power_20min";
     private const string MaxAveragePowerTwentyMinutesFormula =
-        "Max rolling average of record power over a 1200-second window using one-second sample-hold interpolation.";
+        "Max rolling average of record power over a 1200-second elapsed-time window using one sample per record timestamp and zero-filled missing elapsed seconds.";
+    private const string MessageTimestampMetadataHeader = "message_timestamp";
+    private const string MinimumStaminaAlias = "Min Stamina";
+    private const string MinimumStaminaExportName = "min_stamina";
     private const string MovingSpeedDerivationNotes =
-        "Derived moving time uses direct total_moving_time when present; otherwise it sums record intervals where speed exceeds 0.1 m/s or distance increases.";
+        "Derived moving time uses direct total_moving_time when present; otherwise it counts up to one elapsed second per qualifying record interval where speed exceeds 0.1 m/s or distance increases.";
     private const string MovingTimeAlias = "Moving Time";
     private const string MovingTimeExportName = "moving_time";
     private const double MovingSpeedThresholdMetersPerSecond = 0.1;
     private const double MilesPerMeter = 0.000621371192237334;
     private const double MilesPerHourPerMeterPerSecond = 2.2369362920544;
     private const int PowerAverageWindowSeconds = 20 * 60;
+    private const string RawUnmappedArtifactName = "raw_unmapped";
+    private const string RawUnmappedFileNameSuffix = "_raw_unmapped.csv";
+    private const string ScalarValueShape = "Scalar";
     private const string TrainingLoadPeakAlias = "Exercise Load";
     private const string TotalCyclesAlias = "Total Strokes";
 
@@ -70,11 +93,78 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
             ["uint64z"] = 0m,
         }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
 
-    private static readonly FrozenDictionary<string, string> s_fieldAliasesByOriginalName =
-        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    private static readonly FrozenSet<string> s_metadataMessageFamilies =
+        new[]
         {
-            ["training_load_peak"] = TrainingLoadPeakAlias,
-            ["total_cycles"] = TotalCyclesAlias,
+            "file_id",
+            "file_creator",
+            "device_info",
+            "device_settings",
+            "user_profile",
+            "sport",
+            "training_settings",
+            "timestamp_correlation",
+            "zones_target",
+        }.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
+
+    private static readonly FrozenSet<string> s_analyticsMessageFamilies =
+        new[]
+        {
+            "event",
+            "time_in_zone",
+            "split_summary",
+            "hrv",
+        }.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
+
+    private static readonly FrozenDictionary<string, CsvFieldAliasDefinition> s_fieldAliasDefinitionsByKey =
+        new Dictionary<string, CsvFieldAliasDefinition>(StringComparer.OrdinalIgnoreCase)
+        {
+            [CreateAliasLookupKey("Session", "training_load_peak")] = new(
+                TrainingLoadPeakAlias,
+                CsvExportAliasKind.DirectFieldAlias,
+                Confidence: 0.95,
+                IsDirectAlias: true,
+                IsDerivedAlias: false,
+                "Garmin Connect rounds this session metric to the whole-number Exercise Load label shown in the PDF summary."),
+            [CreateAliasLookupKey("Session", "total_cycles")] = new(
+                TotalCyclesAlias,
+                CsvExportAliasKind.DirectFieldAlias,
+                Confidence: 0.95,
+                IsDirectAlias: true,
+                IsDerivedAlias: false,
+                "Garmin cycling summaries commonly present total_cycles as Total Strokes."),
+            [CreateAliasLookupKey("Session", "total_distance")] = new("Distance", CsvExportAliasKind.DirectFieldAlias, 0.95, true, false, null),
+            [CreateAliasLookupKey("Session", "total_timer_time")] = new("Time", CsvExportAliasKind.DirectFieldAlias, 0.9, true, false, null),
+            [CreateAliasLookupKey("Session", "total_elapsed_time")] = new("Elapsed Time", CsvExportAliasKind.DirectFieldAlias, 0.95, true, false, null),
+            [CreateAliasLookupKey("Session", "enhanced_avg_speed")] = new("Avg Speed", CsvExportAliasKind.DirectFieldAlias, 0.95, true, false, null),
+            [CreateAliasLookupKey("Session", "enhanced_max_speed")] = new("Max Speed", CsvExportAliasKind.DirectFieldAlias, 0.95, true, false, null),
+            [CreateAliasLookupKey("Session", "avg_power")] = new("Avg Power", CsvExportAliasKind.DirectFieldAlias, 0.95, true, false, null),
+            [CreateAliasLookupKey("Session", "max_power")] = new("Max Power", CsvExportAliasKind.DirectFieldAlias, 0.95, true, false, null),
+            [CreateAliasLookupKey("Session", "normalized_power")] = new("Normalized Power (NP)", CsvExportAliasKind.DirectFieldAlias, 0.95, true, false, null),
+            [CreateAliasLookupKey("Session", "intensity_factor")] = new("IF", CsvExportAliasKind.DirectFieldAlias, 0.95, true, false, null),
+            [CreateAliasLookupKey("Session", "training_stress_score")] = new("TSS", CsvExportAliasKind.DirectFieldAlias, 0.95, true, false, null),
+            [CreateAliasLookupKey("Session", "threshold_power")] = new("FTP Setting", CsvExportAliasKind.DirectFieldAlias, 0.95, true, false, null),
+            [CreateAliasLookupKey("Session", "total_work")] = new("Work", CsvExportAliasKind.DirectFieldAlias, 0.95, true, false, "Garmin Connect presents this value in kJ."),
+            [CreateAliasLookupKey("Session", "metabolic_calories")] = new("Resting Calories", CsvExportAliasKind.DirectFieldAlias, 0.95, true, false, null),
+            [CreateAliasLookupKey("Session", "total_calories")] = new("Total Calories Burned", CsvExportAliasKind.DirectFieldAlias, 0.95, true, false, null),
+            [CreateAliasLookupKey("Session", "avg_heart_rate")] = new("Avg HR", CsvExportAliasKind.DirectFieldAlias, 0.95, true, false, null),
+            [CreateAliasLookupKey("Session", "max_heart_rate")] = new("Max HR", CsvExportAliasKind.DirectFieldAlias, 0.95, true, false, null),
+            [CreateAliasLookupKey("Session", "avg_cadence")] = new("Avg Bike Cadence", CsvExportAliasKind.DirectFieldAlias, 0.95, true, false, null),
+            [CreateAliasLookupKey("Session", "max_cadence")] = new("Max Bike Cadence", CsvExportAliasKind.DirectFieldAlias, 0.95, true, false, null),
+            [CreateAliasLookupKey("Session", "avg_temperature")] = new("Avg Temp", CsvExportAliasKind.DirectFieldAlias, 0.95, true, false, null),
+            [CreateAliasLookupKey("Session", "min_temperature")] = new("Min Temp", CsvExportAliasKind.DirectFieldAlias, 0.95, true, false, null),
+            [CreateAliasLookupKey("Session", "max_temperature")] = new("Max Temp", CsvExportAliasKind.DirectFieldAlias, 0.95, true, false, null),
+            [CreateAliasLookupKey("Session", "enhanced_avg_respiration_rate")] = new("Avg Respiration Rate", CsvExportAliasKind.DirectFieldAlias, 0.95, true, false, null),
+            [CreateAliasLookupKey("Session", "enhanced_min_respiration_rate")] = new("Min Respiration Rate", CsvExportAliasKind.DirectFieldAlias, 0.95, true, false, null),
+            [CreateAliasLookupKey("Session", "enhanced_max_respiration_rate")] = new("Max Respiration Rate", CsvExportAliasKind.DirectFieldAlias, 0.95, true, false, null),
+            [CreateAliasLookupKey("Session", "total_training_effect")] = new("Aerobic", CsvExportAliasKind.DirectFieldAlias, 0.9, true, false, "Garmin Connect adds the benefit text separately."),
+            [CreateAliasLookupKey("Session", "total_anaerobic_training_effect")] = new("Anaerobic", CsvExportAliasKind.DirectFieldAlias, 0.9, true, false, "Garmin Connect adds the benefit text separately."),
+            [CreateAliasLookupKey("Session", "workout_feel")] = new("How did you feel?", CsvExportAliasKind.HumanFriendlyAlias, 0.7, true, false, "Garmin Connect translates the raw workout_feel byte into a user-facing label such as Strong."),
+            [CreateAliasLookupKey("Session", "workout_rpe")] = new("Perceived Effort", CsvExportAliasKind.HumanFriendlyAlias, 0.75, true, false, "Garmin Connect displays the raw workout_rpe byte as a /10 score plus a descriptive label."),
+            [CreateAliasLookupKey("Session", "unknown_178")] = new(EstimatedSweatLossAlias, CsvExportAliasKind.HumanFriendlyAlias, 0.55, false, false, "Observed on the Edge 840 reference activity as a session unknown field matching Garmin Connect sweat-loss output."),
+            [CreateAliasLookupKey("Session", "unknown_205")] = new(BeginningPotentialAlias, CsvExportAliasKind.HumanFriendlyAlias, 0.55, false, false, "Observed on the Edge 840 reference activity as a session unknown field matching Garmin Connect beginning potential."),
+            [CreateAliasLookupKey("Session", "unknown_206")] = new(EndingPotentialAlias, CsvExportAliasKind.HumanFriendlyAlias, 0.55, false, false, "Observed on the Edge 840 reference activity as a session unknown field matching Garmin Connect ending potential."),
+            [CreateAliasLookupKey("Session", "unknown_207")] = new(MinimumStaminaAlias, CsvExportAliasKind.HumanFriendlyAlias, 0.55, false, false, "Observed on the Edge 840 reference activity as a session unknown field matching Garmin Connect minimum stamina."),
         }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
 
     private static readonly FrozenDictionary<string, string> s_fieldNotesByOriginalName =
@@ -82,8 +172,13 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
         {
             ["training_load_peak"] = "Garmin Connect commonly presents this session summary as Exercise Load.",
             ["total_cycles"] = "Garmin cycling summaries commonly present this as Total Strokes.",
+            ["total_work"] = "The machine export normalizes joule-based work values to kJ so the column matches common cycling summary conventions.",
             ["workout_feel"] = "Garmin FIT SDK 21.195.0 exposes workout_feel as a nullable byte. The exporter preserves the raw byte value and does not impose undocumented device-specific scoring semantics.",
             ["workout_rpe"] = "Garmin FIT SDK 21.195.0 exposes workout_rpe as a nullable byte. The exporter preserves the raw byte value and does not impose undocumented device-specific scoring semantics.",
+            ["unknown_178"] = "This unknown session field matched Garmin Connect sweat-loss output in the repository reference activity, but Garmin does not document the semantic name in FIT SDK 21.195.0.",
+            ["unknown_205"] = "This unknown session field matched Garmin Connect beginning potential in the repository reference activity, but Garmin does not document the semantic name in FIT SDK 21.195.0.",
+            ["unknown_206"] = "This unknown session field matched Garmin Connect ending potential in the repository reference activity, but Garmin does not document the semantic name in FIT SDK 21.195.0.",
+            ["unknown_207"] = "This unknown session field matched Garmin Connect minimum stamina in the repository reference activity, but Garmin does not document the semantic name in FIT SDK 21.195.0.",
         }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
 
     private static readonly JsonSerializerOptions s_manifestSerializerOptions = CreateManifestSerializerOptions();
@@ -94,7 +189,7 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
         ArgumentNullException.ThrowIfNull(request);
         EnsureStructuredCsvTarget(request.Options.Target);
 
-        int anticipatedArtifactCount = request.NodeRequests.Length + request.SourceActivity.AncillaryData.Messages.Length + 1;
+        int anticipatedArtifactCount = request.NodeRequests.Length + (request.SourceActivity.AncillaryData.Messages.Length * 2) + 2;
         ImmutableArray<ExportedArtifact>.Builder exportedArtifacts = ImmutableArray.CreateBuilder<ExportedArtifact>(anticipatedArtifactCount);
 
         // Respect the request order so callers can keep generated node artifacts stable across export and archive flows.
@@ -122,6 +217,17 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
         foreach (ExportedArtifact ancillaryArtifact in await ExportAncillaryFamiliesAsync(request, cancellationToken).ConfigureAwait(false))
         {
             exportedArtifacts.Add(ancillaryArtifact);
+        }
+
+        foreach (ExportedArtifact consolidatedArtifact in await ExportConsolidatedAncillaryArtifactsAsync(request, cancellationToken).ConfigureAwait(false))
+        {
+            exportedArtifacts.Add(consolidatedArtifact);
+        }
+
+        ExportedArtifact? rawUnmappedArtifact = await ExportRawUnmappedArtifactAsync(request, cancellationToken).ConfigureAwait(false);
+        if (rawUnmappedArtifact is not null)
+        {
+            exportedArtifacts.Add(rawUnmappedArtifact);
         }
 
         ExportedArtifact manifestArtifact = await ExportManifestAsync(request, exportedArtifacts.ToImmutable(), cancellationToken).ConfigureAwait(false);
@@ -214,7 +320,7 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
             cancellationToken.ThrowIfCancellationRequested();
 
             string artifactFileName = BuildAncillaryArtifactFileName(ancillaryFamily, request.SourceFileNameWithoutExtension);
-            string destinationFilePath = Path.Combine(request.OutputDirectoryPath, artifactFileName);
+            string destinationFilePath = Path.Combine(request.OutputDirectoryPath, RawLosslessDirectoryName, artifactFileName);
             int rowCount = await ExportAncillaryFamilyAsync(
                 ancillaryFamily,
                 destinationFilePath,
@@ -233,6 +339,162 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
         }
 
         return exportedArtifacts.ToImmutable();
+    }
+
+    private static async Task<ImmutableArray<ExportedArtifact>> ExportConsolidatedAncillaryArtifactsAsync(
+        CsvExportRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (request.SourceActivity.AncillaryData.Messages.IsDefaultOrEmpty)
+        {
+            return ImmutableArray<ExportedArtifact>.Empty;
+        }
+
+        ImmutableArray<AncillaryMessageFamily> ancillaryFamilies = GroupAncillaryFamilies(request.SourceActivity.AncillaryData.Messages);
+        ImmutableArray<ExportedArtifact>.Builder exportedArtifacts = ImmutableArray.CreateBuilder<ExportedArtifact>(ancillaryFamilies.Length);
+
+        foreach (AncillaryMessageFamily ancillaryFamily in ancillaryFamilies)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (!TryGetConsolidatedAncillaryArtifactGroup(ancillaryFamily.Key.MessageName, out CsvExportArtifactGroup artifactGroup))
+            {
+                continue;
+            }
+
+            string artifactFileName = BuildConsolidatedAncillaryArtifactFileName(
+                ancillaryFamily.Key.MessageName,
+                request.SourceFileNameWithoutExtension,
+                artifactGroup);
+            string destinationFilePath = Path.Combine(
+                request.OutputDirectoryPath,
+                GetArtifactGroupDirectoryName(artifactGroup),
+                artifactFileName);
+            int rowCount = await ExportAncillaryFamilyAsync(
+                ancillaryFamily,
+                destinationFilePath,
+                request.Encoding,
+                request.Delimiter,
+                request.Options,
+                cancellationToken).ConfigureAwait(false);
+
+            exportedArtifacts.Add(
+                new ExportedArtifact(
+                    ExportedArtifactKind.ConsolidatedCsv,
+                    FitNodeType.Ancillary,
+                    artifactFileName,
+                    destinationFilePath,
+                    rowCount));
+        }
+
+        return exportedArtifacts.ToImmutable();
+    }
+
+    private static async Task<ExportedArtifact?> ExportRawUnmappedArtifactAsync(
+        CsvExportRequest request,
+        CancellationToken cancellationToken)
+    {
+        ImmutableArray<RawUnmappedRow> rawUnmappedRows = BuildRawUnmappedRows(request.SourceActivity, request.SourceFileNameWithoutExtension);
+        if (rawUnmappedRows.IsDefaultOrEmpty)
+        {
+            return null;
+        }
+
+        string artifactFileName = request.SourceFileNameWithoutExtension + RawUnmappedFileNameSuffix;
+        string destinationFilePath = Path.Combine(request.OutputDirectoryPath, RawUnmappedDirectoryName, artifactFileName);
+        int rowCount = await ExportRawUnmappedRowsAsync(
+            rawUnmappedRows,
+            artifactFileName,
+            destinationFilePath,
+            request.Encoding,
+            request.Delimiter,
+            cancellationToken).ConfigureAwait(false);
+
+        return new ExportedArtifact(
+            ExportedArtifactKind.ConsolidatedCsv,
+            FitNodeType.Ancillary,
+            artifactFileName,
+            destinationFilePath,
+            rowCount);
+    }
+
+    private static async Task<int> ExportRawUnmappedRowsAsync(
+        ImmutableArray<RawUnmappedRow> rawUnmappedRows,
+        string sourceArtifactName,
+        string destinationFilePath,
+        Encoding encoding,
+        char delimiter,
+        CancellationToken cancellationToken)
+    {
+        string destinationDirectoryPath = Path.GetDirectoryName(destinationFilePath)
+            ?? throw new InvalidOperationException($"Unable to determine a destination directory for '{destinationFilePath}'.");
+        _ = Directory.CreateDirectory(destinationDirectoryPath);
+
+        await using FileStream fileStream = new(
+            destinationFilePath,
+            new FileStreamOptions
+            {
+                Access = FileAccess.Write,
+                Mode = FileMode.Create,
+                Options = FileOptions.Asynchronous | FileOptions.SequentialScan,
+                Share = FileShare.None
+            });
+        await using StreamWriter writer = new(fileStream, encoding);
+
+        await WriteLineAsync(
+            writer,
+            [
+                "node_type",
+                "message_number",
+                "message_name",
+                "row_sequence",
+                "message_index",
+                "local_message_number",
+                "timestamp [UTC]",
+                "field_number",
+                "field_name",
+                "value_index",
+                "value_count",
+                "raw_value",
+                "decoded_value",
+                "unit",
+                "source_artifact",
+                "classification",
+                "notes"
+            ],
+            delimiter,
+            cancellationToken).ConfigureAwait(false);
+
+        foreach (RawUnmappedRow rawUnmappedRow in rawUnmappedRows)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await WriteLineAsync(
+                writer,
+                [
+                    rawUnmappedRow.NodeType,
+                    rawUnmappedRow.MessageNumber.ToString(CultureInfo.InvariantCulture),
+                    rawUnmappedRow.MessageName,
+                    rawUnmappedRow.RowSequence.ToString(CultureInfo.InvariantCulture),
+                    rawUnmappedRow.MessageIndex?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+                    rawUnmappedRow.LocalMessageNumber?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+                    rawUnmappedRow.TimestampUtc is DateTimeOffset timestampUtc ? FormatSingleValue(timestampUtc) : string.Empty,
+                    rawUnmappedRow.FieldNumber.ToString(CultureInfo.InvariantCulture),
+                    rawUnmappedRow.FieldName,
+                    rawUnmappedRow.ValueIndex.ToString(CultureInfo.InvariantCulture),
+                    rawUnmappedRow.ValueCount.ToString(CultureInfo.InvariantCulture),
+                    rawUnmappedRow.RawValue,
+                    rawUnmappedRow.DecodedValue,
+                    rawUnmappedRow.Unit ?? string.Empty,
+                    rawUnmappedRow.SourceArtifactName ?? sourceArtifactName,
+                    rawUnmappedRow.Classification.ToString(),
+                    rawUnmappedRow.Notes ?? string.Empty,
+                ],
+                delimiter,
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        await writer.FlushAsync(cancellationToken).ConfigureAwait(false);
+        return rawUnmappedRows.Length;
     }
 
     private static async Task<int> ExportAncillaryFamilyAsync(
@@ -348,6 +610,10 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
         ImmutableArray<DerivedSessionColumn>.Builder builder = ImmutableArray.CreateBuilder<DerivedSessionColumn>();
 
         TryAddDerivedSessionColumn(builder, sessions, DerivedSessionFieldKind.ActiveCalories, ActiveCaloriesExportName, "kcal", exportOptions);
+        TryAddDerivedSessionColumn(builder, sessions, DerivedSessionFieldKind.EstimatedSweatLoss, EstimatedSweatLossExportName, "ml", exportOptions);
+        TryAddDerivedSessionColumn(builder, sessions, DerivedSessionFieldKind.BeginningPotential, BeginningPotentialExportName, "%", exportOptions);
+        TryAddDerivedSessionColumn(builder, sessions, DerivedSessionFieldKind.EndingPotential, EndingPotentialExportName, "%", exportOptions);
+        TryAddDerivedSessionColumn(builder, sessions, DerivedSessionFieldKind.MinimumStamina, MinimumStaminaExportName, "%", exportOptions);
         TryAddDerivedSessionColumn(builder, sessions, DerivedSessionFieldKind.MovingTime, MovingTimeExportName, "s", exportOptions);
         TryAddDerivedSessionColumn(
             builder,
@@ -409,6 +675,42 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
 
                 break;
 
+            case DerivedSessionFieldKind.EstimatedSweatLoss:
+                if (TryGetRestoredUnknownSessionValue(session, "unknown_178", out double estimatedSweatLoss))
+                {
+                    derivedValue = estimatedSweatLoss;
+                    return true;
+                }
+
+                break;
+
+            case DerivedSessionFieldKind.BeginningPotential:
+                if (TryGetRestoredUnknownSessionValue(session, "unknown_205", out double beginningPotential))
+                {
+                    derivedValue = beginningPotential;
+                    return true;
+                }
+
+                break;
+
+            case DerivedSessionFieldKind.EndingPotential:
+                if (TryGetRestoredUnknownSessionValue(session, "unknown_206", out double endingPotential))
+                {
+                    derivedValue = endingPotential;
+                    return true;
+                }
+
+                break;
+
+            case DerivedSessionFieldKind.MinimumStamina:
+                if (TryGetRestoredUnknownSessionValue(session, "unknown_207", out double minimumStamina))
+                {
+                    derivedValue = minimumStamina;
+                    return true;
+                }
+
+                break;
+
             case DerivedSessionFieldKind.MovingTime:
                 if (TryGetMovingTimeSeconds(session, out double movingTimeSeconds))
                 {
@@ -442,6 +744,18 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
 
         derivedValue = null;
         return false;
+    }
+
+    private static bool TryGetRestoredUnknownSessionValue(FitSession session, string fieldName, out double numericValue)
+    {
+        IReadOnlyDictionary<string, FitField> fieldLookup = CreateFieldLookup(session.Fields);
+        if (!fieldLookup.TryGetValue(fieldName, out FitField? field))
+        {
+            numericValue = default;
+            return false;
+        }
+
+        return TryGetCanonicalNumericFieldValue(field, out numericValue);
     }
 
     private static bool TryGetActiveCalories(FitSession session, out double activeCalories)
@@ -497,7 +811,7 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
                 continue;
             }
 
-            movingTimeSeconds += intervalSeconds;
+            movingTimeSeconds += Math.Min(intervalSeconds, 1d);
             hasMovingInterval = true;
         }
 
@@ -580,47 +894,67 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
 
     private static ImmutableArray<double> BuildOneSecondPowerSamples(FitSession session)
     {
-        if (session.Records.Length < 2)
+        DateTimeOffset? firstRecordTimestampUtc = session.Records
+            .Select(static record => record.Original.TimestampUtc)
+            .FirstOrDefault(static timestampUtc => timestampUtc.HasValue);
+        if (firstRecordTimestampUtc is null)
         {
             return ImmutableArray<double>.Empty;
         }
 
-        // FIT record timestamps are second-resolution in Garmin activity files.
-        // A one-second sample-hold stream keeps the derivation deterministic and easy to audit.
-        ImmutableArray<double>.Builder builder = ImmutableArray.CreateBuilder<double>();
-        for (int index = 0; index < session.Records.Length - 1; index++)
+        ImmutableArray<(int OffsetSeconds, double PowerWatts)> powerSamples = session.Records
+            .Select(record => TryCreatePowerSample(record, firstRecordTimestampUtc, out (int OffsetSeconds, double PowerWatts) powerSample)
+                ? powerSample
+                : ((int OffsetSeconds, double PowerWatts)?)null)
+            .Where(static powerSample => powerSample.HasValue)
+            .Select(static powerSample => powerSample!.Value)
+            .OrderBy(static powerSample => powerSample.OffsetSeconds)
+            .ToImmutableArray();
+
+        if (powerSamples.IsDefaultOrEmpty)
         {
-            FitRecord currentRecord = session.Records[index];
-            FitRecord nextRecord = session.Records[index + 1];
-
-            if (currentRecord.Original.TimestampUtc is not DateTimeOffset currentTimestampUtc
-                || nextRecord.Original.TimestampUtc is not DateTimeOffset nextTimestampUtc)
-            {
-                continue;
-            }
-
-            int intervalSeconds = (int)Math.Round(
-                (nextTimestampUtc - currentTimestampUtc).TotalSeconds,
-                MidpointRounding.AwayFromZero);
-            if (intervalSeconds <= 0)
-            {
-                continue;
-            }
-
-            IReadOnlyDictionary<string, FitField> fieldLookup = CreateFieldLookup(currentRecord.Fields);
-            if (!TryGetCanonicalNumericFieldValue(fieldLookup, "power", out double powerWatts)
-                && !TryGetCanonicalNumericFieldValue(fieldLookup, "enhanced_power", out powerWatts))
-            {
-                continue;
-            }
-
-            for (int sampleIndex = 0; sampleIndex < intervalSeconds; sampleIndex++)
-            {
-                builder.Add(powerWatts);
-            }
+            return ImmutableArray<double>.Empty;
         }
 
-        return builder.ToImmutable();
+        int sampleCount = powerSamples.Max(static powerSample => powerSample.OffsetSeconds) + 1;
+        double[] oneSecondPowerSamples = new double[sampleCount];
+        foreach ((int offsetSeconds, double powerWatts) in powerSamples)
+        {
+            oneSecondPowerSamples[offsetSeconds] = powerWatts;
+        }
+
+        return ImmutableArray.Create(oneSecondPowerSamples);
+    }
+
+    private static bool TryCreatePowerSample(
+        FitRecord record,
+        DateTimeOffset? firstRecordTimestampUtc,
+        out (int OffsetSeconds, double PowerWatts) powerSample)
+    {
+        powerSample = default;
+        if (firstRecordTimestampUtc is not DateTimeOffset firstTimestampUtc
+            || record.Original.TimestampUtc is not DateTimeOffset recordTimestampUtc)
+        {
+            return false;
+        }
+
+        int offsetSeconds = (int)Math.Round(
+            (recordTimestampUtc - firstTimestampUtc).TotalSeconds,
+            MidpointRounding.AwayFromZero);
+        if (offsetSeconds < 0)
+        {
+            return false;
+        }
+
+        IReadOnlyDictionary<string, FitField> fieldLookup = CreateFieldLookup(record.Fields);
+        if (!TryGetCanonicalNumericFieldValue(fieldLookup, "power", out double powerWatts)
+            && !TryGetCanonicalNumericFieldValue(fieldLookup, "enhanced_power", out powerWatts))
+        {
+            return false;
+        }
+
+        powerSample = (offsetSeconds, powerWatts);
+        return true;
     }
 
     private static IReadOnlyDictionary<string, FitField> CreateFieldLookup(ImmutableArray<FitField> fields)
@@ -730,10 +1064,10 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
         builder.Add("sequence_number");
         builder.Add("message_index");
         builder.Add("local_message_number");
-        builder.Add(exportOptions.IncludeUnitSuffixInHeaders ? "timestamp [UTC]" : "timestamp");
+        builder.Add(exportOptions.IncludeUnitSuffixInHeaders ? $"{MessageTimestampMetadataHeader} [UTC]" : MessageTimestampMetadataHeader);
         if (exportOptions.IncludeLocalTimeColumns)
         {
-            builder.Add(exportOptions.IncludeUnitSuffixInHeaders ? "timestamp [Local]" : "timestamp_local");
+            builder.Add(exportOptions.IncludeUnitSuffixInHeaders ? $"{MessageTimestampMetadataHeader} [Local]" : $"{MessageTimestampMetadataHeader}_local");
         }
 
         foreach (AncillaryFieldColumn fieldColumn in fieldColumns)
@@ -808,6 +1142,10 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
             request,
             ancillaryFamilies,
             exportedArtifactsByName);
+        ImmutableArray<CsvExportArtifactManifestEntry> artifacts = BuildArtifactManifestEntries(
+            request,
+            ancillaryFamilies,
+            exportedArtifacts);
         ImmutableArray<CsvExportFieldDictionaryEntry> fieldDictionary = BuildFieldDictionary(
             request,
             ancillaryFamilies,
@@ -830,8 +1168,116 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
             OmittedMessageFamilies = omittedMessageFamilies,
             HasDeveloperFields = ContainsDeveloperFields(request.SourceActivity),
             HasUnknownOrVendorFields = ContainsUnknownOrVendorFields(request.SourceActivity),
+            Artifacts = artifacts,
             FieldDictionary = fieldDictionary,
         };
+    }
+
+    private static ImmutableArray<CsvExportArtifactManifestEntry> BuildArtifactManifestEntries(
+        CsvExportRequest request,
+        ImmutableArray<AncillaryMessageFamily> ancillaryFamilies,
+        ImmutableArray<ExportedArtifact> exportedArtifacts)
+    {
+        ImmutableArray<CsvExportArtifactManifestEntry>.Builder builder = ImmutableArray.CreateBuilder<CsvExportArtifactManifestEntry>(exportedArtifacts.Length);
+        Dictionary<string, AncillaryMessageFamily> ancillaryFamiliesByRawArtifactName = ancillaryFamilies.ToDictionary(
+            ancillaryFamily => BuildAncillaryArtifactFileName(ancillaryFamily, request.SourceFileNameWithoutExtension),
+            ancillaryFamily => ancillaryFamily,
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (ExportedArtifact exportedArtifact in exportedArtifacts)
+        {
+            builder.Add(BuildArtifactManifestEntry(request, ancillaryFamiliesByRawArtifactName, exportedArtifact));
+        }
+
+        return builder
+            .OrderBy(static artifact => artifact.ArtifactGroup)
+            .ThenBy(static artifact => artifact.ArtifactFileName, StringComparer.OrdinalIgnoreCase)
+            .ToImmutableArray();
+    }
+
+    private static CsvExportArtifactManifestEntry BuildArtifactManifestEntry(
+        CsvExportRequest request,
+        IReadOnlyDictionary<string, AncillaryMessageFamily> ancillaryFamiliesByRawArtifactName,
+        ExportedArtifact exportedArtifact)
+    {
+        DetermineArtifactPlacement(request, ancillaryFamiliesByRawArtifactName, exportedArtifact, out CsvExportArtifactLayer artifactLayer, out CsvExportArtifactGroup artifactGroup, out ImmutableArray<string> messageFamilies);
+
+        return new CsvExportArtifactManifestEntry
+        {
+            ArtifactName = exportedArtifact.ArtifactName,
+            ArtifactFileName = BuildRelativeArtifactPath(request.OutputDirectoryPath, exportedArtifact.FilePath),
+            ArtifactKind = exportedArtifact.Kind,
+            ArtifactLayer = artifactLayer,
+            ArtifactGroup = artifactGroup,
+            NodeType = exportedArtifact.NodeType.ToString(),
+            RowCount = exportedArtifact.RowCount,
+            MessageFamilies = messageFamilies,
+        };
+    }
+
+    private static void DetermineArtifactPlacement(
+        CsvExportRequest request,
+        IReadOnlyDictionary<string, AncillaryMessageFamily> ancillaryFamiliesByRawArtifactName,
+        ExportedArtifact exportedArtifact,
+        out CsvExportArtifactLayer artifactLayer,
+        out CsvExportArtifactGroup artifactGroup,
+        out ImmutableArray<string> messageFamilies)
+    {
+        switch (exportedArtifact.Kind)
+        {
+            case ExportedArtifactKind.NodeCsv:
+                artifactLayer = CsvExportArtifactLayer.ConsolidatedMachineExport;
+                artifactGroup = CsvExportArtifactGroup.Core;
+                messageFamilies = EnumerateNodes(request.SourceActivity, exportedArtifact.NodeType)
+                    .Select(static node => node.Original.MessageName)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToImmutableArray();
+                return;
+
+            case ExportedArtifactKind.AncillaryCsv:
+                artifactLayer = CsvExportArtifactLayer.RawLosslessArchive;
+                artifactGroup = CsvExportArtifactGroup.RawLossless;
+                messageFamilies = ancillaryFamiliesByRawArtifactName.TryGetValue(exportedArtifact.ArtifactName, out AncillaryMessageFamily rawAncillaryFamily)
+                    ? [rawAncillaryFamily.Key.MessageName]
+                    : [exportedArtifact.ArtifactName];
+                return;
+
+            case ExportedArtifactKind.ConsolidatedCsv:
+                artifactLayer = CsvExportArtifactLayer.ConsolidatedMachineExport;
+                if (string.Equals(exportedArtifact.ArtifactName, RawUnmappedArtifactName, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(Path.GetFileName(exportedArtifact.FilePath), request.SourceFileNameWithoutExtension + RawUnmappedFileNameSuffix, StringComparison.OrdinalIgnoreCase))
+                {
+                    artifactGroup = CsvExportArtifactGroup.RawUnmapped;
+                    messageFamilies = BuildRawUnmappedMessageFamilies(request.SourceActivity);
+                    return;
+                }
+
+                AncillaryMessageFamily? consolidatedAncillaryFamily = ancillaryFamiliesByRawArtifactName.Values.FirstOrDefault(ancillaryFamily =>
+                    TryGetConsolidatedAncillaryArtifactGroup(ancillaryFamily.Key.MessageName, out CsvExportArtifactGroup ancillaryArtifactGroup)
+                    && ancillaryArtifactGroup == GetArtifactGroupFromDirectory(exportedArtifact.FilePath)
+                    && string.Equals(
+                        BuildConsolidatedAncillaryArtifactFileName(
+                            ancillaryFamily.Key.MessageName,
+                            request.SourceFileNameWithoutExtension,
+                            ancillaryArtifactGroup),
+                        exportedArtifact.ArtifactName,
+                        StringComparison.OrdinalIgnoreCase));
+
+                artifactGroup = GetArtifactGroupFromDirectory(exportedArtifact.FilePath);
+                messageFamilies = consolidatedAncillaryFamily is null
+                    ? [exportedArtifact.ArtifactName]
+                    : [consolidatedAncillaryFamily.Key.MessageName];
+                return;
+
+            case ExportedArtifactKind.Manifest:
+                artifactLayer = CsvExportArtifactLayer.Manifest;
+                artifactGroup = CsvExportArtifactGroup.Manifest;
+                messageFamilies = [ManifestArtifactName];
+                return;
+
+            default:
+                throw new ArgumentOutOfRangeException(nameof(exportedArtifact), exportedArtifact.Kind, "Unsupported exported artifact kind.");
+        }
     }
 
     private static ImmutableArray<CsvExportMessageFamilyManifestEntry> BuildIncludedMessageFamilies(
@@ -855,8 +1301,10 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
                     MessageFamily = nodes.FirstOrDefault()?.Original.MessageName ?? nodeRequest.NodeType.ToString().ToLowerInvariant(),
                     MessageNumber = nodes.FirstOrDefault()?.Original.MessageNumber ?? 0,
                     ArtifactName = exportedArtifact.ArtifactName,
-                    ArtifactFileName = Path.GetFileName(exportedArtifact.FilePath),
+                    ArtifactFileName = BuildRelativeArtifactPath(request.OutputDirectoryPath, exportedArtifact.FilePath),
                     ArtifactKind = exportedArtifact.Kind,
+                    ArtifactLayer = CsvExportArtifactLayer.ConsolidatedMachineExport,
+                    ArtifactGroup = CsvExportArtifactGroup.Core,
                     NodeType = nodeRequest.NodeType.ToString(),
                     RowCount = exportedArtifact.RowCount,
                     ContainsDeveloperFields = nodes.SelectMany(static node => node.Fields).Any(static field => field.Original.Kind == FitFieldKind.Developer),
@@ -878,8 +1326,10 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
                     MessageFamily = ancillaryFamily.Key.MessageName,
                     MessageNumber = ancillaryFamily.Key.MessageNumber,
                     ArtifactName = exportedArtifact.ArtifactName,
-                    ArtifactFileName = Path.GetFileName(exportedArtifact.FilePath),
+                    ArtifactFileName = BuildRelativeArtifactPath(request.OutputDirectoryPath, exportedArtifact.FilePath),
                     ArtifactKind = exportedArtifact.Kind,
+                    ArtifactLayer = CsvExportArtifactLayer.RawLosslessArchive,
+                    ArtifactGroup = CsvExportArtifactGroup.RawLossless,
                     NodeType = FitNodeType.Ancillary.ToString(),
                     RowCount = exportedArtifact.RowCount,
                     ContainsDeveloperFields = ancillaryFamily.Messages.SelectMany(static message => message.Fields).Any(static field => field.Kind == FitFieldKind.Developer),
@@ -902,22 +1352,30 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
         HashSet<FitNodeType> selectedNodeTypes = request.NodeRequests.Select(static nodeRequest => nodeRequest.NodeType).ToHashSet();
         ImmutableArray<CsvExportMessageFamilyManifestEntry>.Builder builder = ImmutableArray.CreateBuilder<CsvExportMessageFamilyManifestEntry>();
 
-        AddOmittedNodeFamilyIfNeeded(builder, request.SourceActivity.Fields, FitNodeType.Activity, selectedNodeTypes.Contains(FitNodeType.Activity));
+        AddOmittedNodeFamilyIfNeeded(
+            builder,
+            request.SourceActivity.Fields,
+            FitNodeType.Activity,
+            selectedNodeTypes.Contains(FitNodeType.Activity),
+            request.SourceFileNameWithoutExtension);
         AddOmittedNodeFamilyIfNeeded(
             builder,
             request.SourceActivity.Sessions.SelectMany(static session => session.Fields).ToImmutableArray(),
             FitNodeType.Session,
-            selectedNodeTypes.Contains(FitNodeType.Session));
+            selectedNodeTypes.Contains(FitNodeType.Session),
+            request.SourceFileNameWithoutExtension);
         AddOmittedNodeFamilyIfNeeded(
             builder,
             request.SourceActivity.Sessions.SelectMany(static session => session.Laps).SelectMany(static lap => lap.Fields).ToImmutableArray(),
             FitNodeType.Lap,
-            selectedNodeTypes.Contains(FitNodeType.Lap));
+            selectedNodeTypes.Contains(FitNodeType.Lap),
+            request.SourceFileNameWithoutExtension);
         AddOmittedNodeFamilyIfNeeded(
             builder,
             request.SourceActivity.Sessions.SelectMany(static session => session.Records).SelectMany(static record => record.Fields).ToImmutableArray(),
             FitNodeType.Record,
-            selectedNodeTypes.Contains(FitNodeType.Record));
+            selectedNodeTypes.Contains(FitNodeType.Record),
+            request.SourceFileNameWithoutExtension);
 
         foreach (AncillaryMessageFamily ancillaryFamily in ancillaryFamilies)
         {
@@ -933,8 +1391,10 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
                     MessageFamily = ancillaryFamily.Key.MessageName,
                     MessageNumber = ancillaryFamily.Key.MessageNumber,
                     ArtifactName = artifactFileName,
-                    ArtifactFileName = artifactFileName,
+                    ArtifactFileName = BuildRawLosslessArtifactRelativePath(artifactFileName),
                     ArtifactKind = ExportedArtifactKind.AncillaryCsv,
+                    ArtifactLayer = CsvExportArtifactLayer.RawLosslessArchive,
+                    ArtifactGroup = CsvExportArtifactGroup.RawLossless,
                     NodeType = FitNodeType.Ancillary.ToString(),
                     RowCount = 0,
                     ContainsDeveloperFields = ancillaryFamily.Messages.SelectMany(static message => message.Fields).Any(static field => field.Kind == FitFieldKind.Developer),
@@ -953,7 +1413,8 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
         ImmutableArray<CsvExportMessageFamilyManifestEntry>.Builder builder,
         ImmutableArray<FitField> fields,
         FitNodeType nodeType,
-        bool isExported)
+        bool isExported,
+        string sourceFileNameWithoutExtension)
     {
         if (isExported || fields.IsDefaultOrEmpty)
         {
@@ -967,8 +1428,11 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
                 MessageFamily = firstField.Original.MessageName,
                 MessageNumber = firstField.Original.Key.MessageNumber,
                 ArtifactName = nodeType.ToString().ToLowerInvariant(),
-                ArtifactFileName = nodeType.ToString().ToLowerInvariant() + ".csv",
+                ArtifactFileName = BuildCoreArtifactRelativePath(
+                    $"{sourceFileNameWithoutExtension}_{nodeType.ToString().ToLowerInvariant()}.csv"),
                 ArtifactKind = ExportedArtifactKind.NodeCsv,
+                ArtifactLayer = CsvExportArtifactLayer.ConsolidatedMachineExport,
+                ArtifactGroup = CsvExportArtifactGroup.Core,
                 NodeType = nodeType.ToString(),
                 RowCount = 0,
                 ContainsDeveloperFields = fields.Any(static field => field.Original.Kind == FitFieldKind.Developer),
@@ -999,25 +1463,48 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
         // Deduplicate by stable export column key so repeated record/session fields produce one dictionary entry.
         Dictionary<FitExportColumnKey, CsvExportFieldDictionaryEntry> uniqueFieldEntriesByColumnKey = [];
 
-        AddNodeFieldEntries(uniqueFieldEntriesByColumnKey, request.SourceActivity.Fields, selectedColumnsByKey, exportedArtifactsByName, request.Options.UnitSystem);
+        AddNodeFieldEntries(
+            uniqueFieldEntriesByColumnKey,
+            request.SourceActivity.Fields,
+            selectedColumnsByKey,
+            exportedArtifactsByName,
+            request.OutputDirectoryPath,
+            request.Options.UnitSystem);
         foreach (FitSession session in request.SourceActivity.Sessions)
         {
-            AddNodeFieldEntries(uniqueFieldEntriesByColumnKey, session.Fields, selectedColumnsByKey, exportedArtifactsByName, request.Options.UnitSystem);
+            AddNodeFieldEntries(
+                uniqueFieldEntriesByColumnKey,
+                session.Fields,
+                selectedColumnsByKey,
+                exportedArtifactsByName,
+                request.OutputDirectoryPath,
+                request.Options.UnitSystem);
             foreach (FitLap lap in session.Laps)
             {
-                AddNodeFieldEntries(uniqueFieldEntriesByColumnKey, lap.Fields, selectedColumnsByKey, exportedArtifactsByName, request.Options.UnitSystem);
+                AddNodeFieldEntries(
+                    uniqueFieldEntriesByColumnKey,
+                    lap.Fields,
+                    selectedColumnsByKey,
+                    exportedArtifactsByName,
+                    request.OutputDirectoryPath,
+                    request.Options.UnitSystem);
             }
 
             foreach (FitRecord record in session.Records)
             {
-                AddNodeFieldEntries(uniqueFieldEntriesByColumnKey, record.Fields, selectedColumnsByKey, exportedArtifactsByName, request.Options.UnitSystem);
+                AddNodeFieldEntries(
+                    uniqueFieldEntriesByColumnKey,
+                    record.Fields,
+                    selectedColumnsByKey,
+                    exportedArtifactsByName,
+                    request.OutputDirectoryPath,
+                    request.Options.UnitSystem);
             }
         }
 
         foreach (AncillaryMessageFamily ancillaryFamily in ancillaryFamilies)
         {
-            string artifactFileName = BuildAncillaryArtifactFileName(ancillaryFamily, request.SourceFileNameWithoutExtension);
-            bool isExported = exportedArtifactsByName.ContainsKey(artifactFileName);
+            string rawArtifactFileName = BuildAncillaryArtifactFileName(ancillaryFamily, request.SourceFileNameWithoutExtension);
 
             foreach (FitFieldSnapshot field in ancillaryFamily.Messages.SelectMany(static message => message.Fields))
             {
@@ -1026,22 +1513,39 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
                     continue;
                 }
 
+                FitExportFieldClassification classification = GetClassification(field.MessageName, field.Kind);
+                CsvExportFieldAliasMetadata? aliasMetadata = GetAliasMetadata(field.MessageName, field.OriginalName);
+                string? artifactName = ResolveAncillaryDictionaryArtifactName(
+                    request,
+                    exportedArtifactsByName,
+                    ancillaryFamily,
+                    classification,
+                    rawArtifactFileName);
+
                 uniqueFieldEntriesByColumnKey.Add(
                     field.ExportColumnKey,
                     new CsvExportFieldDictionaryEntry
                     {
                         ExportName = field.OriginalName,
+                        CanonicalName = BuildCanonicalName(field.MessageName, field.OriginalName),
+                        CanonicalMessageFamily = field.MessageName,
+                        CanonicalFieldName = field.OriginalName,
                         NodeType = FitNodeType.Ancillary.ToString(),
                         SourceMessageFamily = field.MessageName,
                         SourceMessageNumber = field.Key.MessageNumber,
                         SourceFieldName = field.OriginalName,
-                        Classification = GetClassification(field.Kind),
+                        Classification = classification,
                         Unit = GetNormalizedUnit(field, request.Options.UnitSystem) ?? field.Units,
-                        Alias = GetAlias(field.OriginalName),
+                        Alias = aliasMetadata?.DisplayAliasDefault,
+                        AliasMetadata = aliasMetadata,
                         DerivationFormula = null,
-                        IsExported = isExported,
-                        ArtifactName = isExported ? artifactFileName : null,
-                        Notes = BuildFieldNotes(field.OriginalName, field.Kind, isAncillary: true),
+                        IsExported = artifactName is not null,
+                        ArtifactName = artifactName,
+                        IsArray = field.IsArray,
+                        ValueShape = field.IsArray ? ArrayValueShape : ScalarValueShape,
+                        ValueSeparator = field.IsArray ? ArrayValueSeparator : null,
+                        ValueOrdering = field.IsArray ? ArrayValueOrdering : null,
+                        Notes = BuildFieldNotes(field.MessageName, field.OriginalName, field.Kind, isAncillary: true),
                     });
             }
         }
@@ -1050,7 +1554,7 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
             uniqueFieldEntriesByColumnKey.Count + 12);
         builder.AddRange(uniqueFieldEntriesByColumnKey.Values);
         AddDerivedSessionFieldEntries(builder, request, exportedArtifactsByName);
-        AddAuditOnlyReferenceEntries(builder);
+        AddAuditOnlyReferenceEntries(builder, request.SourceActivity);
 
         return builder
             .OrderBy(static entry => entry.NodeType, StringComparer.OrdinalIgnoreCase)
@@ -1064,6 +1568,7 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
         ImmutableArray<FitField> fields,
         IReadOnlyDictionary<FitExportColumnKey, CsvExportColumnSelectionMetadata> selectedColumnsByKey,
         FrozenDictionary<string, ExportedArtifact> exportedArtifactsByName,
+        string outputDirectoryPath,
         FitExportUnitSystem unitSystem)
     {
         foreach (FitField field in fields)
@@ -1074,28 +1579,38 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
             }
 
             bool isSelected = selectedColumnsByKey.TryGetValue(field.Original.ExportColumnKey, out CsvExportColumnSelectionMetadata? selectionMetadata);
-            string? artifactName = isSelected && exportedArtifactsByName.ContainsKey(selectionMetadata!.ArtifactName)
-                ? selectionMetadata.ArtifactName
-                : null;
+            string? artifactName = isSelected
+                && TryGetExportedArtifactRelativePath(outputDirectoryPath, exportedArtifactsByName, selectionMetadata!.ArtifactName, out string? exportedArtifactRelativePath)
+                    ? exportedArtifactRelativePath
+                    : null;
+            CsvExportFieldAliasMetadata? aliasMetadata = GetAliasMetadata(field.Original.MessageName, field.Original.OriginalName);
 
             uniqueFieldEntriesByColumnKey.Add(
                 field.Original.ExportColumnKey,
                 new CsvExportFieldDictionaryEntry
                 {
                     ExportName = isSelected ? selectionMetadata!.ColumnName : field.State.ColumnName,
+                    CanonicalName = BuildCanonicalName(field.Original.MessageName, field.Original.OriginalName),
+                    CanonicalMessageFamily = field.Original.MessageName,
+                    CanonicalFieldName = field.Original.OriginalName,
                     NodeType = field.Original.Key.NodeType.ToString(),
                     SourceMessageFamily = field.Original.MessageName,
                     SourceMessageNumber = field.Original.Key.MessageNumber,
                     SourceFieldName = field.Original.OriginalName,
-                    Classification = GetClassification(field.Original.Kind),
+                    Classification = GetClassification(field.Original.MessageName, field.Original.Kind),
                     Unit = GetNormalizedUnit(field, unitSystem) is string normalizedUnit
                         ? normalizedUnit
                         : field.Original.Units,
-                    Alias = GetAlias(field.Original.OriginalName),
+                    Alias = aliasMetadata?.DisplayAliasDefault,
+                    AliasMetadata = aliasMetadata,
                     DerivationFormula = null,
                     IsExported = isSelected && artifactName is not null,
                     ArtifactName = artifactName,
-                    Notes = BuildFieldNotes(field.Original.OriginalName, field.Original.Kind, isAncillary: false),
+                    IsArray = field.Original.IsArray,
+                    ValueShape = field.Original.IsArray ? ArrayValueShape : ScalarValueShape,
+                    ValueSeparator = field.Original.IsArray ? ArrayValueSeparator : null,
+                    ValueOrdering = field.Original.IsArray ? ArrayValueOrdering : null,
+                    Notes = BuildFieldNotes(field.Original.MessageName, field.Original.OriginalName, field.Original.Kind, isAncillary: false),
                 });
         }
     }
@@ -1108,7 +1623,10 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
         string? sessionArtifactName = request.NodeRequests
             .Where(static nodeRequest => nodeRequest.NodeType == FitNodeType.Session)
             .Select(static nodeRequest => Path.GetFileName(nodeRequest.DestinationFilePath))
-            .FirstOrDefault(exportedArtifactsByName.ContainsKey);
+            .Select(artifactName => TryGetExportedArtifactRelativePath(request.OutputDirectoryPath, exportedArtifactsByName, artifactName, out string? artifactRelativePath)
+                ? artifactRelativePath
+                : null)
+            .FirstOrDefault(static artifactName => artifactName is not null);
 
         if (sessionArtifactName is null)
         {
@@ -1125,6 +1643,46 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
             ActiveCaloriesAlias,
             ActiveCaloriesFormula,
             unit: "kcal");
+        AddDerivedSessionFieldEntry(
+            builder,
+            request,
+            sessionArtifactName,
+            DerivedSessionFieldKind.EstimatedSweatLoss,
+            EstimatedSweatLossExportName,
+            "session",
+            EstimatedSweatLossAlias,
+            "unknown_178",
+            unit: "ml");
+        AddDerivedSessionFieldEntry(
+            builder,
+            request,
+            sessionArtifactName,
+            DerivedSessionFieldKind.BeginningPotential,
+            BeginningPotentialExportName,
+            "session",
+            BeginningPotentialAlias,
+            "unknown_205",
+            unit: "%");
+        AddDerivedSessionFieldEntry(
+            builder,
+            request,
+            sessionArtifactName,
+            DerivedSessionFieldKind.EndingPotential,
+            EndingPotentialExportName,
+            "session",
+            EndingPotentialAlias,
+            "unknown_206",
+            unit: "%");
+        AddDerivedSessionFieldEntry(
+            builder,
+            request,
+            sessionArtifactName,
+            DerivedSessionFieldKind.MinimumStamina,
+            MinimumStaminaExportName,
+            "session",
+            MinimumStaminaAlias,
+            "unknown_207",
+            unit: "%");
         AddDerivedSessionFieldEntry(
             builder,
             request,
@@ -1179,6 +1737,9 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
             new CsvExportFieldDictionaryEntry
             {
                 ExportName = exportName,
+                CanonicalName = BuildCanonicalName(sourceMessageFamily, exportName),
+                CanonicalMessageFamily = sourceMessageFamily,
+                CanonicalFieldName = exportName,
                 NodeType = FitNodeType.Session.ToString(),
                 SourceMessageFamily = sourceMessageFamily,
                 SourceMessageNumber = sourceMessageFamily.Equals("record", StringComparison.OrdinalIgnoreCase) ? (ushort)20 : (ushort)18,
@@ -1186,9 +1747,22 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
                 Classification = classification,
                 Unit = unit,
                 Alias = alias,
+                AliasMetadata = CreateAliasMetadata(
+                    alias,
+                    classification == FitExportFieldClassification.DirectStandardFit ? CsvExportAliasKind.DirectFieldAlias : CsvExportAliasKind.DerivedFieldAlias,
+                    confidence: classification == FitExportFieldClassification.DerivedFromRestoredFitMessages ? 0.55 : 0.95,
+                    isDirectAlias: classification == FitExportFieldClassification.DirectStandardFit,
+                    isDerivedAlias: classification != FitExportFieldClassification.DirectStandardFit,
+                    notes: classification == FitExportFieldClassification.DerivedFromRestoredFitMessages
+                        ? "Mapped from preserved unknown session fields that match the Garmin Connect reference activity."
+                        : null),
                 DerivationFormula = classification == FitExportFieldClassification.DirectStandardFit ? null : derivationFormula,
                 IsExported = true,
                 ArtifactName = sessionArtifactName,
+                IsArray = false,
+                ValueShape = ScalarValueShape,
+                ValueSeparator = null,
+                ValueOrdering = null,
                 Notes = kind == DerivedSessionFieldKind.MovingTime ? MovingSpeedDerivationNotes : "Derived summary column added for structured export completeness.",
             });
     }
@@ -1196,6 +1770,10 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
     private static string? GetDerivedSourceFieldName(DerivedSessionFieldKind kind) => kind switch
     {
         DerivedSessionFieldKind.ActiveCalories => "total_calories, metabolic_calories",
+        DerivedSessionFieldKind.EstimatedSweatLoss => "unknown_178",
+        DerivedSessionFieldKind.BeginningPotential => "unknown_205",
+        DerivedSessionFieldKind.EndingPotential => "unknown_206",
+        DerivedSessionFieldKind.MinimumStamina => "unknown_207",
         DerivedSessionFieldKind.MovingTime => "total_moving_time or record speed/distance stream",
         DerivedSessionFieldKind.AverageMovingSpeed => "total_distance, moving_time",
         DerivedSessionFieldKind.MaxAveragePowerTwentyMinutes => "record power",
@@ -1208,6 +1786,10 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
             => FitExportFieldClassification.DirectStandardFit,
         DerivedSessionFieldKind.MovingTime => FitExportFieldClassification.DerivedFromFit,
         DerivedSessionFieldKind.ActiveCalories => FitExportFieldClassification.DerivedFromFit,
+        DerivedSessionFieldKind.EstimatedSweatLoss => FitExportFieldClassification.DerivedFromRestoredFitMessages,
+        DerivedSessionFieldKind.BeginningPotential => FitExportFieldClassification.DerivedFromRestoredFitMessages,
+        DerivedSessionFieldKind.EndingPotential => FitExportFieldClassification.DerivedFromRestoredFitMessages,
+        DerivedSessionFieldKind.MinimumStamina => FitExportFieldClassification.DerivedFromRestoredFitMessages,
         DerivedSessionFieldKind.AverageMovingSpeed => FitExportFieldClassification.DerivedFromFit,
         DerivedSessionFieldKind.MaxAveragePowerTwentyMinutes => FitExportFieldClassification.DerivedFromFit,
         _ => FitExportFieldClassification.Unavailable
@@ -1216,12 +1798,15 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
     private static bool HasNamedField(ImmutableArray<FitField> fields, string fieldName)
         => fields.Any(field => field.Original.OriginalName.Equals(fieldName, StringComparison.OrdinalIgnoreCase));
 
-    private static void AddAuditOnlyReferenceEntries(ImmutableArray<CsvExportFieldDictionaryEntry>.Builder builder)
+    private static void AddAuditOnlyReferenceEntries(ImmutableArray<CsvExportFieldDictionaryEntry>.Builder builder, FitActivity activity)
     {
         builder.Add(
             new CsvExportFieldDictionaryEntry
             {
                 ExportName = "stamina",
+                CanonicalName = BuildCanonicalName("session", "stamina"),
+                CanonicalMessageFamily = "session",
+                CanonicalFieldName = "stamina",
                 NodeType = FitNodeType.Session.ToString(),
                 SourceMessageFamily = "session",
                 SourceMessageNumber = 18,
@@ -1229,79 +1814,27 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
                 Classification = FitExportFieldClassification.GarminConnectOnlyOrUnconfirmed,
                 Unit = "%",
                 Alias = "Stamina",
+                AliasMetadata = CreateAliasMetadata("Stamina", CsvExportAliasKind.HumanFriendlyAlias, 0.3, false, false, "Shown in Garmin Connect, but not exposed as a named field in FIT SDK 21.195.0."),
                 DerivationFormula = null,
                 IsExported = false,
                 ArtifactName = null,
+                IsArray = false,
+                ValueShape = ScalarValueShape,
+                ValueSeparator = null,
+                ValueOrdering = null,
                 Notes = "Garmin FIT SDK 21.195.0 does not expose a named stamina field in Activity, Session, or Record messages. Raw unknown session fields may still carry related device-specific data.",
             });
-        builder.Add(
-            new CsvExportFieldDictionaryEntry
-            {
-                ExportName = "beginning_potential",
-                NodeType = FitNodeType.Session.ToString(),
-                SourceMessageFamily = "session",
-                SourceMessageNumber = 18,
-                SourceFieldName = null,
-                Classification = FitExportFieldClassification.GarminConnectOnlyOrUnconfirmed,
-                Unit = "%",
-                Alias = "Beginning Potential",
-                DerivationFormula = null,
-                IsExported = false,
-                ArtifactName = null,
-                Notes = "No named FIT field is available in Garmin FIT SDK 21.195.0. Preserve raw unknown session fields when present and compare cautiously against Garmin Connect.",
-            });
-        builder.Add(
-            new CsvExportFieldDictionaryEntry
-            {
-                ExportName = "ending_potential",
-                NodeType = FitNodeType.Session.ToString(),
-                SourceMessageFamily = "session",
-                SourceMessageNumber = 18,
-                SourceFieldName = null,
-                Classification = FitExportFieldClassification.GarminConnectOnlyOrUnconfirmed,
-                Unit = "%",
-                Alias = "Ending Potential",
-                DerivationFormula = null,
-                IsExported = false,
-                ArtifactName = null,
-                Notes = "No named FIT field is available in Garmin FIT SDK 21.195.0. Preserve raw unknown session fields when present and compare cautiously against Garmin Connect.",
-            });
-        builder.Add(
-            new CsvExportFieldDictionaryEntry
-            {
-                ExportName = "min_stamina",
-                NodeType = FitNodeType.Session.ToString(),
-                SourceMessageFamily = "session",
-                SourceMessageNumber = 18,
-                SourceFieldName = null,
-                Classification = FitExportFieldClassification.GarminConnectOnlyOrUnconfirmed,
-                Unit = "%",
-                Alias = "Min Stamina",
-                DerivationFormula = null,
-                IsExported = false,
-                ArtifactName = null,
-                Notes = "No named FIT field is available in Garmin FIT SDK 21.195.0. Preserve raw unknown session fields when present and compare cautiously against Garmin Connect.",
-            });
-        builder.Add(
-            new CsvExportFieldDictionaryEntry
-            {
-                ExportName = "est_sweat_loss",
-                NodeType = FitNodeType.Session.ToString(),
-                SourceMessageFamily = "session",
-                SourceMessageNumber = 18,
-                SourceFieldName = null,
-                Classification = FitExportFieldClassification.GarminConnectOnlyOrUnconfirmed,
-                Unit = "ml",
-                Alias = "Est. Sweat Loss",
-                DerivationFormula = null,
-                IsExported = false,
-                ArtifactName = null,
-                Notes = "No named FIT field is available in Garmin FIT SDK 21.195.0 for this structured export path.",
-            });
+        AddAuditOnlyReferenceEntryIfMissing(builder, activity, "unknown_205", BeginningPotentialExportName, "%", BeginningPotentialAlias, "No named FIT field is available in Garmin FIT SDK 21.195.0. Preserve raw unknown session fields when present and compare cautiously against Garmin Connect.");
+        AddAuditOnlyReferenceEntryIfMissing(builder, activity, "unknown_206", EndingPotentialExportName, "%", EndingPotentialAlias, "No named FIT field is available in Garmin FIT SDK 21.195.0. Preserve raw unknown session fields when present and compare cautiously against Garmin Connect.");
+        AddAuditOnlyReferenceEntryIfMissing(builder, activity, "unknown_207", MinimumStaminaExportName, "%", MinimumStaminaAlias, "No named FIT field is available in Garmin FIT SDK 21.195.0. Preserve raw unknown session fields when present and compare cautiously against Garmin Connect.");
+        AddAuditOnlyReferenceEntryIfMissing(builder, activity, "unknown_178", EstimatedSweatLossExportName, "ml", EstimatedSweatLossAlias, "No named FIT field is available in Garmin FIT SDK 21.195.0 for this structured export path.");
         builder.Add(
             new CsvExportFieldDictionaryEntry
             {
                 ExportName = "fluid_consumed",
+                CanonicalName = BuildCanonicalName("session", "fluid_consumed"),
+                CanonicalMessageFamily = "session",
+                CanonicalFieldName = "fluid_consumed",
                 NodeType = FitNodeType.Session.ToString(),
                 SourceMessageFamily = "session",
                 SourceMessageNumber = 18,
@@ -1309,15 +1842,23 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
                 Classification = FitExportFieldClassification.GarminConnectOnlyOrUnconfirmed,
                 Unit = "ml",
                 Alias = "Fluid Consumed",
+                AliasMetadata = CreateAliasMetadata("Fluid Consumed", CsvExportAliasKind.HumanFriendlyAlias, 0.3, false, false, "Garmin Connect label recorded from the PDF reference."),
                 DerivationFormula = null,
                 IsExported = false,
                 ArtifactName = null,
+                IsArray = false,
+                ValueShape = ScalarValueShape,
+                ValueSeparator = null,
+                ValueOrdering = null,
                 Notes = "No named FIT field is available in Garmin FIT SDK 21.195.0 for this structured export path.",
             });
         builder.Add(
             new CsvExportFieldDictionaryEntry
             {
                 ExportName = "fluid_net",
+                CanonicalName = BuildCanonicalName("session", "fluid_net"),
+                CanonicalMessageFamily = "session",
+                CanonicalFieldName = "fluid_net",
                 NodeType = FitNodeType.Session.ToString(),
                 SourceMessageFamily = "session",
                 SourceMessageNumber = 18,
@@ -1325,15 +1866,23 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
                 Classification = FitExportFieldClassification.GarminConnectOnlyOrUnconfirmed,
                 Unit = "ml",
                 Alias = "Fluid Net",
+                AliasMetadata = CreateAliasMetadata("Fluid Net", CsvExportAliasKind.HumanFriendlyAlias, 0.3, false, false, "Garmin Connect label recorded from the PDF reference."),
                 DerivationFormula = null,
                 IsExported = false,
                 ArtifactName = null,
+                IsArray = false,
+                ValueShape = ScalarValueShape,
+                ValueSeparator = null,
+                ValueOrdering = null,
                 Notes = "No named FIT field is available in Garmin FIT SDK 21.195.0 for this structured export path.",
             });
         builder.Add(
             new CsvExportFieldDictionaryEntry
             {
                 ExportName = "intensity_minutes",
+                CanonicalName = BuildCanonicalName("session", "intensity_minutes"),
+                CanonicalMessageFamily = "session",
+                CanonicalFieldName = "intensity_minutes",
                 NodeType = FitNodeType.Session.ToString(),
                 SourceMessageFamily = "session",
                 SourceMessageNumber = 18,
@@ -1341,20 +1890,77 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
                 Classification = FitExportFieldClassification.GarminConnectOnlyOrUnconfirmed,
                 Unit = "min",
                 Alias = "Intensity Minutes",
+                AliasMetadata = CreateAliasMetadata("Intensity Minutes", CsvExportAliasKind.SectionLabel, 0.3, false, false, "Garmin Connect section label recorded from the PDF reference."),
                 DerivationFormula = null,
                 IsExported = false,
                 ArtifactName = null,
+                IsArray = false,
+                ValueShape = ScalarValueShape,
+                ValueSeparator = null,
+                ValueOrdering = null,
                 Notes = "No named FIT field is available in Garmin FIT SDK 21.195.0 for this structured export path.",
             });
     }
 
-    private static FitExportFieldClassification GetClassification(FitFieldKind kind) => kind switch
+    private static void AddAuditOnlyReferenceEntryIfMissing(
+        ImmutableArray<CsvExportFieldDictionaryEntry>.Builder builder,
+        FitActivity activity,
+        string sourceFieldName,
+        string exportName,
+        string unit,
+        string alias,
+        string notes)
     {
-        FitFieldKind.Standard => FitExportFieldClassification.DirectStandardFit,
-        FitFieldKind.Developer => FitExportFieldClassification.DirectDeveloperField,
-        FitFieldKind.Unknown => FitExportFieldClassification.DirectStandardFit,
-        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unsupported FIT field kind."),
-    };
+        if (activity.Sessions.Any(session => HasNamedField(session.Fields, sourceFieldName)))
+        {
+            return;
+        }
+
+        builder.Add(
+            new CsvExportFieldDictionaryEntry
+            {
+                ExportName = exportName,
+                CanonicalName = BuildCanonicalName("session", exportName),
+                CanonicalMessageFamily = "session",
+                CanonicalFieldName = exportName,
+                NodeType = FitNodeType.Session.ToString(),
+                SourceMessageFamily = "session",
+                SourceMessageNumber = 18,
+                SourceFieldName = null,
+                Classification = FitExportFieldClassification.GarminConnectOnlyOrUnconfirmed,
+                Unit = unit,
+                Alias = alias,
+                AliasMetadata = CreateAliasMetadata(alias, CsvExportAliasKind.HumanFriendlyAlias, 0.3, false, false, "Garmin Connect label recorded from the PDF reference."),
+                DerivationFormula = null,
+                IsExported = false,
+                ArtifactName = null,
+                IsArray = false,
+                ValueShape = ScalarValueShape,
+                ValueSeparator = null,
+                ValueOrdering = null,
+                Notes = notes,
+            });
+    }
+
+    private static FitExportFieldClassification GetClassification(string messageName, FitFieldKind kind)
+    {
+        if (kind == FitFieldKind.Developer)
+        {
+            return FitExportFieldClassification.DirectDeveloperField;
+        }
+
+        if (string.Equals(messageName, "unknown", StringComparison.OrdinalIgnoreCase))
+        {
+            return FitExportFieldClassification.UnknownMessageFamily;
+        }
+
+        return kind switch
+        {
+            FitFieldKind.Standard => FitExportFieldClassification.DirectStandardFit,
+            FitFieldKind.Unknown => FitExportFieldClassification.UnmappedField,
+            _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unsupported FIT field kind."),
+        };
+    }
 
     private static bool ContainsDeveloperFields(FitActivity activity)
         => activity.Fields.Any(static field => field.Original.Kind == FitFieldKind.Developer)
@@ -1374,13 +1980,14 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
                 string.Equals(message.Original.MessageName, "unknown", StringComparison.OrdinalIgnoreCase)
                 || message.Fields.Any(static field => field.Kind == FitFieldKind.Unknown));
 
-    private static string? GetAlias(string originalName)
-        => s_fieldAliasesByOriginalName.TryGetValue(originalName, out string? alias) ? alias : null;
-
-    private static string? BuildFieldNotes(string originalName, FitFieldKind kind, bool isAncillary)
+    private static string? BuildFieldNotes(string messageName, string originalName, FitFieldKind kind, bool isAncillary)
     {
         List<string> notes = [];
-        if (kind == FitFieldKind.Unknown)
+        if (string.Equals(messageName, "unknown", StringComparison.OrdinalIgnoreCase))
+        {
+            notes.Add("Preserved from an unknown FIT message family so the source payload remains available for later semantic mapping.");
+        }
+        else if (kind == FitFieldKind.Unknown)
         {
             notes.Add("Garmin FIT SDK 21.195.0 does not expose a semantic profile name for this field, so the raw source value is preserved under an unknown_* export name.");
         }
@@ -1390,12 +1997,317 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
             notes.Add("Exported from a restored ancillary FIT message family outside the Activity/Session/Lap/Record tree.");
         }
 
-        if (s_fieldNotesByOriginalName.TryGetValue(originalName, out string? note))
+        if (s_fieldNotesByOriginalName.TryGetValue(NormalizeSchemaIdentifier(originalName), out string? note))
         {
             notes.Add(note);
         }
 
         return notes.Count == 0 ? null : string.Join(" ", notes);
+    }
+
+    private static string BuildCanonicalName(string messageFamily, string? fieldName)
+        => string.IsNullOrWhiteSpace(fieldName)
+            ? NormalizeSchemaIdentifier(messageFamily)
+            : $"{NormalizeSchemaIdentifier(messageFamily)}.{NormalizeSchemaIdentifier(fieldName)}";
+
+    private static string CreateAliasLookupKey(string messageFamily, string fieldName)
+        => $"{NormalizeSchemaIdentifier(messageFamily)}:{NormalizeSchemaIdentifier(fieldName)}";
+
+    private static CsvExportFieldAliasMetadata? GetAliasMetadata(string messageFamily, string fieldName)
+        => s_fieldAliasDefinitionsByKey.TryGetValue(CreateAliasLookupKey(messageFamily, fieldName), out CsvFieldAliasDefinition? aliasDefinition)
+            ? CreateAliasMetadata(
+                aliasDefinition.DisplayAliasDefault,
+                aliasDefinition.AliasKind,
+                aliasDefinition.Confidence,
+                aliasDefinition.IsDirectAlias,
+                aliasDefinition.IsDerivedAlias,
+                aliasDefinition.Notes)
+            : null;
+
+    private static CsvExportFieldAliasMetadata CreateAliasMetadata(
+        string displayAliasDefault,
+        CsvExportAliasKind aliasKind,
+        double confidence,
+        bool isDirectAlias,
+        bool isDerivedAlias,
+        string? notes)
+        => new()
+        {
+            DisplayAliasDefault = displayAliasDefault,
+            DisplayAliasSource = GarminConnectPdfAliasSource,
+            DisplayAliasLocale = GarminConnectAliasLocale,
+            DisplayAliasConfidence = confidence,
+            AliasKind = aliasKind,
+            IsDirectAlias = isDirectAlias,
+            IsDerivedAlias = isDerivedAlias,
+            Notes = notes,
+        };
+
+    private static string? ResolveAncillaryDictionaryArtifactName(
+        CsvExportRequest request,
+        FrozenDictionary<string, ExportedArtifact> exportedArtifactsByName,
+        AncillaryMessageFamily ancillaryFamily,
+        FitExportFieldClassification classification,
+        string rawArtifactFileName)
+    {
+        bool preferRawArtifact = classification is FitExportFieldClassification.UnmappedField
+            or FitExportFieldClassification.UnknownMessageFamily
+            or FitExportFieldClassification.RawPreservedField
+            or FitExportFieldClassification.VendorOrFutureField;
+
+        if (!preferRawArtifact
+            && TryGetConsolidatedAncillaryArtifactGroup(ancillaryFamily.Key.MessageName, out CsvExportArtifactGroup artifactGroup))
+        {
+            string consolidatedArtifactFileName = BuildConsolidatedAncillaryArtifactFileName(
+                ancillaryFamily.Key.MessageName,
+                request.SourceFileNameWithoutExtension,
+                artifactGroup);
+            if (TryGetExportedArtifactRelativePath(
+                request.OutputDirectoryPath,
+                exportedArtifactsByName,
+                consolidatedArtifactFileName,
+                out string? consolidatedArtifactRelativePath))
+            {
+                return consolidatedArtifactRelativePath;
+            }
+        }
+
+        return TryGetExportedArtifactRelativePath(
+            request.OutputDirectoryPath,
+            exportedArtifactsByName,
+            rawArtifactFileName,
+            out string? rawArtifactRelativePath)
+                ? rawArtifactRelativePath
+                : null;
+    }
+
+    private static bool TryGetExportedArtifactRelativePath(
+        string outputDirectoryPath,
+        FrozenDictionary<string, ExportedArtifact> exportedArtifactsByName,
+        string artifactName,
+        out string? artifactRelativePath)
+    {
+        if (exportedArtifactsByName.TryGetValue(artifactName, out ExportedArtifact? exportedArtifact))
+        {
+            artifactRelativePath = BuildRelativeArtifactPath(outputDirectoryPath, exportedArtifact.FilePath);
+            return true;
+        }
+
+        artifactRelativePath = null;
+        return false;
+    }
+
+    private static string BuildRelativeArtifactPath(string outputDirectoryPath, string filePath)
+        => Path.GetRelativePath(outputDirectoryPath, filePath).Replace('\\', '/');
+
+    private static string BuildCoreArtifactRelativePath(string artifactFileName)
+        => BuildArtifactRelativePath(CoreDirectoryName, artifactFileName);
+
+    private static string BuildRawLosslessArtifactRelativePath(string artifactFileName)
+        => BuildArtifactRelativePath(RawLosslessDirectoryName, artifactFileName);
+
+    private static string BuildArtifactRelativePath(string directoryName, string artifactFileName)
+        => $"{directoryName}/{artifactFileName}";
+
+    private static bool TryGetConsolidatedAncillaryArtifactGroup(string messageName, out CsvExportArtifactGroup artifactGroup)
+    {
+        if (string.Equals(messageName, "unknown", StringComparison.OrdinalIgnoreCase))
+        {
+            artifactGroup = default;
+            return false;
+        }
+
+        artifactGroup = s_analyticsMessageFamilies.Contains(messageName)
+            ? CsvExportArtifactGroup.Analytics
+            : CsvExportArtifactGroup.Metadata;
+        return true;
+    }
+
+    private static string BuildConsolidatedAncillaryArtifactFileName(
+        string messageName,
+        string sourceFileNameWithoutExtension,
+        CsvExportArtifactGroup artifactGroup)
+        => $"{sourceFileNameWithoutExtension}_{GetArtifactGroupDirectoryName(artifactGroup)}_{SanitizeFileNameSegment(messageName)}.csv";
+
+    private static string GetArtifactGroupDirectoryName(CsvExportArtifactGroup artifactGroup) => artifactGroup switch
+    {
+        CsvExportArtifactGroup.Core => CoreDirectoryName,
+        CsvExportArtifactGroup.Metadata => MetadataDirectoryName,
+        CsvExportArtifactGroup.Analytics => AnalyticsDirectoryName,
+        CsvExportArtifactGroup.RawUnmapped => RawUnmappedDirectoryName,
+        CsvExportArtifactGroup.RawLossless => RawLosslessDirectoryName,
+        CsvExportArtifactGroup.Manifest => string.Empty,
+        _ => throw new ArgumentOutOfRangeException(nameof(artifactGroup), artifactGroup, "Unsupported artifact group."),
+    };
+
+    private static CsvExportArtifactGroup GetArtifactGroupFromDirectory(string filePath)
+    {
+        string? directoryName = Path.GetFileName(Path.GetDirectoryName(filePath));
+        return directoryName?.ToLowerInvariant() switch
+        {
+            CoreDirectoryName => CsvExportArtifactGroup.Core,
+            MetadataDirectoryName => CsvExportArtifactGroup.Metadata,
+            AnalyticsDirectoryName => CsvExportArtifactGroup.Analytics,
+            RawUnmappedDirectoryName => CsvExportArtifactGroup.RawUnmapped,
+            RawLosslessDirectoryName => CsvExportArtifactGroup.RawLossless,
+            _ => CsvExportArtifactGroup.Manifest,
+        };
+    }
+
+    private static ImmutableArray<string> BuildRawUnmappedMessageFamilies(FitActivity activity)
+    {
+        SortedSet<string> messageFamilies = new(StringComparer.OrdinalIgnoreCase);
+
+        foreach (FitField field in activity.Fields)
+        {
+            AddRawUnmappedMessageFamilyIfNeeded(messageFamilies, field.Original.MessageName, field.Original.Kind);
+        }
+
+        foreach (FitSession session in activity.Sessions)
+        {
+            foreach (FitField field in session.Fields)
+            {
+                AddRawUnmappedMessageFamilyIfNeeded(messageFamilies, field.Original.MessageName, field.Original.Kind);
+            }
+
+            foreach (FitLap lap in session.Laps)
+            {
+                foreach (FitField field in lap.Fields)
+                {
+                    AddRawUnmappedMessageFamilyIfNeeded(messageFamilies, field.Original.MessageName, field.Original.Kind);
+                }
+            }
+
+            foreach (FitRecord record in session.Records)
+            {
+                foreach (FitField field in record.Fields)
+                {
+                    AddRawUnmappedMessageFamilyIfNeeded(messageFamilies, field.Original.MessageName, field.Original.Kind);
+                }
+            }
+        }
+
+        foreach (FitAncillaryMessage ancillaryMessage in activity.AncillaryData.Messages)
+        {
+            if (string.Equals(ancillaryMessage.Original.MessageName, "unknown", StringComparison.OrdinalIgnoreCase))
+            {
+                _ = messageFamilies.Add(ancillaryMessage.Original.MessageName);
+            }
+
+            foreach (FitFieldSnapshot field in ancillaryMessage.Fields)
+            {
+                AddRawUnmappedMessageFamilyIfNeeded(messageFamilies, field.MessageName, field.Kind);
+            }
+        }
+
+        return messageFamilies.ToImmutableArray();
+    }
+
+    private static void AddRawUnmappedMessageFamilyIfNeeded(ISet<string> messageFamilies, string messageName, FitFieldKind fieldKind)
+    {
+        if (fieldKind == FitFieldKind.Unknown || string.Equals(messageName, "unknown", StringComparison.OrdinalIgnoreCase))
+        {
+            _ = messageFamilies.Add(messageName);
+        }
+    }
+
+    private static ImmutableArray<RawUnmappedRow> BuildRawUnmappedRows(FitActivity activity, string sourceFileNameWithoutExtension)
+    {
+        ImmutableArray<RawUnmappedRow>.Builder builder = ImmutableArray.CreateBuilder<RawUnmappedRow>();
+
+        AppendRawUnmappedRows(
+            builder,
+            activity.Original,
+            activity.Fields.Select(static field => field.Original),
+            BuildCoreArtifactRelativePath($"{sourceFileNameWithoutExtension}_activity.csv"));
+
+        foreach (FitSession session in activity.Sessions)
+        {
+            AppendRawUnmappedRows(
+                builder,
+                session.Original,
+                session.Fields.Select(static field => field.Original),
+                BuildCoreArtifactRelativePath($"{sourceFileNameWithoutExtension}_session.csv"));
+
+            foreach (FitLap lap in session.Laps)
+            {
+                AppendRawUnmappedRows(
+                    builder,
+                    lap.Original,
+                    lap.Fields.Select(static field => field.Original),
+                    BuildCoreArtifactRelativePath($"{sourceFileNameWithoutExtension}_lap.csv"));
+            }
+
+            foreach (FitRecord record in session.Records)
+            {
+                AppendRawUnmappedRows(
+                    builder,
+                    record.Original,
+                    record.Fields.Select(static field => field.Original),
+                    BuildCoreArtifactRelativePath($"{sourceFileNameWithoutExtension}_record.csv"));
+            }
+        }
+
+        foreach (AncillaryMessageFamily ancillaryFamily in GroupAncillaryFamilies(activity.AncillaryData.Messages))
+        {
+            string sourceArtifactName = BuildRawLosslessArtifactRelativePath(
+                BuildAncillaryArtifactFileName(ancillaryFamily, sourceFileNameWithoutExtension));
+
+            foreach (FitAncillaryMessage ancillaryMessage in ancillaryFamily.Messages)
+            {
+                AppendRawUnmappedRows(builder, ancillaryMessage.Original, ancillaryMessage.Fields, sourceArtifactName);
+            }
+        }
+
+        return builder
+            .OrderBy(static row => row.MessageNumber)
+            .ThenBy(static row => row.RowSequence)
+            .ThenBy(static row => row.FieldNumber)
+            .ThenBy(static row => row.ValueIndex)
+            .ToImmutableArray();
+    }
+
+    private static void AppendRawUnmappedRows(
+        ImmutableArray<RawUnmappedRow>.Builder builder,
+        FitNodeSnapshot nodeSnapshot,
+        IEnumerable<FitFieldSnapshot> fields,
+        string sourceArtifactName)
+    {
+        foreach (FitFieldSnapshot field in fields)
+        {
+            FitExportFieldClassification classification = GetClassification(field.MessageName, field.Kind);
+            if (classification is not FitExportFieldClassification.UnmappedField
+                and not FitExportFieldClassification.UnknownMessageFamily
+                and not FitExportFieldClassification.RawPreservedField
+                and not FitExportFieldClassification.VendorOrFutureField)
+            {
+                continue;
+            }
+
+            for (int valueIndex = 0; valueIndex < field.OriginalValues.Length; valueIndex++)
+            {
+                FitFieldValue fieldValue = field.OriginalValues[valueIndex];
+                builder.Add(
+                    new RawUnmappedRow(
+                        nodeSnapshot.Identity.NodeType.ToString(),
+                        nodeSnapshot.MessageNumber,
+                        nodeSnapshot.MessageName,
+                        nodeSnapshot.Identity.SequenceNumber,
+                        nodeSnapshot.Identity.MessageIndex,
+                        nodeSnapshot.LocalMessageNumber,
+                        nodeSnapshot.TimestampUtc,
+                        field.Key.FieldNumber,
+                        field.OriginalName,
+                        valueIndex,
+                        field.OriginalValues.Length,
+                        FormatSingleValue(fieldValue.RawValue),
+                        FormatSingleValue(fieldValue.DecodedValue),
+                        field.Units,
+                        sourceArtifactName,
+                        classification,
+                        BuildFieldNotes(field.MessageName, field.OriginalName, field.Kind, nodeSnapshot.Identity.NodeType == FitNodeType.Ancillary)));
+            }
+        }
     }
 
     private static IEnumerable<FitNode> EnumerateNodes(FitActivity sourceActivity, FitNodeType nodeType) => nodeType switch
@@ -1428,7 +2340,9 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
 
             // Keep the local-time duplicate immediately next to the canonical timestamp column so downstream
             // readers can pair them without scanning the whole header set.
-            if (exportOptions.IncludeLocalTimeColumns && IsTimestampField(referenceField))
+            if (exportOptions.IncludeLocalTimeColumns
+                && IsTimestampField(referenceField)
+                && !IsLocalSourceTimestampField(referenceField))
             {
                 projectedColumns.Add(new ProjectedColumn(
                     orderedColumn,
@@ -1455,7 +2369,11 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
     {
         if (IsTimestampField(referenceField))
         {
-            string timestampQualifier = isLocalTimeDuplicate ? "Local" : "UTC";
+            string timestampQualifier = isLocalTimeDuplicate
+                ? "Local"
+                : IsLocalSourceTimestampField(referenceField)
+                    ? LocalSourceTimestampQualifier
+                    : "UTC";
             return exportOptions.IncludeUnitSuffixInHeaders
                 ? $"{baseHeader} [{timestampQualifier}]"
                 : $"{baseHeader} {timestampQualifier}";
@@ -1620,6 +2538,11 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
 
         if (IsTimestampField(field))
         {
+            if (IsLocalSourceTimestampField(field) && !isLocalTimeDuplicate)
+            {
+                return value;
+            }
+
             return NormalizeTimestampValue(value, isLocalTimeDuplicate, exportOptions.LocalTimeZone);
         }
 
@@ -1628,14 +2551,19 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
             return normalizedDurationValue;
         }
 
-        if (TryNormalizeDistanceValue(value, field.Units, exportOptions.UnitSystem, out double normalizedDistanceValue))
+        if (TryNormalizeDistanceValue(field, value, exportOptions.UnitSystem, out double normalizedDistanceValue))
         {
             return normalizedDistanceValue;
         }
 
-        if (TryNormalizeSpeedValue(value, field.Units, exportOptions.UnitSystem, out double normalizedSpeedValue))
+        if (TryNormalizeSpeedValue(field, value, exportOptions.UnitSystem, out double normalizedSpeedValue))
         {
             return normalizedSpeedValue;
+        }
+
+        if (TryNormalizeWorkValue(field, value, out double normalizedWorkValue))
+        {
+            return normalizedWorkValue;
         }
 
         return value;
@@ -1748,12 +2676,13 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
     }
 
     private static bool TryNormalizeDistanceValue(
+        FitFieldSnapshot field,
         object? value,
-        string? sourceUnit,
         FitExportUnitSystem unitSystem,
         out double normalizedValue)
     {
-        if (!TryNormalizeDistanceToMeters(value, sourceUnit, out double distanceInMeters))
+        if (!IsDistanceLikeField(field)
+            || !TryNormalizeDistanceToMeters(value, field.Units, out double distanceInMeters))
         {
             normalizedValue = default;
             return false;
@@ -1786,12 +2715,13 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
     }
 
     private static bool TryNormalizeSpeedValue(
+        FitFieldSnapshot field,
         object? value,
-        string? sourceUnit,
         FitExportUnitSystem unitSystem,
         out double normalizedValue)
     {
-        if (!TryNormalizeSpeedToMetersPerSecond(value, sourceUnit, out double speedInMetersPerSecond))
+        if (!IsSpeedLikeField(field)
+            || !TryNormalizeSpeedToMetersPerSecond(value, field.Units, out double speedInMetersPerSecond))
         {
             normalizedValue = default;
             return false;
@@ -1801,6 +2731,24 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
             ? speedInMetersPerSecond * KilometersPerHourPerMeterPerSecond
             : speedInMetersPerSecond * MilesPerHourPerMeterPerSecond;
         return true;
+    }
+
+    private static bool TryNormalizeWorkValue(FitFieldSnapshot field, object? value, out double normalizedValue)
+    {
+        if (!IsWorkLikeField(field) || !TryConvertToDouble(value, out double numericValue))
+        {
+            normalizedValue = default;
+            return false;
+        }
+
+        normalizedValue = NormalizeUnit(field.Units) switch
+        {
+            "j" => numericValue / JoulesPerKilojoule,
+            "kj" => numericValue,
+            _ => double.NaN,
+        };
+
+        return !double.IsNaN(normalizedValue);
     }
 
     private static bool TryConvertToDouble(object? value, out double numericValue)
@@ -1861,6 +2809,12 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
         return field.OriginalValues.Any(static fieldValue => fieldValue.DecodedValue is DateTimeOffset or DateTime);
     }
 
+    private static bool IsLocalSourceTimestampField(FitField field) => IsLocalSourceTimestampField(field.Original);
+
+    private static bool IsLocalSourceTimestampField(FitFieldSnapshot field)
+        => field.ProfileTypeName.Equals("LocalDateTime", StringComparison.OrdinalIgnoreCase)
+            || field.OriginalName.Equals("local_timestamp", StringComparison.OrdinalIgnoreCase);
+
     private static string? GetNormalizedUnit(FitField field, FitExportUnitSystem unitSystem)
         => GetNormalizedUnit(field.Original, unitSystem);
 
@@ -1876,14 +2830,19 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
             return durationUnit;
         }
 
-        if (TryNormalizeDistanceUnit(field.Units, unitSystem, out string distanceUnit))
+        if (TryNormalizeDistanceUnit(field, unitSystem, out string distanceUnit))
         {
             return distanceUnit;
         }
 
-        if (TryNormalizeSpeedUnit(field.Units, unitSystem, out string speedUnit))
+        if (TryNormalizeSpeedUnit(field, unitSystem, out string speedUnit))
         {
             return speedUnit;
+        }
+
+        if (TryNormalizeWorkUnit(field, out string workUnit))
+        {
+            return workUnit;
         }
 
         return string.IsNullOrWhiteSpace(field.Units) ? null : field.Units;
@@ -1905,9 +2864,15 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
         }
     }
 
-    private static bool TryNormalizeDistanceUnit(string? sourceUnit, FitExportUnitSystem unitSystem, out string normalizedUnit)
+    private static bool TryNormalizeDistanceUnit(FitFieldSnapshot field, FitExportUnitSystem unitSystem, out string normalizedUnit)
     {
-        switch (NormalizeUnit(sourceUnit))
+        if (!IsDistanceLikeField(field))
+        {
+            normalizedUnit = string.Empty;
+            return false;
+        }
+
+        switch (NormalizeUnit(field.Units))
         {
             case "m":
             case "km":
@@ -1921,14 +2886,40 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
         }
     }
 
-    private static bool TryNormalizeSpeedUnit(string? sourceUnit, FitExportUnitSystem unitSystem, out string normalizedUnit)
+    private static bool TryNormalizeSpeedUnit(FitFieldSnapshot field, FitExportUnitSystem unitSystem, out string normalizedUnit)
     {
-        switch (NormalizeUnit(sourceUnit))
+        if (!IsSpeedLikeField(field))
+        {
+            normalizedUnit = string.Empty;
+            return false;
+        }
+
+        switch (NormalizeUnit(field.Units))
         {
             case "m/s":
             case "km/h":
             case "mph":
                 normalizedUnit = unitSystem == FitExportUnitSystem.Metric ? "km/h" : "mph";
+                return true;
+            default:
+                normalizedUnit = string.Empty;
+                return false;
+        }
+    }
+
+    private static bool TryNormalizeWorkUnit(FitFieldSnapshot field, out string normalizedUnit)
+    {
+        if (!IsWorkLikeField(field))
+        {
+            normalizedUnit = string.Empty;
+            return false;
+        }
+
+        switch (NormalizeUnit(field.Units))
+        {
+            case "j":
+            case "kj":
+                normalizedUnit = "kJ";
                 return true;
             default:
                 normalizedUnit = string.Empty;
@@ -1947,6 +2938,15 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
     private static bool IsSpeedUnit(string normalizedUnit)
         => normalizedUnit is "m/s" or "km/h" or "mph";
 
+    private static bool IsDistanceLikeField(FitFieldSnapshot field)
+        => field.OriginalName.Contains("distance", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsSpeedLikeField(FitFieldSnapshot field)
+        => field.OriginalName.Contains("speed", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsWorkLikeField(FitFieldSnapshot field)
+        => field.OriginalName.Contains("work", StringComparison.OrdinalIgnoreCase);
+
     private static string RenderMissingValue(FitExportOptions exportOptions)
         => exportOptions.MissingValueStyle == FitExportMissingValueStyle.Literal
             ? exportOptions.MissingValueLiteral
@@ -1964,6 +2964,9 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
     private static string FormatSingleValue(object? value) => value switch
     {
         null => string.Empty,
+        ImmutableArray<byte> immutableByteArrayValue => string.Join("|", immutableByteArrayValue.Select(static byteValue => byteValue.ToString(CultureInfo.InvariantCulture))),
+        byte[] byteArrayValue => string.Join("|", byteArrayValue.Select(static byteValue => byteValue.ToString(CultureInfo.InvariantCulture))),
+        Array arrayValue when arrayValue.Rank == 1 => string.Join("|", arrayValue.Cast<object?>().Select(FormatSingleValue)),
         DateTimeOffset dateTimeOffsetValue => dateTimeOffsetValue.ToString("O", CultureInfo.InvariantCulture),
         DateTime dateTimeValue => dateTimeValue.ToString("O", CultureInfo.InvariantCulture),
         IFormattable formattableValue => formattableValue.ToString(format: null, CultureInfo.InvariantCulture) ?? string.Empty,
@@ -2003,10 +3006,69 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
         StringBuilder builder = new(value.Length);
         foreach (char character in value)
         {
-            _ = builder.Append(Path.GetInvalidFileNameChars().Contains(character) ? '_' : character);
+        _ = builder.Append(Path.GetInvalidFileNameChars().Contains(character) ? '_' : character);
         }
 
         return builder.ToString();
+    }
+
+    private static string NormalizeSchemaIdentifier(string value)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(value);
+
+        StringBuilder builder = new(value.Length + 8);
+        bool previousWasSeparator = false;
+
+        for (int index = 0; index < value.Length; index++)
+        {
+            char currentCharacter = value[index];
+            if (!char.IsLetterOrDigit(currentCharacter))
+            {
+                if (builder.Length > 0 && !previousWasSeparator)
+                {
+                    _ = builder.Append('_');
+                    previousWasSeparator = true;
+                }
+
+                continue;
+            }
+
+            if (builder.Length > 0 && ShouldInsertIdentifierSeparator(value, index))
+            {
+                _ = builder.Append('_');
+            }
+
+            _ = builder.Append(char.ToLowerInvariant(currentCharacter));
+            previousWasSeparator = false;
+        }
+
+        return builder.ToString().Trim('_');
+    }
+
+    private static bool ShouldInsertIdentifierSeparator(string value, int index)
+    {
+        if (index <= 0)
+        {
+            return false;
+        }
+
+        char previousCharacter = value[index - 1];
+        char currentCharacter = value[index];
+        char? nextCharacter = index + 1 < value.Length ? value[index + 1] : null;
+
+        if (!char.IsLetterOrDigit(previousCharacter) || !char.IsLetterOrDigit(currentCharacter))
+        {
+            return false;
+        }
+
+        if (char.IsDigit(previousCharacter) != char.IsDigit(currentCharacter))
+        {
+            return true;
+        }
+
+        return char.IsUpper(currentCharacter)
+            && (char.IsLower(previousCharacter)
+                || (char.IsUpper(previousCharacter) && nextCharacter is char lookaheadCharacter && char.IsLower(lookaheadCharacter)));
     }
 
     private static JsonSerializerOptions CreateManifestSerializerOptions()
@@ -2042,13 +3104,44 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
         string ColumnName,
         string ArtifactName);
 
+    private sealed record CsvFieldAliasDefinition(
+        string DisplayAliasDefault,
+        CsvExportAliasKind AliasKind,
+        double Confidence,
+        bool IsDirectAlias,
+        bool IsDerivedAlias,
+        string? Notes);
+
+    private sealed record RawUnmappedRow(
+        string NodeType,
+        ushort MessageNumber,
+        string MessageName,
+        int RowSequence,
+        ushort? MessageIndex,
+        byte? LocalMessageNumber,
+        DateTimeOffset? TimestampUtc,
+        byte FieldNumber,
+        string FieldName,
+        int ValueIndex,
+        int ValueCount,
+        string RawValue,
+        string DecodedValue,
+        string? Unit,
+        string? SourceArtifactName,
+        FitExportFieldClassification Classification,
+        string? Notes);
+
     private readonly record struct AncillaryFamilyKey(string MessageName, ushort MessageNumber);
 
     private enum DerivedSessionFieldKind
     {
         ActiveCalories = 0,
-        MovingTime = 1,
-        AverageMovingSpeed = 2,
-        MaxAveragePowerTwentyMinutes = 3
+        EstimatedSweatLoss = 1,
+        BeginningPotential = 2,
+        EndingPotential = 3,
+        MinimumStamina = 4,
+        MovingTime = 5,
+        AverageMovingSpeed = 6,
+        MaxAveragePowerTwentyMinutes = 7
     }
 }
