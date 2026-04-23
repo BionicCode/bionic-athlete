@@ -5,7 +5,8 @@
     <Duration x:Key="MouseOverAnimationDuration">0:0:0.3</Duration>
     <CornerRadius x:Key="CornerRadius">4</CornerRadius>
     <system:Double x:Key="CornerRadiusDouble">4</system:Double>
-  <system:Double x:Key="ToolButtonFontSize">10</system:Double>
-  <FontStretch x:Key="ToolButtonFontStretch">UltraExpanded</FontStretch>
-  <FontWeight  x:Key="ToolButtonFontWeight">Light</FontWeight>
+    <system:Double x:Key="ButtonMouseHoverScaleFactor">0.75</system:Double>
+    <system:Double x:Key="ToolButtonFontSize">10</system:Double>
+    <FontStretch x:Key="ToolButtonFontStretch">UltraExpanded</FontStretch>
+    <FontWeight  x:Key="ToolButtonFontWeight">Light</FontWeight>
 </ResourceDictionary>

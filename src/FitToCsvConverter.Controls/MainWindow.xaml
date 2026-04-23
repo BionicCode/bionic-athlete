@@ -460,7 +460,6 @@
                                  Height="190"
                                  Width="500"
                                  ItemsSource="{Binding SelectedExportData.SelectedExtraFilePaths}"
-                                 SelectedItem="{Binding SelectedExtraFilePath}"
                                  ItemContainerStyle="{StaticResource ExtraFileListBoxItem}"
                                  BorderThickness="0"
                                  AllowDrop="True"

@@ -8,6 +8,7 @@
     </ResourceDictionary.MergedDictionaries>
 
     <local:CornerRadiusToDoubleConverter x:Key="CornerRadiusToDoubleConverter" />
+    
     <Style TargetType="Button">
         <Style.Setters>
             <Setter Property="Background"
@@ -30,17 +31,115 @@
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
                                 Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup x:Name="CommonStates">
+                                    <VisualStateGroup.Transitions>
+                                        <VisualTransition GeneratedDuration="{StaticResource MouseOverAnimationDuration}" />
+                                    </VisualStateGroup.Transitions>
+                                    
+                                    <VisualState x:Name="Normal" />
+                                    <VisualState x:Name="MouseOver">
+                                        <Storyboard>
+                                            <ColorAnimation Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
+                                                            To="{StaticResource DarkThemeHoveredButtonBackgroundColor}"
+                                                            Duration="{StaticResource MouseOverAnimationDuration}" />
+                                            <ColorAnimation Storyboard.TargetName="ContentPresenter"
+                                                            Storyboard.TargetProperty="(TextElement.Foreground).(SolidColorBrush.Color)"
+                                                            To="{StaticResource DarkThemeHoveredButtonTextColor}"
+                                                            Duration="{StaticResource MouseOverAnimationDuration}" />
+                                            <DoubleAnimation  Storyboard.TargetName="ContentScaleTransform"
+                                                              Storyboard.TargetProperty="ScaleX"
+                                                              To="{StaticResource ButtonMouseHoverScaleFactor}"
+                                                              Duration="{StaticResource MouseOverAnimationDuration}" />
+                                            <DoubleAnimation Storyboard.TargetName="ContentScaleTransform"
+                                                             Storyboard.TargetProperty="ScaleY"
+                                                             To="{StaticResource ButtonMouseHoverScaleFactor}"
+                                                             Duration="{StaticResource MouseOverAnimationDuration}" />
+                                        </Storyboard>
+                                    </VisualState>
+                                    <VisualState x:Name="Pressed">
+                                        <Storyboard>
+                                            <ColorAnimation Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
+                                                            To="{StaticResource DarkThemePressedButtonBackgroundColor}"
+                                                            Duration="{StaticResource MouseOverAnimationDuration}" />
+                                            <ColorAnimation Storyboard.TargetName="ContentPresenter"
+                                                            Storyboard.TargetProperty="(TextElement.Foreground).(SolidColorBrush.Color)"
+                                                            To="{StaticResource DarkThemePressedButtonTextColor}"
+                                                            Duration="{StaticResource MouseOverAnimationDuration}" />
+                                        </Storyboard></VisualState>
+                                    <VisualState x:Name="Disabled">
+                                        <Storyboard>
+                                            <ColorAnimation Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
+                                                            To="{StaticResource DarkThemeDisabledButtonBackgroundColor}"
+                                                            Duration="{StaticResource MouseOverAnimationDuration}" />
+                                            <ColorAnimation Storyboard.TargetName="ContentPresenter"
+                                                            Storyboard.TargetProperty="(TextElement.Foreground).(SolidColorBrush.Color)"
+                                                            To="{StaticResource DarkThemeDisabledButtonTextColor}"
+                                                            Duration="{StaticResource MouseOverAnimationDuration}" />
+                                        </Storyboard>
+                                    </VisualState>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+                            <ContentPresenter x:Name="ContentPresenter" 
+                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                               VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
-                                              Content="{TemplateBinding Content}" />
+                                              Content="{TemplateBinding Content}"
+                                              RenderTransformOrigin="0.5,0.5"
+                                              TextElement.Foreground="{TemplateBinding Foreground}">
+                                <ContentPresenter.RenderTransform>
+                                    <ScaleTransform x:Name="ContentScaleTransform"
+                                                    ScaleX="1"
+                                                    ScaleY="1" />
+                                </ContentPresenter.RenderTransform>
+                            </ContentPresenter>
                         </Border>
+
+                        <!--<ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver"
+                                     Value="True">
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <ColorAnimation Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
+                                                            To="{StaticResource DarkThemeButtonBackgroundColor}"
+                                                            Duration="{StaticResource MouseOverAnimationDuration}" />
+                                            <ColorAnimation Storyboard.TargetProperty="(Foreground).(SolidColorBrush.Color)"
+                                                            To="{StaticResource DarkThemeTextColor}"
+                                                            Duration="{StaticResource MouseOverAnimationDuration}" />
+                                            <DoubleAnimation  Storyboard.TargetName="ContentScaleTransform"
+                                                              Storyboard.TargetProperty="ScaleX"
+                                                              To="1.0"
+                                                              Duration="{StaticResource MouseOverAnimationDuration}" />
+                                            <DoubleAnimation  Storyboard.TargetName="ContentScaleTransform"
+                                                              Storyboard.TargetProperty="ScaleY"
+                                                              To="1.0"
+                                                              Duration="{StaticResource MouseOverAnimationDuration}" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
+                            </Trigger>
+                            
+                            <Trigger Property="IsEnabled"
+                                     Value="False">
+                                <Setter Property="Background"
+                                        Value="{StaticResource DarkThemeDisabledButtonBackgroundBrush}" />
+                                <Setter Property="Foreground"
+                                        Value="{StaticResource DarkThemeDisabledButtonTextBrush}" />
+                                <Setter Property="BorderBrush"
+                                        Value="{StaticResource DarkThemeDisabledButtonBorderBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>-->
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style.Setters>
 
         <Style.Triggers>
-            <Trigger Property="IsMouseOver"
+            <!--<Trigger Property="IsMouseOver"
                      Value="True">
                 <Trigger.EnterActions>
                     <BeginStoryboard>
@@ -51,6 +150,14 @@
                             <ColorAnimation Storyboard.TargetProperty="(Foreground).(SolidColorBrush.Color)"
                                             To="{StaticResource DarkThemeHoveredButtonTextColor}"
                                             Duration="{StaticResource MouseOverAnimationDuration}" />
+                            <DoubleAnimation  Storyboard.TargetName="ContentScaleTransform"
+                                              Storyboard.TargetProperty="ScaleX"
+                                              To="{StaticResource ButtonMouseHoverScaleFactor}"
+                                             Duration="{StaticResource MouseOverAnimationDuration}" />
+                            <DoubleAnimation Storyboard.TargetName="ContentScaleTransform"
+                                             Storyboard.TargetProperty="ScaleY"
+                                             To="{StaticResource ButtonMouseHoverScaleFactor}"
+                                             Duration="{StaticResource MouseOverAnimationDuration}" />
                         </Storyboard>
                     </BeginStoryboard>
                 </Trigger.EnterActions>
@@ -63,10 +170,18 @@
                             <ColorAnimation Storyboard.TargetProperty="(Foreground).(SolidColorBrush.Color)"
                                             To="{StaticResource DarkThemeTextColor}"
                                             Duration="{StaticResource MouseOverAnimationDuration}" />
+                            <DoubleAnimation  Storyboard.TargetName="ContentScaleTransform"
+                                              Storyboard.TargetProperty="ScaleX"
+                                              To="1.0"
+                                             Duration="{StaticResource MouseOverAnimationDuration}" />
+                            <DoubleAnimation  Storyboard.TargetName="ContentScaleTransform"
+                                              Storyboard.TargetProperty="ScaleY"
+                                              To="1.0"
+                                             Duration="{StaticResource MouseOverAnimationDuration}" />
                         </Storyboard>
                     </BeginStoryboard>
                 </Trigger.ExitActions>
-            </Trigger>
+            </Trigger>-->
         </Style.Triggers>
     </Style>
     

@@ -38,9 +38,9 @@
     <SolidColorBrush x:Key="DarkThemeButtonBorderBrush"
                      Color="{DynamicResource DarkThemeButtonBorderColor}"
                      Opacity="1" />
-    <Color x:Key="DarkThemeDisabledTextColor">#656565</Color>
-    <SolidColorBrush x:Key="DarkThemeDisabledTextBrush"
-                     Color="{DynamicResource DarkThemeDisabledTextColor}"
+    <Color x:Key="DarkThemeDisabledButtonTextColor">#656565</Color>
+    <SolidColorBrush x:Key="DarkThemeDisabledButtonTextBrush"
+                     Color="{DynamicResource DarkThemeDisabledButtonTextColor}"
                      Opacity="1" />
     <Color x:Key="DarkThemeDisabledButtonBackgroundColor">#2D2D30</Color>
     <SolidColorBrush x:Key="DarkThemeDisabledButtonBackgroundBrush"
@@ -62,9 +62,9 @@
     <SolidColorBrush x:Key="DarkThemeHoveredButtonBorderBrush"
                      Color="{DynamicResource DarkThemeHoveredButtonBorderColor}"
                      Opacity="1" />
-    <Color x:Key="DarkThemePressedTextColor">#F1F1F1</Color>
-    <SolidColorBrush x:Key="DarkThemePressedTextBrush"
-                     Color="{DynamicResource DarkThemePressedTextColor}"
+    <Color x:Key="DarkThemePressedButtonTextColor">#F1F1F1</Color>
+    <SolidColorBrush x:Key="DarkThemePressedButtonTextBrush"
+                     Color="{DynamicResource DarkThemePressedButtonTextColor}"
                      Opacity="1" />
     <Color x:Key="DarkThemePressedButtonBackgroundColor">#007ACC</Color>
     <SolidColorBrush x:Key="DarkThemePressedButtonBackgroundBrush"

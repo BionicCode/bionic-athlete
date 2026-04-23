@@ -42,7 +42,7 @@ public class ToolBarButton : Button
     private Border? _labelBorder;
     private Storyboard? _mouseOverStoryboard;
     private Storyboard? _revertMouseOverStoryboard;
-    private readonly double _oldContentHeight;
+    private double _buttonMouseHoverScaleFactor;
 
     public string LabelText { get => (string)GetValue(LabelTextProperty); set => SetValue(LabelTextProperty, value); }
 
@@ -111,6 +111,11 @@ public class ToolBarButton : Button
         _labelBorder = GetTemplateChild("PART_LabelBorder") as Border;
         _ = _labelBorder?.RenderTransform = new ScaleTransform(1, 1);
         _ = (_labelBorder?.RenderTransformOrigin = new Point(0.5, 0.5));
+
+        _buttonMouseHoverScaleFactor = TryFindResource("ButtonMouseHoverScaleFactor") is double scaleFactor
+            ? scaleFactor
+            : 0.75;
+
     }
 
     protected override void OnMouseEnter(MouseEventArgs e)
@@ -197,11 +202,10 @@ public class ToolBarButton : Button
             _mouseOverStoryboard.Children.Add(verticalFontSizeAnimation);
 
             // Shrink to 75 % of original height to create some visual interest and to help indicate that the button is being hovered over
-            _ = _contentHost.ActualHeight * 0.75;
             var contentHeightAnimation = new DoubleAnimation
             {
                 From = 1.0,
-                To = 0.75,
+                To = _buttonMouseHoverScaleFactor,
                 Duration = (Duration)FindResource("MouseOverAnimationDuration"),
                 AutoReverse = false,
             };

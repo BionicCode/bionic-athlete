@@ -57,6 +57,8 @@
                                     Background="Transparent"
                                     BorderBrush="Transparent"
                                     ToolTip="Remove all"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
                                     HorizontalAlignment="Right"
                                     Padding="5"
                                     Margin="5,0" />
