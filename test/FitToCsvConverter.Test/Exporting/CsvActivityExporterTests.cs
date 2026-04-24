@@ -763,6 +763,45 @@ public sealed class CsvActivityExporterTests
     }
 
     [Fact]
+    public async Task ShouldRouteUnresolvedUnmappedRowsOnlyToRawUnmappedArtifact()
+    {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        GarminFitActivityDecoder decoder = new();
+        CsvActivityExporter exporter = new();
+        string outputDirectoryPath = CreateTemporaryDirectory();
+
+        try
+        {
+            FitActivityDecodeResult decodeResult = await decoder.DecodeFileAsync(FitTestFileFactory.GetReferenceArtifactFitFilePath(), cancellationToken);
+            Assert.True(decodeResult.IsSuccess);
+            FitActivity activity = Assert.IsType<FitActivity>(decodeResult.Activity);
+
+            CsvExportRequest request = CsvExportRequestFactory.Create(
+                activity,
+                "reference",
+                outputDirectoryPath,
+                CreateAllColumnRequests(activity));
+
+            CsvExportResult result = await exporter.ExportAsync(request, cancellationToken);
+            ExportedArtifact metadataArtifact = GetSingleArtifactByBundlePathPrefix(result, "metadata/");
+            ExportedArtifact analyticsArtifact = GetSingleArtifactByBundlePathPrefix(result, "analytics/");
+            ExportedArtifact rawUnmappedArtifact = GetSingleArtifactByBundlePathPrefix(result, "raw_unmapped/");
+
+            string[] metadataLines = await File.ReadAllLinesAsync(metadataArtifact.FilePath, cancellationToken);
+            string[] analyticsLines = await File.ReadAllLinesAsync(analyticsArtifact.FilePath, cancellationToken);
+            string[] rawUnmappedLines = await File.ReadAllLinesAsync(rawUnmappedArtifact.FilePath, cancellationToken);
+
+            Assert.Equal(0, CountRowsByClassification(metadataLines, "UnmappedField"));
+            Assert.Equal(0, CountRowsByClassification(analyticsLines, "UnmappedField"));
+            Assert.True(CountRowsByClassification(rawUnmappedLines, "UnmappedField") > 0);
+        }
+        finally
+        {
+            DeleteTemporaryDirectory(outputDirectoryPath);
+        }
+    }
+
+    [Fact]
     public async Task ShouldExportCleanedReferenceSessionValuesAndRestoredDerivedFields()
     {
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
@@ -789,6 +828,7 @@ public sealed class CsvActivityExporterTests
 
             Assert.Equal("INDOOR", GetColumnValue(headerCells, valueCells, "sport_profile_name"));
             Assert.DoesNotContain('|', GetColumnValue(headerCells, valueCells, "sport_profile_name"));
+            Assert.Contains("enhanced_min_respiration_rate [Breaths/min]", headerCells);
             Assert.Equal("77", GetColumnValue(headerCells, valueCells, "est_sweat_loss [ml]"));
             Assert.Equal("100", GetColumnValue(headerCells, valueCells, "beginning_potential [%]"));
             Assert.Equal("92", GetColumnValue(headerCells, valueCells, "ending_potential [%]"));
@@ -837,6 +877,10 @@ public sealed class CsvActivityExporterTests
             JsonElement activeCaloriesEntry = FindFieldDictionaryEntryByCanonicalName(fieldDictionary, "session.active_calories");
             JsonElement mappedSweatLossEntry = FindFieldDictionaryEntryByCanonicalName(fieldDictionary, "session.est_sweat_loss");
             JsonElement mappedBeginningPotentialEntry = FindFieldDictionaryEntryByCanonicalName(fieldDictionary, "session.beginning_potential");
+            JsonElement mappedEndingPotentialEntry = FindFieldDictionaryEntryByCanonicalName(fieldDictionary, "session.ending_potential");
+            JsonElement mappedMinimumStaminaEntry = FindFieldDictionaryEntryByCanonicalName(fieldDictionary, "session.min_stamina");
+            JsonElement averageMovingSpeedEntry = FindFieldDictionaryEntryByCanonicalName(fieldDictionary, "session.avg_moving_speed");
+            JsonElement minimumRespirationEntry = FindFieldDictionaryEntryByCanonicalName(fieldDictionary, "session.enhanced_min_respiration_rate");
             JsonElement maxAveragePowerEntry = FindFieldDictionaryEntryByCanonicalName(fieldDictionary, "record.max_avg_power_20_min");
 
             Assert.Contains(artifacts.EnumerateArray(), artifact =>
@@ -854,22 +898,19 @@ public sealed class CsvActivityExporterTests
             Assert.Equal("Work", totalWorkEntry.GetProperty("aliasMetadata").GetProperty("displayAliasDefault").GetString());
             Assert.Equal("GarminConnectPdf", totalWorkEntry.GetProperty("aliasMetadata").GetProperty("displayAliasSource").GetString());
             Assert.Equal("DirectFieldAlias", totalWorkEntry.GetProperty("aliasMetadata").GetProperty("aliasKind").GetString());
-            Assert.Equal("MappedFromUnmappedFitField", mappedSweatLossEntry.GetProperty("classification").GetString());
-            Assert.Equal("MappedFromUnmappedFitField", mappedSweatLossEntry.GetProperty("provenance").GetProperty("kind").GetString());
-            Assert.Equal("session.unknown_178", Assert.Single(GetStringArray(mappedSweatLossEntry.GetProperty("provenance"), "sourceFields")));
-            Assert.Equal("session.unknown_205", Assert.Single(GetStringArray(mappedBeginningPotentialEntry.GetProperty("provenance"), "sourceFields")));
-            Assert.Contains(
-                "not a public standard FIT profile field",
-                mappedSweatLossEntry.GetProperty("provenance").GetProperty("notes").GetString(),
-                StringComparison.OrdinalIgnoreCase);
-            Assert.Contains(profileCoverageEntries.EnumerateArray(), entry =>
-                entry.GetProperty("canonicalName").GetString() == "session.est_sweat_loss"
-                && entry.GetProperty("classification").GetString() == "UnknownOrUnmappedPreservedField");
+            Assert.Equal("Breaths/min", minimumRespirationEntry.GetProperty("unit").GetString());
+            AssertMappedUnknownFieldEntry(profileCoverageEntries, mappedSweatLossEntry, "session.est_sweat_loss", "session.unknown_178");
+            AssertMappedUnknownFieldEntry(profileCoverageEntries, mappedBeginningPotentialEntry, "session.beginning_potential", "session.unknown_205");
+            AssertMappedUnknownFieldEntry(profileCoverageEntries, mappedEndingPotentialEntry, "session.ending_potential", "session.unknown_206");
+            AssertMappedUnknownFieldEntry(profileCoverageEntries, mappedMinimumStaminaEntry, "session.min_stamina", "session.unknown_207");
 
             Assert.Equal("FormulaDerived", activeCaloriesEntry.GetProperty("provenance").GetProperty("kind").GetString());
             Assert.Contains("session.total_calories", GetStringArray(activeCaloriesEntry.GetProperty("provenance"), "sourceFields"));
             Assert.Contains("session.metabolic_calories", GetStringArray(activeCaloriesEntry.GetProperty("provenance"), "sourceFields"));
             Assert.Equal("total_calories - metabolic_calories", activeCaloriesEntry.GetProperty("provenance").GetProperty("formula").GetString());
+            Assert.Equal("FormulaDerived", averageMovingSpeedEntry.GetProperty("provenance").GetProperty("kind").GetString());
+            Assert.Contains("session.total_distance", GetStringArray(averageMovingSpeedEntry.GetProperty("provenance"), "sourceFields"));
+            Assert.Contains("record", GetStringArray(averageMovingSpeedEntry.GetProperty("provenance"), "sourceMessageFamilies"));
             Assert.Equal("FormulaDerived", maxAveragePowerEntry.GetProperty("provenance").GetProperty("kind").GetString());
             Assert.Contains("record.power", GetStringArray(maxAveragePowerEntry.GetProperty("provenance"), "sourceFields"));
             Assert.Contains("record", GetStringArray(maxAveragePowerEntry.GetProperty("provenance"), "sourceMessageFamilies"));
@@ -1141,8 +1182,51 @@ public sealed class CsvActivityExporterTests
             .Select(static value => value.GetString() ?? string.Empty)
             .ToArray();
 
+    private static void AssertMappedUnknownFieldEntry(
+        JsonElement profileCoverageEntries,
+        JsonElement fieldDictionaryEntry,
+        string canonicalName,
+        string sourceFieldName)
+    {
+        Assert.Equal("MappedFromUnmappedFitField", fieldDictionaryEntry.GetProperty("classification").GetString());
+        Assert.Equal("MappedFromUnmappedFitField", fieldDictionaryEntry.GetProperty("provenance").GetProperty("kind").GetString());
+        Assert.Equal(sourceFieldName, Assert.Single(GetStringArray(fieldDictionaryEntry.GetProperty("provenance"), "sourceFields")));
+        Assert.Equal("GarminConnectPdf", fieldDictionaryEntry.GetProperty("aliasMetadata").GetProperty("displayAliasSource").GetString());
+        Assert.False(fieldDictionaryEntry.TryGetProperty("derivationFormula", out _));
+        Assert.Contains(
+            "not a public standard FIT profile field",
+            fieldDictionaryEntry.GetProperty("provenance").GetProperty("notes").GetString(),
+            StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(profileCoverageEntries.EnumerateArray(), entry =>
+            entry.GetProperty("canonicalName").GetString() == canonicalName
+            && entry.GetProperty("classification").GetString() == "UnknownOrUnmappedPreservedField");
+        Assert.DoesNotContain(profileCoverageEntries.EnumerateArray(), entry =>
+            entry.GetProperty("canonicalName").GetString() == canonicalName
+            && entry.GetProperty("classification").GetString() == "MatchedPublicStandardProfile");
+    }
+
     private static string GetColumnValue(string[] headerCells, string[] valueCells, string columnName)
         => valueCells[Array.IndexOf(headerCells, columnName)];
+
+    private static ExportedArtifact GetSingleArtifactByBundlePathPrefix(CsvExportResult result, string bundlePathPrefix)
+        => Assert.Single(result.ExportedArtifacts.Where(artifact =>
+            artifact.Kind == ExportedArtifactKind.ConsolidatedCsv
+            && artifact.BundlePath.StartsWith(bundlePathPrefix, StringComparison.OrdinalIgnoreCase)));
+
+    private static int CountRowsByClassification(string[] lines, string classification)
+    {
+        if (lines.Length <= 1)
+        {
+            return 0;
+        }
+
+        string[] headerCells = SplitCsvLine(lines[0]);
+        int classificationColumnIndex = Array.IndexOf(headerCells, "classification");
+        Assert.True(classificationColumnIndex >= 0);
+        return lines
+            .Skip(1)
+            .Count(line => SplitCsvLine(line)[classificationColumnIndex].Equals(classification, StringComparison.OrdinalIgnoreCase));
+    }
 
     private static async Task<string[]> ReadAllLinesAsync(
         CsvExportResult result,

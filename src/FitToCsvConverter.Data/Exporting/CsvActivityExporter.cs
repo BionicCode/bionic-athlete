@@ -124,6 +124,14 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
             "hrv",
         }.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
 
+    private static readonly FrozenDictionary<string, string> s_unitOverridesByFieldName =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            // Profile.xlsx leaves this sibling summary field unitless while avg/max respiration use Breaths/min.
+            // Keep the structured export coherent for machine consumers without changing the decoded source model.
+            ["enhanced_min_respiration_rate"] = "Breaths/min",
+        }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
+
     private static readonly FrozenDictionary<string, CsvFieldAliasDefinition> s_fieldAliasDefinitionsByKey =
         new Dictionary<string, CsvFieldAliasDefinition>(StringComparer.OrdinalIgnoreCase)
         {
@@ -443,6 +451,12 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
             {
                 foreach (FitFieldSnapshot field in ancillaryMessage.Fields)
                 {
+                    FitExportFieldClassification classification = GetClassification(field.MessageName, field.Kind);
+                    if (IsRawUnmappedClassification(classification))
+                    {
+                        continue;
+                    }
+
                     for (int valueIndex = 0; valueIndex < field.OriginalValues.Length; valueIndex++)
                     {
                         FitFieldValue fieldValue = field.OriginalValues[valueIndex];
@@ -461,7 +475,7 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
                                 FormatSingleValue(fieldValue.RawValue),
                                 FormatSingleValue(fieldValue.DecodedValue),
                                 field.Units,
-                                GetClassification(field.MessageName, field.Kind),
+                                classification,
                                 BuildFieldNotes(field.MessageName, field.OriginalName, field.Kind, isAncillary: true)));
                     }
                 }
@@ -1994,14 +2008,18 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
                         ? "Mapped from preserved unknown session fields that match the Garmin Connect reference activity."
                         : null),
                 Provenance = provenance,
-                DerivationFormula = classification == FitExportFieldClassification.DirectStandardFit ? null : derivationFormula,
+                DerivationFormula = IsFormulaDerivedClassification(classification) ? derivationFormula : null,
                 IsExported = true,
                 ArtifactName = sessionArtifactName,
                 IsArray = false,
                 ValueShape = ScalarValueShape,
                 ValueSeparator = null,
                 ValueOrdering = null,
-                Notes = kind == DerivedSessionFieldKind.MovingTime ? MovingSpeedDerivationNotes : "Derived summary column added for structured export completeness.",
+                Notes = classification == FitExportFieldClassification.MappedFromUnmappedFitField
+                    ? "Mapped unknown-field convenience column added for structured export completeness."
+                    : kind == DerivedSessionFieldKind.MovingTime
+                        ? MovingSpeedDerivationNotes
+                        : "Derived summary column added for structured export completeness.",
             });
     }
 
@@ -2396,6 +2414,16 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
                 string.Equals(message.Original.MessageName, "unknown", StringComparison.OrdinalIgnoreCase)
                 || message.Fields.Any(static field => field.Kind == FitFieldKind.Unknown));
 
+    private static bool IsFormulaDerivedClassification(FitExportFieldClassification classification)
+        => classification is FitExportFieldClassification.DerivedFromFit
+            or FitExportFieldClassification.DerivedFromRestoredFitMessages;
+
+    private static bool IsRawUnmappedClassification(FitExportFieldClassification classification)
+        => classification is FitExportFieldClassification.UnmappedField
+            or FitExportFieldClassification.UnknownMessageFamily
+            or FitExportFieldClassification.RawPreservedField
+            or FitExportFieldClassification.VendorOrFutureField;
+
     private static string? BuildFieldNotes(string messageName, string originalName, FitFieldKind kind, bool isAncillary)
     {
         List<string> notes = [];
@@ -2477,10 +2505,7 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
             return BuildRelativeArtifactPath(request.OutputDirectoryPath, exportedArtifact.FilePath);
         }
 
-        bool preferRawArtifact = classification is FitExportFieldClassification.UnmappedField
-            or FitExportFieldClassification.UnknownMessageFamily
-            or FitExportFieldClassification.RawPreservedField
-            or FitExportFieldClassification.VendorOrFutureField;
+        bool preferRawArtifact = IsRawUnmappedClassification(classification);
 
         if (!preferRawArtifact
             && TryGetConsolidatedAncillaryArtifactGroup(ancillaryFamily.Key.MessageName, out CsvExportArtifactGroup artifactGroup))
@@ -2748,10 +2773,7 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
         foreach (FitFieldSnapshot field in fields)
         {
             FitExportFieldClassification classification = GetClassification(field.MessageName, field.Kind);
-            if (classification is not FitExportFieldClassification.UnmappedField
-                and not FitExportFieldClassification.UnknownMessageFamily
-                and not FitExportFieldClassification.RawPreservedField
-                and not FitExportFieldClassification.VendorOrFutureField)
+            if (!IsRawUnmappedClassification(classification))
             {
                 continue;
             }
@@ -3295,6 +3317,11 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
         if (IsTimestampField(field))
         {
             return null;
+        }
+
+        if (s_unitOverridesByFieldName.TryGetValue(field.OriginalName, out string? unitOverride))
+        {
+            return unitOverride;
         }
 
         if (TryNormalizeDurationUnit(field.Units, out string durationUnit))
