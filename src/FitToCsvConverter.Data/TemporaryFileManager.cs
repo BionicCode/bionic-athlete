@@ -61,7 +61,7 @@ public sealed partial class TemporaryFileManager : ITemporaryFileManager
             }
             catch (Exception ex)
             {
-                _logger.LogErrorMessage($"Failed to delete temporary file '{_temporaryDirectoryPath}': {ex.Message}");
+                _logger.LogErrorMessage($"Failed to delete temporary directory '{_temporaryDirectoryPath}': {ex.Message}");
                 Debug.WriteLine($"Failed to delete temporary directory '{_temporaryDirectoryPath}': {ex.Message}");
             }
         }
