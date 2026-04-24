@@ -1,4 +1,4 @@
-Follow the repository-wide engineering and validation standards defined in the root [AGENTS.md](../test/AGENTS.md).
+Follow the repository-wide engineering and validation standards defined in the root [AGENTS.md](../../test/AGENTS.md).
 Treat that AGENTS.md as the source of truth.
 The current file is based on that AGENTS.md the root folder "test" and may get outdated.
 
