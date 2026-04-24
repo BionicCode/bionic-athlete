@@ -1,0 +1,105 @@
+name: Update Garmin FIT Profile
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Weekly on Monday at 04:17 UTC.
+    - cron: "17 4 * * 1"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-profile:
+    name: Update Profile.xlsx from Garmin fit-sdk-tools
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Update Garmin FIT Profile reference
+        shell: pwsh
+        run: |
+          ./scripts/Update-GarminFitProfile.ps1 `
+            -RepositoryUrl "https://github.com/garmin/fit-sdk-tools.git" `
+            -RepositoryFilePath "Profile.xlsx" `
+            -ProfilePath "docs/reference/garmin-fit/Profile.xlsx" `
+            -MetadataPath "docs/reference/garmin-fit/Profile.source.json"
+
+      - name: Detect changes
+        id: changes
+        shell: pwsh
+        run: |
+          $status = git status --porcelain
+          if ([string]::IsNullOrWhiteSpace($status)) {
+            "changed=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            Write-Host "No Profile.xlsx updates found."
+          }
+          else {
+            "changed=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            Write-Host "Detected changes:"
+            git status --short
+          }
+
+      - name: Create or update pull request
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $branchName = "automation/update-garmin-fit-profile"
+          $baseBranch = "${{ github.event.repository.default_branch }}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git switch -c $branchName
+
+          git add `
+            docs/reference/garmin-fit/Profile.xlsx `
+            docs/reference/garmin-fit/Profile.source.json
+
+          $metadata = Get-Content "docs/reference/garmin-fit/Profile.source.json" -Raw | ConvertFrom-Json
+          $tag = $metadata.upstream.tag
+          $sha256 = $metadata.hashes.sha256
+
+          git commit -m "Update Garmin FIT Profile to $tag"
+          git push --force-with-lease origin $branchName
+
+          $title = "Update Garmin FIT Profile to $tag"
+          $body = @"
+          Updates the vendored Garmin FIT Profile reference workbook.
+
+          - Upstream repository: $($metadata.upstream.repositoryUrl)
+          - Upstream tag: $tag
+          - Upstream file: $($metadata.upstream.filePath)
+          - Local file: $($metadata.localPath)
+          - SHA-256: $sha256
+
+          This file is used as the public standard FIT profile reference for decoder/export validation.
+          It must not be used to reject developer fields or unknown/vendor fields that are present in actual FIT files.
+          "@
+
+          $existingPrNumber = gh pr list `
+            --head $branchName `
+            --base $baseBranch `
+            --state open `
+            --json number `
+            --jq ".[0].number"
+
+          if ([string]::IsNullOrWhiteSpace($existingPrNumber)) {
+            gh pr create `
+              --base $baseBranch `
+              --head $branchName `
+              --title $title `
+              --body $body
+          }
+          else {
+            gh pr edit $existingPrNumber `
+              --title $title `
+              --body $body
+          }
