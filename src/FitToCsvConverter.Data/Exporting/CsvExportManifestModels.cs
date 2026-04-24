@@ -23,6 +23,20 @@ internal enum CsvExportArtifactLayer
     Manifest = 2
 }
 
+internal enum CsvExportDataView
+{
+    RawCanonicalFitView = 0,
+    StructuredMachineView = 1,
+    Manifest = 2
+}
+
+internal enum FitProfileCoverageClassification
+{
+    MatchedPublicStandardProfile = 0,
+    DeveloperField = 1,
+    UnknownOrUnmappedPreservedField = 2
+}
+
 internal enum CsvExportArtifactGroup
 {
     Core = 0,
@@ -64,6 +78,8 @@ internal sealed class CsvExportManifest
     public required ImmutableArray<CsvExportArtifactManifestEntry> Artifacts { get; init; }
 
     public required ImmutableArray<CsvExportFieldDictionaryEntry> FieldDictionary { get; init; }
+
+    public required CsvExportProfileCoverage ProfileCoverage { get; init; }
 }
 
 internal sealed class CsvExportTimezoneSemantics
@@ -87,6 +103,8 @@ internal sealed class CsvExportArtifactManifestEntry
 
     public required CsvExportArtifactLayer ArtifactLayer { get; init; }
 
+    public required CsvExportDataView DataView { get; init; }
+
     public required CsvExportArtifactGroup ArtifactGroup { get; init; }
 
     public required string NodeType { get; init; }
@@ -109,6 +127,8 @@ internal sealed class CsvExportMessageFamilyManifestEntry
     public required ExportedArtifactKind ArtifactKind { get; init; }
 
     public required CsvExportArtifactLayer ArtifactLayer { get; init; }
+
+    public required CsvExportDataView DataView { get; init; }
 
     public required CsvExportArtifactGroup ArtifactGroup { get; init; }
 
@@ -166,6 +186,34 @@ internal sealed class CsvExportFieldDictionaryEntry
     public string? ValueSeparator { get; init; }
 
     public string? ValueOrdering { get; init; }
+
+    public string? Notes { get; init; }
+}
+
+internal sealed class CsvExportProfileCoverage
+{
+    public required string CatalogSource { get; init; }
+
+    public int MatchedPublicStandardProfileFieldCount { get; init; }
+
+    public int DeveloperFieldCount { get; init; }
+
+    public int UnknownOrUnmappedPreservedFieldCount { get; init; }
+
+    public required ImmutableArray<CsvExportProfileCoverageEntry> Entries { get; init; }
+}
+
+internal sealed class CsvExportProfileCoverageEntry
+{
+    public required string CanonicalName { get; init; }
+
+    public required string SourceMessageFamily { get; init; }
+
+    public ushort? SourceMessageNumber { get; init; }
+
+    public string? SourceFieldName { get; init; }
+
+    public required FitProfileCoverageClassification Classification { get; init; }
 
     public string? Notes { get; init; }
 }

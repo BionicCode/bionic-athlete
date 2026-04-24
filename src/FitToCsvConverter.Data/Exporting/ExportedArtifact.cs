@@ -15,7 +15,17 @@ public sealed class ExportedArtifact
     /// <param name="artifactName">The logical artifact name used inside the export bundle.</param>
     /// <param name="filePath">The generated file path.</param>
     /// <param name="rowCount">The number of data rows written to the file.</param>
-    public ExportedArtifact(ExportedArtifactKind kind, FitNodeType nodeType, string artifactName, string filePath, int rowCount)
+    /// <param name="bundlePath">
+    /// The path that should be used inside an export bundle.
+    /// When <see langword="null"/>, <paramref name="artifactName"/> is used.
+    /// </param>
+    public ExportedArtifact(
+        ExportedArtifactKind kind,
+        FitNodeType nodeType,
+        string artifactName,
+        string filePath,
+        int rowCount,
+        string? bundlePath = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(artifactName);
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
@@ -30,6 +40,9 @@ public sealed class ExportedArtifact
         ArtifactName = artifactName;
         FilePath = filePath;
         RowCount = rowCount;
+        BundlePath = string.IsNullOrWhiteSpace(bundlePath)
+            ? artifactName
+            : bundlePath.Replace('\\', '/');
     }
 
     /// <summary>
@@ -51,6 +64,11 @@ public sealed class ExportedArtifact
     /// Gets the generated file path.
     /// </summary>
     public string FilePath { get; }
+
+    /// <summary>
+    /// Gets the relative path that should be used when the artifact is packaged into an export bundle.
+    /// </summary>
+    public string BundlePath { get; }
 
     /// <summary>
     /// Gets the number of data rows written to the file.

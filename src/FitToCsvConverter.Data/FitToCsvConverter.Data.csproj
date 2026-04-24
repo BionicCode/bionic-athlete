@@ -16,4 +16,8 @@
     <ProjectReference Include="..\BionicCode.Utilities.Net\BionicCode.Utilities.Net.Common.csproj" />
     <ProjectReference Include="..\FitToCsvConverter.Shared\FitToCsvConverter.Shared.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\docs\reference\garmin-fit\Profile.catalog.json" LogicalName="FitToCsvConverter.Data.Reference.GarminFitProfileCatalog.json" />
+  </ItemGroup>
 </Project>

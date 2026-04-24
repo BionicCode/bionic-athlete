@@ -355,7 +355,7 @@ public class ExportData : ViewModel
         // Preserve exporter order so ancillary families and the manifest keep a stable bundle layout.
         foreach (ExportedArtifact exportedArtifact in _exportedArtifacts)
         {
-            yield return new FileDescriptor(exportedArtifact.FilePath, isRenamingRequired: false);
+            yield return new FileDescriptor(exportedArtifact.FilePath, isRenamingRequired: false, exportedArtifact.BundlePath);
         }
 
         foreach (ObservableFileDescriptor observableFileDescriptor in SelectedExtraFilePaths)

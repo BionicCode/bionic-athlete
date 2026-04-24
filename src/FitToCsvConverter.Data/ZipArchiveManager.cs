@@ -162,10 +162,11 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
                 {
                     Progress = completedCount,
                     MaxValue = totalFileCount,
-                    Message = $"Packing file #{completedCount} of {totalFileCount} files to {zipFileName}: {sourceFileDescriptor.Name}"
+                    Message = $"Packing file #{completedCount} of {totalFileCount} files to {zipFileName}: {sourceFileDescriptor.ArchiveEntryName}"
                 });
 
-                _ = await zipArchive.CreateEntryFromFileAsync(sourceFileDescriptor.FullPath, sourceFileDescriptor.Name, batch.CompressionLevel, cancellationToken);
+                // Preserve exporter-provided bundle paths so grouped CSV artifacts stay grouped inside the ZIP.
+                _ = await zipArchive.CreateEntryFromFileAsync(sourceFileDescriptor.FullPath, sourceFileDescriptor.ArchiveEntryName, batch.CompressionLevel, cancellationToken);
                 completedCount++;
             }
         }

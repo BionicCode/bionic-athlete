@@ -45,6 +45,13 @@ The CSV export boundary is defined by:
 - `CsvExportResult`
 - `ExportedArtifact`
 
+The current CSV exporter exposes two implemented data views:
+
+- `FitExportDataView.StructuredMachine`: the default View B projection for normal machine-readable export.
+- `FitExportDataView.RawCanonical`: the optional View A diagnostic/raw export for lossless ancillary message-family inspection.
+
+View C, the human-readable presentation projection, remains a separate future target and must not be produced by parsing View B CSV output.
+
 The UI or application layer does not send `DataField` or `ExportData` directly to the exporter.
 
 Instead, current UI-facing selection state is mapped into:
@@ -61,8 +68,9 @@ Current flow:
 1. `ExportData` gathers the current checkbox and naming state from `DataField` / `FitField`.
 2. `ExportData` maps that state to `CsvExportColumnRequest` values.
 3. `CsvExportRequestFactory` groups selected columns by `FitNodeType`, applies deterministic ordering, and generates per-node CSV file paths.
-4. `ICsvActivityExporter` writes the CSV files from `FitField.GetEffectiveDecodedValues()`.
+4. `ICsvActivityExporter` writes View B by default from the decoded source model and groups generated artifacts under stable bundle paths such as `core/`, `metadata/`, `analytics/`, and `raw_unmapped/`.
 5. `MainViewModel` passes the generated `ExportedArtifact` files into the existing ZIP archive flow.
+6. The archive flow uses `ExportedArtifact.BundlePath` so ZIP entry paths match the manifest artifact paths exactly.
 
 ### Ordering and naming rules
 
@@ -73,6 +81,14 @@ Current flow:
   - `<source>_session.csv`
   - `<source>_lap.csv`
   - `<source>_record.csv`
+- Default bundle paths are grouped:
+  - `core/<source>_activity.csv`
+  - `core/<source>_session.csv`
+  - `core/<source>_lap.csv`
+  - `core/<source>_record.csv`
+  - `metadata/<source>_metadata.csv`
+  - `analytics/<source>_analytics.csv`
+  - `raw_unmapped/<source>_raw_unmapped.csv`
 - Effective export column names come from the mapped request, which currently reads `FitField.State.ColumnName`.
 
 ### Value shaping
@@ -81,6 +97,12 @@ Current flow:
 - Edited values override immutable original decoded values when present.
 - Multi-value FIT fields are currently written into a single CSV cell using ` | ` in source order.
 - The immutable FIT source values remain available through `FitField.Original.OriginalValues`.
+
+### View A versus View B
+
+View A remains the raw canonical source view and must preserve standard FIT messages, developer fields, and unknown/vendor/unmapped content even when higher-level semantics are incomplete.
+View B is a projection from that source and intentionally reduces default bundle clutter by consolidating ancillary metadata, analytics, and raw unmapped content into grouped machine-friendly artifacts.
+The View B manifest includes profile coverage generated from the repository Garmin profile catalog so consumers can distinguish public standard fields, developer fields, and preserved unknown/unmapped fields.
 
 ## Persistence boundary
 
