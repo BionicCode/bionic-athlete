@@ -19,6 +19,7 @@ public interface IProgressReporterCommon : INotifyPropertyChanged
     /// </summary>
     /// <remarks>To create a <see cref="IProgress{T}"/> instance that is associated with the application's primary dispatcher thread, for example to update proreties that bind to a <c>DispatcherObject</c>, call <see href="https://sampoh.de/github/docs/bioniccode.net/api/FitToCsvConverter.ViewModel.IProgressReporter.html#BionicCode_Utilities_Net_IProgressReporter_CreateProgressReporterFromUiThread">IProgressReporter.CreateProgressReporterFromUiThread</see>.</remarks>
     /// <returns>A <see cref="IProgress{ProgressData}"/> instance that posts progress to the thread <see cref="CreateProgressReporterFromCurrentThread"/> was called from.</returns>
+    [Obsolete("This method is deprecated. Use 'StartNewObservableProgressReporting' instead.")]
     IProgress<ProgressData> CreateProgressReporterFromCurrentThread();
 
     /// <summary>
@@ -30,18 +31,21 @@ public interface IProgressReporterCommon : INotifyPropertyChanged
     /// <summary>
     /// Indicates that the progress reporting is indeterminate.
     /// </summary>
+    [Obsolete("This property is deprecated. Use 'ObservableProgressData.IsIndeterminate' instead.")]
     bool IsIndeterminate { get; set; }
 
     /// <summary>
     /// The progress message.
     /// </summary>
     /// <remarks>Raises <see cref="INotifyPropertyChanged.PropertyChanged"/> event.</remarks>
+    [Obsolete("This property is deprecated. Use 'ObservableProgressData.Message' instead")]
     string ProgressText { get; set; }
 
     /// <summary>
     /// The progress value.
     /// </summary>
     /// <remarks>Raises <see cref="INotifyPropertyChanged.PropertyChanged"/> event.</remarks>
+    [Obsolete("This property is deprecated. Use 'ObservableProgressData.Progress' instead")]
     double ProgressValue { get; set; }
 
     /// <summary>

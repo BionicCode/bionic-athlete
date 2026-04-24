@@ -1,4 +1,4 @@
-﻿namespace BionicCode.BionicSwipePageFrame;
+﻿namespace FitToCsvConverter.Main;
 
 using System;
 using System.Windows;

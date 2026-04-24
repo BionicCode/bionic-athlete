@@ -10,7 +10,7 @@ public class ObservableProgressChangedEventArgs : EventArgs
     /// <summary>
     /// MemberConstructor.
     /// </summary>
-    public ObservableProgressChangedEventArgs() : this(-1, -1, string.Empty, new ObservableProgressData())
+    public ObservableProgressChangedEventArgs() : this(-1, -1, string.Empty, new ObservableProgressData(0.0, 0.0, string.Empty, string.Empty))
     {
     }
 

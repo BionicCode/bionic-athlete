@@ -1,7 +1,9 @@
 ﻿namespace FitToCsvConverter.Data;
 
+using System.Diagnostics;
 using BionicCode.Utilities.Net;
 
+[DebuggerDisplay("Name = {Name}, Location = {Location}, IsRenamingRequired = {IsRenamingRequired}")]
 public readonly struct FileDescriptor
 {
     private readonly string _filePath;

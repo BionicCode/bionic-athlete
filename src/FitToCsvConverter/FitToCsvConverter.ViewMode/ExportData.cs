@@ -1,7 +1,6 @@
 ﻿namespace FitToCsvConverter.ViewModel;
 
 using System.Collections.Specialized;
-using System.ComponentModel;
 using System.IO;
 using BionicCode.Utilities.Net;
 
@@ -13,8 +12,13 @@ public class ExportData : ViewModel
     private bool _hasCorrectedDuplicateNewNames;
     private bool _isAutoRenamingEnabled;
     private string? _fitFileName;
-    private readonly string _autoRenameBatchName;
-    private string? _autoRenameBatchName1;
+    private string? _autoRenameBatchName;
+    private string? _fitFileNameWithoutExtension;
+    private bool _isIncludeFitFileEnabled;
+    private string _fitFilePath;
+
+    public ObservableFileDescriptor FitFileDescriptor { get; private set; }
+
     private readonly SetValueOptions _setValueOptions;
 
     public ExportData(PropertyValidationDelegate<string> filePathsValidator)
@@ -26,10 +30,11 @@ public class ExportData : ViewModel
         SelectedExtraFilePaths.CollectionChanged += OnSelectedExtraFilePathsCollectionChanged;
         _newFilenames = [];
         SelectedExtraFilePaths.CollectionChanged += ValidateOnItemAdded;
+        _fitFilePath = string.Empty;
         _batchName = string.Empty;
         ExportedFilePath = string.Empty;
-        FitFilePath = string.Empty;
         _isAutoRenamingEnabled = true;
+        _isIncludeFitFileEnabled = true;
 
         _setValueOptions = new SetValueOptions
         {
@@ -38,12 +43,17 @@ public class ExportData : ViewModel
         };
     }
 
-    public void AddExtraFilePaths(IEnumerable<string> filePaths)
+    public void AddExtraFilePaths(IEnumerable<string> filePaths, bool isRenamingRequired = false)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(filePaths);
         foreach (string filePath in filePaths)
         {
-            var fileDescriptor = new ObservableFileDescriptor(filePath, isRenamingRequired: false);
+            if (filePath.Equals(FitFilePath, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var fileDescriptor = new ObservableFileDescriptor(filePath, isRenamingRequired);
             _ = SelectedExtraFilePaths.Add(fileDescriptor);
         }
     }
@@ -98,8 +108,8 @@ public class ExportData : ViewModel
         {
             // TODO::Replace with new API call
             //DateTime dataDate = FitFileAnalyzer.GetSessionDate(FitFilePath);
-            //string batchFileName = $"{dataDate:yyyyMMdd_HHmmss}_{FitFileName}";
-            //_autoRenameBatchName = batchFileName;
+            string batchFileName = $"{DateTime.Now:yyyy-MM-dd}_{FitFileNameWithoutExtension}";
+            _autoRenameBatchName = batchFileName;
         }
 
         return _autoRenameBatchName;
@@ -131,7 +141,7 @@ public class ExportData : ViewModel
             case NotifyCollectionChangedAction.Add:
                 foreach (ObservableFileDescriptor fileDescriptor in e.NewItems?.OfType<ObservableFileDescriptor>() ?? [])
                 {
-                    fileDescriptor.PropertyChanged += OnFileDescriptorPropertyChanged;
+                    fileDescriptor.Renamed += OnFileDescriptorRenamed;
                     RenameFile(fileDescriptor);
                 }
 
@@ -139,7 +149,7 @@ public class ExportData : ViewModel
             case NotifyCollectionChangedAction.Remove:
                 foreach (ObservableFileDescriptor fileDescriptor in e.OldItems?.OfType<ObservableFileDescriptor>() ?? [])
                 {
-                    fileDescriptor.PropertyChanged -= OnFileDescriptorPropertyChanged;
+                    fileDescriptor.Renamed -= OnFileDescriptorRenamed;
                     _ = _newFilenames.Remove(fileDescriptor.Name);
                     if (_hasCorrectedDuplicateNewNames)
                     {
@@ -151,36 +161,54 @@ public class ExportData : ViewModel
         }
     }
 
-    private void OnFileDescriptorPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    private void OnFileDescriptorRenamed(object? sender, FileDescriptorChangedEventArgs e)
     {
-        switch (e.PropertyName)
+        if (sender is ObservableFileDescriptor fileDescriptor)
         {
-            case nameof(ObservableFileDescriptor.IsRenamingEnabled):
-                if (sender is ObservableFileDescriptor fileDescriptor)
+            if (fileDescriptor.IsRenamingEnabled)
+            {
+                RenameFile(fileDescriptor);
+            }
+            else
+            {
+                if (_hasCorrectedDuplicateNewNames)
                 {
-                    if (fileDescriptor.IsRenamingEnabled)
-                    {
-                        RenameFile(fileDescriptor);
-                    }
-                    else
-                    {
-                        if (_hasCorrectedDuplicateNewNames)
-                        {
-                            RenameAllFiles();
-                        }
-                        else
-                        {
-                            _ = _newFilenames.Remove(fileDescriptor.Name);
-                        }
-                    }
+                    RenameAllFiles();
                 }
-
-                break;
+                else
+                {
+                    _ = _newFilenames.Remove(e.OldName);
+                }
+            }
         }
     }
 
-    public string FitFilePath { get; init; }
+    public string FitFilePath
+    {
+        get => _fitFilePath;
+        init
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return;
+            }
+
+            _fitFilePath = value;
+            if (FitFileDescriptor is not null)
+            {
+                _ = SelectedExtraFilePaths.Remove(FitFileDescriptor);
+            }
+
+            FitFileDescriptor = new ObservableFileDescriptor(FitFilePath, isRenamingRequired: false);
+            if (IsIncludeFitFileEnabled)
+            {
+                _ = SelectedExtraFilePaths.Add(FitFileDescriptor);
+            }
+        }
+    }
+
     public string FitFileName => _fitFileName ??= Path.GetFileName(FitFilePath);
+    public string FitFileNameWithoutExtension => _fitFileNameWithoutExtension ??= Path.GetFileNameWithoutExtension(FitFilePath);
 
     public string BatchName
     {
@@ -200,7 +228,27 @@ public class ExportData : ViewModel
         set => TrySetValue(value, ref _isAutoRenamingEnabled, _setValueOptions);
     }
 
+    public bool IsIncludeFitFileEnabled
+    {
+        get => _isIncludeFitFileEnabled;
+        set
+        {
+            if (TrySetValue(value, ref _isIncludeFitFileEnabled, _setValueOptions)
+                && FitFileDescriptor is not null)
+            {
+                if (IsIncludeFitFileEnabled)
+                {
+                    _ = SelectedExtraFilePaths.Add(FitFileDescriptor);
+                }
+                else
+                {
+                    _ = SelectedExtraFilePaths.Remove(FitFileDescriptor);
+                }
+            }
+        }
+    }
+
     internal string ExportedFilePath { get; set; }
     public ObservableHashSet<ObservableFileDescriptor> SelectedExtraFilePaths { get; }
-    public string AutoRenameBatchName => _autoRenameBatchName1 ??= GetAutoRenameBatchName();
+    public string AutoRenameBatchName => _autoRenameBatchName ??= GetAutoRenameBatchName();
 }

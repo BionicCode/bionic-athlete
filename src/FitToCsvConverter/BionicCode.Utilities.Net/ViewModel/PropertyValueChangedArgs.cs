@@ -8,10 +8,10 @@
 namespace BionicCode.Utilities.Net;
 
 /// <summary>
-/// Event args fro the <see cref="PropertyValueChangedEventHandler{TValue}"/> event delegate.
+/// Event args for the <see cref="PropertyValueChangedEventHandler{TValue}"/> event delegate.
 /// </summary>
 /// <typeparam name="TValue"></typeparam>
-public class PropertyValueChangedArgs<TValue>
+public class PropertyValueChangedArgs<TValue> : EventArgs
 {
     /// <summary>
     /// MemberConstructor.

@@ -54,8 +54,8 @@ public class WeakCollection<TItem> : ICollection<TItem>, INotifyPropertyChanged 
     {
         get
         {
-            ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(index, nameof(index));
-            ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(index, Count, nameof(index));
+            ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(index);
+            ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(index, Count);
 
             WeakReference<object> reference = Items[index];
             bool isAlive = reference.TryGetTarget(out object target);
@@ -75,8 +75,8 @@ public class WeakCollection<TItem> : ICollection<TItem>, INotifyPropertyChanged 
 
         set
         {
-            ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(index, nameof(index));
-            ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(index, Count, nameof(index));
+            ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(index);
+            ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(index, Count);
             if (IsReadOnly)
             {
                 throw new NotSupportedException("Collection is read-only");
@@ -124,7 +124,7 @@ public class WeakCollection<TItem> : ICollection<TItem>, INotifyPropertyChanged 
 
     public WeakCollection(ICollection<WeakReference<object>> collection)
     {
-        ArgumentNullExceptionAdvanced.ThrowIfNull(collection, nameof(collection));
+        ArgumentNullExceptionAdvanced.ThrowIfNull(collection);
 
         Items = collection.Select(WeakReferencePool.GetOrCreate).ToList();
         IsReadOnly = collection.IsReadOnly;
@@ -132,7 +132,7 @@ public class WeakCollection<TItem> : ICollection<TItem>, INotifyPropertyChanged 
 
     public WeakCollection(IEnumerable<WeakReference<object>> items)
     {
-        ArgumentNullExceptionAdvanced.ThrowIfNull(items, nameof(items));
+        ArgumentNullExceptionAdvanced.ThrowIfNull(items);
 
         Items = items.Select(WeakReferencePool.GetOrCreate).ToList();
         IsReadOnly = false;
@@ -146,7 +146,7 @@ public class WeakCollection<TItem> : ICollection<TItem>, INotifyPropertyChanged 
 
     public WeakCollection(ICollection<WeakReference<object>> collection, bool isReadOnly)
     {
-        ArgumentNullExceptionAdvanced.ThrowIfNull(collection, nameof(collection));
+        ArgumentNullExceptionAdvanced.ThrowIfNull(collection);
 
         Items = collection.Select(WeakReferencePool.GetOrCreate).ToList();
         IsReadOnly = collection.IsReadOnly || isReadOnly;
@@ -154,7 +154,7 @@ public class WeakCollection<TItem> : ICollection<TItem>, INotifyPropertyChanged 
 
     public WeakCollection(IEnumerable<TItem> items, bool isReadOnly)
     {
-        ArgumentNullExceptionAdvanced.ThrowIfNull(items, nameof(items));
+        ArgumentNullExceptionAdvanced.ThrowIfNull(items);
 
         Items = items.Select(WeakReferencePool.GetOrCreate).ToList();
         IsReadOnly = isReadOnly;
@@ -284,13 +284,13 @@ public class WeakCollection<TItem> : ICollection<TItem>, INotifyPropertyChanged 
     /// <exception cref="ArgumentNullException"><paramref name="array"/> is <see langword="null"/>.</exception>
     public void CopyTo(TItem[] array, int arrayIndex)
     {
-        ArgumentNullExceptionAdvanced.ThrowIfNull(array, nameof(array));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(arrayIndex, nameof(arrayIndex));
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(arrayIndex, array.Length, nameof(arrayIndex));
+        ArgumentNullExceptionAdvanced.ThrowIfNull(array);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(arrayIndex);
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfGreaterThanOrEqual(arrayIndex, array.Length);
         int availableArrayLength = array.Length - arrayIndex;
         if (availableArrayLength < Items.Count)
         {
-            throw new ArgumentException("The array is too small", nameof(array));
+            throw new ArgumentException("The array is too small");
         }
 
         for (int index = 0; index < Items.Count; index++)

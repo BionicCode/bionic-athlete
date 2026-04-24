@@ -1,4 +1,4 @@
-﻿namespace BionicCode.BionicSwipePageFrame;
+﻿namespace FitToCsvConverter.Main;
 
 public enum PageNavigationDirection
 {
