@@ -7,7 +7,7 @@
         xmlns:viewModel="clr-namespace:FitToCsvConverter.ViewModel;assembly=FitToCsvConverter.ViewModel"
         xmlns:bionicNet="clr-namespace:BionicCode.Utilities.Net;assembly=BionicCode.Utilities.Net.Wpf"
         mc:Ignorable="d"
-        Title="MainWindow" 
+        Title="Athlete Health Manager" 
         Height="900" 
         Padding="10"
         Background="{DynamicResource DarkThemeControlBackgroundBrush}"
