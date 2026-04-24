@@ -112,7 +112,6 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
         bool isSemaphoreEntered = false;
         var addedFitFilePathsLookup = new HashSet<string>();
         bool wasAdded = false;
-        string addedFilePath = string.Empty;
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -132,22 +131,22 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
                     await foreach (string extractedFilePath in _zipArchiveManager.ExtractArchiveAsync(fitFilePath, (int maxValue, string operationTitle) => StartNewObservableProgressReporting(string.Empty, operationTitle, isIndeterminate: false, maxValue: maxValue), cancellationToken).ConfigureAwait(true))
                     {
                         wasAdded = await AddFitFilePathAsync(extractedFilePath, cancellationToken);
-                        addedFilePath = extractedFilePath;
+                        if (wasAdded)
+                        {
+                            _ = addedFitFilePathsLookup.Add(extractedFilePath);
+                        }
                     }
                 }
                 else
                 {
                     wasAdded = await AddFitFilePathAsync(fitFilePath, cancellationToken);
-                    addedFilePath = fitFilePath;
-                }
-
-                if (wasAdded)
-                {
-                    _ = addedFitFilePathsLookup.Add(addedFilePath);
+                    if (wasAdded)
+                    {
+                        _ = addedFitFilePathsLookup.Add(fitFilePath);
+                    }
                 }
             }
 
-            // Works and properly reports 100 %
             addFileProgressReporter.Report(new ProgressData(fitFilePaths.Count, fitFilePaths.Count, "Completed adding .fit files.", isIndeterminate: false));
         }
         catch (OperationCanceledException)
@@ -159,6 +158,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
                 {
                     ExportData.RemoveAt(index);
                     _ = FitFilePaths.Remove(exportData.FitFilePath);
+                    _ = _fitFilePathToExportDataLookup.Remove(exportData.FitFilePath);
                 }
             }
 
@@ -232,8 +232,8 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
         }
 
         PropertyValidationResult filePathValidationResult = IsFitFilePathValid(fitFilePath);
-        if (!filePathValidationResult.IsValid
-            || !FitFilePaths.Add(fitFilePath))
+        if (FitFilePaths.Contains(fitFilePath)
+            || !filePathValidationResult.IsValid)
         {
             return false;
         }
@@ -241,6 +241,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
         var exportData = new ExportData(_filePathsValidator, _cachingFitActivityDecoderFactory.Invoke());
         await exportData.SetFitFileAsync(fitFilePath, cancellationToken).ConfigureAwait(true);
 
+        _ = FitFilePaths.Add(fitFilePath);
         ExportData.Add(exportData);
         _fitFilePathToExportDataLookup.Add(fitFilePath, exportData);
         SelectedExportData ??= exportData;
