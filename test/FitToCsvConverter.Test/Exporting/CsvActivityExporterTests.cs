@@ -802,6 +802,83 @@ public sealed class CsvActivityExporterTests
     }
 
     [Fact]
+    public async Task ShouldArchiveReferenceExportWithConsistentManifestAndCsvArtifacts()
+    {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        GarminFitActivityDecoder decoder = new();
+        CsvActivityExporter exporter = new();
+        string outputDirectoryPath = CreateTemporaryDirectory();
+        string archiveDirectoryPath = CreateTemporaryDirectory();
+        string archiveTemporaryDirectoryPath = CreateTemporaryDirectory();
+
+        try
+        {
+            FitActivityDecodeResult decodeResult = await decoder.DecodeFileAsync(FitTestFileFactory.GetReferenceArtifactFitFilePath(), cancellationToken);
+            Assert.True(decodeResult.IsSuccess);
+            FitActivity activity = Assert.IsType<FitActivity>(decodeResult.Activity);
+
+            CsvExportRequest request = CsvExportRequestFactory.Create(
+                activity,
+                "reference",
+                outputDirectoryPath,
+                CreateAllColumnRequests(activity));
+
+            CsvExportResult result = await exporter.ExportAsync(request, cancellationToken);
+            FileDescriptor[] fileDescriptors = result.ExportedArtifacts
+                .Select(static artifact => new FileDescriptor(artifact.FilePath, isRenamingRequired: false, artifact.BundlePath))
+                .ToArray();
+            FileBatch fileBatch = new(
+                fileDescriptors,
+                fileDescriptors.Length,
+                archiveDirectoryPath,
+                "reference",
+                Encoding.UTF8,
+                CompressionLevel.Fastest);
+            FileBatches fileBatches = new([fileBatch], batchesCount: 1);
+            ZipArchiveManager archiveManager = new(new TestTemporaryFileManager(archiveTemporaryDirectoryPath));
+
+            await archiveManager.CreateArchivesAsync(fileBatches, new Progress<ProgressData>(), cancellationToken);
+
+            string zipFilePath = Path.Combine(archiveDirectoryPath, "reference.zip");
+            using ZipArchive zipArchive = ZipFile.OpenRead(zipFilePath);
+            ZipArchiveEntry sessionEntry = GetSingleZipEntry(zipArchive, "core/", "_session.csv");
+            string[] sessionHeaderCells = SplitCsvLine(ReadZipEntryLines(sessionEntry)[0]);
+            ZipArchiveEntry manifestEntry = GetSingleZipEntry(zipArchive, string.Empty, "_manifest.json");
+            using JsonDocument manifest = JsonDocument.Parse(ReadZipEntryText(manifestEntry));
+            JsonElement fieldDictionary = manifest.RootElement.GetProperty("fieldDictionary");
+            JsonElement respirationEntry = FindFieldDictionaryEntryByCanonicalName(
+                fieldDictionary,
+                "session.enhanced_min_respiration_rate");
+            JsonElement[] mappedUnknownEntries = fieldDictionary
+                .EnumerateArray()
+                .Where(static entry => entry.GetProperty("classification").GetString() == "MappedFromUnmappedFitField")
+                .ToArray();
+
+            Assert.Contains("enhanced_min_respiration_rate [Breaths/min]", sessionHeaderCells);
+            Assert.Equal("Breaths/min", respirationEntry.GetProperty("unit").GetString());
+            Assert.Equal(0, CountZipRowsByClassification(zipArchive, "metadata/", "UnmappedField"));
+            Assert.Equal(0, CountZipRowsByClassification(zipArchive, "analytics/", "UnmappedField"));
+            Assert.True(CountZipRowsByClassification(zipArchive, "raw_unmapped/", "UnmappedField") > 0);
+            Assert.Equal(4, mappedUnknownEntries.Length);
+            Assert.All(
+                mappedUnknownEntries,
+                entry =>
+                {
+                    JsonElement provenance = entry.GetProperty("provenance");
+                    Assert.Equal("MappedFromUnmappedFitField", provenance.GetProperty("kind").GetString());
+                    Assert.NotEmpty(GetStringArray(provenance, "sourceFields"));
+                    Assert.False(entry.TryGetProperty("derivationFormula", out _));
+                });
+        }
+        finally
+        {
+            DeleteTemporaryDirectory(outputDirectoryPath);
+            DeleteTemporaryDirectory(archiveDirectoryPath);
+            DeleteTemporaryDirectory(archiveTemporaryDirectoryPath);
+        }
+    }
+
+    [Fact]
     public async Task ShouldExportCleanedReferenceSessionValuesAndRestoredDerivedFields()
     {
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
@@ -1225,7 +1302,29 @@ public sealed class CsvActivityExporterTests
         Assert.True(classificationColumnIndex >= 0);
         return lines
             .Skip(1)
+            .Where(static line => !string.IsNullOrWhiteSpace(line))
             .Count(line => SplitCsvLine(line)[classificationColumnIndex].Equals(classification, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static int CountZipRowsByClassification(ZipArchive zipArchive, string entryPrefix, string classification)
+    {
+        ZipArchiveEntry artifactEntry = GetSingleZipEntry(zipArchive, entryPrefix, ".csv");
+        return CountRowsByClassification(ReadZipEntryLines(artifactEntry), classification);
+    }
+
+    private static ZipArchiveEntry GetSingleZipEntry(ZipArchive zipArchive, string entryPrefix, string entrySuffix)
+        => Assert.Single(zipArchive.Entries, entry =>
+            entry.FullName.StartsWith(entryPrefix, StringComparison.OrdinalIgnoreCase)
+            && entry.FullName.EndsWith(entrySuffix, StringComparison.OrdinalIgnoreCase));
+
+    private static string[] ReadZipEntryLines(ZipArchiveEntry zipArchiveEntry)
+        => ReadZipEntryText(zipArchiveEntry).Split(["\r\n", "\n"], StringSplitOptions.None);
+
+    private static string ReadZipEntryText(ZipArchiveEntry zipArchiveEntry)
+    {
+        using Stream stream = zipArchiveEntry.Open();
+        using StreamReader reader = new(stream, Encoding.UTF8);
+        return reader.ReadToEnd();
     }
 
     private static async Task<string[]> ReadAllLinesAsync(
