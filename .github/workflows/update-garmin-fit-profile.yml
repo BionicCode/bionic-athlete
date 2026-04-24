@@ -21,6 +21,13 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install Git LFS
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git-lfs
+          git lfs install
+
       - name: Update Garmin FIT Profile reference
         shell: pwsh
         run: |
@@ -57,7 +64,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git switch -C $branchName
+          git switch -c $branchName
 
           git add `
             docs/reference/garmin-fit/Profile.xlsx `
