@@ -52,6 +52,29 @@ public sealed class CachingFitActivityDecoderTests
     }
 
     [Fact]
+    public async Task DecodeAsyncNormalizesStreamToPositionZeroBeforeHashingAndDecoding()
+    {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        RecordingDecoder innerDecoder = new();
+        CachingFitActivityDecoder decoder = new(innerDecoder, new InMemoryFitActivityCache());
+
+        // Stream positioned past the first byte — without normalization, hashing and
+        // decoding would cover different byte ranges, producing a cache-key mismatch.
+        await using MemoryStream firstStream = new([7, 2, 3]);
+        firstStream.Position = 1;
+
+        await using MemoryStream secondStream = new([7, 2, 3]);
+
+        FitActivityDecodeResult firstResult = await decoder.DecodeAsync(firstStream, "first.fit", cancellationToken);
+        FitActivityDecodeResult secondResult = await decoder.DecodeAsync(secondStream, "second.fit", cancellationToken);
+
+        // Both streams have the same content; the second call must hit the cache.
+        Assert.Equal(1, innerDecoder.StreamDecodeCallCount);
+        Assert.False(firstResult.IsFromCache);
+        Assert.True(secondResult.IsFromCache);
+    }
+
+    [Fact]
     public async Task DecodeAsyncDifferentContentProducesDifferentCacheEntries()
     {
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;

@@ -63,9 +63,11 @@ public sealed class CachingFitActivityDecoder : IFitActivityDecoder
 
         try
         {
+            preparedStream.Position = 0;
+
             FitFileSource source = new(
                 string.IsNullOrWhiteSpace(sourceName) ? "stream" : sourceName.Trim(),
-                contentLength: preparedStream.Length - preparedStream.Position);
+                contentLength: preparedStream.Length);
 
             FitContentHash contentHash = await ComputeContentHashAsync(preparedStream, cancellationToken).ConfigureAwait(false);
             if (_cache.TryGet(contentHash, source, out FitActivityDecodeResult cachedResult))
