@@ -14,7 +14,7 @@ The script avoids the first two problems by launching a clean child process with
 
 ## Entry point
 
-- [Invoke-CodexValidation.ps1](/I:/GitHubRepositories/FitToCsvConverter/scripts/Invoke-CodexValidation.ps1)
+- [Invoke-CodexValidation.ps1](../scripts/Invoke-CodexValidation.ps1)
 
 ## Default usage
 
