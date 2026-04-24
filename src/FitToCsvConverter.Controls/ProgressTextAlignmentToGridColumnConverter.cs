@@ -21,7 +21,7 @@ public class ProgressTextAlignmentToGridColumnConverter : IValueConverter
             };
         }
 
-        return HorizontalAlignment.Center;
+        return 1;
     }
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotSupportedException();
