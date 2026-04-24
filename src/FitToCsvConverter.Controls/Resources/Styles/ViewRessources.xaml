@@ -80,6 +80,7 @@
                                     </VisualState>
                                 </VisualStateGroup>
                             </VisualStateManager.VisualStateGroups>
+                            
                             <ContentPresenter x:Name="ContentPresenter" 
                                               HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                               VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
@@ -93,102 +94,32 @@
                                 </ContentPresenter.RenderTransform>
                             </ContentPresenter>
                         </Border>
-
-                        <!--<ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver"
-                                     Value="True">
-                                <Trigger.EnterActions>
-                                    <BeginStoryboard>
-                                    </BeginStoryboard>
-                                </Trigger.EnterActions>
-                                <Trigger.ExitActions>
-                                    <BeginStoryboard>
-                                        <Storyboard>
-                                            <ColorAnimation Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
-                                                            To="{StaticResource DarkThemeButtonBackgroundColor}"
-                                                            Duration="{StaticResource MouseOverAnimationDuration}" />
-                                            <ColorAnimation Storyboard.TargetProperty="(Foreground).(SolidColorBrush.Color)"
-                                                            To="{StaticResource DarkThemeTextColor}"
-                                                            Duration="{StaticResource MouseOverAnimationDuration}" />
-                                            <DoubleAnimation  Storyboard.TargetName="ContentScaleTransform"
-                                                              Storyboard.TargetProperty="ScaleX"
-                                                              To="1.0"
-                                                              Duration="{StaticResource MouseOverAnimationDuration}" />
-                                            <DoubleAnimation  Storyboard.TargetName="ContentScaleTransform"
-                                                              Storyboard.TargetProperty="ScaleY"
-                                                              To="1.0"
-                                                              Duration="{StaticResource MouseOverAnimationDuration}" />
-                                        </Storyboard>
-                                    </BeginStoryboard>
-                                </Trigger.ExitActions>
-                            </Trigger>
-                            
-                            <Trigger Property="IsEnabled"
-                                     Value="False">
-                                <Setter Property="Background"
-                                        Value="{StaticResource DarkThemeDisabledButtonBackgroundBrush}" />
-                                <Setter Property="Foreground"
-                                        Value="{StaticResource DarkThemeDisabledButtonTextBrush}" />
-                                <Setter Property="BorderBrush"
-                                        Value="{StaticResource DarkThemeDisabledButtonBorderBrush}" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>-->
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style.Setters>
-
-        <Style.Triggers>
-            <!--<Trigger Property="IsMouseOver"
-                     Value="True">
-                <Trigger.EnterActions>
-                    <BeginStoryboard>
-                        <Storyboard>
-                            <ColorAnimation Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
-                                            To="{StaticResource DarkThemeHoveredButtonBackgroundColor}"
-                                            Duration="{StaticResource MouseOverAnimationDuration}" />
-                            <ColorAnimation Storyboard.TargetProperty="(Foreground).(SolidColorBrush.Color)"
-                                            To="{StaticResource DarkThemeHoveredButtonTextColor}"
-                                            Duration="{StaticResource MouseOverAnimationDuration}" />
-                            <DoubleAnimation  Storyboard.TargetName="ContentScaleTransform"
-                                              Storyboard.TargetProperty="ScaleX"
-                                              To="{StaticResource ButtonMouseHoverScaleFactor}"
-                                             Duration="{StaticResource MouseOverAnimationDuration}" />
-                            <DoubleAnimation Storyboard.TargetName="ContentScaleTransform"
-                                             Storyboard.TargetProperty="ScaleY"
-                                             To="{StaticResource ButtonMouseHoverScaleFactor}"
-                                             Duration="{StaticResource MouseOverAnimationDuration}" />
-                        </Storyboard>
-                    </BeginStoryboard>
-                </Trigger.EnterActions>
-                <Trigger.ExitActions>
-                    <BeginStoryboard>
-                        <Storyboard>
-                            <ColorAnimation Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
-                                            To="{StaticResource DarkThemeButtonBackgroundColor}"
-                                            Duration="{StaticResource MouseOverAnimationDuration}" />
-                            <ColorAnimation Storyboard.TargetProperty="(Foreground).(SolidColorBrush.Color)"
-                                            To="{StaticResource DarkThemeTextColor}"
-                                            Duration="{StaticResource MouseOverAnimationDuration}" />
-                            <DoubleAnimation  Storyboard.TargetName="ContentScaleTransform"
-                                              Storyboard.TargetProperty="ScaleX"
-                                              To="1.0"
-                                             Duration="{StaticResource MouseOverAnimationDuration}" />
-                            <DoubleAnimation  Storyboard.TargetName="ContentScaleTransform"
-                                              Storyboard.TargetProperty="ScaleY"
-                                              To="1.0"
-                                             Duration="{StaticResource MouseOverAnimationDuration}" />
-                        </Storyboard>
-                    </BeginStoryboard>
-                </Trigger.ExitActions>
-            </Trigger>-->
-        </Style.Triggers>
     </Style>
     
     <Style TargetType="CheckBox">
+        <Style.Resources>
+            <Style x:Key="OptionMarkFocusVisual">
+                <Setter Property="Control.Template">
+                    <Setter.Value>
+                        <ControlTemplate>
+                            <Rectangle Margin="14,0,0,0"
+                                       StrokeDashArray="1 2"
+                                       Stroke="{DynamicResource {x:Static SystemColors.ControlTextBrushKey}}"
+                                       SnapsToDevicePixels="true"
+                                       StrokeThickness="1" />
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+        </Style.Resources>
+        
         <Style.Setters>
             <Setter Property="Background"
-                    Value="{StaticResource DarkThemeButtonBackgroundBrush}" />
+                    Value="{StaticResource DarkThemeCheckBoxBackgroundBrush}" />
             <Setter Property="Foreground"
                     Value="{StaticResource DarkThemeTextBrush}" />
             <Setter Property="BorderThickness"
@@ -199,50 +130,127 @@
                     Value="Center" />
             <Setter Property="VerticalContentAlignment"
                     Value="Center" />
-            <!--<Setter Property="Template">
+            <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="CheckBox">
-                        <Border CornerRadius="{StaticResource CornerRadius}"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
-                                              Content="{TemplateBinding Content}" />
-                        </Border>
+                            <Grid x:Name="templateRoot"
+                                  Background="Transparent"
+                                  SnapsToDevicePixels="True">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Border x:Name="checkBoxBorder"
+                                        Background="{TemplateBinding Background}"
+                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                Padding="{TemplateBinding Padding}"
+                                        HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                        Margin="1"
+                                    VerticalAlignment="{TemplateBinding VerticalContentAlignment}">
+                                <VisualStateManager.VisualStateGroups>
+                                    <VisualStateGroup x:Name="CommonStates">
+                                        <VisualStateGroup.Transitions>
+                                            <VisualTransition GeneratedDuration="{StaticResource MouseOverAnimationDuration}" />
+                                        </VisualStateGroup.Transitions>
+
+                                        <VisualState x:Name="Normal" />
+                                        <VisualState x:Name="MouseOver">
+                                            <Storyboard>
+                                                <ColorAnimation Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
+                                                                To="{StaticResource DarkThemeHoveredCheckBoxBackgroundColor}"
+                                                                Duration="{StaticResource MouseOverAnimationDuration}" />
+                                                <ColorAnimation Storyboard.TargetName="ContentPresenter"
+                                                                Storyboard.TargetProperty="(TextElement.Foreground).(SolidColorBrush.Color)"
+                                                                To="{StaticResource DarkThemeHoveredCheckBoxTextColor}"
+                                                                Duration="{StaticResource MouseOverAnimationDuration}" />
+                                            </Storyboard>
+                                        </VisualState>
+                                        <VisualState x:Name="Pressed">
+                                            <Storyboard>
+                                                <ColorAnimation Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
+                                                                To="{StaticResource DarkThemePressedCheckBoxBackgroundColor}"
+                                                                Duration="{StaticResource MouseOverAnimationDuration}" />
+                                                <ColorAnimation Storyboard.TargetName="ContentPresenter"
+                                                                Storyboard.TargetProperty="(TextElement.Foreground).(SolidColorBrush.Color)"
+                                                                To="{StaticResource DarkThemePressedCheckBoxTextColor}"
+                                                                Duration="{StaticResource MouseOverAnimationDuration}" />
+                                            </Storyboard>
+                                        </VisualState>
+                                        <VisualState x:Name="Disabled">
+                                            <Storyboard>
+                                                <ColorAnimation Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
+                                                                To="{StaticResource DarkThemeDisabledCheckBoxBackgroundColor}"
+                                                                Duration="{StaticResource MouseOverAnimationDuration}" />
+                                                <ColorAnimation Storyboard.TargetName="ContentPresenter"
+                                                                Storyboard.TargetProperty="(TextElement.Foreground).(SolidColorBrush.Color)"
+                                                                To="{StaticResource DarkThemeDisabledCheckBoxTextColor}"
+                                                                Duration="{StaticResource MouseOverAnimationDuration}" />
+                                            </Storyboard>
+                                        </VisualState>
+                                    </VisualStateGroup>
+                                    <VisualStateGroup x:Name="CheckStates">
+                                        <VisualStateGroup.Transitions>
+                                            <VisualTransition GeneratedDuration="{StaticResource MouseOverAnimationDuration}" />
+                                        </VisualStateGroup.Transitions>
+                                        
+                                        <VisualState x:Name="Checked">
+                                            <Storyboard>
+                                                <ColorAnimation Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
+                                                                To="{StaticResource DarkThemeCheckBoxBackgroundColor}"
+                                                                Duration="{StaticResource MouseOverAnimationDuration}" />
+                                                <ColorAnimation Storyboard.TargetName="ContentPresenter"
+                                                                Storyboard.TargetProperty="(TextElement.Foreground).(SolidColorBrush.Color)"
+                                                                To="{StaticResource DarkThemeTextColor}"
+                                                                Duration="{StaticResource MouseOverAnimationDuration}" />
+                                            </Storyboard>
+                                        </VisualState>
+                                        <VisualState x:Name="Unchecked">
+                                            <Storyboard>
+                                                <ColorAnimation Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
+                                                                To="{StaticResource DarkThemeCheckBoxBackgroundColor}"
+                                                                Duration="{StaticResource MouseOverAnimationDuration}" />
+                                                <ColorAnimation Storyboard.TargetName="ContentPresenter"
+                                                                Storyboard.TargetProperty="(TextElement.Foreground).(SolidColorBrush.Color)"
+                                                                To="{StaticResource DarkThemeTextColor}"
+                                                                Duration="{StaticResource MouseOverAnimationDuration}" />
+                                            </Storyboard>
+                                        </VisualState>
+                                    </VisualStateGroup>
+                                </VisualStateManager.VisualStateGroups>
+                                <Grid x:Name="markGrid">
+                                        <Path x:Name="optionMark"
+                                              Data="F1 M 9.97498,1.22334L 4.6983,9.09834L 4.52164,9.09834L 0,5.19331L 1.27664,3.52165L 4.255,6.08833L 8.33331,1.52588e-005L 9.97498,1.22334 Z "
+                                              Fill="{TemplateBinding Foreground}"
+                                              Margin="1"
+                                              Opacity="0"
+                                              Stretch="None" />
+                                        <Rectangle x:Name="indeterminateMark"
+                                                   Fill="{TemplateBinding Foreground}"
+                                                   Margin="2"
+                                                   Opacity="0" />
+                                    </Grid>
+                                </Border>
+                                <ContentPresenter x:Name="contentPresenter"
+                                                  Grid.Column="1"
+                                                  Focusable="False"
+                                                  HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                  Margin="{TemplateBinding Padding}"
+                                                  RecognizesAccessKey="True"
+                                                  SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"
+                                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                            </Grid>
                     </ControlTemplate>
                 </Setter.Value>
-            </Setter>-->
+            </Setter>
         </Style.Setters>
-
         <Style.Triggers>
-            <Trigger Property="IsMouseOver"
-                     Value="True">
-                <Trigger.EnterActions>
-                    <BeginStoryboard>
-                        <Storyboard>
-                            <ColorAnimation Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
-                                            To="{StaticResource DarkThemeHoveredButtonBackgroundColor}"
-                                            Duration="{StaticResource MouseOverAnimationDuration}" />
-                            <ColorAnimation Storyboard.TargetProperty="(Foreground).(SolidColorBrush.Color)"
-                                            To="{StaticResource DarkThemeHoveredButtonTextColor}"
-                                            Duration="{StaticResource MouseOverAnimationDuration}" />
-                        </Storyboard>
-                    </BeginStoryboard>
-                </Trigger.EnterActions>
-                <Trigger.ExitActions>
-                    <BeginStoryboard>
-                        <Storyboard>
-                            <ColorAnimation Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
-                                            To="{StaticResource DarkThemeButtonBackgroundColor}"
-                                            Duration="{StaticResource MouseOverAnimationDuration}" />
-                            <ColorAnimation Storyboard.TargetProperty="(Foreground).(SolidColorBrush.Color)"
-                                            To="{StaticResource DarkThemeTextColor}"
-                                            Duration="{StaticResource MouseOverAnimationDuration}" />
-                        </Storyboard>
-                    </BeginStoryboard>
-                </Trigger.ExitActions>
+            <Trigger Property="HasContent"
+                     Value="true">
+                <Setter Property="FocusVisualStyle"
+                        Value="{StaticResource OptionMarkFocusVisual}" />
+                <Setter Property="Padding"
+                        Value="4,-1,0,0" />
             </Trigger>
         </Style.Triggers>
     </Style>

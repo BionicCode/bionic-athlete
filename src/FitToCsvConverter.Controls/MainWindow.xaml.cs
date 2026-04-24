@@ -317,4 +317,9 @@ public partial class MainWindow : Window, IDisposableAdvanced
         Dispose(disposing: true);
         GC.SuppressFinalize(this);
     }
+
+    private void ExportDataMasterView_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+
+    }
 }

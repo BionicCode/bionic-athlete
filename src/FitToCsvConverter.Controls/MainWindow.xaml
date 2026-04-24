@@ -302,7 +302,9 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-
+                    <CheckBox Template="{DynamicResource CheckBoxTemplate}" Height="50"
+                              Width="50"
+                              Background="Red" Panel.ZIndex="100" />
                     <Grid Grid.Row="0"
                           Grid.RowSpan="2"
                           Grid.Column="0">
@@ -357,7 +359,8 @@
                                              DragEnter="PrepareFitFileDropTargetFeedBack"
                                              DragOver="ProvideFitFileDropTargetFeedBack"
                                              DragLeave="ClearFitFileDropTargetFeedBack"
-                                             ContextMenu="{StaticResource FitFileListContextMenu}" />
+                                             ContextMenu="{StaticResource FitFileListContextMenu}"
+                                         SelectionChanged="ExportDataMasterView_SelectionChanged" />
                                 </Border>
                             </Grid>
                     </Grid>
