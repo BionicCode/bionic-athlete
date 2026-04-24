@@ -8,12 +8,13 @@ internal enum FitExportFieldClassification
     DirectDeveloperField = 1,
     DerivedFromFit = 2,
     DerivedFromRestoredFitMessages = 3,
-    GarminConnectOnlyOrUnconfirmed = 4,
-    Unavailable = 5,
-    RawPreservedField = 6,
-    UnmappedField = 7,
-    UnknownMessageFamily = 8,
-    VendorOrFutureField = 9
+    MappedFromUnmappedFitField = 4,
+    GarminConnectOnlyOrUnconfirmed = 5,
+    Unavailable = 6,
+    RawPreservedField = 7,
+    UnmappedField = 8,
+    UnknownMessageFamily = 9,
+    VendorOrFutureField = 10
 }
 
 internal enum CsvExportArtifactLayer
@@ -53,6 +54,14 @@ internal enum CsvExportAliasKind
     DerivedFieldAlias = 1,
     SectionLabel = 2,
     HumanFriendlyAlias = 3
+}
+
+internal enum CsvExportFieldProvenanceKind
+{
+    Direct = 0,
+    FormulaDerived = 1,
+    MappedFromUnmappedFitField = 2,
+    AuditOnlyReference = 3
 }
 
 internal sealed class CsvExportManifest
@@ -173,6 +182,8 @@ internal sealed class CsvExportFieldDictionaryEntry
 
     public CsvExportFieldAliasMetadata? AliasMetadata { get; init; }
 
+    public CsvExportFieldProvenance? Provenance { get; init; }
+
     public string? DerivationFormula { get; init; }
 
     public bool IsExported { get; init; }
@@ -186,6 +197,27 @@ internal sealed class CsvExportFieldDictionaryEntry
     public string? ValueSeparator { get; init; }
 
     public string? ValueOrdering { get; init; }
+
+    public string? Notes { get; init; }
+}
+
+internal sealed class CsvExportFieldProvenance
+{
+    public required CsvExportFieldProvenanceKind Kind { get; init; }
+
+    public required ImmutableArray<string> SourceFields { get; init; }
+
+    public required ImmutableArray<string> SourceMessageFamilies { get; init; }
+
+    public string? Formula { get; init; }
+
+    public string? Unit { get; init; }
+
+    public string? RoundingOrTolerance { get; init; }
+
+    public string? SourceEvidence { get; init; }
+
+    public string? MappingReason { get; init; }
 
     public string? Notes { get; init; }
 }

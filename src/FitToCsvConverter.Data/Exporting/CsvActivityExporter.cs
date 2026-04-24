@@ -36,6 +36,8 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
     private const string EndingPotentialExportName = "ending_potential";
     private const string EstimatedSweatLossAlias = "Est. Sweat Loss";
     private const string EstimatedSweatLossExportName = "est_sweat_loss";
+    private const string FormulaDerivedRoundingNotes =
+        "Formula-derived structured values are emitted with invariant-culture numeric formatting; the exporter does not apply presentation rounding.";
     private const double FeetPerMeter = 3.28083989501312;
     private const string GarminConnectAliasLocale = "en";
     private const string GarminConnectPdfAliasSource = "GarminConnectPdf";
@@ -58,6 +60,12 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
     private const string MessageTimestampMetadataHeader = "message_timestamp";
     private const string MinimumStaminaAlias = "Min Stamina";
     private const string MinimumStaminaExportName = "min_stamina";
+    private const string MappedUnknownFieldRoundingNotes =
+        "Mapped unknown-field values are emitted from the preserved decoded FIT value without presentation rounding.";
+    private const string MappedUnknownFieldSourceEvidence =
+        "Observed in the Edge 840 repository reference activity by comparing preserved session unknown fields against the matching Garmin Connect PDF and FitCSVTool export.";
+    private const string MappedUnknownFieldMappingReason =
+        "The preserved source field value matches a Garmin Connect reference value, but Profile.xlsx and Garmin FIT SDK 21.195.0 do not publish a semantic field name for this session field.";
     private const string MovingSpeedDerivationNotes =
         "Derived moving time uses direct total_moving_time when present; otherwise it counts up to one elapsed second per qualifying record interval where speed exceeds 0.1 m/s or distance increases.";
     private const string MovingTimeAlias = "Moving Time";
@@ -1411,8 +1419,11 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
             case FitExportFieldClassification.UnknownMessageFamily:
             case FitExportFieldClassification.RawPreservedField:
             case FitExportFieldClassification.VendorOrFutureField:
+            case FitExportFieldClassification.MappedFromUnmappedFitField:
                 classification = FitProfileCoverageClassification.UnknownOrUnmappedPreservedField;
-                notes = "Unknown, vendor, or future field preserved outside the public standard FIT profile.";
+                notes = fieldEntry.Classification == FitExportFieldClassification.MappedFromUnmappedFitField
+                    ? "Structured convenience value mapped from a preserved unknown FIT field outside the public standard FIT profile."
+                    : "Unknown, vendor, or future field preserved outside the public standard FIT profile.";
                 return true;
 
             default:
@@ -1958,6 +1969,7 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
         }
 
         FitExportFieldClassification classification = GetDerivedClassification(request.SourceActivity, kind);
+        CsvExportFieldProvenance? provenance = CreateDerivedSessionFieldProvenance(kind, classification, unit);
         builder.Add(
             new CsvExportFieldDictionaryEntry
             {
@@ -1974,13 +1986,14 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
                 Alias = alias,
                 AliasMetadata = CreateAliasMetadata(
                     alias,
-                    classification == FitExportFieldClassification.DirectStandardFit ? CsvExportAliasKind.DirectFieldAlias : CsvExportAliasKind.DerivedFieldAlias,
-                    confidence: classification == FitExportFieldClassification.DerivedFromRestoredFitMessages ? 0.55 : 0.95,
+                    GetDerivedAliasKind(classification),
+                    confidence: classification == FitExportFieldClassification.MappedFromUnmappedFitField ? 0.55 : 0.95,
                     isDirectAlias: classification == FitExportFieldClassification.DirectStandardFit,
-                    isDerivedAlias: classification != FitExportFieldClassification.DirectStandardFit,
-                    notes: classification == FitExportFieldClassification.DerivedFromRestoredFitMessages
+                    isDerivedAlias: classification is FitExportFieldClassification.DerivedFromFit or FitExportFieldClassification.DerivedFromRestoredFitMessages,
+                    notes: classification == FitExportFieldClassification.MappedFromUnmappedFitField
                         ? "Mapped from preserved unknown session fields that match the Garmin Connect reference activity."
                         : null),
+                Provenance = provenance,
                 DerivationFormula = classification == FitExportFieldClassification.DirectStandardFit ? null : derivationFormula,
                 IsExported = true,
                 ArtifactName = sessionArtifactName,
@@ -1991,6 +2004,13 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
                 Notes = kind == DerivedSessionFieldKind.MovingTime ? MovingSpeedDerivationNotes : "Derived summary column added for structured export completeness.",
             });
     }
+
+    private static CsvExportAliasKind GetDerivedAliasKind(FitExportFieldClassification classification) => classification switch
+    {
+        FitExportFieldClassification.DirectStandardFit => CsvExportAliasKind.DirectFieldAlias,
+        FitExportFieldClassification.MappedFromUnmappedFitField => CsvExportAliasKind.HumanFriendlyAlias,
+        _ => CsvExportAliasKind.DerivedFieldAlias
+    };
 
     private static string? GetDerivedSourceFieldName(DerivedSessionFieldKind kind) => kind switch
     {
@@ -2005,16 +2025,120 @@ public sealed class CsvActivityExporter : ICsvActivityExporter
         _ => null
     };
 
+    private static CsvExportFieldProvenance? CreateDerivedSessionFieldProvenance(
+        DerivedSessionFieldKind kind,
+        FitExportFieldClassification classification,
+        string unit)
+    {
+        if (classification == FitExportFieldClassification.Unavailable)
+        {
+            return null;
+        }
+
+        return classification switch
+        {
+            FitExportFieldClassification.MappedFromUnmappedFitField => CreateMappedUnknownFieldProvenance(kind, unit),
+            FitExportFieldClassification.DirectStandardFit => CreateDirectProjectedFieldProvenance(kind, unit),
+            _ => CreateFormulaDerivedFieldProvenance(kind, unit),
+        };
+    }
+
+    private static CsvExportFieldProvenance CreateFormulaDerivedFieldProvenance(DerivedSessionFieldKind kind, string unit)
+        => new()
+        {
+            Kind = CsvExportFieldProvenanceKind.FormulaDerived,
+            SourceFields = GetDerivedProvenanceSourceFields(kind),
+            SourceMessageFamilies = GetDerivedProvenanceSourceMessageFamilies(kind),
+            Formula = GetDerivedProvenanceFormula(kind),
+            Unit = unit,
+            RoundingOrTolerance = GetDerivedRoundingOrTolerance(kind),
+            SourceEvidence = "Computed from decoded FIT values preserved in View A.",
+            MappingReason = null,
+            Notes = GetDerivedProvenanceNotes(kind),
+        };
+
+    private static CsvExportFieldProvenance CreateMappedUnknownFieldProvenance(DerivedSessionFieldKind kind, string unit)
+        => new()
+        {
+            Kind = CsvExportFieldProvenanceKind.MappedFromUnmappedFitField,
+            SourceFields = GetDerivedProvenanceSourceFields(kind),
+            SourceMessageFamilies = GetDerivedProvenanceSourceMessageFamilies(kind),
+            Formula = null,
+            Unit = unit,
+            RoundingOrTolerance = MappedUnknownFieldRoundingNotes,
+            SourceEvidence = MappedUnknownFieldSourceEvidence,
+            MappingReason = MappedUnknownFieldMappingReason,
+            Notes = "This is a structured convenience projection of a preserved unknown FIT field, not a public standard FIT profile field and not a formula-derived value.",
+        };
+
+    private static CsvExportFieldProvenance CreateDirectProjectedFieldProvenance(DerivedSessionFieldKind kind, string unit)
+        => new()
+        {
+            Kind = CsvExportFieldProvenanceKind.Direct,
+            SourceFields = GetDerivedProvenanceSourceFields(kind),
+            SourceMessageFamilies = GetDerivedProvenanceSourceMessageFamilies(kind),
+            Formula = null,
+            Unit = unit,
+            RoundingOrTolerance = null,
+            SourceEvidence = "Projected from a decoded public standard FIT field when present.",
+            MappingReason = null,
+            Notes = "The field is emitted as a structured convenience column because Garmin Connect presents the same concept prominently.",
+        };
+
+    private static ImmutableArray<string> GetDerivedProvenanceSourceFields(DerivedSessionFieldKind kind) => kind switch
+    {
+        DerivedSessionFieldKind.ActiveCalories => ["session.total_calories", "session.metabolic_calories"],
+        DerivedSessionFieldKind.EstimatedSweatLoss => ["session.unknown_178"],
+        DerivedSessionFieldKind.BeginningPotential => ["session.unknown_205"],
+        DerivedSessionFieldKind.EndingPotential => ["session.unknown_206"],
+        DerivedSessionFieldKind.MinimumStamina => ["session.unknown_207"],
+        DerivedSessionFieldKind.MovingTime => ["session.total_moving_time", "session.moving_time", "record.enhanced_speed", "record.speed", "record.distance", "record.timestamp"],
+        DerivedSessionFieldKind.AverageMovingSpeed => ["session.total_distance", "session.total_moving_time", "session.moving_time", "record.enhanced_speed", "record.speed", "record.distance"],
+        DerivedSessionFieldKind.MaxAveragePowerTwentyMinutes => ["record.power", "record.timestamp"],
+        _ => []
+    };
+
+    private static ImmutableArray<string> GetDerivedProvenanceSourceMessageFamilies(DerivedSessionFieldKind kind) => kind switch
+    {
+        DerivedSessionFieldKind.MaxAveragePowerTwentyMinutes => ["record"],
+        DerivedSessionFieldKind.MovingTime => ["session", "record"],
+        DerivedSessionFieldKind.AverageMovingSpeed => ["session", "record"],
+        _ => ["session"]
+    };
+
+    private static string? GetDerivedProvenanceFormula(DerivedSessionFieldKind kind) => kind switch
+    {
+        DerivedSessionFieldKind.ActiveCalories => ActiveCaloriesFormula,
+        DerivedSessionFieldKind.MovingTime => "Use session.total_moving_time when present; otherwise sum qualifying record intervals where speed exceeds 0.1 m/s or distance increases.",
+        DerivedSessionFieldKind.AverageMovingSpeed => AvgMovingSpeedFormula,
+        DerivedSessionFieldKind.MaxAveragePowerTwentyMinutes => MaxAveragePowerTwentyMinutesFormula,
+        _ => null
+    };
+
+    private static string GetDerivedRoundingOrTolerance(DerivedSessionFieldKind kind) => kind switch
+    {
+        DerivedSessionFieldKind.MovingTime => "The derived fallback counts whole elapsed seconds from record intervals; direct total_moving_time is emitted without presentation rounding.",
+        DerivedSessionFieldKind.MaxAveragePowerTwentyMinutes => "The rolling window uses whole-second sample-hold/zero-fill behavior; the computed numeric value is emitted without presentation rounding.",
+        _ => FormulaDerivedRoundingNotes
+    };
+
+    private static string? GetDerivedProvenanceNotes(DerivedSessionFieldKind kind) => kind switch
+    {
+        DerivedSessionFieldKind.MovingTime => MovingSpeedDerivationNotes,
+        DerivedSessionFieldKind.MaxAveragePowerTwentyMinutes => "The calculation is intended to match Garmin Connect's 20-minute power summary when the FIT record power stream is complete.",
+        _ => null
+    };
+
     private static FitExportFieldClassification GetDerivedClassification(FitActivity activity, DerivedSessionFieldKind kind) => kind switch
     {
         DerivedSessionFieldKind.MovingTime when activity.Sessions.Any(session => HasNamedField(session.Fields, "total_moving_time") || HasNamedField(session.Fields, "moving_time"))
             => FitExportFieldClassification.DirectStandardFit,
         DerivedSessionFieldKind.MovingTime => FitExportFieldClassification.DerivedFromFit,
         DerivedSessionFieldKind.ActiveCalories => FitExportFieldClassification.DerivedFromFit,
-        DerivedSessionFieldKind.EstimatedSweatLoss => FitExportFieldClassification.DerivedFromRestoredFitMessages,
-        DerivedSessionFieldKind.BeginningPotential => FitExportFieldClassification.DerivedFromRestoredFitMessages,
-        DerivedSessionFieldKind.EndingPotential => FitExportFieldClassification.DerivedFromRestoredFitMessages,
-        DerivedSessionFieldKind.MinimumStamina => FitExportFieldClassification.DerivedFromRestoredFitMessages,
+        DerivedSessionFieldKind.EstimatedSweatLoss => FitExportFieldClassification.MappedFromUnmappedFitField,
+        DerivedSessionFieldKind.BeginningPotential => FitExportFieldClassification.MappedFromUnmappedFitField,
+        DerivedSessionFieldKind.EndingPotential => FitExportFieldClassification.MappedFromUnmappedFitField,
+        DerivedSessionFieldKind.MinimumStamina => FitExportFieldClassification.MappedFromUnmappedFitField,
         DerivedSessionFieldKind.AverageMovingSpeed => FitExportFieldClassification.DerivedFromFit,
         DerivedSessionFieldKind.MaxAveragePowerTwentyMinutes => FitExportFieldClassification.DerivedFromFit,
         _ => FitExportFieldClassification.Unavailable

@@ -10,6 +10,7 @@ This document describes the current boundary between:
 - and planned remote sync contracts.
 
 The current implementation step adds the first decoded-model-based CSV exporter. Local persistence and remote sync remain separate concerns.
+Export terminology and field classification semantics are defined in [FIT Export Glossary](fit-export-glossary.md).
 
 ## Current source model
 
@@ -103,6 +104,8 @@ Current flow:
 View A remains the raw canonical source view and must preserve standard FIT messages, developer fields, and unknown/vendor/unmapped content even when higher-level semantics are incomplete.
 View B is a projection from that source and intentionally reduces default bundle clutter by consolidating ancillary metadata, analytics, and raw unmapped content into grouped machine-friendly artifacts.
 The View B manifest includes profile coverage generated from the repository Garmin profile catalog so consumers can distinguish public standard fields, developer fields, and preserved unknown/unmapped fields.
+It also includes provenance for formula-derived and mapped unknown-field convenience columns.
+Mapped unknown fields, such as the Edge 840 reference activity stamina/sweat values sourced from `session.unknown_*`, remain classified as preserved unknown/unmapped profile coverage rather than public standard FIT fields.
 
 ## Persistence boundary
 

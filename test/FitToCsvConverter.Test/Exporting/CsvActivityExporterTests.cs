@@ -831,9 +831,13 @@ public sealed class CsvActivityExporterTests
             JsonElement root = manifest.RootElement;
             JsonElement fieldDictionary = root.GetProperty("fieldDictionary");
             JsonElement artifacts = root.GetProperty("artifacts");
+            JsonElement profileCoverageEntries = root.GetProperty("profileCoverage").GetProperty("entries");
 
             JsonElement totalWorkEntry = FindFieldDictionaryEntryByCanonicalName(fieldDictionary, "session.total_work");
-            JsonElement restoredSweatLossEntry = FindFieldDictionaryEntryByCanonicalName(fieldDictionary, "session.est_sweat_loss");
+            JsonElement activeCaloriesEntry = FindFieldDictionaryEntryByCanonicalName(fieldDictionary, "session.active_calories");
+            JsonElement mappedSweatLossEntry = FindFieldDictionaryEntryByCanonicalName(fieldDictionary, "session.est_sweat_loss");
+            JsonElement mappedBeginningPotentialEntry = FindFieldDictionaryEntryByCanonicalName(fieldDictionary, "session.beginning_potential");
+            JsonElement maxAveragePowerEntry = FindFieldDictionaryEntryByCanonicalName(fieldDictionary, "record.max_avg_power_20_min");
 
             Assert.Contains(artifacts.EnumerateArray(), artifact =>
                 artifact.GetProperty("artifactGroup").GetString() == "Metadata");
@@ -850,7 +854,25 @@ public sealed class CsvActivityExporterTests
             Assert.Equal("Work", totalWorkEntry.GetProperty("aliasMetadata").GetProperty("displayAliasDefault").GetString());
             Assert.Equal("GarminConnectPdf", totalWorkEntry.GetProperty("aliasMetadata").GetProperty("displayAliasSource").GetString());
             Assert.Equal("DirectFieldAlias", totalWorkEntry.GetProperty("aliasMetadata").GetProperty("aliasKind").GetString());
-            Assert.Equal("DerivedFromRestoredFitMessages", restoredSweatLossEntry.GetProperty("classification").GetString());
+            Assert.Equal("MappedFromUnmappedFitField", mappedSweatLossEntry.GetProperty("classification").GetString());
+            Assert.Equal("MappedFromUnmappedFitField", mappedSweatLossEntry.GetProperty("provenance").GetProperty("kind").GetString());
+            Assert.Equal("session.unknown_178", Assert.Single(GetStringArray(mappedSweatLossEntry.GetProperty("provenance"), "sourceFields")));
+            Assert.Equal("session.unknown_205", Assert.Single(GetStringArray(mappedBeginningPotentialEntry.GetProperty("provenance"), "sourceFields")));
+            Assert.Contains(
+                "not a public standard FIT profile field",
+                mappedSweatLossEntry.GetProperty("provenance").GetProperty("notes").GetString(),
+                StringComparison.OrdinalIgnoreCase);
+            Assert.Contains(profileCoverageEntries.EnumerateArray(), entry =>
+                entry.GetProperty("canonicalName").GetString() == "session.est_sweat_loss"
+                && entry.GetProperty("classification").GetString() == "UnknownOrUnmappedPreservedField");
+
+            Assert.Equal("FormulaDerived", activeCaloriesEntry.GetProperty("provenance").GetProperty("kind").GetString());
+            Assert.Contains("session.total_calories", GetStringArray(activeCaloriesEntry.GetProperty("provenance"), "sourceFields"));
+            Assert.Contains("session.metabolic_calories", GetStringArray(activeCaloriesEntry.GetProperty("provenance"), "sourceFields"));
+            Assert.Equal("total_calories - metabolic_calories", activeCaloriesEntry.GetProperty("provenance").GetProperty("formula").GetString());
+            Assert.Equal("FormulaDerived", maxAveragePowerEntry.GetProperty("provenance").GetProperty("kind").GetString());
+            Assert.Contains("record.power", GetStringArray(maxAveragePowerEntry.GetProperty("provenance"), "sourceFields"));
+            Assert.Contains("record", GetStringArray(maxAveragePowerEntry.GetProperty("provenance"), "sourceMessageFamilies"));
         }
         finally
         {
@@ -1093,7 +1115,31 @@ public sealed class CsvActivityExporterTests
         => fieldDictionary.EnumerateArray().Single(entry => entry.GetProperty("exportName").GetString() == exportName);
 
     private static JsonElement FindFieldDictionaryEntryByCanonicalName(JsonElement fieldDictionary, string canonicalName)
-        => fieldDictionary.EnumerateArray().Single(entry => entry.GetProperty("canonicalName").GetString() == canonicalName);
+    {
+        JsonElement[] entries = fieldDictionary.EnumerateArray().ToArray();
+        foreach (JsonElement entry in entries)
+        {
+            if (entry.GetProperty("canonicalName").GetString() == canonicalName)
+            {
+                return entry;
+            }
+        }
+
+        string availableCanonicalNames = string.Join(
+            ", ",
+            entries.Select(static entry => entry.GetProperty("canonicalName").GetString()));
+        throw new InvalidOperationException(
+            string.Create(
+                CultureInfo.InvariantCulture,
+                $"No field dictionary entry named '{canonicalName}'. Available canonical names: {availableCanonicalNames}"));
+    }
+
+    private static string[] GetStringArray(JsonElement containingElement, string propertyName)
+        => containingElement
+            .GetProperty(propertyName)
+            .EnumerateArray()
+            .Select(static value => value.GetString() ?? string.Empty)
+            .ToArray();
 
     private static string GetColumnValue(string[] headerCells, string[] valueCells, string columnName)
         => valueCells[Array.IndexOf(headerCells, columnName)];

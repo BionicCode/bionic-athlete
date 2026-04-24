@@ -14,7 +14,7 @@
     <SolidColorBrush x:Key="WatermarkTextBrush"
                      Color="{DynamicResource WatermarkTextColor}"
                      Opacity="0.5" />
-    <Color x:Key="DarkThemeControlBackgroundColor">#FF252526</Color>
+    <Color x:Key="DarkThemeControlBackgroundColor">#FF1E1E1E</Color>
     <SolidColorBrush x:Key="DarkThemeControlBackgroundBrush"
                      Color="{DynamicResource DarkThemeControlBackgroundColor}"
                      Opacity="1" />
@@ -94,7 +94,7 @@
     <SolidColorBrush x:Key="DarkThemeDisabledCheckBoxBorderBrush"
                      Color="{DynamicResource DarkThemeDisabledCheckBoxBorderColor}"
                      Opacity="1" />
-    <Color x:Key="DarkThemeHoveredCheckBoxTextColor">#F1F1F1</Color>
+    <Color x:Key="DarkThemeHoveredCheckBoxTextColor">#999999</Color>
     <SolidColorBrush x:Key="DarkThemeHoveredCheckBoxTextBrush"
                      Color="{DynamicResource DarkThemeHoveredCheckBoxTextColor}"
                      Opacity="1" />
