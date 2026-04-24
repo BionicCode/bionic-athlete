@@ -1,5 +1,6 @@
 using System.Windows;
 
+namespace FitToCsvConverter.Controls;
 public readonly record struct UniformToolBarLayoutResult(
     Size UniformSize,
     int VisibleCount,
