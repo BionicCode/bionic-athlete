@@ -1,9 +1,0 @@
-<Solution>
-  <Project Path="BionicCode.Utilities.Net.Wpf/BionicCode.Utilities.Net.Wpf.csproj" Id="37266a71-ea2e-4f8a-944b-7ea647857cc9" />
-  <Project Path="BionicCode.Utilities.Net/BionicCode.Utilities.Net.Common.csproj" Id="94d4e617-5321-4727-9240-883733e2bd93" />
-  <Project Path="FitToCsvConverter.Data.Controls/FitToCsvConverter.Controls.csproj" Id="cb6f6f76-849f-4bf0-aec8-bbcdad644629" />
-  <Project Path="FitToCsvConverter.Data/FitToCsvConverter.Data.csproj" Id="1389a9c6-e976-42f0-821f-adfa93806686" />
-  <Project Path="FitToCsvConverter.Main/FitToCsvConverter.Main.csproj" />
-  <Project Path="FitToCsvConverter.Test/FitToCsvConverter.Test.csproj" Id="dd37f401-590b-48d6-b6e4-6962a05e8dca" />
-  <Project Path="FitToCsvConverter.ViewMode/FitToCsvConverter.ViewModel.csproj" />
-</Solution>

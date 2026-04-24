@@ -1,0 +1,25 @@
+﻿namespace FitToCsvConverter.Data.Decoding;
+
+using System;
+using System.Collections.Immutable;
+
+public class DecodingFailedException : Exception
+{
+    public DecodingFailedException()
+    {
+    }
+
+    public DecodingFailedException(string message, ImmutableArray<FitDecodeIssue> issues)
+        : base(message) => Issues = issues;
+
+    public DecodingFailedException(string message, Exception innerException, ImmutableArray<FitDecodeIssue> issues)
+        : base(message, innerException) => Issues = issues;
+
+    public ImmutableArray<FitDecodeIssue> Issues { get; }
+
+    public DecodingFailedException(string message)
+        : base(message) => Issues = ImmutableArray<FitDecodeIssue>.Empty;
+
+    public DecodingFailedException(string message, Exception innerException)
+        : base(message, innerException) => Issues = ImmutableArray<FitDecodeIssue>.Empty;
+}

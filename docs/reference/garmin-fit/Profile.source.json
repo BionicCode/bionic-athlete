@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "artifactName": "Garmin FIT Profile.xlsx",
+  "purpose": "Reference copy of Garmin's public standard FIT Profile workbook used to validate documented standard FIT messages, fields, types, units, scale and offset metadata.",
+  "localPath": "docs/reference/garmin-fit/Profile.xlsx",
+  "upstream": {
+    "repositoryUrl": "https://github.com/garmin/fit-sdk-tools.git",
+    "filePath": "Profile.xlsx",
+    "tag": "21.201.0",
+    "ref": "refs/tags/21.201.0",
+    "sourceUrl": "https://github.com/garmin/fit-sdk-tools/blob/21.201.0/Profile.xlsx",
+    "rawUrl": "https://raw.githubusercontent.com/garmin/fit-sdk-tools/21.201.0/Profile.xlsx",
+    "changeId": "I2957d6ee4fd6859c2af4e97de47845ee498e2b9e"
+  },
+  "retrieved": {
+    "date": "2026-04-23",
+    "by": "manual-download",
+    "notes": "Initial local reference copy downloaded from Garmin fit-sdk-tools tag 21.201.0."
+  },
+  "hashes": {
+    "sha256": "23c597350e0663cc4872e15e56d3694fe2ce404a0cd3c541bfea32ebae1ce613",
+    "providedHash": "e90aa8e",
+    "providedHashType": "short-upstream-or-user-provided-identifier"
+  },
+  "validationRole": {
+    "standardFitProfileSourceOfTruth": true,
+    "specificActivityPresenceSourceOfTruth": false,
+    "developerFieldsMayExistOutsideProfile": true,
+    "unknownVendorFieldsMayExistOutsideProfile": true
+  }
+}

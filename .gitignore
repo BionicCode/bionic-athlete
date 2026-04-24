@@ -11,6 +11,11 @@
 *.sln.docstates
 *.env
 
+# Codex local validation workspace
+.codex-env/
+.dotnet/
+temp.nuget.config
+
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 

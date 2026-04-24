@@ -12,7 +12,7 @@ Use the smallest documentation layer that fully explains the change:
 
 1. **Source comments** for non-obvious implementation intent.
 2. **XML documentation comments** for API surface.
-3. **Markdown documentation** for consumer guidance, data structures, workflows, behavior notes, and examples.
+3. **Markdown documentation** for consumer guidance, data structures, workflows, behavior notes, and examples. Markdown files have to go under top-level [/docs](/docs/) directory in the repository root. You can create subfolder if appropriate.
 
 Do not push everything into one layer.
 
