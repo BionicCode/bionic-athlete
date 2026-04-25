@@ -14,6 +14,7 @@ public sealed class FitExportOptions
     /// Initializes a new instance of the <see cref="FitExportOptions"/> class.
     /// </summary>
     /// <param name="target">The intended export target.</param>
+    /// <param name="dataView">The data view to emit for the export.</param>
     /// <param name="unitSystem">The unit system to use for normalized export values.</param>
     /// <param name="includeUnitSuffixInHeaders">
     /// <see langword="true"/> to append explicit unit or timestamp suffixes to column headers;
@@ -33,6 +34,7 @@ public sealed class FitExportOptions
     /// </param>
     public FitExportOptions(
         FitExportTarget target = FitExportTarget.StructuredCsv,
+        FitExportDataView dataView = FitExportDataView.StructuredMachine,
         FitExportUnitSystem unitSystem = FitExportUnitSystem.Metric,
         bool includeUnitSuffixInHeaders = true,
         bool includeLocalTimeColumns = false,
@@ -41,6 +43,7 @@ public sealed class FitExportOptions
         TimeZoneInfo? localTimeZone = null)
     {
         Target = target;
+        DataView = dataView;
         UnitSystem = unitSystem;
         IncludeUnitSuffixInHeaders = includeUnitSuffixInHeaders;
         IncludeLocalTimeColumns = includeLocalTimeColumns;
@@ -53,6 +56,11 @@ public sealed class FitExportOptions
     /// Gets the intended export target.
     /// </summary>
     public FitExportTarget Target { get; }
+
+    /// <summary>
+    /// Gets the data view emitted by the export.
+    /// </summary>
+    public FitExportDataView DataView { get; }
 
     /// <summary>
     /// Gets the unit system used for normalized export values.

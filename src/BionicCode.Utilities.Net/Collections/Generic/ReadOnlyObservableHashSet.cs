@@ -29,6 +29,7 @@ public class ReadOnlyObservableHashSet<TItem> : IReadOnlySet<TItem>, INotifyColl
         ArgumentNullExceptionAdvanced.ThrowIfNull(set);
 
         _set = set;
+        _ = _set.EnableDataBindingSupport();
         _set.CollectionChanged += HandleCollectionChanged;
         _set.PropertyChanged += HandlePropertyChanged;
     }

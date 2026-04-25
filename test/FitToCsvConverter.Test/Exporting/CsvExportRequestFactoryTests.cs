@@ -126,6 +126,7 @@ public sealed class CsvExportRequestFactoryTests
             [CreateColumnRequest(field, order: 0)]);
 
         Assert.Equal(FitExportTarget.StructuredCsv, request.Options.Target);
+        Assert.Equal(FitExportDataView.StructuredMachine, request.Options.DataView);
         Assert.Equal(FitExportUnitSystem.Metric, request.Options.UnitSystem);
         Assert.True(request.Options.IncludeUnitSuffixInHeaders);
         Assert.False(request.Options.IncludeLocalTimeColumns);
