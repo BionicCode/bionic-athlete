@@ -86,7 +86,7 @@
                 <Setter Property="ItemContainerStyle"
                         Value="{StaticResource FieldListItemStyle}" />
                 <Setter Property="Height"
-                        Value="200" />
+                        Value="120" />
                 <!--<Setter Property="Width"
                         Value="230" />-->
                 <Setter Property="BorderThickness"
@@ -332,36 +332,36 @@
                                                  LabelFontSize="12"/>
                         </local:UniformToolBar>
                         <Grid Grid.Row="2"
-                              Height="400"
+                              Height="480"
                               HorizontalAlignment="Stretch"
                               VerticalAlignment="Top">
                             <ContentControl Content="{StaticResource FitFileDropTargetIcon}"
                                                 Height="120"
                                                 VerticalAlignment="Center" />
-                                <Border x:Name="ToolBarSubMenuBorder"
-                                        Background="Transparent"
-                                        BorderBrush="Transparent"
-                                        BorderThickness="0"
-                                        RenderOptions.ClearTypeHint="Enabled">
-                                    <ListBox x:Name="ExportDataMasterView"
-                                             ItemsSource="{Binding ExportData, Mode=OneTime}"
-                                             SelectedItem="{Binding SelectedExportData}"
-                                             DisplayMemberPath="FitFileName"
-                                             Background="Transparent"
-                                             BorderThickness="1"
-                                             Padding="0,5"
-                                             Margin="5"
-                                             Width="Auto"
-                                             AllowDrop="True"
-                                             ToolTip="Drag and drop FIT files here, either raw or as ZIP files."
-                                             Drop="OnFitFilesDropped"
-                                             DragEnter="PrepareFitFileDropTargetFeedBack"
-                                             DragOver="ProvideFitFileDropTargetFeedBack"
-                                             DragLeave="ClearFitFileDropTargetFeedBack"
-                                             ContextMenu="{StaticResource FitFileListContextMenu}"
+                            <Border x:Name="ToolBarSubMenuBorder"
+                                    Background="Transparent"
+                                    BorderBrush="Transparent"
+                                    BorderThickness="0"
+                                    RenderOptions.ClearTypeHint="Enabled">
+                                <ListBox x:Name="ExportDataMasterView"
+                                         ItemsSource="{Binding ExportData, Mode=OneTime}"
+                                         SelectedItem="{Binding SelectedExportData}"
+                                         DisplayMemberPath="FitFileName"
+                                         Background="Transparent"
+                                         BorderThickness="1"
+                                         Padding="0,5"
+                                         Margin="5"
+                                         Width="Auto"
+                                         AllowDrop="True"
+                                         ToolTip="Drag and drop FIT files here, either raw or as ZIP files."
+                                         Drop="OnFitFilesDropped"
+                                         DragEnter="PrepareFitFileDropTargetFeedBack"
+                                         DragOver="ProvideFitFileDropTargetFeedBack"
+                                         DragLeave="ClearFitFileDropTargetFeedBack"
+                                         ContextMenu="{StaticResource FitFileListContextMenu}"
                                          SelectionChanged="ExportDataMasterView_SelectionChanged" />
-                                </Border>
-                            </Grid>
+                            </Border>
+                        </Grid>
                     </Grid>
                     <GridSplitter Grid.Column="1"
                                   Grid.RowSpan="2"
@@ -432,6 +432,7 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
                         <Grid.ColumnDefinitions>
@@ -457,9 +458,9 @@
                                    Grid.Column="0"
                                    Margin="0,2,0,8" />
                         <ListBox Grid.Row="2"
-                                 Grid.RowSpan="2"
+                                 Grid.RowSpan="3"
                                  Grid.Column="0"
-                                 Height="190"
+                                 Height="290"
                                  Width="500"
                                  ItemsSource="{Binding SelectedExportData.SelectedExtraFilePaths}"
                                  ItemContainerStyle="{StaticResource ExtraFileListBoxItem}"
@@ -504,38 +505,12 @@
                                                 Padding="3"
                                                 FontSize="10" />
                                     </Grid>
-
-                                    <!--<DataTemplate.Triggers>
-                                        <DataTrigger Binding="{Binding ElementName=ManualRenameCheckBox, Path=IsMouseOver}"
-                                                     Value="True">
-                                            <DataTrigger.EnterActions>
-                                                <BeginStoryboard>
-                                                    <Storyboard>
-                                                        <ColorAnimation Storyboard.TargetName="ManualRenameCheckBox"
-                                                                        Storyboard.TargetProperty="(Foreground).(SolidColorBrush.Color)"
-                                                                        To="{StaticResource MouseOverTextColor}"
-                                                                        Duration="{StaticResource MouseOverAnimationDuration}" />
-                                                    </Storyboard>
-                                                </BeginStoryboard>
-                                            </DataTrigger.EnterActions>
-                                            <DataTrigger.ExitActions>
-                                                <BeginStoryboard>
-                                                    <Storyboard>
-                                                        <ColorAnimation Storyboard.TargetName="ManualRenameCheckBox"
-                                                                        Storyboard.TargetProperty="(Foreground).(SolidColorBrush.Color)"
-                                                                        To="{StaticResource TextColor}"
-                                                                        Duration="{StaticResource MouseOverAnimationDuration}" />
-                                                    </Storyboard>
-                                                </BeginStoryboard>
-                                            </DataTrigger.ExitActions>
-                                        </DataTrigger>
-                                    </DataTemplate.Triggers>-->
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
 
                         <Separator Grid.Row="0"
-                                   Grid.RowSpan="4"
+                                   Grid.RowSpan="5"
                                    Grid.Column="1" 
                                    Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}"
                                    Margin="10,0"/>
@@ -586,7 +561,7 @@
                                    Style="{StaticResource LabelTextBlockStyle}" />
                         <Separator Grid.Row="1"
                                    Grid.Column="6"
-                                   Margin="0,2,0,8" />
+                                   Margin="0,2,5,8" />
                         <local:WatermarkTextBox Grid.Row="2"
                                                 Watermark="Enter batch name..."
                                                 Grid.Column="6"
@@ -595,8 +570,49 @@
                                                 HorizontalAlignment="Stretch"
                                                 VerticalAlignment="Top"
                                                 Width="250"
-                                                Padding="4"
-                                                Margin="0" />
+                                                Margin="0,0,5,5" />
+                        <Separator Grid.Row="3"
+                                   Grid.Column="2"
+                                   Grid.ColumnSpan="6"
+                                   Margin="0,2,5,8" />
+                        <Grid Grid.Row="4"
+                                    Grid.Column="2"
+                                    Grid.ColumnSpan="6">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0"
+                                       Text="Coaching summary:"
+                                       Style="{StaticResource LabelTextBlockStyle}" />
+
+                            <local:WatermarkTextBox Grid.Row="1" 
+                                                    Watermark="Enter coaching summary..."
+                                                    Text="{Binding SelectedExportData.ReportSummary, UpdateSourceTrigger=PropertyChanged}"
+                                                    TextWrapping="NoWrap"
+                                                    VerticalContentAlignment="Top"
+                                                    HorizontalAlignment="Stretch"
+                                                    VerticalAlignment="Top"
+                                                    Height="180"
+                                                    Width="Auto"
+                                                    Margin="0,0,5,5" />
+
+                            <TextBlock Grid.Row="2"
+                                       Text="Coaching summary file name:"
+                                       Style="{StaticResource LabelTextBlockStyle}" />
+
+                            <local:WatermarkTextBox Grid.Row="3" 
+                                                    Watermark="coach_context.md"
+                                                    Text="{Binding SelectedExportData.ReportSummary, UpdateSourceTrigger=PropertyChanged}"
+                                                    TextWrapping="Wrap"
+                                                    HorizontalAlignment="Left"
+                                                    VerticalAlignment="Stretch"
+                                                    Width="250"
+                                                    Margin="0,0,5,5" />
+                        </Grid>
                     </Grid>
                 </Grid>
 
@@ -620,7 +636,6 @@
                                                 Watermark="Select destination folder..."
                                                 Text="{Binding DestinationFolder}"
                                                 Margin="0,0,0,0"
-                                                Padding="4"
                                                 HorizontalAlignment="Stretch"
                                                 VerticalAlignment="Top" />
                         <Button Grid.Column="1"

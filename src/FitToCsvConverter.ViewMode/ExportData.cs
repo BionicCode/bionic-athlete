@@ -4,6 +4,7 @@ using System.Collections.Immutable;
 using System.Collections.Specialized;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Reflection;
 using BionicCode.Utilities.Net;
 using FitToCsvConverter.Data;
 using FitToCsvConverter.Data.Activities;
@@ -30,6 +31,8 @@ public class ExportData : ViewModel
     private bool _isIncludeFitFileEnabled;
     private string _fitFilePath;
     private ImmutableArray<ExportedArtifact> _exportedArtifacts;
+    private string _reportSummary;
+    private string _reportSummaryFileName;
     private readonly IFitActivityDecoder _fitActivityDecoder;
 
     public ObservableFileDescriptor FitFileDescriptor { get; private set; } = null!;
@@ -38,11 +41,14 @@ public class ExportData : ViewModel
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE0028:Simplify collection initialization", Justification = "Feature not available.")]
     public ExportData(PropertyValidationDelegate<string> filePathsValidator,
-        IFitActivityDecoder fitActivityDecoder)
+        IFitActivityDecoder fitActivityDecoder,
+        string? coachingContextFileName)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(filePathsValidator);
         ArgumentNullExceptionAdvanced.ThrowIfNull(fitActivityDecoder);
 
+        _reportSummaryFileName = coachingContextFileName ?? string.Empty;
+        _reportSummary = string.Empty;
         _filePathsValidator = filePathsValidator;
         _fitActivityDecoder = fitActivityDecoder;
         _newFilenames = [];
@@ -58,7 +64,12 @@ public class ExportData : ViewModel
             IsThrowExceptionOnValidationErrorEnabled = true,
         };
 
-        _selectedExtraFilePaths = [];
+        Assembly staticArtifactsAssembly = typeof(FileDescriptor).Assembly;
+        string resourceFolder = $"StaticArtifacts";
+        _selectedExtraFilePaths = new()
+        {
+            new ObservableFileDescriptor("README.md", resourceFolder, staticArtifactsAssembly)
+        };
         SelectedExtraFilePaths = new(_selectedExtraFilePaths);
         SelectedExtraFilePaths.CollectionChanged += OnSelectedExtraFilePathsCollectionChanged;
         SelectedExtraFilePaths.CollectionChanged += ValidateOnItemAdded;
@@ -234,7 +245,7 @@ public class ExportData : ViewModel
         {
             // TODO::Replace with new API call
             // DateTime dataDate = FitFileAnalyzer.GetSessionDate(FitFilePath);
-            string batchFileName = $"{DateTime.Now:yyyy-MM-dd}_{FitFileNameWithoutExtension}";
+            string batchFileName = $"{System.DateTime.Now:yyyy-MM-dd}_{FitFileNameWithoutExtension}";
             _autoRenameBatchName = batchFileName;
         }
 
@@ -495,6 +506,18 @@ public class ExportData : ViewModel
                 }
             }
         }
+    }
+
+    public string ReportSummary
+    {
+        get => _reportSummary;
+        set => _reportSummary = value ?? string.Empty;
+    }
+
+    public string ReportSummaryFileName
+    {
+        get => _reportSummaryFileName;
+        set => _reportSummaryFileName = value ?? string.Empty;
     }
 
     internal FitActivity Activity { get; private set; } = null!;

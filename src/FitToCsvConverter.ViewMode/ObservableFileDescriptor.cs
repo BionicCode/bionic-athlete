@@ -2,6 +2,7 @@
 
 using System.Diagnostics;
 using System.IO;
+using System.Reflection;
 using BionicCode.Utilities.Net;
 using FitToCsvConverter.Data;
 
@@ -13,11 +14,15 @@ public class ObservableFileDescriptor : ViewModel
     private string _name;
     private readonly string _originalName;
     private readonly SetValueOptions _setValueOptions;
+    private readonly Assembly _assemblyOfEmbeddedFile;
 
     public ObservableFileDescriptor(FileDescriptor fileDescriptor)
     {
         _isRenamingEnabled = fileDescriptor.IsRenamingRequired;
-        Name = fileDescriptor.Name;
+        IsEmbeddedResource = false;
+        _assemblyOfEmbeddedFile = null!;
+
+        _name = fileDescriptor.Name;
         _originalName = Name;
         _newName = Name;
         Location = fileDescriptor.Location;
@@ -36,13 +41,39 @@ public class ObservableFileDescriptor : ViewModel
     {
         ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(filePath);
 
-        Name = Path.GetFileName(filePath);
+        _assemblyOfEmbeddedFile = null!;
+        _name = Path.GetFileName(filePath);
         Location = Path.GetDirectoryName(filePath) ?? string.Empty;
         ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(Location, $"The argument '{nameof(filePath)}' does not contain a directory. Found: '{filePath}'", nameof(filePath));
         _isRenamingEnabled = isRenamingRequired;
+        IsEmbeddedResource = false;
         _originalName = Name;
         _newName = Name;
         FullPath = filePath;
+        Extension = Path.GetExtension(FullPath);
+        OriginalFullPath = FullPath;
+
+        _setValueOptions = new SetValueOptions
+        {
+            IsRejectEqualValuesEnabled = true,
+            IsThrowExceptionOnValidationErrorEnabled = true,
+        };
+    }
+
+    public ObservableFileDescriptor(string embeddedFileName, string folderName, Assembly assemblyOfEmbeddedFile)
+    {
+        ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(embeddedFileName);
+        ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(folderName);
+        ArgumentNullException.ThrowIfNull(assemblyOfEmbeddedFile);
+
+        _name = embeddedFileName;
+        _assemblyOfEmbeddedFile = assemblyOfEmbeddedFile;
+        Location = $"{_assemblyOfEmbeddedFile.GetName().Name}.{folderName.Trim('/', '\\', '.')}";
+        _isRenamingEnabled = false;
+        IsEmbeddedResource = true;
+        _originalName = Name;
+        _newName = Name;
+        FullPath = $"{Location}.{Name}";
         Extension = Path.GetExtension(FullPath);
         OriginalFullPath = FullPath;
 
@@ -88,11 +119,17 @@ public class ObservableFileDescriptor : ViewModel
         }
     }
 
-    public FileDescriptor ToFileDescriptor() => new(Name, Location, IsRenamingEnabled)
-    {
-        OriginalFullPath = OriginalFullPath,
-        OriginalName = _originalName,
-    };
+    public FileDescriptor ToFileDescriptor() => IsEmbeddedResource
+            ? new(Name, Location, IsRenamingEnabled, _assemblyOfEmbeddedFile)
+            {
+                OriginalFullPath = OriginalFullPath,
+                OriginalName = _originalName,
+            }
+            : new(Name, Location, IsRenamingEnabled)
+            {
+                OriginalFullPath = OriginalFullPath,
+                OriginalName = _originalName,
+            };
 
     protected virtual void OnRenamed(string oldName, string oldFullPath) => Renamed?.Invoke(this, new FileDescriptorChangedEventArgs(oldName, Name, oldFullPath, FullPath, OriginalFullPath));
 
@@ -100,6 +137,7 @@ public class ObservableFileDescriptor : ViewModel
 
     public string Location { get; }
     public string FullPath { get; private set; }
+    public bool IsEmbeddedResource { get; }
     public string Extension { get; }
     public string OriginalFullPath { get; }
     public bool IsRenamed { get; private set; }

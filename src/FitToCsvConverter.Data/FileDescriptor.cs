@@ -1,6 +1,7 @@
 ﻿namespace FitToCsvConverter.Data;
 
 using System.Diagnostics;
+using System.Reflection;
 using BionicCode.Utilities.Net;
 
 /// <summary>
@@ -26,6 +27,8 @@ public readonly struct FileDescriptor
         ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(name);
         ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(location);
 
+        EmbeddedResourceAssembly = null!;
+        IsEmbeddedResource = false;
         Name = name;
         Location = location;
         _filePath = Path.Combine(Location, Name);
@@ -48,6 +51,8 @@ public readonly struct FileDescriptor
     {
         ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(filePath);
 
+        EmbeddedResourceAssembly = null!;
+        IsEmbeddedResource = false;
         Name = Path.GetFileName(filePath);
         Location = Path.GetDirectoryName(filePath) ?? string.Empty;
         _filePath = filePath;
@@ -57,7 +62,35 @@ public readonly struct FileDescriptor
         OriginalFullPath = string.Empty;
     }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="FileDescriptor"/> struct from a full source path.
+    /// </summary>
+    /// <param name="filePath">The full source file path.</param>
+    /// <param name="isRenamingRequired">Whether the source file must be copied with a new name before archiving.</param>
+    /// <param name="archiveEntryName">
+    /// The relative path to use inside an archive.
+    /// When <see langword="null"/>, the source file name is used.
+    /// </param>
+    public FileDescriptor(string fileName, string location, bool isRenamingRequired, Assembly embeddedResourceAssembly, string? archiveEntryName = null)
+    {
+        ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(fileName);
+        ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(location);
+        ArgumentNullExceptionAdvanced.ThrowIfNull(embeddedResourceAssembly);
+
+        IsEmbeddedResource = true;
+        EmbeddedResourceAssembly = embeddedResourceAssembly;
+        Name = Path.GetFileName(fileName);
+        Location = location;
+        _filePath = $"{Location}.{Name}";
+        IsRenamingRequired = isRenamingRequired;
+        ArchiveEntryName = NormalizeArchiveEntryName(archiveEntryName ?? Name);
+        OriginalName = string.Empty;
+        OriginalFullPath = string.Empty;
+    }
+
     public bool IsRenamingRequired { get; init; }
+    public Assembly EmbeddedResourceAssembly { get; }
+    public bool IsEmbeddedResource { get; init; }
     public string Name { get; init; }
     public string Location { get; init; }
     public string FullPath => _filePath;

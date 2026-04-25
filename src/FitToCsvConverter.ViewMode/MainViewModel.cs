@@ -13,6 +13,7 @@ using FitToCsvConverter.Data.Exporting;
 public class MainViewModel : ViewModel, IDisposableAdvanced
 {
     private const string FitFileExtension = ".fit";
+    private const string CoachingContextFileName = "coach_context.md";
     private string _destinationFolder;
     private ExportData? _selectedExportData;
     private string? _selectedFitFilePath;
@@ -27,6 +28,13 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
     private readonly Dictionary<string, ExportData> _fitFilePathToExportDataLookup;
     private readonly string _allowedFileExtensions;
     private readonly SemaphoreSlim _addFitFilesSemaphore;
+    private static readonly FileStreamOptions s_createFileStreamOptions = new()
+    {
+        Mode = FileMode.CreateNew,
+        Access = FileAccess.Write,
+        Share = FileShare.None,
+        Options = FileOptions.Asynchronous | FileOptions.SequentialScan
+    };
 
     public MainViewModel(IZipArchiveManager zipArchiveManager,
         ICsvActivityExporter csvActivityExporter,
@@ -238,7 +246,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
             return false;
         }
 
-        var exportData = new ExportData(_filePathsValidator, _cachingFitActivityDecoderFactory.Invoke());
+        var exportData = new ExportData(_filePathsValidator, _cachingFitActivityDecoderFactory.Invoke(), CoachingContextFileName);
         await exportData.SetFitFileAsync(fitFilePath, cancellationToken).ConfigureAwait(true);
 
         _ = FitFilePaths.Add(fitFilePath);
@@ -303,7 +311,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
 
     private async Task CreateArchivesAsync()
     {
-        var batchesToArchive = EnumerateFileBatches().ToList();
+        List<FileBatch> batchesToArchive = await EnumerateFileBatchesAsync().ToListAsync();
         if (batchesToArchive.Count == 0)
         {
             return;
@@ -314,7 +322,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
         await _zipArchiveManager.CreateArchivesAsync(batches, packProgressReporter);
     }
 
-    private IEnumerable<FileBatch> EnumerateFileBatches()
+    private async IAsyncEnumerable<FileBatch> EnumerateFileBatchesAsync()
     {
         foreach (ExportData exportData in ExportData)
         {
@@ -327,6 +335,21 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
             string batchName = exportData.IsAutoRenamingEnabled || string.IsNullOrWhiteSpace(exportData.BatchName)
                 ? exportData.AutoRenameBatchName
                 : exportData.BatchName;
+
+            if (!string.IsNullOrWhiteSpace(exportData.ReportSummary))
+            {
+                string fileName = string.IsNullOrWhiteSpace(exportData.ReportSummaryFileName)
+                    ? CoachingContextFileName
+                    : exportData.ReportSummaryFileName;
+                string destinationFilePath = _temporaryFileManager.CreateTemporaryFilePath(batchName, fileName);
+                _temporaryFileManager.RegisterTemporaryFilePath(destinationFilePath);
+                await using var stream = new FileStream(destinationFilePath, s_createFileStreamOptions);
+                await using var writer = new StreamWriter(stream, Encoding.UTF8);
+                await writer.WriteAsync(exportData.ReportSummary).ConfigureAwait(true);
+                var reportSummaryFileDescriptor = new FileDescriptor(destinationFilePath, isRenamingRequired: false);
+                fileDescriptors.Add(reportSummaryFileDescriptor);
+            }
+
             var batch = new FileBatch(
                 fileDescriptors,
                 fileDescriptors.Count,
