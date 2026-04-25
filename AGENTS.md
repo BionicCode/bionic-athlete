@@ -186,6 +186,18 @@ If execution was blocked, report the exact blocker instead of pretending verific
 ## Commit and Pull Request Guidance
 - Follow repository-specific commit conventions if defined.
 - If no repository convention exists, use clear, scoped commit messages that describe what changed.
+- When implementation work leaves actual repository changes, include a suggested Git commit message in the final response. Only provide this suggestion if `git status --short` or equivalent evidence shows changes to commit.
+- Do not suggest a commit message for review-only, analysis-only, no-op, or failed-change tasks.
+- Do not claim a commit was created unless the user explicitly asked for a commit and the commit command succeeded.
+- Suggested commit message format:
+  ```text
+  Suggested commit message:
+  <type>(<scope>): <brief imperative summary>
+
+  <optional body with 1-3 bullets for notable details>
+  ```
+- Prefer a concise Conventional Commits-style prefix when obvious, such as `feat`, `fix`, `test`, `docs`, `refactor`, `build`, or `chore`.
+- Mention validation performed separately from the commit message unless the repository convention explicitly includes validation notes in commit bodies.
 - In pull request summaries, explain:
   - what changed,
   - why it changed,
