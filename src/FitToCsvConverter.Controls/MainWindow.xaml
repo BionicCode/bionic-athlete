@@ -358,8 +358,7 @@
                                          DragEnter="PrepareFitFileDropTargetFeedBack"
                                          DragOver="ProvideFitFileDropTargetFeedBack"
                                          DragLeave="ClearFitFileDropTargetFeedBack"
-                                         ContextMenu="{StaticResource FitFileListContextMenu}"
-                                         SelectionChanged="ExportDataMasterView_SelectionChanged" />
+                                         ContextMenu="{StaticResource FitFileListContextMenu}" />
                             </Border>
                         </Grid>
                     </Grid>

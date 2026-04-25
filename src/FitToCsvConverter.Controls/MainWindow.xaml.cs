@@ -156,6 +156,25 @@ public partial class MainWindow : Window, IDisposableAdvanced
 
     private async Task OnExecutedOpenFitFileCommandAsync(object sender, ExecutedRoutedEventArgs e)
     {
+        //// Configure specific print settings (optional, will use WebView2 defaults otherwise including a default destination path provided by HtmlPrinter)
+        //string pdfDestinationFilePath = Path.Combine(Path.GetTempPath(), "example.pdf");
+        //WebView2PrintSettingsData printSettings = new(pdfDestinationFilePath)
+        //{
+        //    Orientation = CoreWebView2PrintOrientation.Landscape, // Optional, will use defaults otherwise
+        //    ShouldPrintBackgrounds = true, // Optional, will use defaults otherwise
+        //    PageWidth = 210, // A4 width in mm - Optional, will use defaults otherwise
+        //    PageHeight = 297 // A4 height in mm - Optional, will use defaults otherwise
+
+        //    // All other properties are also optional and will use WebView2 defaults if not specified
+        //};
+
+        //var htmlPrinter = new HtmlPrinter
+        //{
+        //    DialogKind = DialogKind.Hidden
+        //};
+
+        //Uri htmlFilePath = new Uri(@"https://stackoverflow.com/questions/79928562/best-way-to-conver-html-content-in-to-pdf");
+        //await htmlPrinter.PrintAsync(htmlFilePath, printSettings);
         var openFileDialog = new OpenFileDialog
         {
             Title = "Select FIT Files",
@@ -316,10 +335,5 @@ public partial class MainWindow : Window, IDisposableAdvanced
         // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
         Dispose(disposing: true);
         GC.SuppressFinalize(this);
-    }
-
-    private void ExportDataMasterView_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
-    {
-
     }
 }
