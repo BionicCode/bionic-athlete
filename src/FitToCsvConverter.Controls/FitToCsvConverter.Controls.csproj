@@ -15,6 +15,7 @@
     <ItemGroup>
         <ProjectReference Include="..\BionicCode.Utilities.Net.Wpf\BionicCode.Utilities.Net.Wpf.csproj" />
         <ProjectReference Include="..\BionicCode.Utilities.Net\BionicCode.Utilities.Net.Common.csproj" />
+        <ProjectReference Include="..\FitToCsvConverter.Reporting\FitToCsvConverter.Reporting.csproj" />
         <ProjectReference Include="..\FitToCsvConverter.ViewMode\FitToCsvConverter.ViewModel.csproj" />
     </ItemGroup>
 
