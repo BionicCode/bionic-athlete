@@ -186,7 +186,7 @@ public class HtmlPrinter
         if (_printSettings.MarginLeft.HasValue)
         {
             _browserPrintSettings.MarginLeft = _printSettings.MarginLeft.Value;
-        }  
+        }
 
         if (_printSettings.MarginRight.HasValue)
         {
@@ -219,13 +219,14 @@ public class HtmlPrinter
                 _ = await browser.CoreWebView2.PrintToPdfAsync(PdfDestinationFilePath, _browserPrintSettings);
                 break;
             case DialogKind.BrowserPrintDialog:
-                await LoadBrowserPrintHostAsync(browser);
+                Window browserHost = await ShowBrowserPrintHostAsync(browser);
                 _ = await browser.CoreWebView2.ExecuteScriptAsync("window.print(); window.chrome.webview.postMessage('Printed');");
+                browserHost.Close();
                 break;
             case DialogKind.SystemPrintDialog:
             case DialogKind.Default:
             default:
-                // Since the browser is  hidden we must show the system's print dialog
+                // Since the browser is hidden we must show the system's print dialog
                 browser.CoreWebView2.ShowPrintUI(CoreWebView2PrintDialogKind.System);
 
                 // Wait for print dialog to open.
@@ -243,15 +244,15 @@ public class HtmlPrinter
         _printTaskCompletionSource?.SetResult();
     }
 
-    private async Task LoadBrowserPrintHostAsync(WebView2 browser)
+    private async Task<Window> ShowBrowserPrintHostAsync(WebView2 browser)
     {
         _initializationTaskCompletionSource = new TaskCompletionSource();
         var browserHost = new Window
         {
             Content = browser,
             Opacity = 0,
-            Width = 0,
-            Height = 0,
+            Width = double.NaN,
+            Height = double.NaN,
             WindowStyle = WindowStyle.SingleBorderWindow,
             WindowState = WindowState.Normal,
             ShowInTaskbar = true
@@ -260,6 +261,8 @@ public class HtmlPrinter
         browserHost.Loaded += OnBrowserPrintHostLoaded;
         browserHost.Show();
         await _initializationTaskCompletionSource.Task;
+
+        return browserHost;
     }
 
     private async Task LoadSystemPrintHostAsync(WebView2 browser, bool isCloseAfterLoadedEnabled)

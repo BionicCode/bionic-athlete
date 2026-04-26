@@ -1,11 +1,9 @@
 ﻿namespace FitToCsvConverter.Controls;
 
-using System.IO;
 using System.Windows;
 using System.Windows.Input;
 using BionicCode.Utilities.Net;
 using FitToCsvConverter.ViewModel;
-using Microsoft.Web.WebView2.Core;
 using Microsoft.Win32;
 
 /// <summary>
@@ -155,33 +153,8 @@ public partial class MainWindow : Window, IDisposableAdvanced
             canExecute: (s, e) => e.CanExecute = _viewModel.FitFilePaths?.Any() ?? false);
         _ = CommandBindings.Add(removeAllFitFilesCommandBinding);
     }
-
-    private static int s_printCounter;
-    private static readonly HtmlPrinter s_htmlPrinter = new()
-    {
-        DialogKind = DialogKind.Hidden
-    };
     private async Task OnExecutedOpenFitFileCommandAsync(object sender, ExecutedRoutedEventArgs e)
     {
-        // Configure specific print settings (optional, will use WebView2 defaults otherwise including a default destination path provided by HtmlPrinter)
-        string pdfDestinationFilePath = Path.Combine(Path.GetTempPath(), $"example_{s_printCounter++}.pdf");
-        WebView2PrintSettingsData printSettings = new(pdfDestinationFilePath)
-        {
-            Orientation = CoreWebView2PrintOrientation.Landscape, // Optional, will use defaults otherwise
-            ShouldPrintBackgrounds = true, // Optional, will use defaults otherwise
-            PageWidth = 210, // A4 width in mm - Optional, will use defaults otherwise
-            PageHeight = 297 // A4 height in mm - Optional, will use defaults otherwise
-
-            // All other properties are also optional and will use WebView2 defaults if not specified
-        };
-
-        //var htmlPrinter = new HtmlPrinter
-        //{
-        //    DialogKind = DialogKind.Hidden
-        //};
-
-        var htmlFilePath = new Uri(@"https://stackoverflow.com/questions/79928562/best-way-to-conver-html-content-in-to-pdf");
-        await s_htmlPrinter.PrintAsync(htmlFilePath, printSettings);
         var openFileDialog = new OpenFileDialog
         {
             Title = "Select FIT Files",
