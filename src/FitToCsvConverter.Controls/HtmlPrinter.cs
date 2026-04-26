@@ -18,6 +18,7 @@ public class HtmlPrinter
     private TaskCompletionSource? _initializationTaskCompletionSource;
     private readonly string _defaultPdfDestinationFilePath = Path.Combine(Path.GetTempPath(), $"html_export_{Guid.NewGuid()}.pdf");
     private string? _pdfDestinationFilePath;
+    private CoreWebView2PrintSettings? _browserPrintSettings;
 
     public string PdfDestinationFilePath
     {
@@ -68,15 +69,18 @@ public class HtmlPrinter
         using WebView2 browser = await CreateBrowserAsync();
 
         _printTaskCompletionSource = new TaskCompletionSource();
+        _browserPrintSettings = browser.CoreWebView2.Environment.CreatePrintSettings();
         if (printSettings is not null)
         {
             _printSettings = printSettings;
             PdfDestinationFilePath = _printSettings.DestinationFilePath;
-            ApplyPrintSettings(browser);
+            ApplyPrintSettings();
         }
-
-        // If the print settings are not provided by the caller, we need to expose the default settings via the PrintSettings property.
-        _printSettings ??= new WebView2PrintSettingsData(PdfDestinationFilePath, browser.CoreWebView2.Environment.CreatePrintSettings());
+        else
+        {
+            // If the print settings are not provided by the caller, we need to expose the default settings via the PrintSettings property.
+            _printSettings ??= new WebView2PrintSettingsData(PdfDestinationFilePath, _browserPrintSettings);
+        }
 
         if (htmlDocumentPath is not null)
         {
@@ -94,89 +98,104 @@ public class HtmlPrinter
         await _printTaskCompletionSource.Task;
     }
 
-    private void ApplyPrintSettings(WebView2 browser)
+    private void ApplyPrintSettings()
     {
         Debug.Assert(_printSettings is not null, "Print settings should not be null at this point.");
+        Debug.Assert(_browserPrintSettings is not null, "Browser print settings should not be null at this point.");
 
-        CoreWebView2PrintSettings browserPrintSettings = browser.CoreWebView2.Environment.CreatePrintSettings();
         if (_printSettings.ShouldPrintBackgrounds.HasValue)
         {
-            browserPrintSettings.ShouldPrintBackgrounds = _printSettings.ShouldPrintBackgrounds.Value;
+            _browserPrintSettings.ShouldPrintBackgrounds = _printSettings.ShouldPrintBackgrounds.Value;
         }
 
         if (_printSettings.ShouldPrintHeaderAndFooter.HasValue)
         {
-            browserPrintSettings.ShouldPrintHeaderAndFooter = _printSettings.ShouldPrintHeaderAndFooter.Value;
+            _browserPrintSettings.ShouldPrintHeaderAndFooter = _printSettings.ShouldPrintHeaderAndFooter.Value;
         }
 
         if (!string.IsNullOrWhiteSpace(_printSettings.HeaderTitle))
         {
-            browserPrintSettings.HeaderTitle = _printSettings.HeaderTitle;
+            _browserPrintSettings.HeaderTitle = _printSettings.HeaderTitle;
         }
 
         if (!string.IsNullOrWhiteSpace(_printSettings.FooterUri))
         {
-            browserPrintSettings.FooterUri = _printSettings.FooterUri;
+            _browserPrintSettings.FooterUri = _printSettings.FooterUri;
         }
 
         if (_printSettings.Orientation.HasValue)
         {
-            browserPrintSettings.Orientation = _printSettings.Orientation.Value;
+            _browserPrintSettings.Orientation = _printSettings.Orientation.Value;
         }
 
         if (_printSettings.ColorMode.HasValue)
         {
-            browserPrintSettings.ColorMode = _printSettings.ColorMode.Value;
+            _browserPrintSettings.ColorMode = _printSettings.ColorMode.Value;
         }
 
         if (_printSettings.Duplex.HasValue)
         {
-            browserPrintSettings.Duplex = _printSettings.Duplex.Value;
+            _browserPrintSettings.Duplex = _printSettings.Duplex.Value;
         }
 
         if (_printSettings.MediaSize.HasValue)
         {
-            browserPrintSettings.MediaSize = _printSettings.MediaSize.Value;
+            _browserPrintSettings.MediaSize = _printSettings.MediaSize.Value;
         }
 
         if (_printSettings.Collation.HasValue)
         {
-            browserPrintSettings.Collation = _printSettings.Collation.Value;
+            _browserPrintSettings.Collation = _printSettings.Collation.Value;
         }
 
         if (_printSettings.Copies.HasValue)
         {
-            browserPrintSettings.Copies = _printSettings.Copies.Value;
+            _browserPrintSettings.Copies = _printSettings.Copies.Value;
         }
 
         if (_printSettings.PagesPerSide.HasValue)
         {
-            browserPrintSettings.PagesPerSide = _printSettings.PagesPerSide.Value;
+            _browserPrintSettings.PagesPerSide = _printSettings.PagesPerSide.Value;
         }
 
         if (_printSettings.ScaleFactor.HasValue)
         {
-            browserPrintSettings.ScaleFactor = _printSettings.ScaleFactor.Value;
+            _browserPrintSettings.ScaleFactor = _printSettings.ScaleFactor.Value;
         }
 
         if (_printSettings.PageWidth.HasValue)
         {
-            browserPrintSettings.PageWidth = _printSettings.PageWidth.Value;
+            _browserPrintSettings.PageWidth = _printSettings.PageWidth.Value;
         }
 
         if (_printSettings.PageHeight.HasValue)
         {
-            browserPrintSettings.PageHeight = _printSettings.PageHeight.Value;
+            _browserPrintSettings.PageHeight = _printSettings.PageHeight.Value;
         }
 
         if (_printSettings.MarginTop.HasValue)
         {
-            browserPrintSettings.MarginTop = _printSettings.MarginTop.Value;
+            _browserPrintSettings.MarginTop = _printSettings.MarginTop.Value;
         }
 
         if (_printSettings.MarginBottom.HasValue)
         {
-            browserPrintSettings.MarginBottom = _printSettings.MarginBottom.Value;
+            _browserPrintSettings.MarginBottom = _printSettings.MarginBottom.Value;
+        }
+
+        if (_printSettings.MarginLeft.HasValue)
+        {
+            _browserPrintSettings.MarginLeft = _printSettings.MarginLeft.Value;
+        }  
+
+        if (_printSettings.MarginRight.HasValue)
+        {
+            _browserPrintSettings.MarginRight = _printSettings.MarginRight.Value;
+        }
+
+        if (!string.IsNullOrWhiteSpace(_printSettings.PageRanges))
+        {
+            _browserPrintSettings.PageRanges = _printSettings.PageRanges;
         }
     }
 
@@ -197,7 +216,7 @@ public class HtmlPrinter
         switch (DialogKind)
         {
             case DialogKind.Hidden:
-                _ = await browser.CoreWebView2.PrintToPdfAsync(PdfDestinationFilePath);
+                _ = await browser.CoreWebView2.PrintToPdfAsync(PdfDestinationFilePath, _browserPrintSettings);
                 break;
             case DialogKind.BrowserPrintDialog:
                 await LoadBrowserPrintHostAsync(browser);
@@ -206,6 +225,7 @@ public class HtmlPrinter
             case DialogKind.SystemPrintDialog:
             case DialogKind.Default:
             default:
+                // Since the browser is  hidden we must show the system's print dialog
                 browser.CoreWebView2.ShowPrintUI(CoreWebView2PrintDialogKind.System);
 
                 // Wait for print dialog to open.
