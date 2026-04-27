@@ -16,7 +16,7 @@
         <ProjectReference Include="..\BionicCode.Utilities.Net.Wpf\BionicCode.Utilities.Net.Wpf.csproj" />
         <ProjectReference Include="..\BionicCode.Utilities.Net\BionicCode.Utilities.Net.Common.csproj" />
         <ProjectReference Include="..\Modules\Training\BionicAthlete.Training.Reporting\BionicAthlete.Training.Reporting.csproj" />
-        <ProjectReference Include="..\Modules\Training\BionicAthlete.Training.Presentation\BionicAthlete.Training.Presentation.csproj" />
+        <ProjectReference Include="..\Modules\Training\BionicAthlete.Training.ViewModel\BionicAthlete.Training.Presentation.csproj" />
     </ItemGroup>
 
     <ItemGroup>

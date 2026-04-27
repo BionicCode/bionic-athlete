@@ -4,20 +4,22 @@
   <Folder Name="/Modules/Coaching/" />
   <Folder Name="/Modules/Nutrition/" />
   <Folder Name="/Modules/Training/">
-    <Project Path="src/Modules/Training/BionicAthlete.Infrastructure.FileSystem/BionicAthlete.Infrastructure.FileSystem.csproj" Id="93730a33-415b-4fa2-8c42-be47067111bf" />
-    <Project Path="src/Modules/Training/BionicAthlete.Infrastructure.Persistence/BionicAthlete.Infrastructure.Persistence.csproj" Id="38acaa4d-9566-43ab-bde4-9714aa371e19" />
     <Project Path="src/Modules/Training/BionicAthlete.Training.Application/BionicAthlete.Training.Application.csproj" Id="b4353f08-538e-4860-a1e6-8341d42ca5e1" />
     <Project Path="src/Modules/Training/BionicAthlete.Training.Domain/BionicAthlete.Training.Domain.csproj" Id="1389a9c6-e976-42f0-821f-adfa93806686" />
     <Project Path="src/Modules/Training/BionicAthlete.Training.Exporting/BionicAthlete.Training.Exporting.csproj" Id="f1d81b43-d5e8-4a20-86dd-4e8f5cc6eafb" />
     <Project Path="src/Modules/Training/BionicAthlete.Training.Infrastructure.GarminFit/BionicAthlete.Training.Infrastructure.GarminFit.csproj" Id="8d55346d-ee78-40b7-9cad-30aa16f53630" />
+    <Project Path="src/Modules/Training/BionicAthlete.Training.Metrics/BionicAthlete.Training.Metrics.csproj" Id="845366d0-a67a-491f-8aa5-95cb4f844f2a" />
     <Project Path="src/Modules/Training/BionicAthlete.Training.Reporting/BionicAthlete.Training.Reporting.csproj" Id="b2d0de9e-1f8d-4b58-8b26-f5e99e5eb2c3" />
     <Project Path="src/Modules/Training/BionicAthlete.Training.ViewModel/BionicAthlete.Training.Presentation.csproj" />
     <Project Path="test/Modules/Training/BionicAthlete.Training.Test/BionicAthlete.Training.Test.csproj" Id="dd37f401-590b-48d6-b6e4-6962a05e8dca" />
   </Folder>
   <Project Path="src/BionicAthlete.Contracts/BionicAthlete.Contracts.csproj" Id="b426adaf-2074-4756-8680-784d28921524" />
   <Project Path="src/BionicAthlete.Desktop/BionicAthlete.Desktop.csproj" />
+  <Project Path="src/BionicAthlete.FileSystem.Abstractions/BionicAthlete.FileSystem.Abstractions.csproj" Id="c7d3bdf1-8721-4f13-ab8f-313bb5749a0a" />
   <Project Path="src/BionicAthlete.Presentation/BionicAthlete.Presentation.csproj" Id="cb6f6f76-849f-4bf0-aec8-bbcdad644629" />
   <Project Path="src/BionicAthlete.Shared/BionicAthlete.Shared.csproj" Id="5379f4eb-ed6c-42ff-98a0-19fe178d6d72" />
   <Project Path="src/BionicCode.Utilities.Net.Wpf/BionicCode.Utilities.Net.Wpf.csproj" Id="37266a71-ea2e-4f8a-944b-7ea647857cc9" />
   <Project Path="src/BionicCode.Utilities.Net/BionicCode.Utilities.Net.Common.csproj" Id="94d4e617-5321-4727-9240-883733e2bd93" />
+  <Project Path="src/BionicAthlete.Infrastructure.FileSystem/BionicAthlete.Infrastructure.FileSystem.csproj" Id="93730a33-415b-4fa2-8c42-be47067111bf" />
+  <Project Path="src/BionicAthlete.Infrastructure.Persistence/BionicAthlete.Infrastructure.Persistence.csproj" Id="38acaa4d-9566-43ab-bde4-9714aa371e19" />
 </Solution>

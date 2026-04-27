@@ -24,9 +24,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\BionicAthlete.Presentation\BionicAthlete.Presentation.csproj" />
     <ProjectReference Include="..\Modules\Training\BionicAthlete.Training.Reporting\BionicAthlete.Training.Reporting.csproj" />
-    <ProjectReference Include="..\Modules\Training\BionicAthlete.Training.Presentation\BionicAthlete.Training.Presentation.csproj" />
+    <ProjectReference Include="..\Modules\Training\BionicAthlete.Training.ViewModel\BionicAthlete.Training.Presentation.csproj" />
   </ItemGroup>
 
   <ItemGroup>

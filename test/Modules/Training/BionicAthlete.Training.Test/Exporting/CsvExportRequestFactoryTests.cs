@@ -1,7 +1,7 @@
 namespace BionicAthlete.Training.Test.Exporting;
 
 using BionicAthlete.Training.Domain.Activities;
-using BionicAthlete.Training.Domain.Exporting;
+using BionicAthlete.Training.Exporting;
 using BionicAthlete.Training.Domain.Fields;
 using BionicAthlete.Training.Test.Fixtures;
 

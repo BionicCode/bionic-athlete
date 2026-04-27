@@ -6,4 +6,13 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Garmin.FIT.Sdk" Version="21.201.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BionicAthlete.Training.Application\BionicAthlete.Training.Application.csproj" />
+    <ProjectReference Include="..\BionicAthlete.Training.Domain\BionicAthlete.Training.Domain.csproj" />
+  </ItemGroup>
+
 </Project>

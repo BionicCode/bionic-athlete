@@ -7,11 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\BionicAthlete.Training.Domain\BionicAthlete.Training.Domain.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Files\" />
+    <ProjectReference Include="..\BionicCode.Utilities.Net\BionicCode.Utilities.Net.Common.csproj" />
   </ItemGroup>
 
 </Project>

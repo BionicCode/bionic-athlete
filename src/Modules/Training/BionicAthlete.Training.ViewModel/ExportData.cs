@@ -9,7 +9,7 @@ using BionicCode.Utilities.Net;
 using BionicAthlete.Training.Domain;
 using BionicAthlete.Training.Domain.Activities;
 using BionicAthlete.Training.Domain.Decoding;
-using BionicAthlete.Training.Domain.Exporting;
+using BionicAthlete.Training.Exporting;
 using BionicAthlete.Training.Domain.Fields;
 
 public class ExportData : ViewModel

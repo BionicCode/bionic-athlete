@@ -1,6 +1,7 @@
 namespace BionicAthlete.Training.Test.Persistence;
 
 using System.Collections.Immutable;
+using BionicAthlete.Training.Domain.Activities;
 using BionicAthlete.Training.Domain.Persistence;
 using BionicAthlete.Training.Test.Fixtures;
 

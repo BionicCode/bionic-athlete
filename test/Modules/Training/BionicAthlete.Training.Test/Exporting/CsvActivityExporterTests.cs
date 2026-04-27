@@ -10,7 +10,7 @@ using BionicAthlete.Training.Domain;
 using BionicAthlete.Training.Domain.Activities;
 using BionicAthlete.Training.Domain.Decoding;
 using BionicAthlete.Training.Domain.Decoding.Garmin;
-using BionicAthlete.Training.Domain.Exporting;
+using BionicAthlete.Training.Exporting;
 using BionicAthlete.Training.Domain.Fields;
 using BionicAthlete.Training.Test.Fixtures;
 
