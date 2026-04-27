@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\BionicCode.Utilities.Net\BionicCode.Utilities.Net.Common.csproj" />
+    <ProjectReference Include="..\BionicAthlete.Training.Domain\BionicAthlete.Training.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

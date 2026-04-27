@@ -10,10 +10,10 @@ It does not parse View B CSV output and does not change the structured CSV contr
 
 ## Entry points
 
-- [`ICsvActivityExporter`](../src/FitToCsvConverter.Data/Exporting/ICsvActivityExporter.cs)
-- [`CsvExportRequest`](../src/FitToCsvConverter.Data/Exporting/CsvExportRequest.cs)
-- [`FitExportOptions`](../src/FitToCsvConverter.Data/Exporting/FitExportOptions.cs)
-- [`CsvActivityExporter`](../src/FitToCsvConverter.Data/Exporting/CsvActivityExporter.cs)
+- [`ICsvActivityExporter`](../src/BionicAthlete.Training.Domain/Exporting/ICsvActivityExporter.cs)
+- [`CsvExportRequest`](../src/BionicAthlete.Training.Domain/Exporting/CsvExportRequest.cs)
+- [`FitExportOptions`](../src/BionicAthlete.Training.Domain/Exporting/FitExportOptions.cs)
+- [`CsvActivityExporter`](../src/BionicAthlete.Training.Domain/Exporting/CsvActivityExporter.cs)
 
 For shared terminology, see [FIT Export Glossary](fit-export-glossary.md).
 

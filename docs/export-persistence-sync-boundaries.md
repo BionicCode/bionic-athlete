@@ -14,7 +14,7 @@ Export terminology and field classification semantics are defined in [FIT Export
 
 ## Current source model
 
-The imported FIT activity tree still lives in `FitToCsvConverter.Data`:
+The imported FIT activity tree still lives in `BionicAthlete.Training.Domain`:
 
 - `FitActivity`
 - `FitSession`
