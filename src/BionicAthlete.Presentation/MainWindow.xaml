@@ -4,7 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:BionicAthlete.Presentation"
-        xmlns:viewModel="clr-namespace:BionicAthlete.Training.ViewModel;assembly=BionicAthlete.Training.ViewModel"
+        xmlns:viewModel="clr-namespace:BionicAthlete.Training.Presentation;assembly=BionicAthlete.Training.Presentation"
         xmlns:bionicNet="clr-namespace:BionicCode.Utilities.Net;assembly=BionicCode.Utilities.Net.Wpf"
         mc:Ignorable="d"
         Title="Athlete Health Manager" 

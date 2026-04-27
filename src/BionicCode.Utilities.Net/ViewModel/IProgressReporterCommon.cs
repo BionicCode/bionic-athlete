@@ -20,7 +20,7 @@ public interface IProgressReporterCommon : INotifyPropertyChanged
     /// Creates a <see cref="IProgress{T}"/> instance that is associated with the caller's thread.
     /// The registered progress callback is the virtual <see cref="ViewModelCommon.OnProgress(ProgressData)" /> member.
     /// </summary>
-    /// <remarks>To create a <see cref="IProgress{T}"/> instance that is associated with the application's primary dispatcher thread, for example to update proreties that bind to a <c>DispatcherObject</c>, call <see href="https://sampoh.de/github/docs/bioniccode.net/api/BionicAthlete.Training.ViewModel.IProgressReporter.html#BionicCode_Utilities_Net_IProgressReporter_CreateProgressReporterFromUiThread">IProgressReporter.CreateProgressReporterFromUiThread</see>.</remarks>
+    /// <remarks>To create a <see cref="IProgress{T}"/> instance that is associated with the application's primary dispatcher thread, for example to update proreties that bind to a <c>DispatcherObject</c>, call <see href="https://sampoh.de/github/docs/bioniccode.net/api/BionicAthlete.Training.Presentation.IProgressReporter.html#BionicCode_Utilities_Net_IProgressReporter_CreateProgressReporterFromUiThread">IProgressReporter.CreateProgressReporterFromUiThread</see>.</remarks>
     /// <returns>A <see cref="IProgress{ProgressData}"/> instance that posts progress to the thread <see cref="CreateProgressReporterFromCurrentThread"/> was called from.</returns>
     [Obsolete("This API is deprecated. Use 'BionicCode.Utilities.Net.Wpf.IProgressReporter' instead.", error: false)]
     [EditorBrowsable(EditorBrowsableState.Never)]

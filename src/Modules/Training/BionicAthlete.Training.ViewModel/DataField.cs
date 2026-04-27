@@ -1,4 +1,4 @@
-namespace BionicAthlete.Training.ViewModel;
+namespace BionicAthlete.Training.Presentation;
 
 using BionicAthlete.Training.Domain.Fields;
 using BionicCode.Utilities.Net;

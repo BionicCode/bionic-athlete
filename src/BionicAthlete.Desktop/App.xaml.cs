@@ -18,7 +18,7 @@ using BionicAthlete.Training.Domain.Caching;
 using BionicAthlete.Training.Domain.Decoding;
 using BionicAthlete.Training.Domain.Decoding.Garmin;
 using BionicAthlete.Training.Domain.Exporting;
-using BionicAthlete.Training.ViewModel;
+using BionicAthlete.Training.Presentation;
 using FitBionicAthlete.Training.Reporting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;

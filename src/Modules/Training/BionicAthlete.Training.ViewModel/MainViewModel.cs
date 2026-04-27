@@ -1,4 +1,4 @@
-namespace BionicAthlete.Training.ViewModel;
+namespace BionicAthlete.Training.Presentation;
 
 using System.Collections.ObjectModel;
 using System.Diagnostics;

@@ -6,7 +6,7 @@ using System.Windows.Input;
 using BionicAthlete.Presentation.Reporting;
 using BionicCode.Utilities.Net;
 using FitBionicAthlete.Training.Reporting;
-using BionicAthlete.Training.ViewModel;
+using BionicAthlete.Training.Presentation;
 using Microsoft.Win32;
 
 /// <summary>
