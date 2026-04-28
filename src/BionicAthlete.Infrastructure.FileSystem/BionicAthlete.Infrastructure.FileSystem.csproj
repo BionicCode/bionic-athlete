@@ -8,7 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\BionicAthlete.FileSystem.Abstractions\BionicAthlete.FileSystem.Abstractions.csproj" />
-    <ProjectReference Include="..\Modules\Training\BionicAthlete.Training.Application\BionicAthlete.Training.Application.csproj" />
+    <ProjectReference Include="..\BionicAthlete.Shared\BionicAthlete.Shared.csproj" />
   </ItemGroup>
 
 </Project>
