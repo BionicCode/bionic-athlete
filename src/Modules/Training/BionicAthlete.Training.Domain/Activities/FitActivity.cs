@@ -1,7 +1,6 @@
 namespace BionicAthlete.Training.Domain.Activities;
 
 using System.Collections.Immutable;
-using BionicAthlete.Training.Domain.Decoding;
 using BionicAthlete.Training.Domain.Fields;
 
 public sealed class FitActivity : FitNode

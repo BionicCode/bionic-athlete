@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Immutable;
+using BionicAthlete.Training.Application.Decoding;
 
 public class DecodingFailedException : Exception
 {

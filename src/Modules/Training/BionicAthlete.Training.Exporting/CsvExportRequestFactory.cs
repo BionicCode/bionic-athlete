@@ -2,6 +2,7 @@ namespace BionicAthlete.Training.Exporting;
 
 using System.Collections.Immutable;
 using System.Text;
+using BionicAthlete.Training.Domain.Activities;
 
 /// <summary>
 /// Creates <see cref="CsvExportRequest"/> instances from higher-level column selection state.

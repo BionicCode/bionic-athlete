@@ -1,0 +1,1 @@
+﻿App shell, composition root, module registration, navigation shell

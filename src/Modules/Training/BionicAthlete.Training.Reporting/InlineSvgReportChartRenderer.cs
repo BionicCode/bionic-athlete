@@ -1,4 +1,4 @@
-namespace FitBionicAthlete.Training.Reporting;
+namespace BionicAthlete.Training.Reporting;
 
 using System.Globalization;
 using System.Text;
@@ -49,7 +49,7 @@ public sealed class InlineSvgReportChartRenderer : IReportChartRenderer
             ActivityReportChartPoint point = chart.Points[index];
             double x = PaddingLeft + ((Width - PaddingLeft - PaddingRight) * (index / Math.Max(chart.Points.Length - 1d, 1d)));
             double normalizedValue = (point.Value - minimumValue) / (maximumValue - minimumValue);
-            double y = (Height - PaddingBottom) - ((Height - PaddingTop - PaddingBottom) * normalizedValue);
+            double y = Height - PaddingBottom - ((Height - PaddingTop - PaddingBottom) * normalizedValue);
             _ = builder.Append(CultureInfo.InvariantCulture, $"{x:0.###},{y:0.###} ");
         }
 

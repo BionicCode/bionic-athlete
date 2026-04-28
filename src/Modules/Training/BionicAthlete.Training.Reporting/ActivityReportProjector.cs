@@ -1,4 +1,4 @@
-namespace FitBionicAthlete.Training.Reporting;
+namespace BionicAthlete.Training.Reporting;
 
 using System.Collections.Immutable;
 using System.Globalization;
@@ -575,7 +575,7 @@ public sealed class ActivityReportProjector : IActivityReportProjector
 
     private static string FormatDuration(double seconds)
     {
-        TimeSpan duration = TimeSpan.FromSeconds(Math.Max(seconds, 0d));
+        var duration = TimeSpan.FromSeconds(Math.Max(seconds, 0d));
         return duration.TotalHours >= 1d
             ? duration.ToString(@"h\:mm\:ss", CultureInfo.InvariantCulture)
             : duration.ToString(@"m\:ss", CultureInfo.InvariantCulture);

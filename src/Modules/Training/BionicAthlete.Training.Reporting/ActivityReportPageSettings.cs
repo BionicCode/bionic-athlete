@@ -1,4 +1,4 @@
-namespace FitBionicAthlete.Training.Reporting;
+namespace BionicAthlete.Training.Reporting;
 
 /// <summary>
 /// Neutral print settings used by report generation and later mapped to WebView2 print settings in the UI layer.

@@ -2,8 +2,8 @@ namespace BionicAthlete.Training.Test.Fixtures;
 
 using System.Collections.Immutable;
 using System.Linq;
+using BionicAthlete.Training.Domain;
 using BionicAthlete.Training.Domain.Activities;
-using BionicAthlete.Training.Domain.Decoding;
 using BionicAthlete.Training.Domain.Fields;
 
 internal static class FitActivityModelFactory

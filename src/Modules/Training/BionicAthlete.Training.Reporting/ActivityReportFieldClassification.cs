@@ -1,4 +1,4 @@
-namespace FitBionicAthlete.Training.Reporting;
+namespace BionicAthlete.Training.Reporting;
 
 /// <summary>
 /// Classifies how a metric shown in a human-readable report relates to the source FIT data.

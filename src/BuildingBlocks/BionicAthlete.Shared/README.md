@@ -1,0 +1,1 @@
+﻿Cross-cutting abstractions only, especially logging if you keep it here

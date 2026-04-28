@@ -2,6 +2,8 @@ namespace BionicAthlete.Training.Application.Decoding;
 
 using System.Security.Cryptography;
 using BionicAthlete.Training.Application.Caching;
+using BionicAthlete.Training.Application.Utilities;
+using BionicAthlete.Training.Domain;
 using BionicAthlete.Training.Domain.Activities;
 
 public sealed class CachingFitActivityDecoder : IFitActivityDecoder

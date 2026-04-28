@@ -12,12 +12,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="coverlet.collector" Version="8.0.1">
+    <PackageReference Include="coverlet.collector" Version="10.0.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Garmin.FIT.Sdk" Version="21.195.0" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.3.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.4.0" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -26,8 +25,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\..\src\BionicCode.Utilities.Net\BionicCode.Utilities.Net.Common.csproj" />
+    <ProjectReference Include="..\..\..\..\src\BuildingBlocks\BionicAthlete.FileSystem.Abstractions\BionicAthlete.FileSystem.Abstractions.csproj" />
+    <ProjectReference Include="..\..\..\..\src\Infrastructure\BionicAthlete.Infrastructure.FileSystem\BionicAthlete.Infrastructure.FileSystem.csproj" />
     <ProjectReference Include="..\..\..\..\src\Modules\Training\BionicAthlete.Training.Domain\BionicAthlete.Training.Domain.csproj" />
+    <ProjectReference Include="..\..\..\..\src\Modules\Training\BionicAthlete.Training.Exporting\BionicAthlete.Training.Exporting.csproj" />
+    <ProjectReference Include="..\..\..\..\src\Modules\Training\BionicAthlete.Training.Infrastructure.GarminFit\BionicAthlete.Training.Infrastructure.GarminFit.csproj" />
+    <ProjectReference Include="..\..\..\..\src\Modules\Training\BionicAthlete.Training.Infrastructure.Persistence\BionicAthlete.Training.Infrastructure.Persistence.csproj" />
     <ProjectReference Include="..\..\..\..\src\Modules\Training\BionicAthlete.Training.Reporting\BionicAthlete.Training.Reporting.csproj" />
   </ItemGroup>
 

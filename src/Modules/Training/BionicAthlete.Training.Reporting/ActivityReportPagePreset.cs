@@ -1,4 +1,4 @@
-namespace FitBionicAthlete.Training.Reporting;
+namespace BionicAthlete.Training.Reporting;
 
 /// <summary>
 /// Identifies the print-layout preset used by the HTML report and WebView2 PDF settings.

@@ -7,27 +7,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="StaticArtifacts\README.md" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.7" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.7" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Garmin.FIT.Sdk" Version="21.195.0" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.5" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.5" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\..\..\BionicAthlete.Shared\BionicAthlete.Shared.csproj" />
-    <ProjectReference Include="..\..\..\BionicCode.Utilities.Net\BionicCode.Utilities.Net.Common.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <EmbeddedResource Include="StaticArtifacts\README.md">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </EmbeddedResource>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Exporting\" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\BionicAthlete.Shared\BionicAthlete.Shared.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\BionicCode.Utilities.Net\BionicCode.Utilities.Net.Common.csproj" />
   </ItemGroup>
 </Project>

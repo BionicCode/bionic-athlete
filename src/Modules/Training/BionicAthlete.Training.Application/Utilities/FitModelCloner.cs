@@ -2,11 +2,11 @@ namespace BionicAthlete.Training.Application.Utilities;
 
 using System.Collections.Immutable;
 using BionicAthlete.Training.Application.Decoding;
+using BionicAthlete.Training.Domain;
 using BionicAthlete.Training.Domain.Activities;
-using BionicAthlete.Training.Domain.Decoding;
 using BionicAthlete.Training.Domain.Fields;
 
-internal static class FitModelCloner
+public static class FitModelCloner
 {
     public static FitActivityDecodeResult CloneResult(FitActivityDecodeResult result, FitFileSource source, bool isFromCache)
     {

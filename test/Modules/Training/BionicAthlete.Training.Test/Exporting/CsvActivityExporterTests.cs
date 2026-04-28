@@ -5,14 +5,15 @@ using System.Globalization;
 using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
-using BionicCode.Utilities.Net;
-using BionicAthlete.Training.Domain;
+using BionicAthlete.FileSystem.Abstractions;
+using BionicAthlete.Infrastructure.FileSystem;
+using BionicAthlete.Training.Application.Decoding;
 using BionicAthlete.Training.Domain.Activities;
-using BionicAthlete.Training.Domain.Decoding;
-using BionicAthlete.Training.Domain.Decoding.Garmin;
-using BionicAthlete.Training.Exporting;
 using BionicAthlete.Training.Domain.Fields;
+using BionicAthlete.Training.Exporting;
+using BionicAthlete.Training.Infrastructure.GarminFit.Decoding;
 using BionicAthlete.Training.Test.Fixtures;
+using BionicCode.Utilities.Net;
 
 public sealed class CsvActivityExporterTests
 {

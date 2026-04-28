@@ -2,6 +2,7 @@ namespace BionicAthlete.Training.Infrastructure.GarminFit.Decoding;
 
 using System.Collections.Immutable;
 using BionicAthlete.Training.Application.Decoding;
+using BionicAthlete.Training.Domain;
 using BionicAthlete.Training.Domain.Activities;
 using BionicAthlete.Training.Domain.Fields;
 using Dynastream.Fit;
@@ -9,7 +10,7 @@ using FitFileType = Dynastream.Fit.File;
 
 public sealed class GarminFitActivityDecoder : IFitActivityDecoder
 {
-    public static async Task<FitActivityDecodeResult> DecodeFileAsync(string filePath, CancellationToken cancellationToken = default)
+    public async Task<FitActivityDecodeResult> DecodeFileAsync(string filePath, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
 
@@ -34,7 +35,7 @@ public sealed class GarminFitActivityDecoder : IFitActivityDecoder
         return DecodePreparedStream(fitStream, source, cancellationToken);
     }
 
-    public static async Task<FitActivityDecodeResult> DecodeAsync(Stream stream, string? sourceName = null, CancellationToken cancellationToken = default)
+    public async Task<FitActivityDecodeResult> DecodeAsync(Stream stream, string? sourceName = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(stream);
 

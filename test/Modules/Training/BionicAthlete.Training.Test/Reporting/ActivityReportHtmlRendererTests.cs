@@ -2,7 +2,7 @@ namespace BionicAthlete.Training.Test.Reporting;
 
 using System.Globalization;
 using System.Text.Json;
-using FitBionicAthlete.Training.Reporting;
+using BionicAthlete.Training.Reporting;
 using BionicAthlete.Training.Test.Fixtures;
 
 public sealed class ActivityReportHtmlRendererTests
@@ -127,7 +127,7 @@ public sealed class ActivityReportHtmlRendererTests
         try
         {
             HtmlReportPackage package = await RenderPackageAsync(outputDirectoryPath, ActivityReportOutputTarget.HtmlOnly, cancellationToken);
-            using JsonDocument manifest = JsonDocument.Parse(await File.ReadAllTextAsync(package.ManifestFilePath, cancellationToken));
+            using var manifest = JsonDocument.Parse(await File.ReadAllTextAsync(package.ManifestFilePath, cancellationToken));
 
             string[] relativePaths = manifest.RootElement
                 .GetProperty("Artifacts")

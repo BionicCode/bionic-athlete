@@ -1,0 +1,1 @@
+﻿Training-specific views; UI-bound PDF export adapter views if kept in module UI

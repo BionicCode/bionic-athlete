@@ -1,4 +1,4 @@
-namespace FitBionicAthlete.Training.Reporting;
+namespace BionicAthlete.Training.Reporting;
 
 /// <summary>
 /// Defines which user-facing View C artifacts should be produced from the generated HTML report package.

@@ -2,10 +2,11 @@ namespace BionicAthlete.Training.Test.Decoding;
 
 using System.Collections.Immutable;
 using System.IO;
+using BionicAthlete.Training.Application.Decoding;
+using BionicAthlete.Training.Domain;
 using BionicAthlete.Training.Domain.Activities;
-using BionicAthlete.Training.Domain.Caching;
-using BionicAthlete.Training.Domain.Decoding;
 using BionicAthlete.Training.Domain.Fields;
+using BionicAthlete.Training.Infrastructure.GarminFit.Caching;
 
 public sealed class CachingFitActivityDecoderTests
 {

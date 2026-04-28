@@ -1,8 +1,11 @@
 namespace BionicAthlete.Training.Infrastructure.GarminFit.Caching;
 
 using System.Collections.Concurrent;
-using BionicAthlete.Training.Domain.Decoding;
+using BionicAthlete.Training.Application.Caching;
+using BionicAthlete.Training.Application.Decoding;
+using BionicAthlete.Training.Domain;
 using BionicAthlete.Training.Domain.Activities;
+using BionicAthlete.Training.Application.Utilities;
 
 public sealed class InMemoryFitActivityCache : IFitActivityCache
 {

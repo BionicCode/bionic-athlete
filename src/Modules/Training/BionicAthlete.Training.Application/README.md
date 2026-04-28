@@ -1,0 +1,1 @@
+﻿Use cases, ports, request/response DTOs, persistence/report/export contracts

@@ -4,10 +4,10 @@ using System.Globalization;
 using System.IO;
 using Dynastream.Fit;
 using BionicAthlete.Training.Domain.Activities;
-using BionicAthlete.Training.Domain.Decoding;
-using BionicAthlete.Training.Domain.Decoding.Garmin;
 using BionicAthlete.Training.Domain.Fields;
 using BionicAthlete.Training.Test.Fixtures;
+using BionicAthlete.Training.Infrastructure.GarminFit.Decoding;
+using BionicAthlete.Training.Application.Decoding;
 
 public sealed class GarminFitActivityDecoderTests
 {

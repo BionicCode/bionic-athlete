@@ -3,6 +3,7 @@ namespace BionicAthlete.Training.Test.Persistence;
 using System.Collections.Immutable;
 using BionicAthlete.Training.Domain.Activities;
 using BionicAthlete.Training.Domain.Persistence;
+using BionicAthlete.Training.Infrastructure.Persistence.Persistence;
 using BionicAthlete.Training.Test.Fixtures;
 
 public sealed class ActivityHistoryStoreContractTests
@@ -58,7 +59,7 @@ public sealed class ActivityHistoryStoreContractTests
                 return Task.FromResult(new ActivityPersistenceResult(existingRecord.ActivityId, existingRecord.Fingerprint, wasCreated: false, existingRecord.IsPendingSync));
             }
 
-            Guid activityId = Guid.NewGuid();
+            var activityId = Guid.NewGuid();
             StoredActivityRecord storedRecord = new(
                 activityId,
                 importedActivity.Fingerprint,
@@ -121,7 +122,7 @@ public sealed class ActivityHistoryStoreContractTests
                 records = records.Take(maximumCount);
             }
 
-            ImmutableArray<StoredActivitySummary> summaries = records
+            var summaries = records
                 .Select(record => new StoredActivitySummary(
                     record.ActivityId,
                     record.Fingerprint,

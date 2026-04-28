@@ -2,6 +2,7 @@ namespace BionicAthlete.Training.Application.Decoding;
 
 using System.Collections.Immutable;
 using System.Linq;
+using BionicAthlete.Training.Domain;
 using BionicAthlete.Training.Domain.Activities;
 
 public sealed class FitActivityDecodeResult

@@ -1,4 +1,4 @@
-namespace FitBionicAthlete.Training.Reporting;
+namespace BionicAthlete.Training.Reporting;
 
 /// <summary>
 /// Describes the physical page orientation requested for printable View C reports.

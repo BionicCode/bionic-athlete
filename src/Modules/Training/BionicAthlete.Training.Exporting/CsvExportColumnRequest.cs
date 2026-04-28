@@ -1,4 +1,8 @@
 namespace BionicAthlete.Training.Exporting;
+
+using BionicAthlete.Training.Domain.Activities;
+using BionicAthlete.Training.Domain.Fields;
+
 /// <summary>
 /// Describes one candidate column coming from UI or application selection state before the final CSV request is built.
 /// </summary>
