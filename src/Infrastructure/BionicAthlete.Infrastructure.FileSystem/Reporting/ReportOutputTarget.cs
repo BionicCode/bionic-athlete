@@ -1,4 +1,4 @@
-namespace BionicAthlete.Training.Reporting;
+namespace BionicAthlete.Infrastructure.FileSystem.Reporting;
 
 /// <summary>
 /// Defines which user-facing View C artifacts should be produced from the generated HTML report package.
@@ -6,7 +6,7 @@ namespace BionicAthlete.Training.Reporting;
 /// <remarks>
 /// All v1 targets keep the generated HTML report. PDF generation is a later UI-bound rendering step over that same HTML.
 /// </remarks>
-public enum ActivityReportOutputTarget
+public enum ReportOutputTarget
 {
     /// <summary>
     /// Generate only <c>activity-report.html</c> and <c>report-manifest.json</c>.

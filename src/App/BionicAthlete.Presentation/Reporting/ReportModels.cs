@@ -1,6 +1,8 @@
-namespace BionicAthlete.Training.Reporting;
+namespace BionicAthlete.Presentation.Reporting;
 
 using System.Collections.Immutable;
+using BionicAthlete.Infrastructure.FileSystem.Reporting;
+using BionicAthlete.Training.Reporting;
 
 /// <summary>
 /// Semantic, presentation-oriented report model for one decoded activity.
@@ -12,14 +14,14 @@ using System.Collections.Immutable;
 /// <param name="GeneratedAtUtc">Timestamp supplied by the caller for deterministic generation.</param>
 /// <param name="Sections">Report sections in render order.</param>
 /// <param name="Diagnostics">Warnings or caveats discovered while projecting the report.</param>
-public sealed record ActivityReport(
+public sealed record Report(
     string ReportId,
     string Title,
     string SourceFilePath,
     DateTimeOffset? ActivityStartTimeUtc,
     DateTimeOffset GeneratedAtUtc,
-    ImmutableArray<ActivityReportSection> Sections,
-    ImmutableArray<ActivityReportDiagnostic> Diagnostics);
+    ImmutableArray<ReportSection> Sections,
+    ImmutableArray<ReportDiagnostic> Diagnostics);
 
 /// <summary>
 /// A top-level section in a human-readable activity report.
@@ -30,12 +32,12 @@ public sealed record ActivityReport(
 /// <param name="Charts">Charts rendered after summary metrics.</param>
 /// <param name="Tables">Tables rendered after charts.</param>
 /// <param name="Notes">Optional section-level note.</param>
-public sealed record ActivityReportSection(
+public sealed record ReportSection(
     string Id,
     string Title,
-    ImmutableArray<ActivityReportMetric> Metrics,
-    ImmutableArray<ActivityReportChart> Charts,
-    ImmutableArray<ActivityReportTable> Tables,
+    ImmutableArray<ReportMetric> Metrics,
+    ImmutableArray<ReportChart> Charts,
+    ImmutableArray<ReportTable> Tables,
     string? Notes = null);
 
 /// <summary>
@@ -48,12 +50,12 @@ public sealed record ActivityReportSection(
 /// <param name="Classification">How the metric relates to source FIT data.</param>
 /// <param name="SourceField">Canonical source field when one exists.</param>
 /// <param name="ProvenanceNote">Optional caveat or derivation note.</param>
-public sealed record ActivityReportMetric(
+public sealed record ReportMetric(
     string CanonicalName,
     string Label,
     string FormattedValue,
     string? Unit,
-    ActivityReportFieldClassification Classification,
+    ReportFieldClassification Classification,
     string? SourceField = null,
     string? ProvenanceNote = null);
 
@@ -65,19 +67,19 @@ public sealed record ActivityReportMetric(
 /// <param name="ValueLabel">Axis/value label.</param>
 /// <param name="Unit">Optional value unit.</param>
 /// <param name="Points">Data points in source order.</param>
-public sealed record ActivityReportChart(
+public sealed record ReportChart(
     string Id,
     string Title,
     string ValueLabel,
     string? Unit,
-    ImmutableArray<ActivityReportChartPoint> Points);
+    ImmutableArray<ReportChartPoint> Points);
 
 /// <summary>
 /// One point in a report chart.
 /// </summary>
 /// <param name="TimestampUtc">Source timestamp in UTC.</param>
 /// <param name="Value">Numeric value to plot.</param>
-public sealed record ActivityReportChartPoint(DateTimeOffset TimestampUtc, double Value);
+public sealed record ReportChartPoint(DateTimeOffset TimestampUtc, double Value);
 
 /// <summary>
 /// A deterministic report table.
@@ -86,31 +88,24 @@ public sealed record ActivityReportChartPoint(DateTimeOffset TimestampUtc, doubl
 /// <param name="Title">Table title.</param>
 /// <param name="Columns">Columns in display order.</param>
 /// <param name="Rows">Rows in display order.</param>
-public sealed record ActivityReportTable(
+public sealed record ReportTable(
     string Id,
     string Title,
-    ImmutableArray<ActivityReportTableColumn> Columns,
-    ImmutableArray<ActivityReportTableRow> Rows);
+    ImmutableArray<ReportTableColumn> Columns,
+    ImmutableArray<ReportTableRow> Rows);
 
 /// <summary>
 /// A report table column.
 /// </summary>
 /// <param name="Key">Stable column key.</param>
 /// <param name="Header">Column header.</param>
-public sealed record ActivityReportTableColumn(string Key, string Header);
+public sealed record ReportTableColumn(string Key, string Header);
 
 /// <summary>
 /// A report table row.
 /// </summary>
-/// <param name="Cells">Cell values aligned to <see cref="ActivityReportTable.Columns"/>.</param>
-public sealed record ActivityReportTableRow(ImmutableArray<string> Cells);
-
-/// <summary>
-/// A warning, caveat, or informational diagnostic emitted while creating a report.
-/// </summary>
-/// <param name="Code">Stable diagnostic code.</param>
-/// <param name="Message">Human-readable diagnostic message.</param>
-public sealed record ActivityReportDiagnostic(string Code, string Message);
+/// <param name="Cells">Cell values aligned to <see cref="ReportTable.Columns"/>.</param>
+public sealed record ReportTableRow(ImmutableArray<string> Cells);
 
 /// <summary>
 /// Result of writing a View C HTML report package to disk.
@@ -127,6 +122,6 @@ public sealed record HtmlReportPackage(
     string HtmlFilePath,
     string ManifestFilePath,
     string? PdfFilePath,
-    ActivityReportOutputTarget OutputTarget,
-    ActivityReportPageSettings PageSettings,
-    ImmutableArray<ActivityReportDiagnostic> Diagnostics);
+    ReportOutputTarget OutputTarget,
+    PdfPageSettings PageSettings,
+    ImmutableArray<ReportDiagnostic> Diagnostics);

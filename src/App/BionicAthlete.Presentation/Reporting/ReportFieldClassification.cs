@@ -1,9 +1,9 @@
 namespace BionicAthlete.Training.Reporting;
 
 /// <summary>
-/// Classifies how a metric shown in a human-readable report relates to the source FIT data.
+/// Classifies how a metric shown in a human-readable report relates to the source FIT data and other data.
 /// </summary>
-public enum ActivityReportFieldClassification
+public enum ReportFieldClassification
 {
     /// <summary>
     /// The metric is not available in the current source activity.

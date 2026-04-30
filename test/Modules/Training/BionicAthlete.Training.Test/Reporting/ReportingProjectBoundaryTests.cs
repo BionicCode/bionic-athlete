@@ -29,7 +29,7 @@ public sealed class ReportingProjectBoundaryTests
     }
 
     private static string GetReportingProjectPath()
-        => Path.Combine(GetRepositoryRoot(), "src", "BionicAthlete.Training.Reporting", "BionicAthlete.Training.Reporting.csproj");
+        => Path.Combine(GetRepositoryRoot(), "src/Modules/Training", "BionicAthlete.Training.Reporting", "BionicAthlete.Training.Reporting.csproj");
 
     private static string GetReportingProjectDirectory()
         => Path.GetDirectoryName(GetReportingProjectPath()) ?? throw new InvalidOperationException("Reporting project directory could not be resolved.");

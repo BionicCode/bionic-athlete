@@ -1,12 +1,12 @@
-namespace BionicAthlete.Training.Reporting;
+namespace BionicAthlete.Infrastructure.FileSystem.Reporting;
 
 /// <summary>
 /// Identifies the print-layout preset used by the HTML report and WebView2 PDF settings.
 /// </summary>
-public enum ActivityReportPagePreset
+public enum ReportPagePreset
 {
     /// <summary>
-    /// A custom page size supplied by <see cref="ActivityReportPageSettings"/>.
+    /// A custom page size supplied by <see cref="PdfPageSettings"/>.
     /// </summary>
     Custom = 0,
 

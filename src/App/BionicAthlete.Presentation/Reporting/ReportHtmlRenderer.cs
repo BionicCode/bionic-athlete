@@ -3,24 +3,23 @@ namespace BionicAthlete.Training.Reporting;
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Text;
-using System.Text.Json;
-using System.Text.Json.Serialization;
+using BionicAthlete.Presentation.Reporting;
+using BionicAthlete.Presentation.Reporting.Html;
 
 /// <summary>
 /// Renders a View C report as a deterministic, self-contained HTML package.
 /// </summary>
-public sealed class ActivityReportHtmlRenderer : IActivityReportHtmlRenderer
+public sealed class ReportHtmlRenderer : IReportHtmlRenderer
 {
     private const int ReportSchemaVersion = 1;
     private const string RendererVersion = "view-c-html-v1";
-    private static readonly JsonSerializerOptions s_manifestJsonOptions = CreateManifestJsonOptions();
     private readonly IReportChartRenderer _chartRenderer;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="ActivityReportHtmlRenderer"/> class.
+    /// Initializes a new instance of the <see cref="ReportHtmlRenderer"/> class.
     /// </summary>
     /// <param name="chartRenderer">Renderer used for deterministic inline SVG charts.</param>
-    public ActivityReportHtmlRenderer(IReportChartRenderer chartRenderer)
+    public ReportHtmlRenderer(IReportChartRenderer chartRenderer)
     {
         ArgumentNullException.ThrowIfNull(chartRenderer);
 
@@ -29,8 +28,8 @@ public sealed class ActivityReportHtmlRenderer : IActivityReportHtmlRenderer
 
     /// <inheritdoc />
     public async Task<HtmlReportPackage> RenderAsync(
-        ActivityReport report,
-        ActivityReportExportOptions options,
+        Report report,
+        ReportExportOptions options,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(report);
@@ -41,15 +40,15 @@ public sealed class ActivityReportHtmlRenderer : IActivityReportHtmlRenderer
 
         string htmlFilePath = Path.Combine(reportDirectoryPath, "activity-report.html");
         string manifestFilePath = Path.Combine(reportDirectoryPath, "report-manifest.json");
-        string? pdfFilePath = options.OutputTarget == ActivityReportOutputTarget.HtmlOnly
+        string? pdfFilePath = options.OutputTarget == ReportOutputTarget.HtmlOnly
             ? null
             : Path.Combine(reportDirectoryPath, "activity-report.pdf");
 
         string html = RenderHtml(report, options);
         await File.WriteAllTextAsync(htmlFilePath, html, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
 
-        ImmutableArray<ActivityReportDiagnostic> diagnostics = report.Diagnostics.IsDefault
-            ? ImmutableArray<ActivityReportDiagnostic>.Empty
+        ImmutableArray<ReportDiagnostic> diagnostics = report.Diagnostics.IsDefault
+            ? ImmutableArray<ReportDiagnostic>.Empty
             : report.Diagnostics;
         var package = new HtmlReportPackage(
             reportDirectoryPath,
@@ -60,16 +59,16 @@ public sealed class ActivityReportHtmlRenderer : IActivityReportHtmlRenderer
             options.PageSettings,
             diagnostics);
 
-        ActivityReportManifest manifest = CreateManifest(report, package, includePdfArtifact: false);
+        ReportManifest manifest = CreateManifest(report, package, includePdfArtifact: false);
         await WriteManifestAsync(manifestFilePath, manifest, cancellationToken).ConfigureAwait(false);
 
         return package;
     }
 
-    private string RenderHtml(ActivityReport report, ActivityReportExportOptions options)
+    private string RenderHtml(Report report, ReportExportOptions options)
     {
         var builder = new StringBuilder();
-        string pageClass = options.PageSettings.PagePreset == ActivityReportPagePreset.UsLetterPortrait
+        string pageClass = options.PageSettings.PagePreset == ReportPagePreset.UsLetterPortrait
             ? "page-us-letter"
             : "page-a4";
 
@@ -93,7 +92,7 @@ public sealed class ActivityReportHtmlRenderer : IActivityReportHtmlRenderer
         _ = builder.Append(CultureInfo.InvariantCulture, $"<p>Generated {HtmlText.Encode(report.GeneratedAtUtc.ToString("f", options.Culture))} UTC</p>");
         _ = builder.AppendLine("</header>");
 
-        foreach (ActivityReportSection section in report.Sections)
+        foreach (ReportSection section in report.Sections)
         {
             RenderSection(builder, section, options);
         }
@@ -103,7 +102,7 @@ public sealed class ActivityReportHtmlRenderer : IActivityReportHtmlRenderer
         return builder.ToString();
     }
 
-    private void RenderSection(StringBuilder builder, ActivityReportSection section, ActivityReportExportOptions options)
+    private void RenderSection(StringBuilder builder, ReportSection section, ReportExportOptions options)
     {
         _ = builder.Append(CultureInfo.InvariantCulture, $"<section id=\"{HtmlText.Encode(section.Id)}\" class=\"report-section\">");
         _ = builder.Append(CultureInfo.InvariantCulture, $"<h2 class=\"section-title avoid-break\">{HtmlText.Encode(section.Title)}</h2>");
@@ -116,7 +115,7 @@ public sealed class ActivityReportHtmlRenderer : IActivityReportHtmlRenderer
         if (!section.Metrics.IsDefaultOrEmpty)
         {
             _ = builder.AppendLine("<div class=\"metric-grid\">");
-            foreach (ActivityReportMetric metric in section.Metrics)
+            foreach (ReportMetric metric in section.Metrics)
             {
                 RenderMetric(builder, metric);
             }
@@ -126,7 +125,7 @@ public sealed class ActivityReportHtmlRenderer : IActivityReportHtmlRenderer
 
         if (!section.Charts.IsDefaultOrEmpty)
         {
-            foreach (ActivityReportChart chart in section.Charts)
+            foreach (ReportChart chart in section.Charts)
             {
                 _ = builder.AppendLine("<figure class=\"chart-panel avoid-break\">");
                 _ = builder.Append(CultureInfo.InvariantCulture, $"<figcaption>{HtmlText.Encode(chart.Title)}</figcaption>");
@@ -138,7 +137,7 @@ public sealed class ActivityReportHtmlRenderer : IActivityReportHtmlRenderer
 
         if (!section.Tables.IsDefaultOrEmpty)
         {
-            foreach (ActivityReportTable table in section.Tables)
+            foreach (ReportTable table in section.Tables)
             {
                 RenderTable(builder, table);
             }
@@ -147,7 +146,7 @@ public sealed class ActivityReportHtmlRenderer : IActivityReportHtmlRenderer
         _ = builder.AppendLine("</section>");
     }
 
-    private static void RenderMetric(StringBuilder builder, ActivityReportMetric metric)
+    private static void RenderMetric(StringBuilder builder, ReportMetric metric)
     {
         string unit = string.IsNullOrWhiteSpace(metric.Unit) ? string.Empty : $" <span class=\"metric-unit\">{HtmlText.Encode(metric.Unit)}</span>";
         _ = builder.AppendLine("<article class=\"metric-card avoid-break\">");
@@ -162,19 +161,19 @@ public sealed class ActivityReportHtmlRenderer : IActivityReportHtmlRenderer
         _ = builder.AppendLine("</article>");
     }
 
-    private static void RenderTable(StringBuilder builder, ActivityReportTable table)
+    private static void RenderTable(StringBuilder builder, ReportTable table)
     {
         _ = builder.AppendLine("<div class=\"table-panel avoid-break\">");
         _ = builder.Append(CultureInfo.InvariantCulture, $"<h3>{HtmlText.Encode(table.Title)}</h3>");
         _ = builder.AppendLine("<table class=\"report-table key-table\">");
         _ = builder.AppendLine("<thead><tr>");
-        foreach (ActivityReportTableColumn column in table.Columns)
+        foreach (ReportTableColumn column in table.Columns)
         {
             _ = builder.Append(CultureInfo.InvariantCulture, $"<th>{HtmlText.Encode(column.Header)}</th>");
         }
 
         _ = builder.AppendLine("</tr></thead><tbody>");
-        foreach (ActivityReportTableRow row in table.Rows)
+        foreach (ReportTableRow row in table.Rows)
         {
             _ = builder.AppendLine("<tr>");
             foreach (string cell in row.Cells)
@@ -189,20 +188,20 @@ public sealed class ActivityReportHtmlRenderer : IActivityReportHtmlRenderer
         _ = builder.AppendLine("</div>");
     }
 
-    private static ActivityReportManifest CreateManifest(
-        ActivityReport report,
+    private static ReportManifest CreateManifest(
+        Report report,
         HtmlReportPackage package,
         bool includePdfArtifact)
     {
-        ImmutableArray<ActivityReportManifestArtifact>.Builder artifacts = ImmutableArray.CreateBuilder<ActivityReportManifestArtifact>();
-        artifacts.Add(new ActivityReportManifestArtifact("HtmlReport", "activity-report.html", "text/html"));
-        artifacts.Add(new ActivityReportManifestArtifact("ReportManifest", "report-manifest.json", "application/json"));
+        ImmutableArray<ReportManifestArtifact>.Builder artifacts = ImmutableArray.CreateBuilder<ReportManifestArtifact>();
+        artifacts.Add(new ReportManifestArtifact("HtmlReport", "activity-report.html", "text/html"));
+        artifacts.Add(new ReportManifestArtifact("ReportManifest", "report-manifest.json", "application/json"));
         if (includePdfArtifact && !string.IsNullOrWhiteSpace(package.PdfFilePath))
         {
-            artifacts.Add(new ActivityReportManifestArtifact("PdfReport", "activity-report.pdf", "application/pdf"));
+            artifacts.Add(new ReportManifestArtifact("PdfReport", "activity-report.pdf", "application/pdf"));
         }
 
-        return new ActivityReportManifest(
+        return new ReportManifest(
             ReportSchemaVersion,
             RendererVersion,
             report.ReportId,
@@ -215,16 +214,7 @@ public sealed class ActivityReportHtmlRenderer : IActivityReportHtmlRenderer
             package.Diagnostics);
     }
 
-    private static async Task WriteManifestAsync(
-        string manifestFilePath,
-        ActivityReportManifest manifest,
-        CancellationToken cancellationToken)
-    {
-        string json = JsonSerializer.Serialize(manifest, s_manifestJsonOptions);
-        await File.WriteAllTextAsync(manifestFilePath, json, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
-    }
-
-    private static string BuildCss(ActivityReportExportOptions options)
+    private static string BuildCss(ReportExportOptions options)
     {
         string margin = FormatInches(options.PageSettings.MarginTopInches);
         string marginRight = FormatInches(options.PageSettings.MarginRightInches);
@@ -519,31 +509,4 @@ public sealed class ActivityReportHtmlRenderer : IActivityReportHtmlRenderer
 
     private static string FormatInches(double value)
         => string.Create(CultureInfo.InvariantCulture, $"{value:0.###}in");
-
-    private static JsonSerializerOptions CreateManifestJsonOptions()
-    {
-        var options = new JsonSerializerOptions
-        {
-            WriteIndented = true
-        };
-        options.Converters.Add(new JsonStringEnumConverter());
-        return options;
-    }
-
-    internal static ActivityReportManifest CreateManifestForUpdate(HtmlReportPackage package, ActivityReportManifest currentManifest)
-    {
-        ArgumentNullException.ThrowIfNull(package);
-        ArgumentNullException.ThrowIfNull(currentManifest);
-
-        ImmutableArray<ActivityReportManifestArtifact>.Builder artifacts = ImmutableArray.CreateBuilder<ActivityReportManifestArtifact>();
-        artifacts.AddRange(currentManifest.Artifacts.Where(static artifact => artifact.ArtifactKind != "PdfReport"));
-        if (!string.IsNullOrWhiteSpace(package.PdfFilePath))
-        {
-            artifacts.Add(new ActivityReportManifestArtifact("PdfReport", "activity-report.pdf", "application/pdf"));
-        }
-
-        return currentManifest with { Artifacts = artifacts.ToImmutable() };
-    }
-
-    internal static JsonSerializerOptions ManifestJsonOptions => s_manifestJsonOptions;
 }

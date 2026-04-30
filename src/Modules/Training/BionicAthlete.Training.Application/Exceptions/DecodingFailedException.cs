@@ -1,4 +1,4 @@
-﻿namespace BionicAthlete.Training.Infrastructure.GarminFit.Exceptions;
+﻿namespace BionicAthlete.Training.Application.Exceptions;
 
 using System;
 using System.Collections.Immutable;

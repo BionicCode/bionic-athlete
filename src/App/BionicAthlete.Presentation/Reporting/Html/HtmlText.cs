@@ -1,4 +1,4 @@
-namespace BionicAthlete.Training.Reporting;
+namespace BionicAthlete.Presentation.Reporting.Html;
 
 using System.Net;
 

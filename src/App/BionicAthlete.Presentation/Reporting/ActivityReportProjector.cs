@@ -2,6 +2,7 @@ namespace BionicAthlete.Training.Reporting;
 
 using System.Collections.Immutable;
 using System.Globalization;
+using BionicAthlete.Presentation.Reporting;
 using BionicAthlete.Training.Domain.Activities;
 using BionicAthlete.Training.Domain.Fields;
 
@@ -11,9 +12,9 @@ using BionicAthlete.Training.Domain.Fields;
 public sealed class ActivityReportProjector : IActivityReportProjector
 {
     /// <inheritdoc />
-    public Task<ActivityReport> ProjectAsync(
+    public Task<Report> ProjectAsync(
         FitActivity activity,
-        ActivityReportExportOptions options,
+        ReportExportOptions options,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(activity);
@@ -22,12 +23,12 @@ public sealed class ActivityReportProjector : IActivityReportProjector
         cancellationToken.ThrowIfCancellationRequested();
 
         FitSession? primarySession = activity.Sessions.FirstOrDefault();
-        ImmutableArray<ActivityReportDiagnostic>.Builder diagnostics = ImmutableArray.CreateBuilder<ActivityReportDiagnostic>();
-        ImmutableArray<ActivityReportSection>.Builder sections = ImmutableArray.CreateBuilder<ActivityReportSection>();
+        ImmutableArray<ReportDiagnostic>.Builder diagnostics = ImmutableArray.CreateBuilder<ReportDiagnostic>();
+        ImmutableArray<ReportSection>.Builder sections = ImmutableArray.CreateBuilder<ReportSection>();
 
         if (primarySession is null)
         {
-            diagnostics.Add(new ActivityReportDiagnostic("NoSession", "The decoded activity does not contain a session."));
+            diagnostics.Add(new ReportDiagnostic("NoSession", "The decoded activity does not contain a session."));
         }
 
         sections.Add(CreateOverviewSection(activity, primarySession, options));
@@ -49,7 +50,7 @@ public sealed class ActivityReportProjector : IActivityReportProjector
         DateTimeOffset? startTimeUtc = activity.CanonicalStartTimeUtc;
         string title = BuildTitle(activity, primarySession, options);
 
-        var report = new ActivityReport(
+        var report = new Report(
             CreateReportId(sourceFilePath, startTimeUtc),
             title,
             sourceFilePath,
@@ -61,12 +62,12 @@ public sealed class ActivityReportProjector : IActivityReportProjector
         return Task.FromResult(report);
     }
 
-    private static ActivityReportSection CreateOverviewSection(
+    private static ReportSection CreateOverviewSection(
         FitActivity activity,
         FitSession? session,
-        ActivityReportExportOptions options)
+        ReportExportOptions options)
     {
-        ImmutableArray<ActivityReportMetric>.Builder metrics = ImmutableArray.CreateBuilder<ActivityReportMetric>();
+        ImmutableArray<ReportMetric>.Builder metrics = ImmutableArray.CreateBuilder<ReportMetric>();
         AddMetric(metrics, CreateMetric(session, "total_distance", "Distance", options, value => FormatDistance(value, options), "km"));
         AddMetric(metrics, CreateDurationMetric(session, "total_timer_time", "Time", options));
         AddMetric(metrics, CreateSpeedMetric(session, "enhanced_avg_speed", "Avg Speed", options));
@@ -75,20 +76,20 @@ public sealed class ActivityReportProjector : IActivityReportProjector
         AddMetric(metrics, CreateMetric(session, "training_load_peak", "Exercise Load", options, value => FormatNumber(value, options.Culture, 0), null));
         AddMetric(metrics, CreateActivityDateMetric(activity, options));
 
-        return new ActivityReportSection(
+        return new ReportSection(
             "overview",
             "Overview",
             metrics.ToImmutable(),
-            ImmutableArray<ActivityReportChart>.Empty,
-            ImmutableArray<ActivityReportTable>.Empty);
+            ImmutableArray<ReportChart>.Empty,
+            ImmutableArray<ReportTable>.Empty);
     }
 
-    private static ActivityReportSection CreateTimingSection(
+    private static ReportSection CreateTimingSection(
         FitActivity activity,
         FitSession? session,
-        ActivityReportExportOptions options)
+        ReportExportOptions options)
     {
-        ImmutableArray<ActivityReportMetric>.Builder metrics = ImmutableArray.CreateBuilder<ActivityReportMetric>();
+        ImmutableArray<ReportMetric>.Builder metrics = ImmutableArray.CreateBuilder<ReportMetric>();
         AddMetric(metrics, CreateDurationMetric(session, "total_timer_time", "Timer Time", options));
         AddMetric(metrics, CreateDurationMetric(session, "total_elapsed_time", "Elapsed Time", options));
         AddMetric(metrics, CreateDurationMetric(session, "total_moving_time", "Moving Time", options));
@@ -97,26 +98,26 @@ public sealed class ActivityReportProjector : IActivityReportProjector
         if (startTimeUtc is DateTimeOffset startTime)
         {
             DateTimeOffset localStart = TimeZoneInfo.ConvertTime(startTime, options.LocalTimeZone);
-            metrics.Add(new ActivityReportMetric(
+            metrics.Add(new ReportMetric(
                 "activity.local_start_time",
                 "Local Start",
                 localStart.ToString("f", options.Culture),
                 null,
-                ActivityReportFieldClassification.DirectStandardFit,
+                ReportFieldClassification.DirectStandardFit,
                 "activity.canonical_start_time"));
         }
 
-        return new ActivityReportSection(
+        return new ReportSection(
             "timing",
             "Timing",
             metrics.ToImmutable(),
-            ImmutableArray<ActivityReportChart>.Empty,
-            ImmutableArray<ActivityReportTable>.Empty);
+            ImmutableArray<ReportChart>.Empty,
+            ImmutableArray<ReportTable>.Empty);
     }
 
-    private static ActivityReportSection CreatePowerSection(FitSession? session, ActivityReportExportOptions options)
+    private static ReportSection CreatePowerSection(FitSession? session, ReportExportOptions options)
     {
-        ImmutableArray<ActivityReportMetric>.Builder metrics = ImmutableArray.CreateBuilder<ActivityReportMetric>();
+        ImmutableArray<ReportMetric>.Builder metrics = ImmutableArray.CreateBuilder<ReportMetric>();
         AddMetric(metrics, CreateMetric(session, "avg_power", "Avg Power", options, value => FormatNumber(value, options.Culture, 0), "W"));
         AddMetric(metrics, CreateMetric(session, "max_power", "Max Power", options, value => FormatNumber(value, options.Culture, 0), "W"));
         AddMetric(metrics, CreateMetric(session, "normalized_power", "Normalized Power (NP)", options, value => FormatNumber(value, options.Culture, 0), "W"));
@@ -125,63 +126,63 @@ public sealed class ActivityReportProjector : IActivityReportProjector
         AddMetric(metrics, CreateMetric(session, "threshold_power", "FTP Setting", options, value => FormatNumber(value, options.Culture, 0), "W"));
         AddMetric(metrics, CreateMetric(session, "total_work", "Work", options, value => FormatNumber(value / 1000d, options.Culture, 0), "kJ"));
 
-        ImmutableArray<ActivityReportChart> charts = session is null
-            ? ImmutableArray<ActivityReportChart>.Empty
+        ImmutableArray<ReportChart> charts = session is null
+            ? ImmutableArray<ReportChart>.Empty
             : CreateRecordCharts(session, "power", "Power", "Power", "W");
 
-        return new ActivityReportSection(
+        return new ReportSection(
             "power",
             "Power",
             metrics.ToImmutable(),
             charts,
-            ImmutableArray<ActivityReportTable>.Empty);
+            ImmutableArray<ReportTable>.Empty);
     }
 
-    private static ActivityReportSection CreateHeartRateSection(FitSession? session, ActivityReportExportOptions options)
+    private static ReportSection CreateHeartRateSection(FitSession? session, ReportExportOptions options)
     {
-        ImmutableArray<ActivityReportMetric>.Builder metrics = ImmutableArray.CreateBuilder<ActivityReportMetric>();
+        ImmutableArray<ReportMetric>.Builder metrics = ImmutableArray.CreateBuilder<ReportMetric>();
         AddMetric(metrics, CreateMetric(session, "avg_heart_rate", "Avg HR", options, value => FormatNumber(value, options.Culture, 0), "bpm"));
         AddMetric(metrics, CreateMetric(session, "max_heart_rate", "Max HR", options, value => FormatNumber(value, options.Culture, 0), "bpm"));
 
-        ImmutableArray<ActivityReportChart> charts = session is null
-            ? ImmutableArray<ActivityReportChart>.Empty
+        ImmutableArray<ReportChart> charts = session is null
+            ? ImmutableArray<ReportChart>.Empty
             : CreateRecordCharts(session, "heart_rate", "Heart Rate", "Heart Rate", "bpm");
 
-        return new ActivityReportSection(
+        return new ReportSection(
             "heart-rate",
             "Heart Rate",
             metrics.ToImmutable(),
             charts,
-            ImmutableArray<ActivityReportTable>.Empty);
+            ImmutableArray<ReportTable>.Empty);
     }
 
-    private static ActivityReportSection CreateCadenceAndSpeedSection(FitSession? session, ActivityReportExportOptions options)
+    private static ReportSection CreateCadenceAndSpeedSection(FitSession? session, ReportExportOptions options)
     {
-        ImmutableArray<ActivityReportMetric>.Builder metrics = ImmutableArray.CreateBuilder<ActivityReportMetric>();
+        ImmutableArray<ReportMetric>.Builder metrics = ImmutableArray.CreateBuilder<ReportMetric>();
         AddMetric(metrics, CreateSpeedMetric(session, "enhanced_avg_speed", "Avg Speed", options));
         AddMetric(metrics, CreateSpeedMetric(session, "enhanced_max_speed", "Max Speed", options));
         AddMetric(metrics, CreateMetric(session, "avg_cadence", "Avg Bike Cadence", options, value => FormatNumber(value, options.Culture, 0), "rpm"));
         AddMetric(metrics, CreateMetric(session, "max_cadence", "Max Bike Cadence", options, value => FormatNumber(value, options.Culture, 0), "rpm"));
         AddMetric(metrics, CreateMetric(session, "total_cycles", "Total Strokes", options, value => FormatNumber(value, options.Culture, 0), "cycles"));
 
-        ImmutableArray<ActivityReportChart>.Builder charts = ImmutableArray.CreateBuilder<ActivityReportChart>();
+        ImmutableArray<ReportChart>.Builder charts = ImmutableArray.CreateBuilder<ReportChart>();
         if (session is not null)
         {
             charts.AddRange(CreateRecordCharts(session, "enhanced_speed", "Speed", "Speed", "m/s"));
             charts.AddRange(CreateRecordCharts(session, "cadence", "Cadence", "Cadence", "rpm"));
         }
 
-        return new ActivityReportSection(
+        return new ReportSection(
             "cadence-speed",
             "Cadence / Speed",
             metrics.ToImmutable(),
             charts.ToImmutable(),
-            ImmutableArray<ActivityReportTable>.Empty);
+            ImmutableArray<ReportTable>.Empty);
     }
 
-    private static ActivityReportSection CreateRespirationAndTemperatureSection(FitSession? session, ActivityReportExportOptions options)
+    private static ReportSection CreateRespirationAndTemperatureSection(FitSession? session, ReportExportOptions options)
     {
-        ImmutableArray<ActivityReportMetric>.Builder metrics = ImmutableArray.CreateBuilder<ActivityReportMetric>();
+        ImmutableArray<ReportMetric>.Builder metrics = ImmutableArray.CreateBuilder<ReportMetric>();
         AddMetric(metrics, CreateMetric(session, "enhanced_avg_respiration_rate", "Avg Respiration Rate", options, value => FormatNumber(value, options.Culture, 0), "brpm"));
         AddMetric(metrics, CreateMetric(session, "enhanced_min_respiration_rate", "Min Respiration Rate", options, value => FormatNumber(value, options.Culture, 0), "brpm"));
         AddMetric(metrics, CreateMetric(session, "enhanced_max_respiration_rate", "Max Respiration Rate", options, value => FormatNumber(value, options.Culture, 0), "brpm"));
@@ -189,98 +190,98 @@ public sealed class ActivityReportProjector : IActivityReportProjector
         AddMetric(metrics, CreateMetric(session, "min_temperature", "Min Temp", options, value => FormatNumber(value, options.Culture, 1), "°C"));
         AddMetric(metrics, CreateMetric(session, "max_temperature", "Max Temp", options, value => FormatNumber(value, options.Culture, 1), "°C"));
 
-        ImmutableArray<ActivityReportChart>.Builder charts = ImmutableArray.CreateBuilder<ActivityReportChart>();
+        ImmutableArray<ReportChart>.Builder charts = ImmutableArray.CreateBuilder<ReportChart>();
         if (session is not null)
         {
             charts.AddRange(CreateRecordCharts(session, "enhanced_respiration_rate", "Respiration", "Respiration", "brpm"));
             charts.AddRange(CreateRecordCharts(session, "temperature", "Temperature", "Temperature", "°C"));
         }
 
-        return new ActivityReportSection(
+        return new ReportSection(
             "respiration-temperature",
             "Respiration / Temperature",
             metrics.ToImmutable(),
             charts.ToImmutable(),
-            ImmutableArray<ActivityReportTable>.Empty);
+            ImmutableArray<ReportTable>.Empty);
     }
 
-    private static ActivityReportSection CreateStaminaAndHydrationSection(FitSession? session, ActivityReportExportOptions options)
+    private static ReportSection CreateStaminaAndHydrationSection(FitSession? session, ReportExportOptions options)
     {
-        ImmutableArray<ActivityReportMetric>.Builder metrics = ImmutableArray.CreateBuilder<ActivityReportMetric>();
+        ImmutableArray<ReportMetric>.Builder metrics = ImmutableArray.CreateBuilder<ReportMetric>();
         AddMetric(metrics, CreateMappedUnknownMetric(session, "unknown_178", "session.est_sweat_loss", "Est. Sweat Loss", "ml", options));
         AddMetric(metrics, CreateMappedUnknownMetric(session, "unknown_205", "session.beginning_potential", "Beginning Potential", "%", options));
         AddMetric(metrics, CreateMappedUnknownMetric(session, "unknown_206", "session.ending_potential", "Ending Potential", "%", options));
         AddMetric(metrics, CreateMappedUnknownMetric(session, "unknown_207", "session.min_stamina", "Min Stamina", "%", options));
 
-        return new ActivityReportSection(
+        return new ReportSection(
             "stamina-hydration",
             "Stamina / Hydration",
             metrics.ToImmutable(),
-            ImmutableArray<ActivityReportChart>.Empty,
-            ImmutableArray<ActivityReportTable>.Empty,
+            ImmutableArray<ReportChart>.Empty,
+            ImmutableArray<ReportTable>.Empty,
             "Stamina and sweat-loss values are shown as inferred aliases from preserved unknown FIT session fields when present.");
     }
 
-    private static ActivityReportSection CreateLapsSection(FitSession? session, ActivityReportExportOptions options)
+    private static ReportSection CreateLapsSection(FitSession? session, ReportExportOptions options)
     {
-        ImmutableArray<ActivityReportTable> tables = session is null
-            ? ImmutableArray<ActivityReportTable>.Empty
+        ImmutableArray<ReportTable> tables = session is null
+            ? ImmutableArray<ReportTable>.Empty
             : ImmutableArray.Create(CreateLapTable(session, options));
 
-        return new ActivityReportSection(
+        return new ReportSection(
             "laps",
             "Laps / Intervals",
-            ImmutableArray<ActivityReportMetric>.Empty,
-            ImmutableArray<ActivityReportChart>.Empty,
+            ImmutableArray<ReportMetric>.Empty,
+            ImmutableArray<ReportChart>.Empty,
             tables);
     }
 
-    private static ActivityReportSection CreateDeviceAndSourceSection(FitActivity activity, ActivityReportExportOptions options)
+    private static ReportSection CreateDeviceAndSourceSection(FitActivity activity, ReportExportOptions options)
     {
-        ImmutableArray<ActivityReportMetric>.Builder metrics = ImmutableArray.CreateBuilder<ActivityReportMetric>();
-        metrics.Add(new ActivityReportMetric(
+        ImmutableArray<ReportMetric>.Builder metrics = ImmutableArray.CreateBuilder<ReportMetric>();
+        metrics.Add(new ReportMetric(
             "source.file",
             "Source File",
             string.IsNullOrWhiteSpace(activity.Source.FilePath) ? "Unavailable" : activity.Source.FilePath,
             null,
-            ActivityReportFieldClassification.DirectStandardFit,
+            ReportFieldClassification.DirectStandardFit,
             "fit.source"));
-        metrics.Add(new ActivityReportMetric(
+        metrics.Add(new ReportMetric(
             "export.generated_at",
             "Generated",
             options.ExportTimestampUtc.ToString("O", CultureInfo.InvariantCulture),
             null,
-            ActivityReportFieldClassification.DerivedFromFit,
+            ReportFieldClassification.DerivedFromFit,
             null,
             "Timestamp is supplied by the application export request, not read from the FIT file."));
 
-        foreach (ActivityReportMetric metric in CreateDeviceMetrics(activity))
+        foreach (ReportMetric metric in CreateDeviceMetrics(activity))
         {
             metrics.Add(metric);
         }
 
-        return new ActivityReportSection(
+        return new ReportSection(
             "device-source",
             "Device and Source Metadata",
             metrics.ToImmutable(),
-            ImmutableArray<ActivityReportChart>.Empty,
-            ImmutableArray<ActivityReportTable>.Empty);
+            ImmutableArray<ReportChart>.Empty,
+            ImmutableArray<ReportTable>.Empty);
     }
 
-    private static ActivityReportSection CreateDataQualitySection()
+    private static ReportSection CreateDataQualitySection()
         => new(
             "data-quality",
             "Data Quality and Provenance",
             ImmutableArray.Create(
-                new ActivityReportMetric("provenance.direct_fit", "Direct FIT", "Value comes directly from a documented or decoded FIT field.", null, ActivityReportFieldClassification.DirectStandardFit),
-                new ActivityReportMetric("provenance.derived", "Formula-derived", "Value is calculated from decoded FIT fields.", null, ActivityReportFieldClassification.DerivedFromFit),
-                new ActivityReportMetric("provenance.mapped_unknown", "Mapped unknown FIT field", "Value is inferred from preserved unknown FIT data and marked with a caveat.", null, ActivityReportFieldClassification.MappedFromUnmappedFitField),
-                new ActivityReportMetric("provenance.unavailable", "Unavailable", "Value was not present or not reliably derivable from this activity.", null, ActivityReportFieldClassification.Unavailable)),
-            ImmutableArray<ActivityReportChart>.Empty,
-            ImmutableArray<ActivityReportTable>.Empty,
+                new ReportMetric("provenance.direct_fit", "Direct FIT", "Value comes directly from a documented or decoded FIT field.", null, ReportFieldClassification.DirectStandardFit),
+                new ReportMetric("provenance.derived", "Formula-derived", "Value is calculated from decoded FIT fields.", null, ReportFieldClassification.DerivedFromFit),
+                new ReportMetric("provenance.mapped_unknown", "Mapped unknown FIT field", "Value is inferred from preserved unknown FIT data and marked with a caveat.", null, ReportFieldClassification.MappedFromUnmappedFitField),
+                new ReportMetric("provenance.unavailable", "Unavailable", "Value was not present or not reliably derivable from this activity.", null, ReportFieldClassification.Unavailable)),
+            ImmutableArray<ReportChart>.Empty,
+            ImmutableArray<ReportTable>.Empty,
             "The report is projected from decoded FIT data. It does not invent Garmin Connect-only values.");
 
-    private static ActivityReportMetric CreateActivityDateMetric(FitActivity activity, ActivityReportExportOptions options)
+    private static ReportMetric CreateActivityDateMetric(FitActivity activity, ReportExportOptions options)
     {
         if (activity.CanonicalStartTimeUtc is not DateTimeOffset startTimeUtc)
         {
@@ -288,20 +289,20 @@ public sealed class ActivityReportProjector : IActivityReportProjector
         }
 
         DateTimeOffset localStart = TimeZoneInfo.ConvertTime(startTimeUtc, options.LocalTimeZone);
-        return new ActivityReportMetric(
+        return new ReportMetric(
             "activity.date",
             "Activity Date",
             localStart.ToString("D", options.Culture),
             null,
-            ActivityReportFieldClassification.DirectStandardFit,
+            ReportFieldClassification.DirectStandardFit,
             "activity.canonical_start_time");
     }
 
-    private static ActivityReportMetric? CreateMetric(
+    private static ReportMetric? CreateMetric(
         FitSession? session,
         string fieldName,
         string label,
-        ActivityReportExportOptions options,
+        ReportExportOptions options,
         Func<double, string> formatter,
         string? unit)
     {
@@ -311,7 +312,7 @@ public sealed class ActivityReportProjector : IActivityReportProjector
             return CreateUnavailableMetric($"session.{fieldName}", label);
         }
 
-        return new ActivityReportMetric(
+        return new ReportMetric(
             $"session.{fieldName}",
             label,
             formatter.Invoke(value),
@@ -320,11 +321,11 @@ public sealed class ActivityReportProjector : IActivityReportProjector
             $"session.{field.Original.OriginalName}");
     }
 
-    private static ActivityReportMetric? CreateSpeedMetric(
+    private static ReportMetric? CreateSpeedMetric(
         FitSession? session,
         string fieldName,
         string label,
-        ActivityReportExportOptions options)
+        ReportExportOptions options)
         => CreateMetric(
             session,
             fieldName,
@@ -333,11 +334,11 @@ public sealed class ActivityReportProjector : IActivityReportProjector
             value => FormatNumber(value * 3.6d, options.Culture, 1),
             "km/h");
 
-    private static ActivityReportMetric? CreateDurationMetric(
+    private static ReportMetric? CreateDurationMetric(
         FitSession? session,
         string fieldName,
         string label,
-        ActivityReportExportOptions options)
+        ReportExportOptions options)
         => CreateMetric(
             session,
             fieldName,
@@ -346,13 +347,13 @@ public sealed class ActivityReportProjector : IActivityReportProjector
             FormatDuration,
             null);
 
-    private static ActivityReportMetric? CreateMappedUnknownMetric(
+    private static ReportMetric? CreateMappedUnknownMetric(
         FitSession? session,
         string sourceFieldName,
         string canonicalName,
         string label,
         string unit,
-        ActivityReportExportOptions options)
+        ReportExportOptions options)
     {
         FitField? field = session is null ? null : FindField(session.Fields, sourceFieldName);
         if (field is null || !TryGetDouble(field, out double value))
@@ -360,26 +361,26 @@ public sealed class ActivityReportProjector : IActivityReportProjector
             return CreateUnavailableMetric(canonicalName, label);
         }
 
-        return new ActivityReportMetric(
+        return new ReportMetric(
             canonicalName,
             label,
             FormatNumber(value, options.Culture, 0),
             unit,
-            ActivityReportFieldClassification.MappedFromUnmappedFitField,
+            ReportFieldClassification.MappedFromUnmappedFitField,
             $"session.{sourceFieldName}",
             $"{label} is inferred from preserved unknown FIT field session.{sourceFieldName}; it is not publicly named in Profile.xlsx.");
     }
 
-    private static ActivityReportTable CreateLapTable(FitSession session, ActivityReportExportOptions options)
+    private static ReportTable CreateLapTable(FitSession session, ReportExportOptions options)
     {
-        ImmutableArray<ActivityReportTableColumn> columns =
+        ImmutableArray<ReportTableColumn> columns =
         [
-            new ActivityReportTableColumn("lap", "Lap"),
-            new ActivityReportTableColumn("distance", "Distance"),
-            new ActivityReportTableColumn("time", "Time"),
-            new ActivityReportTableColumn("avg_speed", "Avg Speed")
+            new ReportTableColumn("lap", "Lap"),
+            new ReportTableColumn("distance", "Distance"),
+            new ReportTableColumn("time", "Time"),
+            new ReportTableColumn("avg_speed", "Avg Speed")
         ];
-        ImmutableArray<ActivityReportTableRow>.Builder rows = ImmutableArray.CreateBuilder<ActivityReportTableRow>(session.Laps.Length);
+        ImmutableArray<ReportTableRow>.Builder rows = ImmutableArray.CreateBuilder<ReportTableRow>(session.Laps.Length);
 
         for (int index = 0; index < session.Laps.Length; index++)
         {
@@ -387,23 +388,23 @@ public sealed class ActivityReportProjector : IActivityReportProjector
             string distance = FormatField(lap.Fields, "total_distance", options, value => FormatDistance(value, options), "km");
             string time = FormatField(lap.Fields, "total_timer_time", options, FormatDuration, null);
             string speed = FormatField(lap.Fields, "enhanced_avg_speed", options, value => $"{FormatNumber(value * 3.6d, options.Culture, 1)} km/h", null);
-            rows.Add(new ActivityReportTableRow([FormatNumber(index + 1, options.Culture, 0), distance, time, speed]));
+            rows.Add(new ReportTableRow([FormatNumber(index + 1, options.Culture, 0), distance, time, speed]));
         }
 
-        return new ActivityReportTable("laps", "Lap Summary", columns, rows.ToImmutable());
+        return new ReportTable("laps", "Lap Summary", columns, rows.ToImmutable());
     }
 
-    private static ImmutableArray<ActivityReportChart> CreateRecordCharts(
+    private static ImmutableArray<ReportChart> CreateRecordCharts(
         FitSession session,
         string fieldName,
         string chartIdSuffix,
         string valueLabel,
         string? unit)
     {
-        ImmutableArray<ActivityReportChartPoint> points = CreateChartPoints(session, fieldName);
+        ImmutableArray<ReportChartPoint> points = CreateChartPoints(session, fieldName);
         return points.IsDefaultOrEmpty
-            ? ImmutableArray<ActivityReportChart>.Empty
-            : ImmutableArray.Create(new ActivityReportChart(
+            ? ImmutableArray<ReportChart>.Empty
+            : ImmutableArray.Create(new ReportChart(
                 $"record-{fieldName}",
                 chartIdSuffix,
                 valueLabel,
@@ -411,9 +412,9 @@ public sealed class ActivityReportProjector : IActivityReportProjector
                 points));
     }
 
-    private static ImmutableArray<ActivityReportChartPoint> CreateChartPoints(FitSession session, string fieldName)
+    private static ImmutableArray<ReportChartPoint> CreateChartPoints(FitSession session, string fieldName)
     {
-        ImmutableArray<ActivityReportChartPoint>.Builder points = ImmutableArray.CreateBuilder<ActivityReportChartPoint>();
+        ImmutableArray<ReportChartPoint>.Builder points = ImmutableArray.CreateBuilder<ReportChartPoint>();
         foreach (FitRecord record in session.Records)
         {
             if (record.Original.TimestampUtc is not DateTimeOffset timestampUtc)
@@ -424,15 +425,15 @@ public sealed class ActivityReportProjector : IActivityReportProjector
             FitField? field = FindField(record.Fields, fieldName);
             if (field is not null && TryGetDouble(field, out double value))
             {
-                points.Add(new ActivityReportChartPoint(timestampUtc, value));
+                points.Add(new ReportChartPoint(timestampUtc, value));
             }
         }
 
         return DownSample(points.ToImmutable(), maxPointCount: 240);
     }
 
-    private static ImmutableArray<ActivityReportChartPoint> DownSample(
-        ImmutableArray<ActivityReportChartPoint> points,
+    private static ImmutableArray<ReportChartPoint> DownSample(
+        ImmutableArray<ReportChartPoint> points,
         int maxPointCount)
     {
         if (points.Length <= maxPointCount)
@@ -440,7 +441,7 @@ public sealed class ActivityReportProjector : IActivityReportProjector
             return points;
         }
 
-        ImmutableArray<ActivityReportChartPoint>.Builder sampledPoints = ImmutableArray.CreateBuilder<ActivityReportChartPoint>(maxPointCount);
+        ImmutableArray<ReportChartPoint>.Builder sampledPoints = ImmutableArray.CreateBuilder<ReportChartPoint>(maxPointCount);
         double step = (points.Length - 1d) / (maxPointCount - 1d);
         for (int index = 0; index < maxPointCount; index++)
         {
@@ -451,7 +452,7 @@ public sealed class ActivityReportProjector : IActivityReportProjector
         return sampledPoints.ToImmutable();
     }
 
-    private static IEnumerable<ActivityReportMetric> CreateDeviceMetrics(FitActivity activity)
+    private static IEnumerable<ReportMetric> CreateDeviceMetrics(FitActivity activity)
     {
         foreach (FitAncillaryMessage message in activity.AncillaryData.Messages)
         {
@@ -469,7 +470,7 @@ public sealed class ActivityReportProjector : IActivityReportProjector
                     object? value = field.OriginalValues.FirstOrDefault()?.DecodedValue;
                     if (value is not null)
                     {
-                        yield return new ActivityReportMetric(
+                        yield return new ReportMetric(
                             $"device.{field.OriginalName}",
                             ToTitle(field.OriginalName),
                             Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty,
@@ -482,15 +483,15 @@ public sealed class ActivityReportProjector : IActivityReportProjector
         }
     }
 
-    private static ActivityReportMetric CreateUnavailableMetric(string canonicalName, string label)
+    private static ReportMetric CreateUnavailableMetric(string canonicalName, string label)
         => new(
             canonicalName,
             label,
             "Unavailable",
             null,
-            ActivityReportFieldClassification.Unavailable);
+            ReportFieldClassification.Unavailable);
 
-    private static void AddMetric(ImmutableArray<ActivityReportMetric>.Builder metrics, ActivityReportMetric? metric)
+    private static void AddMetric(ImmutableArray<ReportMetric>.Builder metrics, ReportMetric? metric)
     {
         if (metric is not null)
         {
@@ -553,7 +554,7 @@ public sealed class ActivityReportProjector : IActivityReportProjector
     private static string FormatField(
         IEnumerable<FitField> fields,
         string fieldName,
-        ActivityReportExportOptions options,
+        ReportExportOptions options,
         Func<double, string> formatter,
         string? unit)
     {
@@ -567,7 +568,7 @@ public sealed class ActivityReportProjector : IActivityReportProjector
         return string.IsNullOrWhiteSpace(unit) ? formattedValue : $"{formattedValue} {unit}";
     }
 
-    private static string FormatDistance(double meters, ActivityReportExportOptions options)
+    private static string FormatDistance(double meters, ReportExportOptions options)
         => FormatNumber(meters / 1000d, options.Culture, 2);
 
     private static string FormatNumber(double value, CultureInfo culture, int decimalDigits)
@@ -581,23 +582,23 @@ public sealed class ActivityReportProjector : IActivityReportProjector
             : duration.ToString(@"m\:ss", CultureInfo.InvariantCulture);
     }
 
-    private static ActivityReportFieldClassification DetermineClassification(FitField field)
+    private static ReportFieldClassification DetermineClassification(FitField field)
         => field.Original.Kind switch
         {
-            FitFieldKind.Developer => ActivityReportFieldClassification.DirectDeveloperField,
-            FitFieldKind.Unknown => ActivityReportFieldClassification.MappedFromUnmappedFitField,
-            _ => ActivityReportFieldClassification.DirectStandardFit
+            FitFieldKind.Developer => ReportFieldClassification.DirectDeveloperField,
+            FitFieldKind.Unknown => ReportFieldClassification.MappedFromUnmappedFitField,
+            _ => ReportFieldClassification.DirectStandardFit
         };
 
-    private static ActivityReportFieldClassification DetermineClassification(FitFieldSnapshot field)
+    private static ReportFieldClassification DetermineClassification(FitFieldSnapshot field)
         => field.Kind switch
         {
-            FitFieldKind.Developer => ActivityReportFieldClassification.DirectDeveloperField,
-            FitFieldKind.Unknown => ActivityReportFieldClassification.MappedFromUnmappedFitField,
-            _ => ActivityReportFieldClassification.DirectStandardFit
+            FitFieldKind.Developer => ReportFieldClassification.DirectDeveloperField,
+            FitFieldKind.Unknown => ReportFieldClassification.MappedFromUnmappedFitField,
+            _ => ReportFieldClassification.DirectStandardFit
         };
 
-    private static string BuildTitle(FitActivity activity, FitSession? session, ActivityReportExportOptions options)
+    private static string BuildTitle(FitActivity activity, FitSession? session, ReportExportOptions options)
     {
         FitField? sportField = session is null ? null : FindField(session.Fields, "sport");
         string sport = sportField?.GetEffectiveDecodedValues().FirstOrDefault()?.ToString() ?? "Activity";

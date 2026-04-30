@@ -1,6 +1,7 @@
 sandbox_mode = "workspace-write"
-model = "gpt-5.4"
+model = "gpt-5.5"
 model_reasoning_effort = "xhigh"
+approval_policy = "never"
 
 [sandbox_workspace_write]
 network_access = true
@@ -10,3 +11,31 @@ sandbox = "elevated"
 
 [features]
 multi_agent = true
+
+[plugins."github@openai-curated"]
+enabled = true
+
+[plugins."browser-use@openai-bundled"]
+enabled = true
+
+[plugins."documents@openai-primary-runtime"]
+enabled = true
+
+[plugins."spreadsheets@openai-primary-runtime"]
+enabled = true
+
+[plugins."presentations@openai-primary-runtime"]
+enabled = true
+
+[marketplaces.openai-bundled]
+last_updated = "2026-04-30T09:08:03Z"
+source_type = "local"
+source = '\\?\C:\Users\Mobil\.codex\.tmp\bundled-marketplaces\openai-bundled'
+
+[marketplaces.openai-primary-runtime]
+last_updated = "2026-04-27T07:21:04Z"
+source_type = "local"
+source = '\\?\C:\Users\Mobil\.cache\codex-runtimes\codex-primary-runtime\plugins\openai-primary-runtime'
+
+[projects.'i:\githubrepositories\bionicathlete']
+trust_level = "trusted"

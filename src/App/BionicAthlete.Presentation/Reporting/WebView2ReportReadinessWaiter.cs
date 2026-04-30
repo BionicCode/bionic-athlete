@@ -54,7 +54,7 @@ internal sealed class WebView2ReportReadinessWaiter
             if (!eventArgs.IsSuccess)
             {
                 _ = readyCompletionSource.TrySetException(
-                    new ActivityReportPdfExportException($"Report navigation failed with WebView2 error status '{eventArgs.WebErrorStatus}'."));
+                    new PdfExportException($"Report navigation failed with WebView2 error status '{eventArgs.WebErrorStatus}'."));
             }
         }
 
@@ -81,14 +81,14 @@ internal sealed class WebView2ReportReadinessWaiter
                         string failureMessage = message.RootElement.TryGetProperty("message", out JsonElement messageElement)
                             ? messageElement.GetString() ?? "The HTML report signaled ReportFailed."
                             : "The HTML report signaled ReportFailed.";
-                        _ = readyCompletionSource.TrySetException(new ActivityReportPdfExportException(failureMessage));
+                        _ = readyCompletionSource.TrySetException(new PdfExportException(failureMessage));
                         break;
                 }
             }
             catch (JsonException exception)
             {
                 _ = readyCompletionSource.TrySetException(
-                    new ActivityReportPdfExportException("The HTML report sent an invalid readiness message.", exception));
+                    new PdfExportException("The HTML report sent an invalid readiness message.", exception));
             }
         }
     }

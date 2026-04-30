@@ -249,7 +249,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
     /// <returns>The generated HTML report package.</returns>
     public async Task<HtmlReportPackage> PrepareHumanReadableReportAsync(
         ExportData exportData,
-        ActivityReportOutputTarget outputTarget,
+        ReportOutputTarget outputTarget,
         CancellationToken cancellationToken)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(exportData);
@@ -261,9 +261,9 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
             CultureInfo.CurrentCulture,
             TimeZoneInfo.Local,
             DateTimeOffset.UtcNow,
-            ActivityReportPageSettings.A4Portrait);
+            PdfPageSettings.A4Portrait);
 
-        ActivityReport report = await _activityReportProjector
+        Report report = await _activityReportProjector
             .ProjectAsync(exportData.Activity, options, cancellationToken)
             .ConfigureAwait(true);
         return await _activityReportHtmlRenderer

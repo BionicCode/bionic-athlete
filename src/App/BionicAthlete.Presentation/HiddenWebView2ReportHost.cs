@@ -1,4 +1,4 @@
-namespace BionicAthlete.Presentation.Reporting;
+namespace BionicAthlete.Presentation;
 
 using System.Windows;
 using Microsoft.Web.WebView2.Wpf;

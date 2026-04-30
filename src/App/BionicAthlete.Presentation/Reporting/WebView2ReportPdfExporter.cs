@@ -2,21 +2,21 @@ namespace BionicAthlete.Presentation.Reporting;
 
 using System.Collections.Immutable;
 using System.IO;
-using BionicAthlete.Training.Reporting;
+using BionicAthlete.FileSystem.Abstractions;
 using Microsoft.Web.WebView2.Core;
 
 /// <summary>
 /// Renders generated activity-report HTML to PDF through a hidden per-operation WebView2 host.
 /// </summary>
-public sealed class WebView2ActivityReportPdfExporter : IActivityReportPdfExporter
+public sealed class WebView2ReportPdfExporter : IActivityReportPdfExporter
 {
-    private readonly IActivityReportManifestUpdater _manifestUpdater;
+    private readonly IReportManifestManager _manifestUpdater;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="WebView2ActivityReportPdfExporter"/> class.
+    /// Initializes a new instance of the <see cref="WebView2ReportPdfExporter"/> class.
     /// </summary>
     /// <param name="manifestUpdater">Manifest updater used after the PDF file is physically generated.</param>
-    public WebView2ActivityReportPdfExporter(IActivityReportManifestUpdater manifestUpdater)
+    public WebView2ReportPdfExporter(IReportManifestManager manifestUpdater)
     {
         ArgumentNullException.ThrowIfNull(manifestUpdater);
 
@@ -24,8 +24,8 @@ public sealed class WebView2ActivityReportPdfExporter : IActivityReportPdfExport
     }
 
     /// <inheritdoc />
-    public async Task<ActivityReportPdfExportResult> ExportPdfAsync(
-        ActivityReportPdfExportRequest request,
+    public async Task<ReportPdfExportResult> ExportHtmlToPdfAsync(
+        HtmlToPdfExportRequest request,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -57,21 +57,23 @@ public sealed class WebView2ActivityReportPdfExporter : IActivityReportPdfExport
 
         if (!isPdfGenerated)
         {
-            throw new ActivityReportPdfExportException("WebView2 reported PDF generation failure.");
+            throw new PdfExportException("WebView2 reported PDF generation failure.");
         }
 
         FileInfo pdfFileInfo = new(request.OutputPdfFilePath);
         if (!pdfFileInfo.Exists || pdfFileInfo.Length == 0)
         {
-            throw new ActivityReportPdfExportException("WebView2 completed PDF generation but did not produce a non-empty PDF file.");
+            throw new PdfExportException("WebView2 completed PDF generation but did not produce a non-empty PDF file.");
         }
 
         HtmlReportPackage packageWithPdf = request.ReportPackage with { PdfFilePath = request.OutputPdfFilePath };
         await _manifestUpdater.AddPdfArtifactAsync(packageWithPdf, cancellationToken).ConfigureAwait(true);
 
-        return new ActivityReportPdfExportResult(
+        return new ReportPdfExportResult(
             request.OutputPdfFilePath,
             pdfFileInfo.Length,
-            ImmutableArray<ActivityReportDiagnostic>.Empty);
+            ImmutableArray<ReportDiagnostic>.Empty);
     }
+
+    public Task<ReportPdfExportResult> ExportHtmlToPdfAsync(PdfExportRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
 }

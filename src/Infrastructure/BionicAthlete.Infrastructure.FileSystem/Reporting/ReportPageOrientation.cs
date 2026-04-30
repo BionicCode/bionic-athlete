@@ -1,9 +1,9 @@
-namespace BionicAthlete.Training.Reporting;
+namespace BionicAthlete.Infrastructure.FileSystem.Reporting;
 
 /// <summary>
 /// Describes the physical page orientation requested for printable View C reports.
 /// </summary>
-public enum ActivityReportPageOrientation
+public enum ReportPageOrientation
 {
     /// <summary>
     /// Portrait page orientation.

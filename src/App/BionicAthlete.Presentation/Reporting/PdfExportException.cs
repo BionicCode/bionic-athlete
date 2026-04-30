@@ -3,30 +3,30 @@ namespace BionicAthlete.Presentation.Reporting;
 /// <summary>
 /// Represents a failure during UI-bound report PDF generation.
 /// </summary>
-public class ActivityReportPdfExportException : Exception
+public class PdfExportException : Exception
 {
     /// <summary>
-    /// Initializes a new instance of the <see cref="ActivityReportPdfExportException"/> class.
+    /// Initializes a new instance of the <see cref="PdfExportException"/> class.
     /// </summary>
-    public ActivityReportPdfExportException()
+    public PdfExportException()
     {
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="ActivityReportPdfExportException"/> class.
+    /// Initializes a new instance of the <see cref="PdfExportException"/> class.
     /// </summary>
     /// <param name="message">Error message.</param>
-    public ActivityReportPdfExportException(string? message)
+    public PdfExportException(string? message)
         : base(message)
     {
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="ActivityReportPdfExportException"/> class.
+    /// Initializes a new instance of the <see cref="PdfExportException"/> class.
     /// </summary>
     /// <param name="message">Error message.</param>
     /// <param name="innerException">Inner exception that caused the failure.</param>
-    public ActivityReportPdfExportException(string? message, Exception? innerException)
+    public PdfExportException(string? message, Exception? innerException)
         : base(message, innerException)
     {
     }

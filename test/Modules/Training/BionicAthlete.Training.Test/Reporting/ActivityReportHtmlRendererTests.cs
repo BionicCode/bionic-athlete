@@ -2,7 +2,7 @@ namespace BionicAthlete.Training.Test.Reporting;
 
 using System.Globalization;
 using System.Text.Json;
-using BionicAthlete.Training.Reporting;
+using BionicAthlete.Infrastructure.FileSystem.Reporting;
 using BionicAthlete.Training.Test.Fixtures;
 
 public sealed class ActivityReportHtmlRendererTests
@@ -84,7 +84,7 @@ public sealed class ActivityReportHtmlRendererTests
 
         try
         {
-            HtmlReportPackage package = await RenderPackageAsync(outputDirectoryPath, ActivityReportOutputTarget.HtmlOnly, cancellationToken);
+            HtmlReportPackage package = await RenderPackageAsync(outputDirectoryPath, ReportOutputTarget.HtmlOnly, cancellationToken);
 
             Assert.True(File.Exists(package.HtmlFilePath));
             Assert.True(File.Exists(package.ManifestFilePath));
@@ -105,7 +105,7 @@ public sealed class ActivityReportHtmlRendererTests
 
         try
         {
-            HtmlReportPackage package = await RenderPackageAsync(outputDirectoryPath, ActivityReportOutputTarget.PdfFromGeneratedHtml, cancellationToken);
+            HtmlReportPackage package = await RenderPackageAsync(outputDirectoryPath, ReportOutputTarget.PdfFromGeneratedHtml, cancellationToken);
 
             Assert.True(File.Exists(package.HtmlFilePath));
             Assert.True(File.Exists(package.ManifestFilePath));
@@ -126,7 +126,7 @@ public sealed class ActivityReportHtmlRendererTests
 
         try
         {
-            HtmlReportPackage package = await RenderPackageAsync(outputDirectoryPath, ActivityReportOutputTarget.HtmlOnly, cancellationToken);
+            HtmlReportPackage package = await RenderPackageAsync(outputDirectoryPath, ReportOutputTarget.HtmlOnly, cancellationToken);
             using var manifest = JsonDocument.Parse(await File.ReadAllTextAsync(package.ManifestFilePath, cancellationToken));
 
             string[] relativePaths = manifest.RootElement
@@ -145,13 +145,13 @@ public sealed class ActivityReportHtmlRendererTests
 
     private static async Task<string> RenderHtmlAsync(string outputDirectoryPath, CancellationToken cancellationToken)
     {
-        HtmlReportPackage package = await RenderPackageAsync(outputDirectoryPath, ActivityReportOutputTarget.HtmlOnly, cancellationToken);
+        HtmlReportPackage package = await RenderPackageAsync(outputDirectoryPath, ReportOutputTarget.HtmlOnly, cancellationToken);
         return await File.ReadAllTextAsync(package.HtmlFilePath, cancellationToken);
     }
 
     private static async Task<HtmlReportPackage> RenderPackageAsync(
         string outputDirectoryPath,
-        ActivityReportOutputTarget outputTarget,
+        ReportOutputTarget outputTarget,
         CancellationToken cancellationToken)
     {
         var options = new ActivityReportExportOptions(
@@ -160,11 +160,11 @@ public sealed class ActivityReportHtmlRendererTests
             CultureInfo.InvariantCulture,
             TimeZoneInfo.Utc,
             new DateTimeOffset(2026, 04, 26, 12, 00, 00, TimeSpan.Zero),
-            ActivityReportPageSettings.A4Portrait);
+            PdfPageSettings.A4Portrait);
         var projector = new ActivityReportProjector();
         var renderer = new ActivityReportHtmlRenderer(new InlineSvgReportChartRenderer());
 
-        ActivityReport report = await projector.ProjectAsync(
+        Report report = await projector.ProjectAsync(
             FitActivityModelFactory.CreateActivityForDerivedSessionExport(),
             options,
             cancellationToken);

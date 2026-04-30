@@ -197,7 +197,7 @@ public partial class MainWindow : Window, IDisposableAdvanced
 
         _ = await _viewModel.PrepareHumanReadableReportAsync(
             _viewModel.SelectedExportData,
-            ActivityReportOutputTarget.HtmlOnly,
+            ReportOutputTarget.HtmlOnly,
             CancellationToken.None);
     }
 
@@ -210,16 +210,16 @@ public partial class MainWindow : Window, IDisposableAdvanced
 
         HtmlReportPackage reportPackage = await _viewModel.PrepareHumanReadableReportAsync(
             _viewModel.SelectedExportData,
-            ActivityReportOutputTarget.PdfFromGeneratedHtml,
+            ReportOutputTarget.PdfFromGeneratedHtml,
             CancellationToken.None);
         string pdfFilePath = reportPackage.PdfFilePath ?? Path.Combine(reportPackage.ReportDirectoryPath, "activity-report.pdf");
-        var request = new ActivityReportPdfExportRequest(
+        var request = new PdfExportRequest(
             reportPackage,
             pdfFilePath,
             reportPackage.PageSettings,
             TimeSpan.FromSeconds(60));
 
-        _ = await _activityReportPdfExporter.ExportPdfAsync(request, CancellationToken.None);
+        _ = await _activityReportPdfExporter.ExportHtmlToPdfAsync(request, CancellationToken.None);
     }
 
     private bool CanExecuteHumanReadableReportExport()

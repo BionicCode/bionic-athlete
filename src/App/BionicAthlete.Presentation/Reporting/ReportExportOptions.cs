@@ -1,14 +1,15 @@
-namespace BionicAthlete.Training.Reporting;
+namespace BionicAthlete.Presentation.Reporting;
 
 using System.Globalization;
+using BionicAthlete.Training.Reporting;
 
 /// <summary>
 /// Options that make View C report projection and HTML generation deterministic.
 /// </summary>
-public sealed class ActivityReportExportOptions
+public sealed class ReportExportOptions
 {
     /// <summary>
-    /// Initializes a new instance of the <see cref="ActivityReportExportOptions"/> class.
+    /// Initializes a new instance of the <see cref="ReportExportOptions"/> class.
     /// </summary>
     /// <param name="outputDirectoryPath">The directory under which the <c>report</c> folder will be created.</param>
     /// <param name="outputTarget">The requested View C output target.</param>
@@ -19,13 +20,13 @@ public sealed class ActivityReportExportOptions
     /// <param name="includeProvenanceNotes">Whether data-quality and provenance notes should be included.</param>
     /// <exception cref="ArgumentException">Thrown when <paramref name="outputDirectoryPath"/> is <see langword="null"/> or whitespace.</exception>
     /// <exception cref="ArgumentNullException">Thrown when a required reference argument is <see langword="null"/>.</exception>
-    public ActivityReportExportOptions(
+    public ReportExportOptions(
         string outputDirectoryPath,
-        ActivityReportOutputTarget outputTarget,
+        ReportOutputTarget outputTarget,
         CultureInfo culture,
         TimeZoneInfo localTimeZone,
         DateTimeOffset exportTimestampUtc,
-        ActivityReportPageSettings pageSettings,
+        PdfPageSettings pageSettings,
         bool includeProvenanceNotes = true)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(outputDirectoryPath);
@@ -50,7 +51,7 @@ public sealed class ActivityReportExportOptions
     /// <summary>
     /// Gets the requested output target.
     /// </summary>
-    public ActivityReportOutputTarget OutputTarget { get; }
+    public ReportOutputTarget OutputTarget { get; }
 
     /// <summary>
     /// Gets the culture used for deterministic report formatting.
@@ -70,7 +71,7 @@ public sealed class ActivityReportExportOptions
     /// <summary>
     /// Gets the print/page settings for the report package.
     /// </summary>
-    public ActivityReportPageSettings PageSettings { get; }
+    public PdfPageSettings PageSettings { get; }
 
     /// <summary>
     /// Gets a value indicating whether provenance and data-quality notes should be emitted.

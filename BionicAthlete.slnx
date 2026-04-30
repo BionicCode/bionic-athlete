@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/App/">
     <Project Path="src/App/BionicAthlete.Desktop/BionicAthlete.Desktop.csproj" />
+    <Project Path="src/App/BionicAthlete.Presentation.ViewModel/BionicAthlete.Presentation.ViewModel.csproj" Id="67ecd331-b555-433e-bd18-21e431b0e0fc" />
     <Project Path="src/App/BionicAthlete.Presentation/BionicAthlete.Presentation.csproj" Id="cb6f6f76-849f-4bf0-aec8-bbcdad644629" />
   </Folder>
   <Folder Name="/BuildingBlocks/">

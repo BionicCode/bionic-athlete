@@ -3,8 +3,8 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
 using BionicAthlete.Training.Application.Decoding;
+using BionicAthlete.Training.Application.Exceptions;
 using BionicAthlete.Training.Domain.Activities;
-using BionicAthlete.Training.Infrastructure.GarminFit.Exceptions;
 using BionicCode.Utilities.Net;
 
 public static class ExceptionThrower

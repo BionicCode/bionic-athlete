@@ -12,6 +12,7 @@ using System.Windows.Markup;
 using System.Windows.Threading;
 using BionicAthlete.FileSystem.Abstractions;
 using BionicAthlete.Infrastructure.FileSystem;
+using BionicAthlete.Infrastructure.FileSystem.Reporting;
 using BionicAthlete.Presentation;
 using BionicAthlete.Presentation.Reporting;
 using BionicAthlete.Shared.Logging;
@@ -162,9 +163,9 @@ public partial class App : Application
             .AddSingleton<ICsvActivityExporter, CsvActivityExporter>()
             .AddSingleton<IReportChartRenderer, InlineSvgReportChartRenderer>()
             .AddSingleton<IActivityReportProjector, ActivityReportProjector>()
-            .AddSingleton<IActivityReportHtmlRenderer, ActivityReportHtmlRenderer>()
-            .AddSingleton<IActivityReportManifestUpdater, ActivityReportManifestUpdater>()
-            .AddSingleton<IActivityReportPdfExporter, WebView2ActivityReportPdfExporter>()
+            .AddSingleton<IReportHtmlRenderer, ReportHtmlRenderer>()
+            .AddSingleton<IReportManifestManager, ReportManifestManager>()
+            .AddSingleton<IActivityReportPdfExporter, WebView2ReportPdfExporter>()
             .AddKeyedSingleton<IFitActivityDecoder, GarminFitActivityDecoder>(CoreDecoderServiceKey)
             .AddSingleton<IFitActivityCache, InMemoryFitActivityCache>()
             .AddSingleton<IFitActivityDecoder>(serviceProvider =>

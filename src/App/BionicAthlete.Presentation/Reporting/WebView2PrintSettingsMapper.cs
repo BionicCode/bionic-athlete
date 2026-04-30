@@ -7,13 +7,13 @@ internal static class WebView2PrintSettingsMapper
 {
     public static CoreWebView2PrintSettings CreatePrintSettings(
         CoreWebView2Environment environment,
-        ActivityReportPageSettings pageSettings)
+        PdfPageSettings pageSettings)
     {
         ArgumentNullException.ThrowIfNull(environment);
         ArgumentNullException.ThrowIfNull(pageSettings);
 
         CoreWebView2PrintSettings printSettings = environment.CreatePrintSettings();
-        printSettings.Orientation = pageSettings.Orientation == ActivityReportPageOrientation.Landscape
+        printSettings.Orientation = pageSettings.Orientation == ReportPageOrientation.Landscape
             ? CoreWebView2PrintOrientation.Landscape
             : CoreWebView2PrintOrientation.Portrait;
         printSettings.PageWidth = pageSettings.PageWidthInches;

@@ -2,6 +2,8 @@ namespace BionicAthlete.Training.Reporting;
 
 using System.Globalization;
 using System.Text;
+using BionicAthlete.Presentation.Reporting;
+using BionicAthlete.Presentation.Reporting.Html;
 
 /// <summary>
 /// Renders small deterministic inline SVG charts for View C reports.
@@ -16,7 +18,7 @@ public sealed class InlineSvgReportChartRenderer : IReportChartRenderer
     private const int PaddingBottom = 36;
 
     /// <inheritdoc />
-    public string RenderChart(ActivityReportChart chart, ActivityReportExportOptions options)
+    public string RenderChart(ReportChart chart, ReportExportOptions options)
     {
         ArgumentNullException.ThrowIfNull(chart);
         ArgumentNullException.ThrowIfNull(options);
@@ -46,7 +48,7 @@ public sealed class InlineSvgReportChartRenderer : IReportChartRenderer
 
         for (int index = 0; index < chart.Points.Length; index++)
         {
-            ActivityReportChartPoint point = chart.Points[index];
+            ReportChartPoint point = chart.Points[index];
             double x = PaddingLeft + ((Width - PaddingLeft - PaddingRight) * (index / Math.Max(chart.Points.Length - 1d, 1d)));
             double normalizedValue = (point.Value - minimumValue) / (maximumValue - minimumValue);
             double y = Height - PaddingBottom - ((Height - PaddingTop - PaddingBottom) * normalizedValue);
