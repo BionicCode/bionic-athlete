@@ -69,6 +69,9 @@ public sealed partial class TemporaryFileManager : ITemporaryFileManager
     }
 
     // Uses Path.GetFileName() to ensure that only the file name is combined with the temporary directory path, preventing any directory traversal issues.
+    public string CreateTemporaryFilePath() => Path.Combine(TemporaryDirectoryPath, Path.GetTempFileName());
+
+    // Uses Path.GetFileName() to ensure that only the file name is combined with the temporary directory path, preventing any directory traversal issues.
     public string CreateTemporaryFilePath(string fileName) => Path.Combine(TemporaryDirectoryPath, Path.GetFileName(fileName));
 
     // Uses Path.GetFileName() to ensure that only the file name is combined with the temporary directory path, preventing any directory traversal issues.

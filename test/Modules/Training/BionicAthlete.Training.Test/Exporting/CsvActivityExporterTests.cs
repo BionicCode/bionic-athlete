@@ -1382,6 +1382,7 @@ public sealed class CsvActivityExporterTests
     {
         public string TemporaryDirectoryPath { get; } = temporaryDirectoryPath;
 
+        public string CreateTemporaryFilePath() => Path.Combine(TemporaryDirectoryPath, Path.GetTempFileName());
         public string CreateTemporaryFilePath(string fileName)
             => Path.Combine(TemporaryDirectoryPath, Path.GetFileName(fileName));
 
