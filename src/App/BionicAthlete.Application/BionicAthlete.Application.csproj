@@ -6,4 +6,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\BuildingBlocks\BionicCode.Utilities.Net\BionicCode.Utilities.Net.Common.csproj" />
+  </ItemGroup>
+
 </Project>

@@ -25,13 +25,66 @@ public sealed class WebView2ReportPdfExporter : IReportPdfExporter
     }
 
     /// <inheritdoc />
-    public async Task<ReportPdfExportResult> ExportHtmlToPdfAsync(
-        HtmlToPdfExportRequest request,
+    public async Task<ReportPdfExportResult> ExportToPdfAsync(
+        UriExportRequest request,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        if (!File.Exists(request.ReportPackage.HtmlFilePath))
+        if (request.SourceUri.IsFile 
+            && !File.Exists(request.SourceUri.LocalPath))
+        {
+            throw new FileNotFoundException("The specified HTML file does not exist.", request.ReportPackage.HtmlFilePath);
+        }
+
+        string? outputDirectoryPath = Path.GetDirectoryName(request.OutputPdfFilePath);
+        if (!string.IsNullOrWhiteSpace(outputDirectoryPath))
+        {
+            _ = Directory.CreateDirectory(outputDirectoryPath);
+        }
+
+        using HiddenWebView2ReportHost reportHost = await HiddenWebView2ReportHost.CreateAsync(cancellationToken).ConfigureAwait(true);
+        var readinessWaiter = new WebView2ReportReadinessWaiter(reportHost.Browser);
+        Task reportReadyTask = readinessWaiter.WaitForReportReadyAsync(request.Timeout, cancellationToken);
+
+        reportHost.Browser.CoreWebView2.Navigate(request.SourceUri.AbsoluteUri);
+        await reportReadyTask.ConfigureAwait(true);
+
+        CoreWebView2PrintSettings printSettings = WebView2PrintSettingsMapper.CreatePrintSettings(
+            reportHost.Browser.CoreWebView2.Environment,
+            request.PageSettings);
+        bool isPdfGenerated = await reportHost.Browser.CoreWebView2.PrintToPdfAsync(
+            request.OutputPdfFilePath,
+            printSettings).ConfigureAwait(true);
+
+        if (!isPdfGenerated)
+        {
+            throw new PdfExportException("WebView2 reported PDF generation failure.");
+        }
+
+        FileInfo pdfFileInfo = new(request.OutputPdfFilePath);
+        if (!pdfFileInfo.Exists || pdfFileInfo.Length == 0)
+        {
+            throw new PdfExportException("WebView2 completed PDF generation but did not produce a non-empty PDF file.");
+        }
+
+        HtmlReportPackage packageWithPdf = request.ReportPackage with { PdfFilePath = request.OutputPdfFilePath };
+        await _manifestUpdater.AddPdfArtifactAsync(packageWithPdf, cancellationToken).ConfigureAwait(true);
+
+        return new ReportPdfExportResult(
+            request.OutputPdfFilePath,
+            pdfFileInfo.Length,
+            ImmutableArray<ReportDiagnostic>.Empty);
+    }
+
+    /// <inheritdoc />
+    public async Task<ReportPdfExportResult> ExportToPdfAsync(
+        HtmlContentExportRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        if (!File.Exists(request.SourceUri.AbsolutePath))
         {
             throw new FileNotFoundException("The generated HTML report does not exist.", request.ReportPackage.HtmlFilePath);
         }
@@ -76,5 +129,5 @@ public sealed class WebView2ReportPdfExporter : IReportPdfExporter
             ImmutableArray<ReportDiagnostic>.Empty);
     }
 
-    public Task<ReportPdfExportResult> ExportHtmlToPdfAsync(PdfExportRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+    //public Task<ReportPdfExportResult> ExportToPdfAsync(PdfExportRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
 }

@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\..\App\BionicAthlete.Application\BionicAthlete.Application.csproj" />
     <ProjectReference Include="..\..\..\BuildingBlocks\BionicAthlete.FileSystem.Abstractions\BionicAthlete.FileSystem.Abstractions.csproj" />
     <ProjectReference Include="..\..\..\BuildingBlocks\BionicCode.Utilities.Net.Wpf\BionicCode.Utilities.Net.Wpf.csproj" />
     <ProjectReference Include="..\BionicAthlete.Training.Application\BionicAthlete.Training.Application.csproj" />

@@ -3,9 +3,8 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Input;
-using BionicAthlete.Presentation.Reporting;
+using BionicAthlete.Application.Reporting;
 using BionicAthlete.Training.Presentation.ViewModel;
-using BionicAthlete.Training.Reporting;
 using BionicCode.Utilities.Net;
 using Microsoft.Win32;
 
@@ -15,7 +14,7 @@ using Microsoft.Win32;
 public partial class MainWindow : Window, IDisposableAdvanced
 {
     private readonly MainViewModel _viewModel;
-    private readonly IActivityReportPdfExporter _activityReportPdfExporter;
+    private readonly IReportPdfExporter _activityReportPdfExporter;
     private readonly OpenFolderDialog _openFolderDialog;
     private readonly List<CancellationTokenSource> _addFitFilesCancellationTokenSources;
     private readonly object _cancellationTokenSourceQueueSyncLock;
@@ -42,7 +41,7 @@ public partial class MainWindow : Window, IDisposableAdvanced
     public static readonly RoutedCommand ExportHtmlReportCommand = new(nameof(ExportHtmlReportCommand), typeof(MainWindow));
     public static readonly RoutedCommand ExportPdfReportCommand = new(nameof(ExportPdfReportCommand), typeof(MainWindow));
 
-    public MainWindow(MainViewModel viewModel, IActivityReportPdfExporter activityReportPdfExporter)
+    public MainWindow(MainViewModel viewModel, IReportPdfExporter activityReportPdfExporter)
     {
         InitializeComponent();
 
@@ -219,7 +218,7 @@ public partial class MainWindow : Window, IDisposableAdvanced
             reportPackage.PageSettings,
             TimeSpan.FromSeconds(60));
 
-        _ = await _activityReportPdfExporter.ExportHtmlToPdfAsync(request, CancellationToken.None);
+        _ = await _activityReportPdfExporter.ExportToPdfAsync(request, CancellationToken.None);
     }
 
     private bool CanExecuteHumanReadableReportExport()

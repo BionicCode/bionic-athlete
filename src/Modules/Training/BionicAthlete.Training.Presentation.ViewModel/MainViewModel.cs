@@ -6,6 +6,8 @@ using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Text;
+using BionicAthlete.Application.Reporting;
+using BionicAthlete.Application.Reporting.Html;
 using BionicAthlete.FileSystem.Abstractions;
 using BionicAthlete.Training.Application.Decoding;
 using BionicAthlete.Training.Exporting;
@@ -26,7 +28,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
     private readonly IArchiveManager _zipArchiveManager;
     private readonly ICsvActivityExporter _csvActivityExporter;
     private readonly IActivityReportProjector _activityReportProjector;
-    private readonly IActivityReportHtmlRenderer _activityReportHtmlRenderer;
+    private readonly IReportHtmlRenderer _activityReportHtmlRenderer;
     private readonly ITemporaryFileManager _temporaryFileManager;
     private readonly Func<IFitActivityDecoder> _cachingFitActivityDecoderFactory;
     private readonly Dictionary<string, ExportData> _fitFilePathToExportDataLookup;
@@ -43,7 +45,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
     public MainViewModel(IZipArchiveManager zipArchiveManager,
         ICsvActivityExporter csvActivityExporter,
         IActivityReportProjector activityReportProjector,
-        IActivityReportHtmlRenderer activityReportHtmlRenderer,
+        IReportHtmlRenderer activityReportHtmlRenderer,
         ITemporaryFileManager temporaryFileManager,
         Func<IFitActivityDecoder> cachingFitActivityDecoderFactory)
     {
@@ -255,7 +257,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
         ArgumentNullExceptionAdvanced.ThrowIfNull(exportData);
 
         string outputDirectoryPath = CreateReportOutputDirectory(exportData);
-        var options = new ActivityReportExportOptions(
+        var options = new ReportExportOptions(
             outputDirectoryPath,
             outputTarget,
             CultureInfo.CurrentCulture,

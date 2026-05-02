@@ -1,13 +1,8 @@
 namespace BionicAthlete.Application.Reporting;
-
-using BionicAthlete.Application.Reporting.Html;
-
-//using BionicAthlete.Application.Reporting;
-
 /// <summary>
-/// Request for rendering an existing HTML report package to PDF.
+/// Base class for requests to render to PDF.
 /// </summary>
-public class PdfExportRequest
+public abstract class PdfExportRequest
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="PdfExportRequest"/> class.
@@ -15,7 +10,8 @@ public class PdfExportRequest
     /// <param name="outputPdfFilePath">Destination PDF file path.</param>
     /// <param name="pageSettings">Neutral page settings to map into WebView2 print settings.</param>
     /// <param name="timeout">Maximum time to wait for navigation, readiness, and PDF generation.</param>
-    public PdfExportRequest(
+    /// <param name="sourceUri">The <see cref="Uri"/> that references the source which must be exported to PDF.</param>
+    protected PdfExportRequest(
         string outputPdfFilePath,
         PdfPageSettings pageSettings,
         TimeSpan timeout)
@@ -42,33 +38,4 @@ public class PdfExportRequest
     /// Gets the operation timeout.
     /// </summary>
     public TimeSpan Timeout { get; }
-}
-
-/// <summary>
-/// Request for rendering an existing HTML report package to PDF.
-/// </summary>
-public sealed class HtmlToPdfExportRequest : PdfExportRequest
-{
-    /// <summary>
-    /// Initializes a new instance of the <see cref="HtmlToPdfExportRequest"/> class.
-    /// </summary>
-    /// <param name="reportPackage">Generated HTML report package.</param>
-    /// <param name="outputPdfFilePath">Destination PDF file path.</param>
-    /// <param name="pageSettings">Neutral page settings to map into WebView2 print settings.</param>
-    /// <param name="timeout">Maximum time to wait for navigation, readiness, and PDF generation.</param>
-    public HtmlToPdfExportRequest(
-        HtmlReportPackage reportPackage,
-        string outputPdfFilePath,
-        PdfPageSettings pageSettings,
-        TimeSpan timeout) : base(outputPdfFilePath, pageSettings, timeout)
-    {
-        ArgumentNullException.ThrowIfNull(reportPackage);
-
-        ReportPackage = reportPackage;
-    }
-
-    /// <summary>
-    /// Gets the generated HTML report package.
-    /// </summary>
-    public HtmlReportPackage ReportPackage { get; }
 }
