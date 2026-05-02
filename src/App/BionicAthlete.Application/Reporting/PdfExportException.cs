@@ -1,4 +1,4 @@
-namespace BionicAthlete.Presentation.Reporting;
+namespace BionicAthlete.Application.Reporting;
 
 /// <summary>
 /// Represents a failure during UI-bound report PDF generation.

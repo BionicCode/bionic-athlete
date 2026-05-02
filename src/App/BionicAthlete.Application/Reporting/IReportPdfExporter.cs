@@ -1,9 +1,9 @@
-namespace BionicAthlete.Presentation.Reporting;
+namespace BionicAthlete.Application.Reporting;
 
 /// <summary>
 /// Exports a generated View C HTML report package to PDF using UI-bound infrastructure.
 /// </summary>
-public interface IActivityReportPdfExporter
+public interface IReportPdfExporter
 {
     /// <summary>
     /// Renders the generated HTML report to a PDF file.

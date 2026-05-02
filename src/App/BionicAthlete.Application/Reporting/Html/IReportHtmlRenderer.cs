@@ -1,7 +1,4 @@
-namespace BionicAthlete.Training.Reporting;
-
-using BionicAthlete.Presentation.Reporting;
-
+namespace BionicAthlete.Application.Reporting.Html;
 /// <summary>
 /// Writes a neutral report model as a self-contained HTML report package.
 /// </summary>

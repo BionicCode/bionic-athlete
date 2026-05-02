@@ -1,6 +1,8 @@
-namespace BionicAthlete.Presentation.Reporting;
+namespace BionicAthlete.Application.Reporting;
 
-//using BionicAthlete.Training.Reporting;
+using BionicAthlete.Application.Reporting.Html;
+
+//using BionicAthlete.Application.Reporting;
 
 /// <summary>
 /// Request for rendering an existing HTML report package to PDF.

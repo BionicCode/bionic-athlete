@@ -1,4 +1,4 @@
-namespace BionicAthlete.Infrastructure.FileSystem.Reporting;
+namespace BionicAthlete.Application.Reporting;
 
 /// <summary>
 /// A warning, caveat, or informational diagnostic emitted while creating a report.

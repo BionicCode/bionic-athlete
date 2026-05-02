@@ -1,4 +1,4 @@
-namespace BionicAthlete.Presentation.Reporting;
+namespace BionicAthlete.Application.Reporting;
 
 using System.Collections.Immutable;
 

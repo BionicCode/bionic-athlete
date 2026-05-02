@@ -1,9 +1,9 @@
-namespace BionicAthlete.Training.Reporting;
+namespace BionicAthlete.Application.Reporting;
 
 using System.Globalization;
 using System.Text;
-using BionicAthlete.Presentation.Reporting;
-using BionicAthlete.Presentation.Reporting.Html;
+using BionicAthlete.Application.Reporting;
+using BionicAthlete.Application.Reporting.Html;
 
 /// <summary>
 /// Renders small deterministic inline SVG charts for View C reports.

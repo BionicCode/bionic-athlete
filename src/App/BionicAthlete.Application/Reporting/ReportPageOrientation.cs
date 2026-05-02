@@ -1,4 +1,4 @@
-namespace BionicAthlete.Infrastructure.FileSystem.Reporting;
+namespace BionicAthlete.Application.Reporting;
 
 /// <summary>
 /// Describes the physical page orientation requested for printable View C reports.

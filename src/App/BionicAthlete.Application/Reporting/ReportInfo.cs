@@ -1,6 +1,7 @@
-﻿namespace BionicAthlete.Infrastructure.FileSystem.Reporting;
+﻿namespace BionicAthlete.Application.Reporting;
 
 using System.Collections.Immutable;
+
 public sealed record ReportInfo(
     int ReportSchemaVersion,
     string RendererVersion,

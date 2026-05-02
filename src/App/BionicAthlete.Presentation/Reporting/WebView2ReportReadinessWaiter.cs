@@ -1,6 +1,7 @@
 namespace BionicAthlete.Presentation.Reporting;
 
 using System.Text.Json;
+using BionicAthlete.Application.Reporting;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.Wpf;
 
@@ -19,7 +20,7 @@ internal sealed class WebView2ReportReadinessWaiter
     {
         TaskCompletionSource readyCompletionSource = new(TaskCreationOptions.RunContinuationsAsynchronously);
         using CancellationTokenSource timeoutCancellationTokenSource = new(timeout);
-        using CancellationTokenSource linkedCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(
+        using var linkedCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(
             cancellationToken,
             timeoutCancellationTokenSource.Token);
         using CancellationTokenRegistration cancellationRegistration = linkedCancellationTokenSource.Token.Register(
@@ -62,7 +63,7 @@ internal sealed class WebView2ReportReadinessWaiter
         {
             try
             {
-                using JsonDocument message = JsonDocument.Parse(eventArgs.WebMessageAsJson);
+                using var message = JsonDocument.Parse(eventArgs.WebMessageAsJson);
                 if (message.RootElement.ValueKind != JsonValueKind.Object)
                 {
                     return;

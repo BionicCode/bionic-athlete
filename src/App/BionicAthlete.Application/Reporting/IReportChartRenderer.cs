@@ -1,6 +1,6 @@
-namespace BionicAthlete.Training.Reporting;
+namespace BionicAthlete.Application.Reporting;
 
-using BionicAthlete.Presentation.Reporting;
+using BionicAthlete.Application.Reporting;
 
 /// <summary>
 /// Renders deterministic inline SVG charts for report HTML.

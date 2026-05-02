@@ -1,8 +1,9 @@
-﻿namespace BionicAthlete.Infrastructure.FileSystem.Reporting.Html;
+﻿namespace BionicAthlete.Application.Reporting.Html;
 
 using System;
 using System.Collections.Immutable;
 using System.Text;
+using BionicAthlete.Application.Reporting;
 
 public sealed class HtmlManager
 {
@@ -27,7 +28,8 @@ public sealed class HtmlManager
         ImmutableArray<ReportDiagnostic> diagnostics = reportInfo.Diagnostics.IsDefault
             ? ImmutableArray<ReportDiagnostic>.Empty
             : reportInfo.Diagnostics;
-        var package = new HtmlReportPackage(
+
+        _ = new HtmlReportPackage(
             reportDirectoryPath,
             htmlFilePath,
             manifestFilePath,

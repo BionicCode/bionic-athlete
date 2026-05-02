@@ -1,7 +1,6 @@
-namespace BionicAthlete.Presentation.Reporting;
+namespace BionicAthlete.Application.Reporting;
 
 using System.Globalization;
-using BionicAthlete.Training.Reporting;
 
 /// <summary>
 /// Options that make View C report projection and HTML generation deterministic.

@@ -2,13 +2,14 @@ namespace BionicAthlete.Presentation.Reporting;
 
 using System.Collections.Immutable;
 using System.IO;
-using BionicAthlete.FileSystem.Abstractions;
+using BionicAthlete.Application.Reporting;
+using BionicAthlete.Application.Reporting.Html;
 using Microsoft.Web.WebView2.Core;
 
 /// <summary>
 /// Renders generated activity-report HTML to PDF through a hidden per-operation WebView2 host.
 /// </summary>
-public sealed class WebView2ReportPdfExporter : IActivityReportPdfExporter
+public sealed class WebView2ReportPdfExporter : IReportPdfExporter
 {
     private readonly IReportManifestManager _manifestUpdater;
 

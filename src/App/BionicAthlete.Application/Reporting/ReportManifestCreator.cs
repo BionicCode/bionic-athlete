@@ -1,4 +1,4 @@
-﻿namespace BionicAthlete.Infrastructure.FileSystem.Reporting;
+﻿namespace BionicAthlete.Application.Reporting;
 
 using System.Collections.Immutable;
 

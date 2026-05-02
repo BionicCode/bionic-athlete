@@ -1,4 +1,4 @@
-namespace BionicAthlete.Infrastructure.FileSystem.Reporting;
+namespace BionicAthlete.Application.Reporting;
 
 /// <summary>
 /// Identifies the print-layout preset used by the HTML report and WebView2 PDF settings.

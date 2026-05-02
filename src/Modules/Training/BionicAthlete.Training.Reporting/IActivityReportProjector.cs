@@ -1,6 +1,6 @@
 namespace BionicAthlete.Training.Reporting;
 
-using BionicAthlete.Presentation.Reporting;
+using BionicAthlete.Application.Reporting;
 using BionicAthlete.Training.Domain.Activities;
 
 /// <summary>

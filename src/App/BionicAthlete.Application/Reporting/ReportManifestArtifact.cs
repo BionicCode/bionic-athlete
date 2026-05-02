@@ -1,4 +1,4 @@
-namespace BionicAthlete.Infrastructure.FileSystem.Reporting;
+namespace BionicAthlete.Application.Reporting;
 
 /// <summary>
 /// A file written as part of a report package.

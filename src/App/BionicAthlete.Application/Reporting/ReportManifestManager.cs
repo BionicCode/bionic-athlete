@@ -1,15 +1,13 @@
-namespace BionicAthlete.Infrastructure.FileSystem.Reporting;
+namespace BionicAthlete.Application.Reporting;
 
-using System.Collections.Immutable;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using BionicAthlete.FileSystem.Abstractions;
 
 /// <summary>
 /// Updates View C report manifests after UI-bound PDF generation succeeds.
 /// </summary>
-public sealed class ReportManifestManager
+public sealed class ReportManifestManager : IReportManifestManager
 {
     private static readonly JsonSerializerOptions s_manifestJsonOptions = CreateManifestJsonOptions();
     internal static JsonSerializerOptions ManifestJsonOptions => s_manifestJsonOptions;

@@ -1,7 +1,4 @@
-namespace BionicAthlete.Presentation.Reporting;
-
-using BionicAthlete.Training.Reporting;
-
+namespace BionicAthlete.Application.Reporting;
 /// <summary>
 /// Neutral print settings used by report generation and later mapped to WebView2 print settings in the UI layer.
 /// </summary>

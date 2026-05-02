@@ -49,8 +49,8 @@ public sealed class JsonFileManager<TValue> : IFileManager<TValue>
         }
 
         FileStreamOptions fileStreamOptions = isOverWriteAllowed
-            ? FileHelpers.CreateOrOverwriteOptions
-            : FileHelpers.CreateOptions;
+            ? FileHelpers.WriteOnlyCreateOrOverwriteOptions
+            : FileHelpers.WriteOnlyCreateOptions;
         await using var fileStream = new FileStream(filePath, fileStreamOptions);
         await JsonSerializer.SerializeAsync(fileStream, value, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
@@ -61,7 +61,7 @@ public sealed class JsonFileManager<TValue> : IFileManager<TValue>
     public async Task<string> WriteTemporaryAsync(TValue value, Encoding encoding, bool isTemporaryFileManaged, CancellationToken cancellationToken)
     {
         string destination = _temporaryFileManager.CreateTemporaryFilePath();
-        await using var fileStream = new FileStream(destination, FileHelpers.CreateOptions);
+        await using var fileStream = new FileStream(destination, FileHelpers.WriteOnlyCreateOptions);
         await JsonSerializer.SerializeAsync(fileStream, value, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
 
@@ -76,7 +76,7 @@ public sealed class JsonFileManager<TValue> : IFileManager<TValue>
     public async Task<string> WriteTemporaryAsync(TValue value, Encoding encoding,string subdirectoryName, bool isTemporaryFileManaged, CancellationToken cancellationToken)
     {
         string destination = _temporaryFileManager.CreateTemporaryFilePath(subdirectoryName, Path.GetTempFileName());
-        await using var fileStream = new FileStream(destination, FileHelpers.CreateOptions);
+        await using var fileStream = new FileStream(destination, FileHelpers.WriteOnlyCreateOptions);
         await JsonSerializer.SerializeAsync(fileStream, value, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
 

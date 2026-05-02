@@ -2,7 +2,7 @@ namespace BionicAthlete.Training.Reporting;
 
 using System.Collections.Immutable;
 using System.Globalization;
-using BionicAthlete.Presentation.Reporting;
+using BionicAthlete.Application.Reporting;
 using BionicAthlete.Training.Domain.Activities;
 using BionicAthlete.Training.Domain.Fields;
 

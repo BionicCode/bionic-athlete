@@ -1,8 +1,6 @@
-namespace BionicAthlete.Presentation.Reporting;
+namespace BionicAthlete.Application.Reporting;
 
 using System.Collections.Immutable;
-using BionicAthlete.Infrastructure.FileSystem.Reporting;
-using BionicAthlete.Training.Reporting;
 
 /// <summary>
 /// Semantic, presentation-oriented report model for one decoded activity.
@@ -106,22 +104,3 @@ public sealed record ReportTableColumn(string Key, string Header);
 /// </summary>
 /// <param name="Cells">Cell values aligned to <see cref="ReportTable.Columns"/>.</param>
 public sealed record ReportTableRow(ImmutableArray<string> Cells);
-
-/// <summary>
-/// Result of writing a View C HTML report package to disk.
-/// </summary>
-/// <param name="ReportDirectoryPath">Physical report folder path.</param>
-/// <param name="HtmlFilePath">Physical path to <c>activity-report.html</c>.</param>
-/// <param name="ManifestFilePath">Physical path to <c>report-manifest.json</c>.</param>
-/// <param name="PdfFilePath">Physical path to <c>activity-report.pdf</c> when a PDF target was requested.</param>
-/// <param name="OutputTarget">Requested output target.</param>
-/// <param name="PageSettings">Neutral page settings used by the package.</param>
-/// <param name="Diagnostics">Warnings emitted while generating the package.</param>
-public sealed record HtmlReportPackage(
-    string ReportDirectoryPath,
-    string HtmlFilePath,
-    string ManifestFilePath,
-    string? PdfFilePath,
-    ReportOutputTarget OutputTarget,
-    PdfPageSettings PageSettings,
-    ImmutableArray<ReportDiagnostic> Diagnostics);

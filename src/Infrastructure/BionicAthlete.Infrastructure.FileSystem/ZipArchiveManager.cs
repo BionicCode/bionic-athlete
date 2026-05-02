@@ -8,30 +8,6 @@ using BionicCode.Utilities.Net;
 
 public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
 {
-    private static readonly FileStreamOptions s_zipFileStreamOptions = new()
-    {
-        Mode = FileMode.Create,
-        Access = FileAccess.ReadWrite,
-        Share = FileShare.None,
-        Options = FileOptions.Asynchronous | FileOptions.SequentialScan
-    };
-
-    private static readonly FileStreamOptions s_readFileStreamOptions = new()
-    {
-        Mode = FileMode.Open,
-        Access = FileAccess.Read,
-        Share = FileShare.Read,
-        Options = FileOptions.Asynchronous | FileOptions.SequentialScan
-    };
-
-    private static readonly FileStreamOptions s_createFileStreamOptions = new()
-    {
-        Mode = FileMode.CreateNew,
-        Access = FileAccess.Write,
-        Share = FileShare.None,
-        Options = FileOptions.Asynchronous | FileOptions.SequentialScan
-    };
-
     public const string ZipFileExtension = ".zip";
     public FrozenSet<string> SupportedArchiveFileExtensions { get; }
 
@@ -136,7 +112,7 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
             string temporaryDestinationFolderPath = Path.Combine(_temporaryFileManager.TemporaryDirectoryPath, batch.BatchName);
             await using var zipFile = new FileStream(
                 zipFilePath,
-                s_zipFileStreamOptions);
+                FileHelpers.WriteOnlyCreateOrOverwriteOptions);
             await using ZipArchive zipArchive = await ZipArchive.CreateAsync(zipFile, ZipArchiveMode.Create, leaveOpen: false, batch.Encoding, cancellationToken);
 
             foreach (FileDescriptor fileDescriptor in batch.FileDescriptors)
@@ -150,7 +126,7 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
                     string destinationFilePath = _temporaryFileManager.CreateTemporaryFilePath(batch.BatchName, sourceFileDescriptor.Name);
                     _temporaryFileManager.RegisterTemporaryFilePath(destinationFilePath);
                     await using Stream resourceStream = sourceFileDescriptor.EmbeddedResourceAssembly.GetManifestResourceStream(sourceFileDescriptor.FullPath) ?? throw new InvalidOperationException($"Failed to get manifest resource stream for embedded resource: {sourceFileDescriptor.Location}");
-                    await using var destinationStream = new FileStream(destinationFilePath, s_createFileStreamOptions);
+                    await using var destinationStream = new FileStream(destinationFilePath, FileHelpers.WriteOnlyCreateOrOverwriteOptions);
                     await resourceStream.CopyToAsync(destinationStream, cancellationToken).ConfigureAwait(false);
                     sourceFileDescriptor = new FileDescriptor(destinationFilePath, sourceFileDescriptor.IsRenamingRequired);
                 }

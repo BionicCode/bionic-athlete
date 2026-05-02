@@ -1,6 +1,6 @@
 namespace BionicAthlete.Presentation.Reporting;
 
-using BionicAthlete.Training.Reporting;
+using BionicAthlete.Application.Reporting;
 using Microsoft.Web.WebView2.Core;
 
 internal static class WebView2PrintSettingsMapper
