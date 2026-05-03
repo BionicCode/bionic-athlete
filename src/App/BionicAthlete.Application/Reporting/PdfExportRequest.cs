@@ -14,13 +14,15 @@ public abstract class PdfExportRequest
     protected PdfExportRequest(
         string outputPdfFilePath,
         PdfPageSettings pageSettings,
-        TimeSpan timeout)
+        TimeSpan timeout,
+        int retryCount)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(outputPdfFilePath);
         ArgumentNullException.ThrowIfNull(pageSettings);
 
         OutputPdfFilePath = outputPdfFilePath;
         PageSettings = pageSettings;
+        RetryCount = retryCount;
         Timeout = timeout <= TimeSpan.Zero ? TimeSpan.FromSeconds(30) : timeout;
     }
 
@@ -33,6 +35,11 @@ public abstract class PdfExportRequest
     /// Gets the neutral page settings for this operation.
     /// </summary>
     public PdfPageSettings PageSettings { get; }
+
+    /// <summary>
+    /// Specifies the number of retries if export failed due to a timeout or WebView2 process failure.
+    /// </summary>
+    public int RetryCount { get; }
 
     /// <summary>
     /// Gets the operation timeout.

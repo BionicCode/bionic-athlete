@@ -15,6 +15,12 @@ public partial class ApplicationLogger<TService> : ILogger<TService>, IApplicati
         LogInformation(_logger, message);
     }
 
+    public void LogDebugMessage(string message, [CallerMemberName] string? callerMemberName = null, [CallerLineNumber] int callerLineNumber = -1)
+    {
+        using IDisposable? scope = BeginCallerScope(callerMemberName, callerLineNumber);
+        LogDebug(_logger, message);
+    }
+
     public void LogErrorMessage(string message, [CallerMemberName] string? callerMemberName = null, [CallerLineNumber] int callerLineNumber = -1)
     {
         using IDisposable? scope = BeginCallerScope(callerMemberName, callerLineNumber);
@@ -31,6 +37,12 @@ public partial class ApplicationLogger<TService> : ILogger<TService>, IApplicati
     {
         using IDisposable? scope = BeginCallerScope(callerMemberName, callerLineNumber);
         LogInformationObject(_logger, obj?.GetType().FullName ?? string.Empty, obj);
+    }
+
+    public void LogDebugObject(object obj, [CallerMemberName] string? callerMemberName = null, [CallerLineNumber] int callerLineNumber = -1)
+    {
+        using IDisposable? scope = BeginCallerScope(callerMemberName, callerLineNumber);
+        LogDebugObject(_logger, obj?.GetType().FullName ?? string.Empty, obj);
     }
 
     public void LogErrorObject(object obj, [CallerMemberName] string? callerMemberName = null, [CallerLineNumber] int callerLineNumber = -1)
@@ -68,12 +80,24 @@ public partial class ApplicationLogger<TService> : ILogger<TService>, IApplicati
 
     [LoggerMessage(
         EventId = 3,
+        Level = LogLevel.Debug,
+        Message = "{Message}")]
+    private static partial void LogDebug(ILogger<TService> logger, string message);
+
+    [LoggerMessage(
+        EventId = 4,
         Level = LogLevel.Information,
         Message = "Object {TypeName} dump:\n{@Obj}")]
     private static partial void LogInformationObject(ILogger<TService> logger, string typeName, object obj);
 
     [LoggerMessage(
-        EventId = 4,
+        EventId = 5,
+        Level = LogLevel.Debug,
+        Message = "Object {TypeName} dump:\n{@Obj}")]
+    private static partial void LogDebugObject(ILogger<TService> logger, string typeName, object obj);
+
+    [LoggerMessage(
+        EventId = 6,
         Level = LogLevel.Error,
         Message = "Object {TypeName} dump:\n{@Obj}")]
     private static partial void LogErrorObject(ILogger<TService> logger, string typeName, object obj);

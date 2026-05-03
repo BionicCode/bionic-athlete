@@ -165,7 +165,7 @@ public partial class App : Application
             .AddSingleton<IActivityReportProjector, ActivityReportProjector>()
             .AddSingleton<IReportHtmlRenderer, ReportHtmlRenderer>()
             .AddSingleton<IReportManifestManager, ReportManifestManager>()
-            .AddSingleton<IActivityReportPdfExporter, WebView2ReportPdfExporter>()
+            .AddSingleton<IActivityReportPdfExporter, WebView2PdfExporter>()
             .AddKeyedSingleton<IFitActivityDecoder, GarminFitActivityDecoder>(CoreDecoderServiceKey)
             .AddSingleton<IFitActivityCache, InMemoryFitActivityCache>()
             .AddSingleton<IFitActivityDecoder>(serviceProvider =>
