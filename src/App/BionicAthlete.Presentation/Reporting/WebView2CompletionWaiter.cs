@@ -20,7 +20,7 @@ internal sealed class WebView2CompletionWaiter
     {
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
-        TaskCompletionSource readyCompletionSource = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource<WebView2StatusReport> readyCompletionSource = new(TaskCreationOptions.RunContinuationsAsynchronously);
         using CancellationTokenSource timeoutCancellationTokenSource = new(timeout);
 
         _browser.CoreWebView2.ProcessFailed += OnProcessFailed;
@@ -33,40 +33,37 @@ internal sealed class WebView2CompletionWaiter
         // But Codex must have observed the OnWebMessageReceived event for a good reason that needs to be identified and validated.
         _browser.NavigationCompleted += OnNavigationCompleted;
 
-        WebView2StatusReport webView2StatusReport = default;
         try
         {
-            await readyCompletionSource.Task
+            return await readyCompletionSource.Task
                 .WaitAsync(timeout, cancellationToken)
                 .ConfigureAwait(true);
-
-            return webView2StatusReport;
         }
         catch (OperationCanceledException exception)
         {
             _browser.CoreWebView2.Stop();
-            webView2StatusReport = new WebView2StatusReport(
+            var webView2StatusReport = new WebView2StatusReport(
                 WebView2Status.Cancelled,
                 null,
                 null,
                     "PDF rendering operation was cancelled.",
                     timeout,
                     exception);
-            _ = readyCompletionSource.TrySetCanceled(cancellationToken);
+            _ = readyCompletionSource.TrySetResult(webView2StatusReport);
 
             return webView2StatusReport;
         }
         catch (TimeoutException exception)
         {
             _browser.CoreWebView2.Stop();
-            webView2StatusReport = new WebView2StatusReport(
+            var webView2StatusReport = new WebView2StatusReport(
                 WebView2Status.Timeout,
                 null,
                 null,
                     "PDF rendering operation timed out.",
                     timeout,
                     exception);
-            _ = readyCompletionSource.TrySetCanceled(cancellationToken);
+            _ = readyCompletionSource.TrySetResult(webView2StatusReport);
 
             return webView2StatusReport;
         }
@@ -82,46 +79,46 @@ internal sealed class WebView2CompletionWaiter
         {
             if (eventArgs.IsSuccess)
             {
-                webView2StatusReport = new WebView2StatusReport(
-                                        WebView2Status.Success,
-                                        new WebErrorData(
-                                            eventArgs.WebErrorStatus,
-                                            eventArgs.HttpStatusCode,
-                                            eventArgs.NavigationId),
-                                        null,
-                                            "PDF rendered successfully.",
-                                            timeout,
-                                            null);
-                _ = readyCompletionSource.TrySetResult();
+                var webView2StatusReport = new WebView2StatusReport(
+                    WebView2Status.Success,
+                    new WebErrorData(
+                        eventArgs.WebErrorStatus,
+                        eventArgs.HttpStatusCode,
+                        eventArgs.NavigationId),
+                    null,
+                    "PDF rendered successfully.",
+                    timeout,
+                    null);
+                _ = readyCompletionSource.TrySetResult(webView2StatusReport);
             }
             else if (eventArgs.WebErrorStatus == CoreWebView2WebErrorStatus.OperationCanceled
                 && cancellationToken.IsCancellationRequested)
             {
-                webView2StatusReport = new WebView2StatusReport(
-                                        WebView2Status.Cancelled,
-                                        new WebErrorData(
-                                            eventArgs.WebErrorStatus,
-                                            eventArgs.HttpStatusCode,
-                                            eventArgs.NavigationId),
-                                        null,
-                                            "PDF rendering operation cancelled by caller.",
-                                            timeout,
-                                            null);
+                var webView2StatusReport = new WebView2StatusReport(
+                    WebView2Status.Cancelled,
+                    new WebErrorData(
+                        eventArgs.WebErrorStatus,
+                        eventArgs.HttpStatusCode,
+                        eventArgs.NavigationId),
+                    null,
+                    "PDF rendering operation cancelled by caller.",
+                    timeout,
+                    null);
                 _ = readyCompletionSource.TrySetCanceled(cancellationToken);
             }
             else
             {
-                webView2StatusReport = new WebView2StatusReport(
-                                        WebView2Status.WebErrorOccurred,
-                                        new WebErrorData(
-                                            eventArgs.WebErrorStatus,
-                                            eventArgs.HttpStatusCode,
-                                            eventArgs.NavigationId),
-                                        null,
-                                            $"PDF rendering operation failed with WebView2 error status '{eventArgs.WebErrorStatus}'.",
-                                            timeout,
-                                            null);
-                _ = readyCompletionSource.TrySetResult();
+                var webView2StatusReport = new WebView2StatusReport(
+                    WebView2Status.WebErrorOccurred,
+                    new WebErrorData(
+                        eventArgs.WebErrorStatus,
+                        eventArgs.HttpStatusCode,
+                        eventArgs.NavigationId),
+                    null,
+                    $"PDF rendering operation failed with WebView2 error status '{eventArgs.WebErrorStatus}'.",
+                    timeout,
+                    null);
+                _ = readyCompletionSource.TrySetResult(webView2StatusReport);
             }
         }
 
@@ -142,13 +139,25 @@ internal sealed class WebView2CompletionWaiter
                 switch (type)
                 {
                     case "ReportReady":
-                        _ = readyCompletionSource.TrySetResult();
+                        _ = readyCompletionSource.TrySetResult(new WebView2StatusReport(
+                            WebView2Status.Success,
+                            null,
+                            null,
+                            "PDF rendered successfully.",
+                            timeout,
+                            null));
                         break;
                     case "ReportFailed":
                         string failureMessage = message.RootElement.TryGetProperty("message", out JsonElement messageElement)
                             ? messageElement.GetString() ?? "The HTML report signaled ReportFailed."
                             : "The HTML report signaled ReportFailed.";
-                        _ = readyCompletionSource.TrySetException(new PdfExportException(failureMessage));
+                        _ = readyCompletionSource.TrySetResult(new WebView2StatusReport(
+                            WebView2Status.WebErrorOccurred,
+                            null,
+                            null,
+                            failureMessage,
+                            timeout,
+                            null));
                         break;
                 }
             }
@@ -161,7 +170,7 @@ internal sealed class WebView2CompletionWaiter
 
         void OnProcessFailed(object? sender, CoreWebView2ProcessFailedEventArgs eventArgs)
         {
-            webView2StatusReport = new WebView2StatusReport(
+            var webView2StatusReport = new WebView2StatusReport(
                 WebView2Status.ProcessFailed,
                 null,
                 new ProcessFailedData(
@@ -173,21 +182,21 @@ internal sealed class WebView2CompletionWaiter
                     "WebView2 process failed.",
                     timeout,
                     null);
-            _ = readyCompletionSource.TrySetResult();
+            _ = readyCompletionSource.TrySetResult(webView2StatusReport);
         }
 
         void OnDownloadStarting(object? sender, CoreWebView2DownloadStartingEventArgs e)
         {
             e.Cancel = true;
 
-            webView2StatusReport = new WebView2StatusReport(
+            var webView2StatusReport = new WebView2StatusReport(
                 WebView2Status.UnsupportedContent,
                 null,
                 null,
                     $"Source with URI '{e.DownloadOperation.Uri}' can't be rendered in WebView2.",
                     timeout,
                     null);
-            _ = readyCompletionSource.TrySetResult();
+            _ = readyCompletionSource.TrySetResult(webView2StatusReport);
         }
     }
 }
