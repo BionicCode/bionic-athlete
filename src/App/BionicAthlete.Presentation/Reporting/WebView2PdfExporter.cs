@@ -1,11 +1,11 @@
 namespace BionicAthlete.Presentation.Reporting;
 
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.IO;
 using BionicAthlete.Application.Reporting;
 using BionicAthlete.Application.Reporting.Html;
 using BionicAthlete.Shared.Logging;
-using Microsoft.Extensions.Logging;
 using Microsoft.Web.WebView2.Core;
 
 /// <summary>
@@ -82,14 +82,14 @@ public sealed class WebView2PdfExporter : IReportPdfExporter
                 case WebView2Status.WebErrorOccurred:
                 case WebView2Status.Timeout:
                     (reportHost, readinessWaiter, reportReadyTask) = await HandleWebError(request, reportHost, readinessWaiter, reportReadyTask, statusReport, canRetry, cancellationToken);
-                    
+
                     break;
                 case WebView2Status.Cancelled:
                     string message = $"PDF export was cancelled while waiting for WebView2 to report readiness for '{request.SourceUri.AbsolutePath}'.";
                     _logger.LogDebugMessage(message);
                     throw new OperationCanceledException(
-                        message, 
-                        statusReport.Exception, 
+                        message,
+                        statusReport.Exception,
                         cancellationToken);
             }
         } while (statusReport.Status is not WebView2Status.Success && runCount < request.RetryCount);
@@ -130,7 +130,9 @@ public sealed class WebView2PdfExporter : IReportPdfExporter
         bool canRetry,
         CancellationToken cancellationToken)
     {
-        ProcessFailedData processFailedData = statusReport.ProcessFailedData;
+        Debug.Assert(statusReport.ProcessFailedData.HasValue, "ProcessFailedData should be present for ProcessFailed status.");
+        ProcessFailedData processFailedData = statusReport.ProcessFailedData.Value;
+
         string processDescription = string.IsNullOrWhiteSpace(processFailedData.ProcessDescription)
             ? processFailedData.FailureKind.ToString() ?? string.Empty
             : processFailedData.ProcessDescription;
@@ -274,7 +276,9 @@ public sealed class WebView2PdfExporter : IReportPdfExporter
         bool canRetry,
         CancellationToken cancellationToken)
     {
-        ProcessFailedData processFailedData = statusReport.DetailedWebErrorStatus;
+        Debug.Assert(statusReport.WebErrorData.HasValue, "WebErrorData should be present for WebErrorOccurred status.");
+        WebErrorData processFailedData = statusReport.WebErrorData.Value;
+
         string processDescription = string.IsNullOrWhiteSpace(processFailedData.ProcessDescription)
             ? processFailedData.FailureKind.ToString() ?? string.Empty
             : processFailedData.ProcessDescription;
