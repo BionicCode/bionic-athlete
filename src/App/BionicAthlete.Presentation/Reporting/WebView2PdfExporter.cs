@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using BionicAthlete.Application.Reporting;
 using BionicAthlete.Shared.Logging;
+using BionicCode.Utilities.Net;
 using Microsoft.Web.WebView2.Core;
 
 /// <summary>
@@ -32,14 +33,26 @@ public sealed partial class WebView2PdfExporter : IReportPdfExporter
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        if (request is UriExportRequest uriRequest
-            && uriRequest.SourceUri.IsFile
-            && !File.Exists(uriRequest.SourceUri.LocalPath))
+        if (request is UriExportRequest uriRequest)
         {
-            throw new FileNotFoundException("The specified HTML file does not exist.", uriRequest.SourceUri.LocalPath);
+            ArgumentExceptionAdvanced.ThrowIfFalse(IsAllowedPdfRenderScheme(
+                uriRequest.SourceUri),
+                nameof(request),
+                $"The URI scheme '{uriRequest.SourceUri.Scheme}' is not supported for PDF export. Supported schemes are: file, http, https.");
+
+            if (uriRequest.SourceUri.IsFile
+                && !File.Exists(uriRequest.SourceUri.LocalPath))
+            {
+                throw new FileNotFoundException("The specified HTML file does not exist.", uriRequest.SourceUri.LocalPath);
+            }
+            else if (request is HtmlContentExportRequest htmlContentRequest
+                && string.IsNullOrWhiteSpace(htmlContentRequest.HtmlDocument.Content))
+            {
+                throw new ArgumentException("The provided HTML content is null or whitespace.", nameof(request));
+            }
         }
         else if (request is HtmlContentExportRequest htmlContentRequest
-            && string.IsNullOrWhiteSpace(htmlContentRequest.HtmlDocument.Content))
+                    && string.IsNullOrWhiteSpace(htmlContentRequest.HtmlDocument.Content))
         {
             throw new ArgumentException("The provided HTML content is null or whitespace.", nameof(request));
         }
@@ -74,6 +87,10 @@ public sealed partial class WebView2PdfExporter : IReportPdfExporter
             pdfFileInfo.Length,
             ImmutableArray<ReportDiagnostic>.Empty);
     }
+
+    private static bool IsAllowedPdfRenderScheme(Uri uri) => uri.Scheme == Uri.UriSchemeFile
+        || uri.Scheme == Uri.UriSchemeHttp
+        || uri.Scheme == Uri.UriSchemeHttps;
 
     private async Task<HiddenWebView2Host> EnsureWebHostAsync(PdfExportRequest request, CancellationToken cancellationToken)
     {
@@ -151,7 +168,6 @@ public sealed partial class WebView2PdfExporter : IReportPdfExporter
 
         return reportHost;
     }
-
 
     private static string GetExportSubject(PdfExportRequest request)
             => request is UriExportRequest uriRequest

@@ -24,7 +24,6 @@ internal sealed class WebView2CompletionWaiter
         using CancellationTokenSource timeoutCancellationTokenSource = new(timeout);
 
         _browser.CoreWebView2.ProcessFailed += OnProcessFailed;
-        _browser.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
         _browser.CoreWebView2.DownloadStarting += OnDownloadStarting;
 
         // REVIEW::Check whether we really must observe this event.
@@ -70,7 +69,6 @@ internal sealed class WebView2CompletionWaiter
         finally
         {
             _browser.CoreWebView2.ProcessFailed -= OnProcessFailed;
-            _browser.CoreWebView2.WebMessageReceived -= OnWebMessageReceived;
             _browser.CoreWebView2.DownloadStarting -= OnDownloadStarting;
             _browser.NavigationCompleted -= OnNavigationCompleted;
         }
@@ -122,52 +120,6 @@ internal sealed class WebView2CompletionWaiter
             }
         }
 
-        void OnWebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs eventArgs)
-        {
-            try
-            {
-                using var message = JsonDocument.Parse(eventArgs.WebMessageAsJson);
-                if (message.RootElement.ValueKind != JsonValueKind.Object)
-                {
-                    return;
-                }
-
-                string? type = message.RootElement.TryGetProperty("type", out JsonElement typeElement)
-                    ? typeElement.GetString()
-                    : null;
-
-                switch (type)
-                {
-                    case "ReportReady":
-                        _ = readyCompletionSource.TrySetResult(new WebView2StatusReport(
-                            WebView2Status.Success,
-                            null,
-                            null,
-                            "PDF rendered successfully.",
-                            timeout,
-                            null));
-                        break;
-                    case "ReportFailed":
-                        string failureMessage = message.RootElement.TryGetProperty("message", out JsonElement messageElement)
-                            ? messageElement.GetString() ?? "The HTML report signaled ReportFailed."
-                            : "The HTML report signaled ReportFailed.";
-                        _ = readyCompletionSource.TrySetResult(new WebView2StatusReport(
-                            WebView2Status.WebErrorOccurred,
-                            null,
-                            null,
-                            failureMessage,
-                            timeout,
-                            null));
-                        break;
-                }
-            }
-            catch (JsonException exception)
-            {
-                _ = readyCompletionSource.TrySetException(
-                    new PdfExportException("The HTML report sent an invalid readiness message.", exception));
-            }
-        }
-
         void OnProcessFailed(object? sender, CoreWebView2ProcessFailedEventArgs eventArgs)
         {
             var webView2StatusReport = new WebView2StatusReport(
@@ -187,6 +139,7 @@ internal sealed class WebView2CompletionWaiter
 
         void OnDownloadStarting(object? sender, CoreWebView2DownloadStartingEventArgs e)
         {
+            e.Handled = true;
             e.Cancel = true;
 
             var webView2StatusReport = new WebView2StatusReport(
