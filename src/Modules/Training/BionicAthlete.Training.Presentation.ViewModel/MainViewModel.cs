@@ -243,7 +243,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
     public void SetAllLapFieldsSelected(bool isSelected) => SelectedExportData?.SetAllLapFieldsSelected(isSelected);
 
     /// <summary>
-    /// Creates the neutral View C HTML report package for the selected decoded activity.
+    /// Creates the neutral View C HTML report package for the selected decoded activity and saves it to the specified <paramref name="outputTarget"/>.
     /// </summary>
     /// <param name="exportData">The decoded activity and UI-facing batch state to export.</param>
     /// <param name="outputTarget">The requested View C output target.</param>
@@ -271,6 +271,38 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
         return await _activityReportHtmlRenderer
             .RenderAsync(report, options, cancellationToken)
             .ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Creates the neutral View C HTML report package for the selected decoded activity 
+    /// and saves it to the specified <paramref name="outputTarget"/> 
+    /// and returns a <see cref="PdfExportRequest"/> which can be used to finalize 
+    /// the export using the <see cref="IReportPdfExporter"/> export service.
+    /// </summary>
+    /// <param name="exportData">The decoded activity and UI-facing batch state to export.</param>
+    /// <param name="outputTarget">The requested View C output target.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The generated HTML report package.</returns>
+    public async Task<PdfExportRequest> CreateTrainingReportExportRequestAsync(
+        ExportData exportData,
+        ReportOutputTarget outputTarget,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullExceptionAdvanced.ThrowIfNull(exportData);
+
+        HtmlReportPackage reportPackage = await PrepareHumanReadableReportAsync(
+            exportData,
+            ReportOutputTarget.PdfFromGeneratedHtml,
+            CancellationToken.None);
+        string pdfFilePath = reportPackage.PdfFilePath ?? Path.Combine(reportPackage.ReportDirectoryPath, "activity-report.pdf");
+        var exportRequest = new UriExportRequest(
+            pdfFilePath,
+            new Uri(reportPackage.HtmlFilePath),
+            reportPackage.PageSettings,
+            TimeSpan.FromSeconds(60));
+
+        return exportRequest;
+
     }
 
     private async Task<bool> AddFitFilePathAsync(string fitFilePath, CancellationToken cancellationToken)

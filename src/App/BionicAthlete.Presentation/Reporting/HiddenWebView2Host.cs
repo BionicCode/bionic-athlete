@@ -3,11 +3,11 @@ namespace BionicAthlete.Presentation.Reporting;
 using System.Windows;
 using Microsoft.Web.WebView2.Wpf;
 
-internal sealed class HiddenWebView2ReportHost : IDisposable
+internal sealed class HiddenWebView2Host : IDisposable
 {
     private bool _isDisposed;
 
-    private HiddenWebView2ReportHost(Window hostWindow, WebView2 browser)
+    private HiddenWebView2Host(Window hostWindow, WebView2 browser)
     {
         HostWindow = hostWindow;
         Browser = browser;
@@ -17,7 +17,7 @@ internal sealed class HiddenWebView2ReportHost : IDisposable
 
     public WebView2 Browser { get; }
 
-    public static async Task<HiddenWebView2ReportHost> CreateAsync(CancellationToken cancellationToken)
+    public static async Task<HiddenWebView2Host> CreateAsync(CancellationToken cancellationToken)
     {
         var browser = new WebView2();
         var hostWindow = new Window
@@ -44,7 +44,7 @@ internal sealed class HiddenWebView2ReportHost : IDisposable
             await browser.EnsureCoreWebView2Async().ConfigureAwait(true);
 
             isCreated = true;
-            return new HiddenWebView2ReportHost(hostWindow, browser);
+            return new HiddenWebView2Host(hostWindow, browser);
 
             void OnHostWindowLoaded(object sender, RoutedEventArgs routedEventArgs)
             {

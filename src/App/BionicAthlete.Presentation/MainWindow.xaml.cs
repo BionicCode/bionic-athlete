@@ -1,9 +1,9 @@
 ﻿namespace BionicAthlete.Presentation;
 
-using System.IO;
 using System.Windows;
 using System.Windows.Input;
 using BionicAthlete.Application.Reporting;
+using BionicAthlete.Application.Reporting.Html;
 using BionicAthlete.Training.Presentation.ViewModel;
 using BionicCode.Utilities.Net;
 using Microsoft.Win32;
@@ -207,18 +207,19 @@ public partial class MainWindow : Window, IDisposableAdvanced
             return;
         }
 
-        HtmlReportPackage reportPackage = await _viewModel.PrepareHumanReadableReportAsync(
+        IProgress<ProgressData> progressReporter = _viewModel.StartNewObservableProgressReporting(
+            initialMessage: "Preparing report for PDF export...",
+            operationTitle: "Exporting PDF Report");
+        PdfExportRequest exportRequest = await _viewModel.CreateTrainingReportExportRequestAsync(
             _viewModel.SelectedExportData,
             ReportOutputTarget.PdfFromGeneratedHtml,
-            CancellationToken.None);
-        string pdfFilePath = reportPackage.PdfFilePath ?? Path.Combine(reportPackage.ReportDirectoryPath, "activity-report.pdf");
-        var request = new PdfExportRequest(
-            reportPackage,
-            pdfFilePath,
-            reportPackage.PageSettings,
-            TimeSpan.FromSeconds(60));
+            CancellationToken.None).ConfigureAwait(true);
+        _ = await _activityReportPdfExporter.ExportToPdfAsync(exportRequest, CancellationToken.None);
 
-        _ = await _activityReportPdfExporter.ExportToPdfAsync(request, CancellationToken.None);
+        // TODO::Fix/implement manifest update using the IReportManifestManager implementation to include PDF artifact after export.
+        // Invoke on view model when export completes instead of directly in the view.
+        HtmlReportPackage packageWithPdf = exportRequest.ReportPackage with { PdfFilePath = exportRequest.OutputPdfFilePath };
+        await _manifestUpdater.AddPdfArtifactAsync(packageWithPdf, cancellationToken).ConfigureAwait(true);
     }
 
     private bool CanExecuteHumanReadableReportExport()

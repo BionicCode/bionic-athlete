@@ -20,7 +20,8 @@ public sealed class HtmlContentExportRequest : PdfExportRequest
         string outputPdfFilePath,
         HtmlDocument htmlDocument,
         PdfPageSettings pageSettings,
-        TimeSpan timeout) : base(outputPdfFilePath, pageSettings, timeout)
+        TimeSpan timeout,
+        int retryCount) : base(outputPdfFilePath, pageSettings, timeout, retryCount)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(outputPdfFilePath);
         ArgumentNullExceptionAdvanced.ThrowIfDefault(htmlDocument);

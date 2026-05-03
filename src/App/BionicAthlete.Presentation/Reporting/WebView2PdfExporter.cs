@@ -4,42 +4,44 @@ using System.Collections.Immutable;
 using System.Diagnostics;
 using System.IO;
 using BionicAthlete.Application.Reporting;
-using BionicAthlete.Application.Reporting.Html;
 using BionicAthlete.Shared.Logging;
 using Microsoft.Web.WebView2.Core;
 
 /// <summary>
 /// Renders generated activity-report HTML to PDF through a hidden per-operation WebView2 host.
 /// </summary>
-public sealed class WebView2PdfExporter : IReportPdfExporter
+public sealed partial class WebView2PdfExporter : IReportPdfExporter
 {
-    private readonly IReportManifestManager _manifestUpdater;
     private readonly IApplicationLogger<WebView2PdfExporter> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="WebView2PdfExporter"/> class.
     /// </summary>
     /// <param name="manifestUpdater">Manifest updater used after the PDF file is physically generated.</param>
-    public WebView2PdfExporter(IReportManifestManager manifestUpdater, IApplicationLogger<WebView2PdfExporter> logger)
+    public WebView2PdfExporter(IApplicationLogger<WebView2PdfExporter> logger)
     {
-        ArgumentNullException.ThrowIfNull(manifestUpdater);
         ArgumentNullException.ThrowIfNull(logger);
 
-        _manifestUpdater = manifestUpdater;
         _logger = logger;
     }
 
     /// <inheritdoc />
     public async Task<ReportPdfExportResult> ExportToPdfAsync(
-        UriExportRequest request,
+        PdfExportRequest request,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        if (request.SourceUri.IsFile
-            && !File.Exists(request.SourceUri.LocalPath))
+        if (request is UriExportRequest uriRequest
+            && uriRequest.SourceUri.IsFile
+            && !File.Exists(uriRequest.SourceUri.LocalPath))
         {
-            throw new FileNotFoundException("The specified HTML file does not exist.", request.SourceUri.LocalPath);
+            throw new FileNotFoundException("The specified HTML file does not exist.", uriRequest.SourceUri.LocalPath);
+        }
+        else if (request is HtmlContentExportRequest htmlContentRequest
+            && string.IsNullOrWhiteSpace(htmlContentRequest.HtmlDocument.Content))
+        {
+            throw new ArgumentException("The provided HTML content is null or whitespace.", nameof(request));
         }
 
         string? outputDirectoryPath = Path.GetDirectoryName(request.OutputPdfFilePath);
@@ -48,72 +50,24 @@ public sealed class WebView2PdfExporter : IReportPdfExporter
             _ = Directory.CreateDirectory(outputDirectoryPath);
         }
 
-        _logger.LogDebugMessage($"Starting PDF export for '{request.SourceUri.AbsolutePath}'.");
+        _logger.LogDebugMessage($"Starting export to PDF.");
 
-        HiddenWebView2ReportHost reportHost = await HiddenWebView2ReportHost.CreateAsync(cancellationToken).ConfigureAwait(true);
-        var readinessWaiter = new WebView2CompletionWaiter(reportHost.Browser);
-
-        _logger.LogDebugMessage($"Navigating WebView2 to source URI '{request.SourceUri.AbsolutePath}'.");
-        Task<WebView2StatusReport> reportReadyTask = readinessWaiter.WaitForCompletionAsync(request.Timeout, cancellationToken);
-        reportHost.Browser.CoreWebView2.Navigate(request.SourceUri.AbsoluteUri);
-
-        WebView2StatusReport statusReport = default;
-
-        // +1 to account for the initial attempt in addition to the configured retries
-        int totalAttempts = request.RetryCount + 1;
-        int runCount = 0;
-        do
-        {
-            runCount++;
-            _logger.LogDebugMessage($"Waiting for WebView2 to report readiness for PDF export for '{request.SourceUri.AbsolutePath}' (attempt #{runCount} of {totalAttempts}).");
-            bool canRetry = runCount < totalAttempts;
-
-            statusReport = await reportReadyTask.ConfigureAwait(true);
-            switch (statusReport.Status)
-            {
-                case WebView2Status.Success:
-                    _logger.LogDebugMessage($"WebView2 reported successful navigation and readiness for PDF export for '{request.SourceUri.AbsolutePath}'.");
-                    break;
-                case WebView2Status.ProcessFailed:
-                    (reportHost, readinessWaiter, reportReadyTask) = await HandleProcessFailure(request, reportHost, readinessWaiter, reportReadyTask, statusReport, canRetry, cancellationToken);
-                    break;
-                case WebView2Status.UnsupportedContent:
-                    throw new PdfExportException($"WebView2 reported unsupported content at '{request.SourceUri.AbsolutePath}' while attempting to render the source for PDF export.");
-                case WebView2Status.WebErrorOccurred:
-                case WebView2Status.Timeout:
-                    (reportHost, readinessWaiter, reportReadyTask) = await HandleWebError(request, reportHost, readinessWaiter, reportReadyTask, statusReport, canRetry, cancellationToken);
-
-                    break;
-                case WebView2Status.Cancelled:
-                    string message = $"PDF export was cancelled while waiting for WebView2 to report readiness for '{request.SourceUri.AbsolutePath}'.";
-                    _logger.LogDebugMessage(message);
-                    throw new OperationCanceledException(
-                        message,
-                        statusReport.Exception,
-                        cancellationToken);
-            }
-        } while (statusReport.Status is not WebView2Status.Success && runCount < request.RetryCount);
-
+        using HiddenWebView2Host reportHost = await EnsureWebHostAsync(request, cancellationToken).ConfigureAwait(true);
         CoreWebView2PrintSettings printSettings = WebView2PrintSettingsMapper.CreatePrintSettings(
             reportHost.Browser.CoreWebView2.Environment,
             request.PageSettings);
-        bool isPdfGenerated = await reportHost.Browser.CoreWebView2.PrintToPdfAsync(
-            request.OutputPdfFilePath,
-            printSettings).ConfigureAwait(true);
-
+        bool isPdfGenerated = await reportHost.Browser.CoreWebView2.PrintToPdfAsync(request.OutputPdfFilePath, printSettings).ConfigureAwait(true);
         if (!isPdfGenerated)
         {
             throw new PdfExportException("WebView2 reported PDF generation failure.");
         }
 
         FileInfo pdfFileInfo = new(request.OutputPdfFilePath);
-        if (!pdfFileInfo.Exists || pdfFileInfo.Length == 0)
+        if (!pdfFileInfo.Exists
+            || pdfFileInfo.Length == 0)
         {
             throw new PdfExportException("WebView2 completed PDF generation but did not produce a non-empty PDF file.");
         }
-
-        HtmlReportPackage packageWithPdf = request.ReportPackage with { PdfFilePath = request.OutputPdfFilePath };
-        await _manifestUpdater.AddPdfArtifactAsync(packageWithPdf, cancellationToken).ConfigureAwait(true);
 
         return new ReportPdfExportResult(
             request.OutputPdfFilePath,
@@ -121,30 +75,109 @@ public sealed class WebView2PdfExporter : IReportPdfExporter
             ImmutableArray<ReportDiagnostic>.Empty);
     }
 
-    private async Task<(HiddenWebView2ReportHost ReportHost, WebView2CompletionWaiter ReadinessWaiter, Task<WebView2StatusReport> ReportReadyTask)> HandleProcessFailure(
-        UriExportRequest request,
-        HiddenWebView2ReportHost reportHost,
-        WebView2CompletionWaiter readinessWaiter,
-        Task<WebView2StatusReport> reportReadyTask,
-        WebView2StatusReport statusReport,
-        bool canRetry,
-        CancellationToken cancellationToken)
+    private async Task<HiddenWebView2Host> EnsureWebHostAsync(PdfExportRequest request, CancellationToken cancellationToken)
     {
+        WebView2RenderResult renderResult = await RenderRequestAsync(request, cancellationToken).ConfigureAwait(true);
+        WebView2StatusReport statusReport = renderResult.StatusReport;
+        HiddenWebView2Host reportHost = renderResult.Host;
+
+        string exportSubject = GetExportSubject(request);
+
+        // +1 to account for the initial attempt in addition to the configured retries
+        int totalAttempts = request.RetryCount + 1;
+        int runCount = 0;
+        bool canRetry = true;
+        while (statusReport.Status is not WebView2Status.Success && canRetry)
+        {
+            runCount++;
+            canRetry = runCount < totalAttempts;
+
+            _logger.LogDebugMessage($"Waiting for WebView2 to report readiness for PDF export for '{exportSubject}' (attempt #{runCount} of {totalAttempts}).");
+
+            switch (statusReport.Status)
+            {
+                case WebView2Status.Success:
+                    _logger.LogDebugMessage($"WebView2 reported successful navigation and readiness for PDF export for '{exportSubject}'.");
+                    break;
+                case WebView2Status.ProcessFailed:
+                    reportHost.Dispose();
+
+                    var failureArgs = new HandleProcessFailureArgs(
+                        Request: request,
+                        StatusReport: statusReport,
+                        CanRetry: canRetry,
+                        ExportSubject: exportSubject,
+                        CancellationToken: cancellationToken);
+                    renderResult = await HandleProcessFailure(failureArgs);
+                    reportHost = renderResult.Host;
+                    statusReport = renderResult.StatusReport;
+                    break;
+                case WebView2Status.UnsupportedContent:
+                    throw new PdfExportException($"WebView2 reported unsupported content at '{exportSubject}' while attempting to render the source for PDF export.");
+                case WebView2Status.WebErrorOccurred:
+                case WebView2Status.Timeout:
+                    reportHost.Dispose();
+
+                    var errorArgs = new HandleWebErrorArgs(
+                        Request: request,
+                        StatusReport: statusReport,
+                        CanRetry: canRetry,
+                        CancellationToken: cancellationToken);
+                    renderResult = await HandleWebError(errorArgs);
+                    reportHost = renderResult.Host;
+                    statusReport = renderResult.StatusReport;
+                    break;
+                case WebView2Status.Cancelled:
+                    string message = $"PDF export was cancelled while waiting for WebView2 to report readiness for '{exportSubject}'.";
+                    _logger.LogDebugMessage(message);
+                    throw new OperationCanceledException(
+                        message,
+                        statusReport.Exception,
+                        cancellationToken);
+            }
+        }
+
+        // Defensive check to ensure that if we exited the loop without success,
+        // it's because we exhausted our retries and not because of an unexpected status value.
+        // However, it's expected that an exception is thrown by the error handlers inside the loop if rendering the source has failed.
+        if (statusReport.Status is not WebView2Status.Success)
+        {
+            string message = $"WebView2 failed to report readiness for PDF export for '{exportSubject}' after {totalAttempts} attempt(s). Last reported status: {statusReport.Status}.";
+            _logger.LogErrorMessage(message);
+            throw new PdfExportException(message, statusReport.Exception);
+        }
+
+        _logger.LogDebugMessage($"WebView2 was able to render the source '{exportSubject}' and is ready for PDF export after {runCount} attempt(s).");
+
+        return reportHost;
+    }
+
+
+    private static string GetExportSubject(PdfExportRequest request)
+            => request is UriExportRequest uriRequest
+                ? $"source URI '{uriRequest.SourceUri.AbsolutePath}'"
+                : request is HtmlContentExportRequest
+                    ? "HTML content"
+                    : throw new NotImplementedException("Unsupported request type.");
+
+    private async Task<WebView2RenderResult> HandleProcessFailure(HandleProcessFailureArgs failureArgs)
+    {
+        WebView2StatusReport statusReport = failureArgs.StatusReport;
         Debug.Assert(statusReport.ProcessFailedData.HasValue, "ProcessFailedData should be present for ProcessFailed status.");
         ProcessFailedData processFailedData = statusReport.ProcessFailedData.Value;
 
         string processDescription = string.IsNullOrWhiteSpace(processFailedData.ProcessDescription)
             ? processFailedData.FailureKind.ToString() ?? string.Empty
             : processFailedData.ProcessDescription;
-        string failureReportMessage = $"WebView2 process '{processDescription}' exited with code '{processFailedData.ExitCode}' while preparing for PDF export for '{request.SourceUri.AbsolutePath}'." +
+        string failureReportMessage = $"WebView2 process '{processDescription}' exited with code '{processFailedData.ExitCode}' while preparing for PDF export for '{failureArgs.ExportSubject}'." +
             $"{Environment.NewLine}Reason: {processFailedData.Reason}" +
             $"{Environment.NewLine}Source: {processFailedData.FailureSourceModulePath}";
         _logger.LogErrorMessage(failureReportMessage);
 
-        if (canRetry)
+        if (failureArgs.CanRetry)
         {
-            _logger.LogDebugMessage($"Attempting to recover from process '{processDescription}' exit by recreating WebView2 for '{request.SourceUri.AbsolutePath}'.");
-            return await RestartHostAsync(reportHost, request.Timeout, cancellationToken);
+            _logger.LogDebugMessage($"Attempting to recover from process '{processDescription}' exit by recreating WebView2 for '{failureArgs.ExportSubject}'.");
+            return await RenderRequestAsync(failureArgs.Request, failureArgs.CancellationToken);
         }
 
         throw new PdfExportException(failureReportMessage, statusReport.Exception);
@@ -267,98 +300,49 @@ public sealed class WebView2PdfExporter : IReportPdfExporter
         //return (reportHost, readinessWaiter, reportReadyTask);
     }
 
-    private async Task<(HiddenWebView2ReportHost ReportHost, WebView2CompletionWaiter ReadinessWaiter, Task<WebView2StatusReport> ReportReadyTask)> HandleWebError(
-        UriExportRequest request,
-        HiddenWebView2ReportHost reportHost,
-        WebView2CompletionWaiter readinessWaiter,
-        Task<WebView2StatusReport> reportReadyTask,
-        WebView2StatusReport statusReport,
-        bool canRetry,
-        CancellationToken cancellationToken)
+    private async Task<WebView2RenderResult> HandleWebError(HandleWebErrorArgs errorArgs)
     {
+        WebView2StatusReport statusReport = errorArgs.StatusReport;
         Debug.Assert(statusReport.WebErrorData.HasValue, "WebErrorData should be present for WebErrorOccurred status.");
-        WebErrorData processFailedData = statusReport.WebErrorData.Value;
+        WebErrorData webErrorData = statusReport.WebErrorData.Value;
 
-        string processDescription = string.IsNullOrWhiteSpace(processFailedData.ProcessDescription)
-            ? processFailedData.FailureKind.ToString() ?? string.Empty
-            : processFailedData.ProcessDescription;
-        string failureReportMessage = $"WebView2 process '{processDescription}' exited with code '{processFailedData.ExitCode}' while preparing for PDF export for '{request.SourceUri.AbsolutePath}'." +
-            $"{Environment.NewLine}Reason: {processFailedData.Reason}" +
-            $"{Environment.NewLine}Source: {processFailedData.FailureSourceModulePath}";
+        string failureReportMessage = $"WebView2 encountered an error '{webErrorData.DetailedWebErrorStatus}'. HTTP error code '{webErrorData.HttpStatusCode}'. Navigation ID: '{webErrorData.NavigationId}'.";
         _logger.LogErrorMessage(failureReportMessage);
-
-        if (canRetry)
+        if (errorArgs.CanRetry)
         {
-            _logger.LogDebugMessage($"Attempting to recover from process '{processDescription}' exit by recreating WebView2 for '{request.SourceUri.AbsolutePath}'.");
-            return await RestartHostAsync(reportHost, request.Timeout, cancellationToken);
+            _logger.LogDebugMessage($"Attempting to recover from web error '{webErrorData.DetailedWebErrorStatus}'.");
+            return await RenderRequestAsync(errorArgs.Request, errorArgs.CancellationToken);
         }
 
         throw new PdfExportException(failureReportMessage, statusReport.Exception);
     }
 
-    private static async Task<(HiddenWebView2ReportHost Host, WebView2CompletionWaiter ReadinessWaiter, Task<WebView2StatusReport> ReportReadyTask)> RestartHostAsync(HiddenWebView2ReportHost reportHost, TimeSpan timeout, CancellationToken cancellationToken)
+    private async Task<WebView2RenderResult> RenderRequestAsync(PdfExportRequest request, CancellationToken cancellationToken)
     {
-        reportHost?.Dispose();
-        HiddenWebView2ReportHost reportHost = await HiddenWebView2ReportHost.CreateAsync(cancellationToken).ConfigureAwait(true);
+        HiddenWebView2Host reportHost = await HiddenWebView2Host.CreateAsync(cancellationToken).ConfigureAwait(true);
         var readinessWaiter = new WebView2CompletionWaiter(reportHost.Browser);
-        Task<WebView2StatusReport> reportReadyTask = readinessWaiter.WaitForCompletionAsync(timeout, cancellationToken);
+        Task<WebView2StatusReport> statusReportTask = readinessWaiter.WaitForCompletionAsync(request.Timeout, cancellationToken);
 
-        return (reportHost, readinessWaiter, reportReadyTask);
+        string exportSubject = GetExportSubject(request);
+        if (request is UriExportRequest uriRequest)
+        {
+            _logger.LogDebugMessage($"Navigating WebView2 to source URI '{exportSubject}'.");
+            reportHost.Browser.CoreWebView2.Navigate(uriRequest.SourceUri.AbsoluteUri);
+        }
+        else if (request is HtmlContentExportRequest htmlContentRequest)
+        {
+            _logger.LogDebugMessage($"Navigating WebView2 to '{exportSubject}'.");
+            reportHost.Browser.CoreWebView2.NavigateToString(htmlContentRequest.HtmlDocument.Content);
+        }
+        else
+        {
+            throw new NotImplementedException("Unsupported request type.");
+        }
+
+        WebView2StatusReport statusReport = await statusReportTask.ConfigureAwait(true);
+
+        return new WebView2RenderResult(statusReport, reportHost);
     }
 
-    /// <inheritdoc />
-    public async Task<ReportPdfExportResult> ExportToPdfAsync(
-        HtmlContentExportRequest request,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-
-        if (!File.Exists(request.SourceUri.AbsolutePath))
-        {
-            throw new FileNotFoundException("The generated HTML report does not exist.", request.ReportPackage.HtmlFilePath);
-        }
-
-        string? outputDirectoryPath = Path.GetDirectoryName(request.OutputPdfFilePath);
-        if (!string.IsNullOrWhiteSpace(outputDirectoryPath))
-        {
-            _ = Directory.CreateDirectory(outputDirectoryPath);
-        }
-
-        using HiddenWebView2ReportHost reportHost = await HiddenWebView2ReportHost.CreateAsync(cancellationToken).ConfigureAwait(true);
-        var readinessWaiter = new WebView2CompletionWaiter(reportHost.Browser);
-        Task reportReadyTask = readinessWaiter.WaitForCompletionAsync(request.Timeout, cancellationToken);
-
-        reportHost.Browser.CoreWebView2.Navigate(new Uri(request.ReportPackage.HtmlFilePath).AbsoluteUri);
-        await reportReadyTask.ConfigureAwait(true);
-
-        CoreWebView2PrintSettings printSettings = WebView2PrintSettingsMapper.CreatePrintSettings(
-            reportHost.Browser.CoreWebView2.Environment,
-            request.PageSettings);
-        bool isPdfGenerated = await reportHost.Browser.CoreWebView2.PrintToPdfAsync(
-            request.OutputPdfFilePath,
-            printSettings).ConfigureAwait(true);
-
-        if (!isPdfGenerated)
-        {
-            throw new PdfExportException("WebView2 reported PDF generation failure.");
-        }
-
-        FileInfo pdfFileInfo = new(request.OutputPdfFilePath);
-        if (!pdfFileInfo.Exists || pdfFileInfo.Length == 0)
-        {
-            throw new PdfExportException("WebView2 completed PDF generation but did not produce a non-empty PDF file.");
-        }
-
-        HtmlReportPackage packageWithPdf = request.ReportPackage with { PdfFilePath = request.OutputPdfFilePath };
-        await _manifestUpdater.AddPdfArtifactAsync(packageWithPdf, cancellationToken).ConfigureAwait(true);
-
-        return new ReportPdfExportResult(
-            request.OutputPdfFilePath,
-            pdfFileInfo.Length,
-            ImmutableArray<ReportDiagnostic>.Empty);
-    }
-
-    public Task<ReportPdfExportResult> ExportToPdfAsync(PdfExportRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
-
-    //public Task<ReportPdfExportResult> ExportToPdfAsync(PdfExportRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+    internal record class WebView2RenderResult(WebView2StatusReport StatusReport, HiddenWebView2Host Host);
 }

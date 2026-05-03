@@ -18,7 +18,8 @@ public sealed class UriExportRequest : PdfExportRequest
         string outputPdfFilePath,
         Uri sourceUri,
         PdfPageSettings pageSettings,
-        TimeSpan timeout) : base(outputPdfFilePath, pageSettings, timeout)
+        TimeSpan timeout,
+        int retryCount) : base(outputPdfFilePath, pageSettings, timeout, retryCount)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(sourceUri);
         ArgumentException.ThrowIfNullOrWhiteSpace(outputPdfFilePath);

@@ -121,7 +121,7 @@ internal sealed class WebView2CompletionWaiter
                                             $"PDF rendering operation failed with WebView2 error status '{eventArgs.WebErrorStatus}'.",
                                             timeout,
                                             null);
-                _ = readyCompletionSource.TrySetCanceled(cancellationToken);
+                _ = readyCompletionSource.TrySetResult();
             }
         }
 
@@ -173,7 +173,7 @@ internal sealed class WebView2CompletionWaiter
                     "WebView2 process failed.",
                     timeout,
                     null);
-            _ = readyCompletionSource.TrySetCanceled(cancellationToken);
+            _ = readyCompletionSource.TrySetResult();
         }
 
         void OnDownloadStarting(object? sender, CoreWebView2DownloadStartingEventArgs e)
@@ -187,7 +187,7 @@ internal sealed class WebView2CompletionWaiter
                     $"Source with URI '{e.DownloadOperation.Uri}' can't be rendered in WebView2.",
                     timeout,
                     null);
-            _ = readyCompletionSource.TrySetCanceled(cancellationToken);
+            _ = readyCompletionSource.TrySetResult();
         }
     }
 }
