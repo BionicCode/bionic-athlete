@@ -39,6 +39,20 @@ public static class DependencyInjection
     /// </summary>
     /// <typeparam name="TService"></typeparam>
     /// <param name="serviceCollection"></param>
+    /// <param name="productLifetime"></param>
+    /// <returns><see cref="IServiceCollection"/></returns>
+    public static IServiceCollection AddFactory<TService>(this IServiceCollection serviceCollection, Delegate, ServiceLifetime productLifetime)
+      where TService : class
+    {
+        TryRegisterImplementation<TService>(serviceCollection, productLifetime);
+        return serviceCollection.AddSingleton<Func<TService>>(serviceProvider => serviceProvider.GetRequiredService<TService>);
+    }
+
+    /// <summary>
+    /// Register <see cref="Func{TResult}"/> factory implementations
+    /// </summary>
+    /// <typeparam name="TService"></typeparam>
+    /// <param name="serviceCollection"></param>
     /// <returns><see cref="IServiceCollection"/></returns>
     public static IServiceCollection AddFactory<TService, TImplementation>(this IServiceCollection serviceCollection, ServiceLifetime productLifetime)
       where TService : class

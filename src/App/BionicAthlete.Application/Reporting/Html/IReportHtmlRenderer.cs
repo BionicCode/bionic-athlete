@@ -11,7 +11,7 @@ public interface IReportHtmlRenderer
     /// <param name="options">Deterministic report options.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The generated HTML package metadata.</returns>
-    Task<HtmlReportPackage> RenderAsync(
+    Task<HtmlDocument> RenderAsync(
         Report report,
         ReportExportOptions options,
         CancellationToken cancellationToken = default);

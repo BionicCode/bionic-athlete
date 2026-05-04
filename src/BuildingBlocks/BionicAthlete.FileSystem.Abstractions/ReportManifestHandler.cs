@@ -1,28 +1,35 @@
-namespace BionicAthlete.Application.Reporting;
+namespace BionicAthlete.FileSystem.Abstractions;
 
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using BionicAthlete.Application.Reporting;
 
 /// <summary>
 /// Updates View C report manifests after UI-bound PDF generation succeeds.
 /// </summary>
-public sealed class ReportManifestManager : IReportManifestManager
+public abstract class ReportManifestHandler : IReportManifestHandler
 {
+    public const string ManifestFileName = "report-manifest.json";
+
     private static readonly JsonSerializerOptions s_manifestJsonOptions = CreateManifestJsonOptions();
     internal static JsonSerializerOptions ManifestJsonOptions => s_manifestJsonOptions;
 
-    public static async Task WriteManifestAsync(
-        string manifestFilePath,
+    public abstract ReportManifest CreateManifest(ReportInfo reportInfo, bool includePdfArtifact);
+    public abstract ReportManifest UpdateManifest(ReportManifest currentManifest);
+
+    public async Task WriteManifestAsync(
+        string destinationFolder,
         ReportManifest manifest,
         CancellationToken cancellationToken)
     {
+        string manifestFilePath = Path.Combine(destinationFolder, ManifestFileName);
         string json = JsonSerializer.Serialize(manifest, ManifestJsonOptions);
         await File.WriteAllTextAsync(manifestFilePath, json, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
-    public static async Task AddPdfArtifactAsync(
+    public async Task AddPdfArtifactAsync(
         string manifestFilePath,
         CancellationToken cancellationToken = default)
     {
@@ -34,7 +41,7 @@ public sealed class ReportManifestManager : IReportManifestManager
             ManifestJsonOptions)
             ?? throw new InvalidOperationException("The report manifest could not be deserialized.");
 
-        ReportManifest updatedManifest = ReportManifestCreator.CreateManifestForUpdate(manifestFilePath, manifest);
+        ReportManifest updatedManifest = UpdateManifest(manifest);
         string updatedJson = JsonSerializer.Serialize(updatedManifest, ManifestJsonOptions);
         await File.WriteAllTextAsync(manifestFilePath, updatedJson, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
     }

@@ -5,7 +5,7 @@ namespace BionicAthlete.Application.Reporting;
 /// <remarks>
 /// Values are expressed in inches because WebView2 print settings use inch-based page and margin dimensions.
 /// </remarks>
-public sealed record PdfPageSettings(
+public sealed record PageSettings(
     ReportPagePreset PagePreset,
     ReportPageOrientation Orientation,
     double PageWidthInches,
@@ -22,7 +22,7 @@ public sealed record PdfPageSettings(
     /// <summary>
     /// Gets the default A4 portrait page settings.
     /// </summary>
-    public static PdfPageSettings A4Portrait { get; } = new(
+    public static PageSettings A4Portrait { get; } = new(
         ReportPagePreset.A4Portrait,
         ReportPageOrientation.Portrait,
         PageWidthInches: 8.27d,
@@ -38,7 +38,7 @@ public sealed record PdfPageSettings(
     /// <summary>
     /// Gets the default US Letter portrait page settings.
     /// </summary>
-    public static PdfPageSettings UsLetterPortrait { get; } = new(
+    public static PageSettings UsLetterPortrait { get; } = new(
         ReportPagePreset.UsLetterPortrait,
         ReportPageOrientation.Portrait,
         PageWidthInches: 8.5d,

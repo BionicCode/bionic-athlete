@@ -15,6 +15,14 @@ public sealed class TextFileManager : IFileManager<string>
         _temporaryFileManager = temporaryFileManager;
     }
 
+    public string Read(string filePath, Encoding encoding)
+    {
+        ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(nameof(filePath));
+        ArgumentNullExceptionAdvanced.ThrowIfNull(nameof(encoding));
+
+        return File.ReadAllText(filePath, encoding);
+    }
+
     public async Task<string> ReadAsync(string filePath, Encoding encoding, CancellationToken cancellationToken)
     {
         ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(nameof(filePath));
@@ -31,6 +39,19 @@ public sealed class TextFileManager : IFileManager<string>
     /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
     /// <returns>A <see cref="Task{TResult}"/> that represents the asynchronous read operation. The task result contains the file content as a string.</returns>
     public Task<string> ReadAsync(string filePath, CancellationToken cancellationToken) => ReadAsync(filePath, Encoding.UTF8, cancellationToken);
+    public void Write(string value, Encoding encoding, string filePath, bool isOverWriteAllowed)
+    {
+        ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(nameof(value));
+        ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(nameof(filePath));
+        ArgumentNullExceptionAdvanced.ThrowIfNull(nameof(encoding));
+
+        if (!isOverWriteAllowed)
+        {
+            ArgumentExceptionAdvanced.ThrowIfTrue(File.Exists(filePath), $"Invalid argument '{nameof(filePath)}'. The file at path '{filePath}' already exists and overwriting is not allowed.");
+        }
+
+        File.WriteAllText(filePath, value, encoding);
+    }
 
     public async Task WriteAsync(string value, Encoding encoding, string filePath, bool isOverWriteAllowed, CancellationToken cancellationToken)
     {

@@ -6,10 +6,12 @@ using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Text;
+using BionicAthlete.Application.Exporting;
 using BionicAthlete.Application.Reporting;
 using BionicAthlete.Application.Reporting.Html;
 using BionicAthlete.FileSystem.Abstractions;
 using BionicAthlete.Training.Application.Decoding;
+using BionicAthlete.Training.Application.Reporting;
 using BionicAthlete.Training.Exporting;
 using BionicAthlete.Training.Reporting;
 using BionicCode.Utilities.Net;
@@ -31,7 +33,10 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
     private readonly IReportHtmlRenderer _activityReportHtmlRenderer;
     private readonly ITemporaryFileManager _temporaryFileManager;
     private readonly Func<IFitActivityDecoder> _cachingFitActivityDecoderFactory;
+    private readonly IFitActivityReportManifestHandler _manifestHandler;
+    private readonly IHtmlExporter _htmlExporter;
     private readonly Dictionary<string, ExportData> _fitFilePathToExportDataLookup;
+    private readonly Dictionary<string, string> _pdfFilePathToManifestFilePathMap;
     private readonly string _allowedFileExtensions;
     private readonly SemaphoreSlim _addFitFilesSemaphore;
     private static readonly FileStreamOptions s_createFileStreamOptions = new()
@@ -47,7 +52,9 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
         IActivityReportProjector activityReportProjector,
         IReportHtmlRenderer activityReportHtmlRenderer,
         ITemporaryFileManager temporaryFileManager,
-        Func<IFitActivityDecoder> cachingFitActivityDecoderFactory)
+        Func<IFitActivityDecoder> cachingFitActivityDecoderFactory,
+        IFitActivityReportManifestHandler manifestHandler,
+        IHtmlExporter htmlExporter)
     {
         _temporaryFileManager = temporaryFileManager;
         _zipArchiveManager = zipArchiveManager;
@@ -55,6 +62,8 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
         _activityReportProjector = activityReportProjector;
         _activityReportHtmlRenderer = activityReportHtmlRenderer;
         _cachingFitActivityDecoderFactory = cachingFitActivityDecoderFactory;
+        _manifestHandler = manifestHandler;
+        _htmlExporter = htmlExporter;
         _addFitFilesSemaphore = new SemaphoreSlim(1, 1);
         _fitFilePathsValidator = IsFitFilePathsValid();
         _filePathsValidator = IsFilePathsValid();
@@ -68,6 +77,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
         ExportCommand = new AsyncRelayCommand(ExecuteExportCommandAsync, CanExecuteExportCommand);
         StartNewSessionCommand = new RelayCommand(ExecuteStartNewSessionCommand, () => !((IProgressReporter)this).IsReportingProgress);
         _allowedFileExtensions = _zipArchiveManager.SupportedArchiveFileExtensions.Concat([FitFileExtension]).JoinToString();
+        _pdfFilePathToManifestFilePathMap = [];
     }
 
 #if DEBUG
@@ -249,7 +259,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
     /// <param name="outputTarget">The requested View C output target.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The generated HTML report package.</returns>
-    public async Task<HtmlReportPackage> PrepareHumanReadableReportAsync(
+    public async Task<HtmlReportPackage> CreateHtmlReportAsync(
         ExportData exportData,
         ReportOutputTarget outputTarget,
         CancellationToken cancellationToken)
@@ -263,14 +273,27 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
             CultureInfo.CurrentCulture,
             TimeZoneInfo.Local,
             DateTimeOffset.UtcNow,
-            PdfPageSettings.A4Portrait);
+            PageSettings.A4Portrait);
 
         Report report = await _activityReportProjector
             .ProjectAsync(exportData.Activity, options, cancellationToken)
             .ConfigureAwait(true);
-        return await _activityReportHtmlRenderer
+
+        // TODO::Retrieve HTTML document and use HtmlManager to write it to file
+        HtmlDocument htmlDocument = await _activityReportHtmlRenderer
             .RenderAsync(report, options, cancellationToken)
             .ConfigureAwait(true);
+
+        if (outputTarget is not ReportOutputTarget.PdfFromGeneratedHtml)
+        {
+            // TOTDO::Use factory
+            _ = new HtmlExporterArgs(
+                htmlDocument,
+                options.OutputDirectoryPath,
+                report.ReportId);
+            // TODO::Write HTML document to file
+            _htmlExporter.ExportAsync(report, options);
+        }
     }
 
     /// <summary>
@@ -283,14 +306,15 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
     /// <param name="outputTarget">The requested View C output target.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The generated HTML report package.</returns>
-    public async Task<PdfExportRequest> CreateTrainingReportExportRequestAsync(
+    public async Task<PdfExportRequest> CreatePdfExportRequestAsync(
         ExportData exportData,
         ReportOutputTarget outputTarget,
         CancellationToken cancellationToken)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(exportData);
+        ArgumentExceptionAdvanced.ThrowIfTrue(outputTarget is ReportOutputTarget.HtmlOnly, "Output target must be PDF or HTML and PDF.");
 
-        HtmlReportPackage reportPackage = await PrepareHumanReadableReportAsync(
+        HtmlReportPackage reportPackage = await CreateHtmlReportAsync(
             exportData,
             ReportOutputTarget.PdfFromGeneratedHtml,
             CancellationToken.None);
@@ -299,11 +323,13 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
             pdfFilePath,
             new Uri(reportPackage.HtmlFilePath),
             reportPackage.PageSettings,
-            TimeSpan.FromSeconds(60));
+            TimeSpan.FromSeconds(60),
+            3);
 
         return exportRequest;
-
     }
+
+    public void UpdateManifestWithPdfEntry() => throw new NotImplementedException();
 
     private async Task<bool> AddFitFilePathAsync(string fitFilePath, CancellationToken cancellationToken)
     {

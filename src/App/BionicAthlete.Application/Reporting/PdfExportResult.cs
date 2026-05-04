@@ -8,7 +8,8 @@ using System.Collections.Immutable;
 /// <param name="PdfFilePath">Generated PDF file path.</param>
 /// <param name="PdfFileLength">Generated PDF file length in bytes.</param>
 /// <param name="Diagnostics">Non-fatal diagnostics from settings mapping or manifest updates.</param>
-public sealed record ReportPdfExportResult(
+public sealed record PdfExportResult(
+    bool IsSuccessful,
     string PdfFilePath,
     long PdfFileLength,
     ImmutableArray<ReportDiagnostic> Diagnostics);

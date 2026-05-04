@@ -19,7 +19,7 @@ public sealed class HtmlContentExportRequest : PdfExportRequest
     public HtmlContentExportRequest(
         string outputPdfFilePath,
         HtmlDocument htmlDocument,
-        PdfPageSettings pageSettings,
+        PageSettings pageSettings,
         TimeSpan timeout,
         int retryCount) : base(outputPdfFilePath, pageSettings, timeout, retryCount)
     {

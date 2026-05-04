@@ -11,7 +11,7 @@ public interface IReportPdfExporter
     /// <param name="request">The PDF export request.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The generated PDF result.</returns>
-    Task<ReportPdfExportResult> ExportToPdfAsync(
+    Task<PdfExportResult> ExportToPdfAsync(
         PdfExportRequest request,
         CancellationToken cancellationToken = default);
 }

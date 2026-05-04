@@ -17,7 +17,7 @@ public sealed class UriExportRequest : PdfExportRequest
     public UriExportRequest(
         string outputPdfFilePath,
         Uri sourceUri,
-        PdfPageSettings pageSettings,
+        PageSettings pageSettings,
         TimeSpan timeout,
         int retryCount) : base(outputPdfFilePath, pageSettings, timeout, retryCount)
     {

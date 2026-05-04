@@ -6,7 +6,7 @@ namespace BionicAthlete.Application.Reporting;
 public enum ReportPagePreset
 {
     /// <summary>
-    /// A custom page size supplied by <see cref="PdfPageSettings"/>.
+    /// A custom page size supplied by <see cref="PageSettings"/>.
     /// </summary>
     Custom = 0,
 

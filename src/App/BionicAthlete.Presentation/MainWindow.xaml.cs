@@ -194,7 +194,7 @@ public partial class MainWindow : Window, IDisposableAdvanced
             return;
         }
 
-        _ = await _viewModel.PrepareHumanReadableReportAsync(
+        _ = await _viewModel.CreateHtmlReportAsync(
             _viewModel.SelectedExportData,
             ReportOutputTarget.HtmlOnly,
             CancellationToken.None);
@@ -207,18 +207,27 @@ public partial class MainWindow : Window, IDisposableAdvanced
             return;
         }
 
+        int numberOfOperations = 3; // 1. Create export request, 2. Export to PDF, 3. Update manifest with PDF entry
         IProgress<ProgressData> progressReporter = _viewModel.StartNewObservableProgressReporting(
             initialMessage: "Preparing report for PDF export...",
-            operationTitle: "Exporting PDF Report");
-        PdfExportRequest exportRequest = await _viewModel.CreateTrainingReportExportRequestAsync(
+            operationTitle: "Exporting PDF Report",
+            maxValue: numberOfOperations);
+        PdfExportRequest exportRequest = await _viewModel.CreatePdfExportRequestAsync(
             _viewModel.SelectedExportData,
             ReportOutputTarget.PdfFromGeneratedHtml,
             CancellationToken.None).ConfigureAwait(true);
-        _ = await _activityReportPdfExporter.ExportToPdfAsync(exportRequest, CancellationToken.None);
+        progressReporter.Report(new ProgressData { Message = "PDF export request created. Exporting...", Progress = 1 });
+        PdfExportResult exportResult = await _activityReportPdfExporter.ExportToPdfAsync(exportRequest, CancellationToken.None);
+        progressReporter.Report(new ProgressData { Message = "PDF export completed...", Progress = 2 });
+        if (exportResult.IsSuccessful)
+        {
+            // TODO::Fix/implement manifest update using the IReportManifestManager implementation to include PDF artifact after export.
+            // Invoke on view model when export completes instead of directly in the view.
+            progressReporter.Report(new ProgressData { Message = "Updating manifest with PDF entry...", Progress = 3 });
+            _viewModel.UpdateManifestWithPdfEntry();
+            HtmlReportPackage packageWithPdf = exportRequest.ReportPackage with { PdfFilePath = exportRequest.OutputPdfFilePath };
+        }
 
-        // TODO::Fix/implement manifest update using the IReportManifestManager implementation to include PDF artifact after export.
-        // Invoke on view model when export completes instead of directly in the view.
-        HtmlReportPackage packageWithPdf = exportRequest.ReportPackage with { PdfFilePath = exportRequest.OutputPdfFilePath };
         await _manifestUpdater.AddPdfArtifactAsync(packageWithPdf, cancellationToken).ConfigureAwait(true);
     }
 

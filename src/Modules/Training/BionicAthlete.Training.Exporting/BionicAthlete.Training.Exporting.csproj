@@ -16,4 +16,8 @@
     <ProjectReference Include="..\BionicAthlete.Training.Domain\BionicAthlete.Training.Domain.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Infrastructure\" />
+  </ItemGroup>
+
 </Project>

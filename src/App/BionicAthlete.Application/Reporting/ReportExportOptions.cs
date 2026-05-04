@@ -25,7 +25,7 @@ public sealed class ReportExportOptions
         CultureInfo culture,
         TimeZoneInfo localTimeZone,
         DateTimeOffset exportTimestampUtc,
-        PdfPageSettings pageSettings,
+        PageSettings pageSettings,
         bool includeProvenanceNotes = true)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(outputDirectoryPath);
@@ -70,7 +70,7 @@ public sealed class ReportExportOptions
     /// <summary>
     /// Gets the print/page settings for the report package.
     /// </summary>
-    public PdfPageSettings PageSettings { get; }
+    public PageSettings PageSettings { get; }
 
     /// <summary>
     /// Gets a value indicating whether provenance and data-quality notes should be emitted.

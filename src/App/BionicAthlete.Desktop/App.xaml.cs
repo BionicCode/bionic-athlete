@@ -10,14 +10,16 @@ using System.Text;
 using System.Windows;
 using System.Windows.Markup;
 using System.Windows.Threading;
+using BionicAthlete.Application.Exporting;
+using BionicAthlete.Application.Reporting;
 using BionicAthlete.FileSystem.Abstractions;
 using BionicAthlete.Infrastructure.FileSystem;
-using BionicAthlete.Infrastructure.FileSystem.Reporting;
 using BionicAthlete.Presentation;
 using BionicAthlete.Presentation.Reporting;
 using BionicAthlete.Shared.Logging;
 using BionicAthlete.Training.Application.Caching;
 using BionicAthlete.Training.Application.Decoding;
+using BionicAthlete.Training.Application.Reporting;
 using BionicAthlete.Training.Exporting;
 using BionicAthlete.Training.Infrastructure.GarminFit.Caching;
 using BionicAthlete.Training.Infrastructure.GarminFit.Decoding;
@@ -164,8 +166,7 @@ public partial class App : Application
             .AddSingleton<IReportChartRenderer, InlineSvgReportChartRenderer>()
             .AddSingleton<IActivityReportProjector, ActivityReportProjector>()
             .AddSingleton<IReportHtmlRenderer, ReportHtmlRenderer>()
-            .AddSingleton<IReportManifestManager, ReportManifestManager>()
-            .AddSingleton<IActivityReportPdfExporter, WebView2PdfExporter>()
+            .AddSingleton<IReportPdfExporter, WebView2PdfExporter>()
             .AddKeyedSingleton<IFitActivityDecoder, GarminFitActivityDecoder>(CoreDecoderServiceKey)
             .AddSingleton<IFitActivityCache, InMemoryFitActivityCache>()
             .AddSingleton<IFitActivityDecoder>(serviceProvider =>
@@ -174,9 +175,12 @@ public partial class App : Application
                         serviceProvider.GetRequiredKeyedService<IFitActivityDecoder>(CoreDecoderServiceKey),
                         serviceProvider.GetRequiredService<IFitActivityCache>());
                 })
-            .AddFactory<IFitActivityDecoder>(ServiceLifetime.Singleton)
+            .AddKeyedSingleton<IFitActivityReportManifestHandler, FitActivityReportManifestHandler>()
+            .AddKeyedSingleton<IFileManager<string>, TextFileManager>()
             .AddSingleton<MainViewModel>()
-            .AddSingleton<MainWindow>();
+            .AddSingleton<MainWindow>()
+            .AddFactory<IFitActivityDecoder>(ServiceLifetime.Singleton)
+            .AddFactory<HtmlExporterArgs>();
 
         _host = hostBuilder.Build();
         _host.Start();

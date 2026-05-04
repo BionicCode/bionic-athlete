@@ -7,7 +7,7 @@ internal static class WebView2PrintSettingsMapper
 {
     public static CoreWebView2PrintSettings CreatePrintSettings(
         CoreWebView2Environment environment,
-        PdfPageSettings pageSettings)
+        PageSettings pageSettings)
     {
         ArgumentNullException.ThrowIfNull(environment);
         ArgumentNullException.ThrowIfNull(pageSettings);

@@ -27,7 +27,7 @@ public sealed partial class WebView2PdfExporter : IReportPdfExporter
     }
 
     /// <inheritdoc />
-    public async Task<ReportPdfExportResult> ExportToPdfAsync(
+    public async Task<PdfExportResult> ExportToPdfAsync(
         PdfExportRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -76,16 +76,11 @@ public sealed partial class WebView2PdfExporter : IReportPdfExporter
         }
 
         FileInfo pdfFileInfo = new(request.OutputPdfFilePath);
-        if (!pdfFileInfo.Exists
-            || pdfFileInfo.Length == 0)
-        {
-            throw new PdfExportException("WebView2 completed PDF generation but did not produce a non-empty PDF file.");
-        }
-
-        return new ReportPdfExportResult(
-            request.OutputPdfFilePath,
-            pdfFileInfo.Length,
-            ImmutableArray<ReportDiagnostic>.Empty);
+        return new PdfExportResult(
+            IsSuccessful: pdfFileInfo.Exists,
+            PdfFilePath: request.OutputPdfFilePath,
+            PdfFileLength: pdfFileInfo.Length,
+            Diagnostics: ImmutableArray<ReportDiagnostic>.Empty);
     }
 
     private static bool IsAllowedPdfRenderScheme(Uri uri) => uri.Scheme == Uri.UriSchemeFile

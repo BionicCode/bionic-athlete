@@ -39,6 +39,6 @@ public sealed class HtmlManager
             diagnostics);
 
         string manifestFilePath = Path.Combine(reportDirectoryPath, "report-manifest.json");
-        await ReportManifestManager.WriteManifestAsync(manifestFilePath, reportManifest, cancellationToken).ConfigureAwait(false);
+        await ReportManifestHandler.WriteManifestAsync(manifestFilePath, reportManifest, cancellationToken).ConfigureAwait(false);
     }
 }

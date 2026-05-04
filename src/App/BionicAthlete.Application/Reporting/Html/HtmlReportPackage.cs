@@ -19,5 +19,5 @@ public sealed record HtmlReportPackage(
     string ManifestFilePath,
     string? PdfFilePath,
     ReportOutputTarget OutputTarget,
-    PdfPageSettings PageSettings,
+    PageSettings PageSettings,
     ImmutableArray<ReportDiagnostic> Diagnostics);

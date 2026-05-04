@@ -1,17 +1,22 @@
-﻿namespace BionicAthlete.Application.Reporting;
+﻿namespace BionicAthlete.Training.Application.Reporting;
 
 using System.Collections.Immutable;
+using BionicAthlete.Application.Reporting;
+using BionicAthlete.FileSystem.Abstractions;
+using BionicCode.Utilities.Net;
 
-public static class ReportManifestCreator
+public class FitActivityReportManifestHandler : ReportManifestHandler, IFitActivityReportManifestHandler
 {
-    public static ReportManifest CreateManifest(
+    public override ReportManifest CreateManifest(
         ReportInfo reportInfo,
         bool includePdfArtifact)
     {
+        ArgumentNullExceptionAdvanced.ThrowIfNull(reportInfo);
+
         ImmutableArray<ReportManifestArtifact>.Builder artifacts = ImmutableArray.CreateBuilder<ReportManifestArtifact>();
         artifacts.Add(new ReportManifestArtifact("HtmlReport", "activity-report.html", "text/html"));
         artifacts.Add(new ReportManifestArtifact("ReportManifest", "report-manifest.json", "application/json"));
-        if (includePdfArtifact && !string.IsNullOrWhiteSpace(package.PdfFilePath))
+        if (includePdfArtifact)
         {
             artifacts.Add(new ReportManifestArtifact("PdfReport", "activity-report.pdf", "application/pdf"));
         }
@@ -29,9 +34,8 @@ public static class ReportManifestCreator
             reportInfo.Diagnostics);
     }
 
-    public static ReportManifest CreateManifestForUpdate(string reportFilePath, ReportManifest currentManifest)
+    public override ReportManifest UpdateManifest(ReportManifest currentManifest)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(reportFilePath);
         ArgumentNullException.ThrowIfNull(currentManifest);
 
         ImmutableArray<ReportManifestArtifact>.Builder artifacts = ImmutableArray.CreateBuilder<ReportManifestArtifact>();

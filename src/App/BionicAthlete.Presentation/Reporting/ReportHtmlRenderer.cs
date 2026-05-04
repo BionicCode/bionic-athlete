@@ -28,7 +28,7 @@ public sealed class ReportHtmlRenderer : IReportHtmlRenderer
     }
 
     /// <inheritdoc />
-    public async Task<HtmlReportPackage> RenderAsync(
+    public async Task<HtmlDocument> RenderAsync(
         Report report,
         ReportExportOptions options,
         CancellationToken cancellationToken = default)

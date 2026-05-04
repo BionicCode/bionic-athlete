@@ -40,6 +40,8 @@ public interface IFileManager<TValue>
     /// <param name="isOverWriteAllowed">Indicates whether the file should be overwritten if it already exists.</param>
     Task WriteAsync(TValue value, string filePath, bool isOverWriteAllowed);
     Task WriteAsync(TValue value, Encoding encoding, string filePath, bool isOverWriteAllowed, CancellationToken cancellationToken);
+    void Write(TValue value, Encoding encoding, string filePath, bool isOverWriteAllowed);
     Task<TValue> ReadAsync(string filePath, Encoding encoding, CancellationToken cancellationToken);
+    TValue Read(string filePath, Encoding encoding);
     Task<TValue> ReadAsync(string filePath, CancellationToken cancellationToken);
 }

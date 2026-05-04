@@ -13,7 +13,7 @@ public abstract class PdfExportRequest
     /// <param name="sourceUri">The <see cref="Uri"/> that references the source which must be exported to PDF.</param>
     protected PdfExportRequest(
         string outputPdfFilePath,
-        PdfPageSettings pageSettings,
+        PageSettings pageSettings,
         TimeSpan timeout,
         int retryCount)
     {
@@ -34,7 +34,7 @@ public abstract class PdfExportRequest
     /// <summary>
     /// Gets the neutral page settings for this operation.
     /// </summary>
-    public PdfPageSettings PageSettings { get; }
+    public PageSettings PageSettings { get; }
 
     /// <summary>
     /// Specifies the number of retries if export failed due to a timeout or WebView2 process failure.
