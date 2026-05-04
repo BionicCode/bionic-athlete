@@ -35,6 +35,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
     private readonly Func<IFitActivityDecoder> _cachingFitActivityDecoderFactory;
     private readonly IFitActivityReportManifestHandler _manifestHandler;
     private readonly IHtmlExporter _htmlExporter;
+    private readonly IHtmlExporterArgsFactory _htmlExporterArgsFactory;
     private readonly Dictionary<string, ExportData> _fitFilePathToExportDataLookup;
     private readonly Dictionary<string, string> _pdfFilePathToManifestFilePathMap;
     private readonly string _allowedFileExtensions;
@@ -54,7 +55,8 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
         ITemporaryFileManager temporaryFileManager,
         Func<IFitActivityDecoder> cachingFitActivityDecoderFactory,
         IFitActivityReportManifestHandler manifestHandler,
-        IHtmlExporter htmlExporter)
+        IHtmlExporter htmlExporter,
+        IHtmlExporterArgsFactory htmlExporterArgsFactory)
     {
         _temporaryFileManager = temporaryFileManager;
         _zipArchiveManager = zipArchiveManager;
@@ -64,6 +66,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
         _cachingFitActivityDecoderFactory = cachingFitActivityDecoderFactory;
         _manifestHandler = manifestHandler;
         _htmlExporter = htmlExporter;
+        _htmlExporterArgsFactory = htmlExporterArgsFactory;
         _addFitFilesSemaphore = new SemaphoreSlim(1, 1);
         _fitFilePathsValidator = IsFitFilePathsValid();
         _filePathsValidator = IsFilePathsValid();
@@ -262,6 +265,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
     public async Task<HtmlReportPackage> CreateHtmlReportAsync(
         ExportData exportData,
         ReportOutputTarget outputTarget,
+        bool isOverWriteExistingAllowed,
         CancellationToken cancellationToken)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(exportData);
@@ -286,13 +290,13 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
 
         if (outputTarget is not ReportOutputTarget.PdfFromGeneratedHtml)
         {
-            // TOTDO::Use factory
-            _ = new HtmlExporterArgs(
+            var exportUri = new Uri(Path.Combine(outputDirectoryPath, exportData.FitFileDescriptor.Name));
+            HtmlExporterArgs htmlExporterArgs = _htmlExporterArgsFactory.Create(
                 htmlDocument,
-                options.OutputDirectoryPath,
-                report.ReportId);
-            // TODO::Write HTML document to file
-            _htmlExporter.ExportAsync(report, options);
+                exportUri,
+                isOverWriteExistingAllowed,
+                Encoding.UTF8);
+            await _htmlExporter.ExportAsync(htmlExporterArgs, cancellationToken);
         }
     }
 

@@ -10,7 +10,6 @@ using System.Text;
 using System.Windows;
 using System.Windows.Markup;
 using System.Windows.Threading;
-using BionicAthlete.Application.Exporting;
 using BionicAthlete.Application.Reporting;
 using BionicAthlete.FileSystem.Abstractions;
 using BionicAthlete.Infrastructure.FileSystem;
@@ -179,8 +178,8 @@ public partial class App : Application
             .AddKeyedSingleton<IFileManager<string>, TextFileManager>()
             .AddSingleton<MainViewModel>()
             .AddSingleton<MainWindow>()
-            .AddFactory<IFitActivityDecoder>(ServiceLifetime.Singleton)
-            .AddFactory<HtmlExporterArgs>();
+            .AddSingleton<IHtmlExporterArgsFactory, HtmlFileExporterArgsFactory>()
+            .AddFactory<IFitActivityDecoder>(ServiceLifetime.Singleton);
 
         _host = hostBuilder.Build();
         _host.Start();
