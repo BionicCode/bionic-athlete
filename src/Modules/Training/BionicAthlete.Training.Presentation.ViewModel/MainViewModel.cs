@@ -33,7 +33,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
     private readonly IReportHtmlRenderer _activityReportHtmlRenderer;
     private readonly ITemporaryFileManager _temporaryFileManager;
     private readonly Func<IFitActivityDecoder> _cachingFitActivityDecoderFactory;
-    private readonly IFitActivityReportManifestHandler _manifestHandler;
+    private readonly IReportManifestHandler _manifestHandler;
     private readonly IHtmlExporter _htmlExporter;
     private readonly IHtmlExporterArgsFactory _htmlExporterArgsFactory;
     private readonly Dictionary<string, ExportData> _fitFilePathToExportDataLookup;
@@ -54,7 +54,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
         IReportHtmlRenderer activityReportHtmlRenderer,
         ITemporaryFileManager temporaryFileManager,
         Func<IFitActivityDecoder> cachingFitActivityDecoderFactory,
-        IFitActivityReportManifestHandler manifestHandler,
+        IReportManifestHandler manifestHandler,
         IHtmlExporter htmlExporter,
         IHtmlExporterArgsFactory htmlExporterArgsFactory)
     {
@@ -256,11 +256,11 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
     public void SetAllLapFieldsSelected(bool isSelected) => SelectedExportData?.SetAllLapFieldsSelected(isSelected);
 
     /// <summary>
-    /// Creates the neutral View C HTML report package for the selected decoded activity and saves it to the specified <paramref name="outputTarget"/>.
+    /// Creates the neutral View C HTML report package for the selected decoded activity and saves it to the specified <paramref fileNameWithoutExtension="outputTarget"/>.
     /// </summary>
-    /// <param name="exportData">The decoded activity and UI-facing batch state to export.</param>
-    /// <param name="outputTarget">The requested View C output target.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <param fileNameWithoutExtension="exportData">The decoded activity and UI-facing batch state to export.</param>
+    /// <param fileNameWithoutExtension="outputTarget">The requested View C output target.</param>
+    /// <param fileNameWithoutExtension="cancellationToken">Cancellation token.</param>
     /// <returns>The generated HTML report package.</returns>
     public async Task<HtmlReportPackage> CreateHtmlReportAsync(
         ExportData exportData,
@@ -290,25 +290,30 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
 
         if (outputTarget is not ReportOutputTarget.PdfFromGeneratedHtml)
         {
-            var exportUri = new Uri(Path.Combine(outputDirectoryPath, exportData.FitFileDescriptor.Name));
+            string fileNameWithoutExtension = exportData.FitFileDescriptor.Name;
+            string fileName = $"{fileNameWithoutExtension}.html";
+            var exportUri = new Uri(Path.Combine(outputDirectoryPath, fileName));
             HtmlExporterArgs htmlExporterArgs = _htmlExporterArgsFactory.Create(
                 htmlDocument,
                 exportUri,
                 isOverWriteExistingAllowed,
                 Encoding.UTF8);
             await _htmlExporter.ExportAsync(htmlExporterArgs, cancellationToken);
+
+            // TODO::Create maifest
+            _manifestHandler.CreateManifest()
         }
     }
 
     /// <summary>
     /// Creates the neutral View C HTML report package for the selected decoded activity 
-    /// and saves it to the specified <paramref name="outputTarget"/> 
+    /// and saves it to the specified <paramref fileNameWithoutExtension="outputTarget"/> 
     /// and returns a <see cref="PdfExportRequest"/> which can be used to finalize 
     /// the export using the <see cref="IReportPdfExporter"/> export service.
     /// </summary>
-    /// <param name="exportData">The decoded activity and UI-facing batch state to export.</param>
-    /// <param name="outputTarget">The requested View C output target.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <param fileNameWithoutExtension="exportData">The decoded activity and UI-facing batch state to export.</param>
+    /// <param fileNameWithoutExtension="outputTarget">The requested View C output target.</param>
+    /// <param fileNameWithoutExtension="cancellationToken">Cancellation token.</param>
     /// <returns>The generated HTML report package.</returns>
     public async Task<PdfExportRequest> CreatePdfExportRequestAsync(
         ExportData exportData,
@@ -405,7 +410,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
     private string CreateExportOutputDirectory(string fitFileNameWithoutExtension)
     {
         // Keep generated CSV file names stable inside the archive while isolating each export run in its own
-        // temporary directory to avoid collisions between activities that share the same source file name.
+        // temporary directory to avoid collisions between activities that share the same source file fileNameWithoutExtension.
         string directoryName = _temporaryFileManager.MakeFileNameUnique(fitFileNameWithoutExtension);
         string exportOutputDirectoryPath = Path.Combine(_temporaryFileManager.TemporaryDirectoryPath, directoryName);
         _ = Directory.CreateDirectory(exportOutputDirectoryPath);

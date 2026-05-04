@@ -9,18 +9,14 @@ public class FitActivityReportManifestHandler : ReportManifestHandler, IFitActiv
 {
     public override ReportManifest CreateManifest(
         ReportInfo reportInfo,
-        bool includePdfArtifact)
+        string htmlReportFileName)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(reportInfo);
 
         ImmutableArray<ReportManifestArtifact>.Builder artifacts = ImmutableArray.CreateBuilder<ReportManifestArtifact>();
-        artifacts.Add(new ReportManifestArtifact("HtmlReport", "activity-report.html", "text/html"));
-        artifacts.Add(new ReportManifestArtifact("ReportManifest", "report-manifest.json", "application/json"));
-        if (includePdfArtifact)
-        {
-            artifacts.Add(new ReportManifestArtifact("PdfReport", "activity-report.pdf", "application/pdf"));
-        }
-
+        artifacts.Add(new ReportManifestArtifact("HtmlReport", htmlReportFileName, "text/html"));
+        artifacts.Add(new ReportManifestArtifact("ReportManifest", ArtifactInfo.ManifestFileName, "application/json"));
+        
         return new ReportManifest(
             reportInfo.ReportSchemaVersion,
             reportInfo.RendererVersion,
@@ -34,13 +30,13 @@ public class FitActivityReportManifestHandler : ReportManifestHandler, IFitActiv
             reportInfo.Diagnostics);
     }
 
-    public override ReportManifest UpdateManifest(ReportManifest currentManifest)
+    public override ReportManifest UpdateManifest(ReportManifest currentManifest, ReportManifestArtifact reportManifestArtifact)
     {
         ArgumentNullException.ThrowIfNull(currentManifest);
 
         ImmutableArray<ReportManifestArtifact>.Builder artifacts = ImmutableArray.CreateBuilder<ReportManifestArtifact>();
         artifacts.AddRange(currentManifest.Artifacts.Where(static artifact => artifact.ArtifactKind != "PdfReport"));
-        artifacts.Add(new ReportManifestArtifact("PdfReport", "activity-report.pdf", "application/pdf"));
+        artifacts.Add(reportManifestArtifact);
 
         return currentManifest with { Artifacts = artifacts.ToImmutable() };
     }
