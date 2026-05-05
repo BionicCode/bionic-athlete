@@ -23,6 +23,7 @@ using BionicAthlete.Training.Infrastructure.GarminFit.Caching;
 using BionicAthlete.Training.Infrastructure.GarminFit.Decoding;
 using BionicAthlete.Training.Presentation.ViewModel;
 using BionicAthlete.Training.Reporting;
+using BionicCode.Utilities.Net;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Serilog;
@@ -177,6 +178,7 @@ public partial class App : Application
             .AddKeyedSingleton<IFileManager<string>, TextFileManager>()
             .AddSingleton<MainViewModel>()
             .AddSingleton<MainWindow>()
+            .AddSingleton<IMimeMediaTypeMapProvider, AspNetCoreMimeMediaTypeMapProvider>()
             .AddSingleton<IHtmlExporterArgsFactory, HtmlFileExporterArgsFactory>()
             .AddFactory<IFitActivityDecoder>(ServiceLifetime.Singleton);
 

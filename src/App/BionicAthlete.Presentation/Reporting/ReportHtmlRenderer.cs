@@ -13,7 +13,7 @@ using BionicAthlete.Application.Reporting.Html;
 public sealed class ReportHtmlRenderer : IReportHtmlRenderer
 {
     private const int ReportSchemaVersion = 1;
-    private const string RendererVersion = "view-c-html-v1";
+    private const string RendererVersion = "fit-activity-view-c-html-v1";
     private readonly IReportChartRenderer _chartRenderer;
 
     /// <summary>

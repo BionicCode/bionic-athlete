@@ -5,18 +5,19 @@ namespace BionicAthlete.Application.Reporting;
 /// </summary>
 public enum ReportPagePreset
 {
+    Undefined = 0,
     /// <summary>
     /// A custom page size supplied by <see cref="PageSettings"/>.
     /// </summary>
-    Custom = 0,
+    Custom = 1,
 
     /// <summary>
     /// A4 portrait page preset.
     /// </summary>
-    A4Portrait = 1,
+    A4Portrait = 2,
 
     /// <summary>
     /// US Letter portrait page preset.
     /// </summary>
-    UsLetterPortrait = 2
+    UsLetterPortrait = 3
 }

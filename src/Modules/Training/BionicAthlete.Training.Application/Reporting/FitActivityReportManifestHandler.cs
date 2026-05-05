@@ -8,7 +8,7 @@ using BionicCode.Utilities.Net;
 public class FitActivityReportManifestHandler : ReportManifestHandler, IFitActivityReportManifestHandler
 {
     public override ReportManifest CreateManifest(
-        ReportInfo reportInfo,
+        ReportDescriptor reportInfo,
         string htmlReportFileName)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(reportInfo);

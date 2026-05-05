@@ -27,7 +27,7 @@ public class ReportManifestHandler : IReportManifestHandler
         await File.WriteAllTextAsync(manifestFilePath, json, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
     }
 
-    public ReportManifest CreateManifest(ReportInfo reportInfo)
+    public ReportManifest CreateManifest(ReportDescriptor reportInfo)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(reportInfo);
 
@@ -48,7 +48,7 @@ public class ReportManifestHandler : IReportManifestHandler
     }
 
     /// <inheritdoc />
-    public async Task AddArtifactToManifestAsync(
+    public async Task AddOrUpdateArtifactToManifestAsync(
         string manifestFilePath,
         string relativeArtifactFilePath,
         string artifactKind,
@@ -75,6 +75,7 @@ public class ReportManifestHandler : IReportManifestHandler
     public ReportManifest UpdateManifest(ReportManifest currentManifest, ReportManifestArtifact reportManifestArtifact)
     {
         ArgumentNullException.ThrowIfNull(currentManifest);
+        ArgumentNullExceptionAdvanced.ThrowIfDefault(reportManifestArtifact);
 
         ImmutableArray<ReportManifestArtifact>.Builder artifacts = ImmutableArray.CreateBuilder<ReportManifestArtifact>();
         artifacts.AddRange(currentManifest.Artifacts.Where(artifact => !artifact.ArtifactKind.Equals(reportManifestArtifact.ArtifactKind, StringComparison.OrdinalIgnoreCase)));

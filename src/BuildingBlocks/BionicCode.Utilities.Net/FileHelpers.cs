@@ -1,6 +1,6 @@
-﻿namespace BionicAthlete.Infrastructure.FileSystem;
+﻿namespace BionicCode.Utilities.Net;
 
-internal static class FileHelpers
+public static class FileHelpers
 {
     /// <summary>
     /// Provides default options for creating a new file with read and write access, no sharing, and asynchronous
@@ -60,4 +60,6 @@ internal static class FileHelpers
         Share = FileShare.None,
         Options = FileOptions.Asynchronous | FileOptions.SequentialScan
     };
+
+    public static required string GetFileName
 }

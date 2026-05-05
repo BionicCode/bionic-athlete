@@ -8,18 +8,19 @@ namespace BionicAthlete.Application.Reporting;
 /// </remarks>
 public enum ReportOutputTarget
 {
+    Undefined = 0,
     /// <summary>
     /// Generate only <c>activity-report.html</c> and <c>report-manifest.json</c>.
     /// </summary>
-    HtmlOnly = 0,
+    HtmlOnly = 1,
 
     /// <summary>
     /// Generate the HTML package and request a PDF from that generated HTML.
     /// </summary>
-    PdfFromGeneratedHtml = 1,
+    PdfFromGeneratedHtml = 2,
 
     /// <summary>
     /// Generate the HTML package and a PDF while explicitly communicating that both outputs are desired.
     /// </summary>
-    HtmlAndPdf = 2
+    HtmlAndPdf = 3
 }

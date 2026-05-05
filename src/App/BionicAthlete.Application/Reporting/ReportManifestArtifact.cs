@@ -3,7 +3,6 @@ namespace BionicAthlete.Application.Reporting;
 /// <summary>
 /// A file written as part of a report package.
 /// </summary>
-/// <param name="ArtifactKind">Artifact kind, such as <c>HtmlReport</c> or <c>PdfReport</c>.</param>
+/// <param name="ArtifactKind">The <see cref="ArtifactKind"/> kind, such as <see cref="ArtifactKind.HtmlReport"/> or <see cref="ArtifactKind.PdfReport"/>.</param>
 /// <param name="RelativePath">Path relative to the report folder.</param>
-/// <param name="MediaType">Media type for the artifact.</param>
-public sealed record ReportManifestArtifact(string ArtifactKind, string RelativePath, string MediaType);
+public readonly record struct ReportManifestArtifact(ArtifactKind ArtifactKind, string RelativePath);

@@ -10,6 +10,7 @@
     <ProjectReference Include="..\..\App\BionicAthlete.Application\BionicAthlete.Application.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\BionicAthlete.FileSystem.Abstractions\BionicAthlete.FileSystem.Abstractions.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\BionicAthlete.Shared\BionicAthlete.Shared.csproj" />
+    <ProjectReference Include="..\..\BuildingBlocks\BionicCode.Utilities.Net\BionicCode.Utilities.Net.Common.csproj" />
   </ItemGroup>
 
 </Project>

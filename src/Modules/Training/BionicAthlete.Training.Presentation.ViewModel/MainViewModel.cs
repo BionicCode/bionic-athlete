@@ -300,8 +300,9 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
                 Encoding.UTF8);
             await _htmlExporter.ExportAsync(htmlExporterArgs, cancellationToken);
 
-            // TODO::Create maifest
-            _manifestHandler.CreateManifest()
+            ReportDescriptor reportDescriptor = ReportDescriptor.Create(htmlDocument, report, outputTarget);
+            ReportManifest artficatsManifest = _manifestHandler.CreateManifest(reportDescriptor);
+            _manifestHandler
         }
     }
 
