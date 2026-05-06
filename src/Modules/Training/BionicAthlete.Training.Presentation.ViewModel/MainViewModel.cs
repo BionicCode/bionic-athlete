@@ -13,7 +13,6 @@ using BionicAthlete.FileSystem.Abstractions;
 using BionicAthlete.Training.Application.Decoding;
 using BionicAthlete.Training.Application.Reporting;
 using BionicAthlete.Training.Exporting;
-using BionicAthlete.Training.Reporting;
 using BionicCode.Utilities.Net;
 
 public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
@@ -21,7 +20,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
     private const string FitFileExtension = ".fit";
     private const string CoachingContextFileName = "coach_context.md";
     private string _destinationFolder;
-    private ExportData? _selectedExportData;
+    private ObservableFitActivityExportData? _selectedExportData;
     private string? _selectedFitFilePath;
     private readonly PropertyValidationDelegate<ObservableFileSystemPathHashSet> _fitFilePathsValidator;
     private readonly PropertyValidationDelegate<string> _filePathsValidator;
@@ -29,17 +28,13 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
     private readonly SetValueOptions _setValueOptions;
     private readonly IArchiveManager _zipArchiveManager;
     private readonly ICsvActivityExporter _csvActivityExporter;
-    private readonly IActivityReportProjector _activityReportProjector;
-    private readonly IReportHtmlRenderer _activityReportHtmlRenderer;
     private readonly ITemporaryFileManager _temporaryFileManager;
     private readonly Func<IFitActivityDecoder> _cachingFitActivityDecoderFactory;
-    private readonly IReportManifestHandler _manifestHandler;
-    private readonly IHtmlExporter _htmlExporter;
-    private readonly IHtmlExporterArgsFactory _htmlExporterArgsFactory;
-    private readonly Dictionary<string, ExportData> _fitFilePathToExportDataLookup;
+    private readonly Dictionary<string, ObservableFitActivityExportData> _fitFilePathToExportDataLookup;
     private readonly Dictionary<string, string> _pdfFilePathToManifestFilePathMap;
     private readonly string _allowedFileExtensions;
     private readonly SemaphoreSlim _addFitFilesSemaphore;
+    private readonly FitActivityReportCreator _fitActivityReportCreator;
     private static readonly FileStreamOptions s_createFileStreamOptions = new()
     {
         Mode = FileMode.CreateNew,
@@ -56,17 +51,13 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
         Func<IFitActivityDecoder> cachingFitActivityDecoderFactory,
         IReportManifestHandler manifestHandler,
         IHtmlExporter htmlExporter,
-        IHtmlExporterArgsFactory htmlExporterArgsFactory)
+        IHtmlExporterArgsFactory htmlExporterArgsFactory,
+        FitActivityReportCreator fitActivityReportCreator)
     {
         _temporaryFileManager = temporaryFileManager;
         _zipArchiveManager = zipArchiveManager;
         _csvActivityExporter = csvActivityExporter;
-        _activityReportProjector = activityReportProjector;
-        _activityReportHtmlRenderer = activityReportHtmlRenderer;
         _cachingFitActivityDecoderFactory = cachingFitActivityDecoderFactory;
-        _manifestHandler = manifestHandler;
-        _htmlExporter = htmlExporter;
-        _htmlExporterArgsFactory = htmlExporterArgsFactory;
         _addFitFilesSemaphore = new SemaphoreSlim(1, 1);
         _fitFilePathsValidator = IsFitFilePathsValid();
         _filePathsValidator = IsFilePathsValid();
@@ -81,6 +72,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
         StartNewSessionCommand = new RelayCommand(ExecuteStartNewSessionCommand, () => !((IProgressReporter)this).IsReportingProgress);
         _allowedFileExtensions = _zipArchiveManager.SupportedArchiveFileExtensions.Concat([FitFileExtension]).JoinToString();
         _pdfFilePathToManifestFilePathMap = [];
+        _fitActivityReportCreator = fitActivityReportCreator;
     }
 
 #if DEBUG
@@ -184,7 +176,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
         {
             for (int index = ExportData.Count - 1; index >= 0; index--)
             {
-                ExportData exportData = ExportData[index];
+                ObservableFitActivityExportData exportData = ExportData[index];
                 if (addedFitFilePathsLookup.Contains(exportData.FitFilePath))
                 {
                     ExportData.RemoveAt(index);
@@ -204,7 +196,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
         }
     }
 
-    public void AddExtraFilePaths(ExportData exportData, string[] filePaths)
+    public void AddExtraFilePaths(ObservableFitActivityExportData exportData, string[] filePaths)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(exportData);
         ArgumentNullExceptionAdvanced.ThrowIfNull(filePaths);
@@ -237,7 +229,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
         {
             Debug.Assert(_fitFilePathToExportDataLookup.ContainsKey(filePath), $"File path '{filePath}' is in '{nameof(FitFilePaths)}' collection but not in '{nameof(_fitFilePathToExportDataLookup)}' lookup.");
             if (FitFilePaths.Remove(filePath)
-                && _fitFilePathToExportDataLookup.TryGetValue(filePath, out ExportData? exportData))
+                && _fitFilePathToExportDataLookup.TryGetValue(filePath, out ObservableFitActivityExportData? exportData))
             {
                 _ = _fitFilePathToExportDataLookup.Remove(filePath);
                 _ = ExportData.Remove(exportData);
@@ -263,7 +255,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
     /// <param fileNameWithoutExtension="cancellationToken">Cancellation token.</param>
     /// <returns>The generated HTML report package.</returns>
     public async Task<HtmlReportPackage> CreateHtmlReportAsync(
-        ExportData exportData,
+        ObservableFitActivityExportData exportData,
         ReportOutputTarget outputTarget,
         bool isOverWriteExistingAllowed,
         CancellationToken cancellationToken)
@@ -279,31 +271,11 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
             DateTimeOffset.UtcNow,
             PageSettings.A4Portrait);
 
-        Report report = await _activityReportProjector
-            .ProjectAsync(exportData.Activity, options, cancellationToken)
-            .ConfigureAwait(true);
+        var fitFileDescriptor = exportData.FitFileDescriptor.ToFileDescriptor();
+        var exportArgs = new FitFileExportData(fitFileDescriptor, exportData.Activity, outputDirectoryPath, options);
 
-        // TODO::Retrieve HTTML document and use HtmlManager to write it to file
-        HtmlDocument htmlDocument = await _activityReportHtmlRenderer
-            .RenderAsync(report, options, cancellationToken)
-            .ConfigureAwait(true);
-
-        if (outputTarget is not ReportOutputTarget.PdfFromGeneratedHtml)
-        {
-            string fileNameWithoutExtension = exportData.FitFileDescriptor.Name;
-            string fileName = $"{fileNameWithoutExtension}.html";
-            var exportUri = new Uri(Path.Combine(outputDirectoryPath, fileName));
-            HtmlExporterArgs htmlExporterArgs = _htmlExporterArgsFactory.Create(
-                htmlDocument,
-                exportUri,
-                isOverWriteExistingAllowed,
-                Encoding.UTF8);
-            await _htmlExporter.ExportAsync(htmlExporterArgs, cancellationToken);
-
-            ReportDescriptor reportDescriptor = ReportDescriptor.Create(htmlDocument, report, outputTarget);
-            ReportManifest artficatsManifest = _manifestHandler.CreateManifest(reportDescriptor);
-            _manifestHandler
-        }
+        // TODO::Add progress reporting and cancellation support to the report creation and export process.
+        return await _fitActivityReportCreator.CreateHtmlReportAsync(exportArgs, outputTarget, isOverWriteExistingAllowed, cancellationToken);
     }
 
     /// <summary>
@@ -317,7 +289,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
     /// <param fileNameWithoutExtension="cancellationToken">Cancellation token.</param>
     /// <returns>The generated HTML report package.</returns>
     public async Task<PdfExportRequest> CreatePdfExportRequestAsync(
-        ExportData exportData,
+        ObservableFitActivityExportData exportData,
         ReportOutputTarget outputTarget,
         CancellationToken cancellationToken)
     {
@@ -355,7 +327,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
             return false;
         }
 
-        var exportData = new ExportData(_filePathsValidator, _cachingFitActivityDecoderFactory.Invoke(), CoachingContextFileName);
+        var exportData = new ObservableFitActivityExportData(_filePathsValidator, _cachingFitActivityDecoderFactory.Invoke(), CoachingContextFileName);
         await exportData.SetFitFileAsync(fitFilePath, cancellationToken).ConfigureAwait(true);
 
         _ = FitFilePaths.Add(fitFilePath);
@@ -381,7 +353,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
             maxValue: ExportData.Count);
 
         int completedCount = 0;
-        foreach (ExportData exportData in ExportData)
+        foreach (ObservableFitActivityExportData exportData in ExportData)
         {
             exportProgressReporter.Report(new ProgressData(
                 progress: completedCount,
@@ -418,7 +390,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
         return exportOutputDirectoryPath;
     }
 
-    private string CreateReportOutputDirectory(ExportData exportData)
+    private string CreateReportOutputDirectory(ObservableFitActivityExportData exportData)
     {
         string batchName = exportData.IsAutoRenamingEnabled || string.IsNullOrWhiteSpace(exportData.BatchName)
             ? exportData.AutoRenameBatchName
@@ -433,7 +405,6 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
             duplicateCounter++;
         }
 
-        _ = Directory.CreateDirectory(outputDirectoryPath);
         return outputDirectoryPath;
     }
 
@@ -452,7 +423,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
 
     private async IAsyncEnumerable<FileBatch> EnumerateFileBatchesAsync()
     {
-        foreach (ExportData exportData in ExportData)
+        foreach (ObservableFitActivityExportData exportData in ExportData)
         {
             var fileDescriptors = exportData.EnumerateArchiveFileDescriptors().ToList();
             if (fileDescriptors.Count == 0)
@@ -526,8 +497,8 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
     public IAsyncRelayCommand ExportCommand { get; }
     public IRelayCommand StartNewSessionCommand { get; }
     public bool IsDisposed { get; private set; }
-    public ObservableCollection<ExportData> ExportData { get; private set; }
-    public ExportData? SelectedExportData
+    public ObservableCollection<ObservableFitActivityExportData> ExportData { get; private set; }
+    public ObservableFitActivityExportData? SelectedExportData
     {
         get => _selectedExportData;
         set

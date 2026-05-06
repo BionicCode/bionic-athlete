@@ -9,6 +9,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\App\BionicAthlete.Application\BionicAthlete.Application.csproj" />
     <ProjectReference Include="..\..\..\BuildingBlocks\BionicAthlete.FileSystem.Abstractions\BionicAthlete.FileSystem.Abstractions.csproj" />
+    <ProjectReference Include="..\..\..\Infrastructure\BionicAthlete.Infrastructure.FileSystem\BionicAthlete.Infrastructure.FileSystem.csproj" />
     <ProjectReference Include="..\BionicAthlete.Training.Domain\BionicAthlete.Training.Domain.csproj" />
   </ItemGroup>
 

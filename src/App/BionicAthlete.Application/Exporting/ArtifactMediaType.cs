@@ -1,4 +1,4 @@
-﻿namespace BionicAthlete.Application;
+﻿namespace BionicAthlete.Application.Exporting;
 
 using System.Collections.Frozen;
 

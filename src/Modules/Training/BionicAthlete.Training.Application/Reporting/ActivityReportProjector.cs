@@ -1,4 +1,4 @@
-namespace BionicAthlete.Training.Reporting;
+namespace BionicAthlete.Training.Application.Reporting;
 
 using System.Collections.Immutable;
 using System.Globalization;

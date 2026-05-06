@@ -291,7 +291,7 @@ public partial class MainWindow : Window, IDisposableAdvanced
 
     private void OnExtraZipFileContentDropped(object sender, DragEventArgs e)
     {
-        ExportData? exportData = _viewModel.SelectedExportData;
+        ObservableFitActivityExportData? exportData = _viewModel.SelectedExportData;
         string[] filePaths = (string[])e.Data.GetData(DataFormats.FileDrop, false) ?? [];
         _viewModel.AddExtraFilePaths(exportData!, filePaths);
     }

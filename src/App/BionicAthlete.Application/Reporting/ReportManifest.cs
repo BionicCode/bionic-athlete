@@ -1,8 +1,8 @@
 namespace BionicAthlete.Application.Reporting;
 
-using System.Collections.Frozen;
 using System.Collections.Immutable;
 using System.Collections.ObjectModel;
+using BionicAthlete.Application.Exporting;
 using BionicCode.Utilities.Net;
 
 /// <summary>
@@ -21,14 +21,6 @@ using BionicCode.Utilities.Net;
 public sealed record ReportManifest
 {
     private readonly HashSet<ReportManifestArtifact> _artifacts;
-    private readonly IMimeMediaTypeMapProvider _mimeMediaTypeMapProvider;
-    public static FrozenDictionary<ArtifactKind, FileExtension> ArtifactKindToFileExtensionTable { get; }
-        = new Dictionary<ArtifactKind, FileExtension>
-        {
-            [ArtifactKind.PdfReport] = FileExtensions.Pdf,
-            [ArtifactKind.HtmlReport] = FileExtensions.Html,
-            [ArtifactKind.ReportManifest] = FileExtensions.Json
-        }.ToFrozenDictionary();
 
     public ReadOnlySet<ReportManifestArtifact> Artifacts { get; }
     public int ReportSchemaVersion { get; }
@@ -40,6 +32,7 @@ public sealed record ReportManifest
     public ReportPagePreset PagePreset { get; }
     public ImmutableArray<string> IncludedSections { get; }
     public ImmutableArray<ReportDiagnostic> Diagnostics { get; }
+    public bool IsDirty { get; private set; }
 
     public ReportManifest(
         int reportSchemaVersion,
@@ -49,10 +42,8 @@ public sealed record ReportManifest
         DateTimeOffset exportTimestampUtc,
         ReportOutputTarget outputTarget,
         ReportPagePreset pagePreset,
-        IEnumerable<ReportManifestArtifact> artifacts,
         ImmutableArray<string> includedSections,
-        ImmutableArray<ReportDiagnostic> diagnostics,
-        IMimeMediaTypeMapProvider mimeMediaTypeMapProvider)
+        ImmutableArray<ReportDiagnostic> diagnostics)
     {
         ReportSchemaVersion = reportSchemaVersion;
         RendererVersion = rendererVersion;
@@ -61,48 +52,36 @@ public sealed record ReportManifest
         ExportTimestampUtc = exportTimestampUtc;
         OutputTarget = outputTarget;
         PagePreset = pagePreset;
-        _artifacts = [.. artifacts];
+        _artifacts = [];
         Artifacts = new ReadOnlySet<ReportManifestArtifact>(_artifacts);
         IncludedSections = includedSections;
         Diagnostics = diagnostics;
-        _mimeMediaTypeMapProvider = mimeMediaTypeMapProvider;
     }
 
     /// <inheritdoc />
-    public void AddArtifactToManifest(
-        string relativeArtifactFilePath,
-        ArtifactKind artifactKind)
+    public void AddArtifact(ArtifactKind artifactKind, string relativeArtifactFilePath)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(relativeArtifactFilePath);
         ArgumentExceptionAdvanced.ThrowIfEnumIsNotDefined<ArtifactKind>(artifactKind);
         ArgumentExceptionAdvanced.ThrowIfEnumEqualsAny(artifactKind, [ArtifactKind.Undefined]);
 
-        if (!ArtifactKindToFileExtensionTable.TryGetValue(artifactKind, out FileExtension fileExtension))
-        {
-            throw new NotImplementedException($"The file extension for artifact kind '{artifactKind}' is not defined in the artifact kind to file extension mapping.");
-        }
-
-        if
-
-        var reportManifestArtifact = new ReportManifestArtifact(artifactKind, relativeArtifactFilePath);
-        if (_artifacts.Contains(reportManifestArtifact))
+        var reportManifestArtifact = ReportManifestArtifact.Create(artifactKind, relativeArtifactFilePath);
+        if (!_artifacts.Add(reportManifestArtifact))
         {
             throw new InvalidOperationException($"The artifact for '{reportManifestArtifact.RelativePath}' already exists in the manifest.");
         }
 
-        UpdateManifest(reportManifestArtifact);
+        IsDirty = true;
     }
 
     public void UpdateManifest(ReportManifestArtifact reportManifestArtifact)
     {
         ArgumentNullExceptionAdvanced.ThrowIfDefault(reportManifestArtifact);
 
-        if (ArtifactKindToFileExtensionTable.TryGetValue(reportManifestArtifact.ArtifactKind, out var fileExtension))
-        {
-            // Do something with fileExtension if needed
-        }
-
-        _ = _artifacts.RemoveAll(artifact => artifact.ArtifactKind.Equals(reportManifestArtifact.ArtifactKind, StringComparison.OrdinalIgnoreCase));
-        _ = _artifacts.Add(reportManifestArtifact);
+        _ = _artifacts.RemoveWhere(artifact => artifact.Equals(reportManifestArtifact));
+        IsDirty = _artifacts.Add(reportManifestArtifact);
     }
+
+    public void SetIsCommitted() => IsDirty = false;
 };
+

@@ -18,6 +18,7 @@ using BionicAthlete.Presentation.Reporting;
 using BionicAthlete.Shared.Logging;
 using BionicAthlete.Training.Application.Caching;
 using BionicAthlete.Training.Application.Decoding;
+using BionicAthlete.Training.Application.Reporting;
 using BionicAthlete.Training.Exporting;
 using BionicAthlete.Training.Infrastructure.GarminFit.Caching;
 using BionicAthlete.Training.Infrastructure.GarminFit.Decoding;
@@ -180,6 +181,7 @@ public partial class App : Application
             .AddSingleton<MainWindow>()
             .AddSingleton<IMimeMediaTypeMapProvider, AspNetCoreMimeMediaTypeMapProvider>()
             .AddSingleton<IHtmlExporterArgsFactory, HtmlFileExporterArgsFactory>()
+            .AddSingleton<FitActivityReportCreator>()
             .AddFactory<IFitActivityDecoder>(ServiceLifetime.Singleton);
 
         _host = hostBuilder.Build();

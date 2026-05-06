@@ -66,8 +66,8 @@ Instead, current UI-facing selection state is mapped into:
 
 Current flow:
 
-1. `ExportData` gathers the current checkbox and naming state from `DataField` / `FitField`.
-2. `ExportData` maps that state to `CsvExportColumnRequest` values.
+1. `ObservableFitActivityExportData` gathers the current checkbox and naming state from `DataField` / `FitField`.
+2. `ObservableFitActivityExportData` maps that state to `CsvExportColumnRequest` values.
 3. `CsvExportRequestFactory` groups selected columns by `FitNodeType`, applies deterministic ordering, and generates per-node CSV file paths.
 4. `ICsvActivityExporter` writes View B by default from the decoded source model and groups generated artifacts under stable bundle paths such as `core/`, `metadata/`, `analytics/`, and `raw_unmapped/`.
 5. `MainViewModel` passes the generated `ExportedArtifact` files into the existing ZIP archive flow.

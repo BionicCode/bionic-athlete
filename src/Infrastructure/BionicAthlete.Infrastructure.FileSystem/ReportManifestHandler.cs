@@ -1,10 +1,9 @@
 namespace BionicAthlete.Infrastructure.FileSystem;
 
-using System.Collections.Immutable;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using BionicAthlete.Application;
+using BionicAthlete.Application.Exporting;
 using BionicAthlete.Application.Reporting;
 using BionicAthlete.FileSystem.Abstractions;
 using BionicCode.Utilities.Net;
@@ -15,6 +14,7 @@ using BionicCode.Utilities.Net;
 public class ReportManifestHandler : IReportManifestHandler
 {
     private static readonly JsonSerializerOptions s_manifestJsonOptions = CreateManifestJsonOptions();
+
     internal static JsonSerializerOptions ManifestJsonOptions => s_manifestJsonOptions;
 
     public async Task WriteManifestAsync(
@@ -22,19 +22,29 @@ public class ReportManifestHandler : IReportManifestHandler
         ReportManifest manifest,
         CancellationToken cancellationToken)
     {
+        ArgumentNullExceptionAdvanced.ThrowIfNull(manifest);
+        ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(destinationFolder);
+
         string manifestFilePath = Path.Combine(destinationFolder, ArtifactNames.ManifestFileName);
         string json = JsonSerializer.Serialize(manifest, ManifestJsonOptions);
         await File.WriteAllTextAsync(manifestFilePath, json, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
+        manifest.SetIsCommitted();
     }
 
-    public ReportManifest CreateManifest(ReportDescriptor reportInfo)
+    public async Task<ReportManifest> GetOrCreateManifestAsync(ReportDescriptor reportInfo, string outputFolder, CancellationToken cancellationToken)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(reportInfo);
+        ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(outputFolder);
 
-        ImmutableArray<ReportManifestArtifact>.Builder artifacts = ImmutableArray.CreateBuilder<ReportManifestArtifact>();
-        artifacts.Add(new ReportManifestArtifact(ArtifactKind.ReportManifest, ArtifactNames.ManifestFileName, ArtifactMediaType.Json));
+        string manifestFilePath = Path.Combine(outputFolder, ArtifactNames.ManifestFileName);
+        if (File.Exists(manifestFilePath))
+        {
+            await using var jsonFile = new FileStream(manifestFilePath, FileHelpers.ReadOnlyOptions);
+            return await JsonSerializer.DeserializeAsync<ReportManifest>(jsonFile, ManifestJsonOptions, cancellationToken)
+                ?? throw new InvalidOperationException("The report manifest could not be deserialized.");
+        }
 
-        return new ReportManifest(
+        ReportManifest manifest = new(
             reportInfo.ReportSchemaVersion,
             reportInfo.RendererVersion,
             reportInfo.ReportId,
@@ -42,46 +52,11 @@ public class ReportManifestHandler : IReportManifestHandler
             reportInfo.GeneratedAtUtc,
             reportInfo.OutputTarget,
             reportInfo.PagePreset,
-            artifacts.ToImmutable(),
             reportInfo.SectionIds,
             reportInfo.Diagnostics);
-    }
+        manifest.AddArtifact(ArtifactKind.ReportManifest, ArtifactNames.ManifestFileName);
 
-    /// <inheritdoc />
-    public async Task AddOrUpdateArtifactToManifestAsync(
-        string manifestFilePath,
-        string relativeArtifactFilePath,
-        string artifactKind,
-        string artifactMediaType,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(manifestFilePath);
-        ArgumentException.ThrowIfNullOrWhiteSpace(relativeArtifactFilePath);
-        ArgumentException.ThrowIfNullOrWhiteSpace(artifactKind);
-        ArgumentException.ThrowIfNullOrWhiteSpace(artifactMediaType);
-
-        string json = await File.ReadAllTextAsync(manifestFilePath, cancellationToken).ConfigureAwait(false);
-        ReportManifest manifest = JsonSerializer.Deserialize<ReportManifest>(
-            json,
-            ManifestJsonOptions)
-            ?? throw new InvalidOperationException("The report manifest could not be deserialized.");
-
-        var reportManifestArtifact = new ReportManifestArtifact(artifactKind, relativeArtifactFilePath, artifactMediaType);
-        ReportManifest updatedManifest = UpdateManifest(manifest, reportManifestArtifact);
-        string updatedJson = JsonSerializer.Serialize(updatedManifest, ManifestJsonOptions);
-        await File.WriteAllTextAsync(manifestFilePath, updatedJson, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
-    }
-
-    public ReportManifest UpdateManifest(ReportManifest currentManifest, ReportManifestArtifact reportManifestArtifact)
-    {
-        ArgumentNullException.ThrowIfNull(currentManifest);
-        ArgumentNullExceptionAdvanced.ThrowIfDefault(reportManifestArtifact);
-
-        ImmutableArray<ReportManifestArtifact>.Builder artifacts = ImmutableArray.CreateBuilder<ReportManifestArtifact>();
-        artifacts.AddRange(currentManifest.Artifacts.Where(artifact => !artifact.ArtifactKind.Equals(reportManifestArtifact.ArtifactKind, StringComparison.OrdinalIgnoreCase)));
-        artifacts.Add(reportManifestArtifact);
-
-        return currentManifest with { Artifacts = artifacts.ToImmutable() };
+        return manifest;
     }
 
     private static JsonSerializerOptions CreateManifestJsonOptions()

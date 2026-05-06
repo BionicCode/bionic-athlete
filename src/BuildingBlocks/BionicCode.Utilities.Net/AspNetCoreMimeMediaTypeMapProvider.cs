@@ -6,7 +6,13 @@ using Microsoft.AspNetCore.StaticFiles;
 public class AspNetCoreMimeMediaTypeMapProvider : IMimeMediaTypeMapProvider
 {
     private readonly FileExtensionContentTypeProvider _extensionToMediaTypeMap;
-    public AspNetCoreMimeMediaTypeMapProvider() => _extensionToMediaTypeMap = new FileExtensionContentTypeProvider();
+    public AspNetCoreMimeMediaTypeMapProvider()
+    {
+        _extensionToMediaTypeMap = new FileExtensionContentTypeProvider();
+        DefaultMediaType = "application/octet-stream";
+    }
+
+    public string DefaultMediaType { get; }
 
     public bool TryGetMediaTypeForExtension(FileExtension fileExtension, out string mediaType) => _extensionToMediaTypeMap.TryGetContentType(fileExtension.Value, out mediaType);
 }

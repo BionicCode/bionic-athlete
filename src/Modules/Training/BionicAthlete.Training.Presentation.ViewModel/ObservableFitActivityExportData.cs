@@ -12,7 +12,7 @@ using BionicAthlete.Training.Domain.Fields;
 using BionicAthlete.Training.Exporting;
 using BionicCode.Utilities.Net;
 
-public class ExportData : ViewModel
+public class ObservableFitActivityExportData : ViewModel
 {
     private const char DefaultCsvDelimiter = ',';
     private readonly PropertyValidationDelegate<string> _filePathsValidator;
@@ -40,7 +40,7 @@ public class ExportData : ViewModel
     private readonly SetValueOptions _setValueOptions;
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE0028:Simplify collection initialization", Justification = "Feature not available.")]
-    public ExportData(PropertyValidationDelegate<string> filePathsValidator,
+    public ObservableFitActivityExportData(PropertyValidationDelegate<string> filePathsValidator,
         IFitActivityDecoder fitActivityDecoder,
         string? coachingContextFileName)
     {
