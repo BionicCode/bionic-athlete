@@ -293,6 +293,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
         ReportOutputTarget outputTarget,
         CancellationToken cancellationToken)
     {
+        // TODO::Improve the design of this method and move domain logic related to report generation and export request creation out of the ViewModel layer.
         ArgumentNullExceptionAdvanced.ThrowIfNull(exportData);
         ArgumentExceptionAdvanced.ThrowIfTrue(outputTarget is ReportOutputTarget.HtmlOnly, "Output target must be PDF or HTML and PDF.");
 
