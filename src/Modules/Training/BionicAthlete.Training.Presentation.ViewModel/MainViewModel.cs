@@ -262,7 +262,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(exportData);
 
-        string outputDirectoryPath = CreateReportOutputDirectory(exportData);
+        DirectoryDescriptor outputDirectoryPath = CreateReportOutputDirectory(exportData);
         var options = new ReportExportOptions(
             outputDirectoryPath,
             outputTarget,
@@ -361,7 +361,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
                 maxValue: ExportData.Count,
                 message: $"Exporting decoded activity {completedCount + 1} of {ExportData.Count}: {exportData.FitFileName}"));
 
-            string exportOutputDirectoryPath = CreateExportOutputDirectory(exportData.FitFileNameWithoutExtension);
+            DirectoryDescriptor exportOutputDirectoryPath = CreateExportOutputDirectory(exportData.FitFileNameWithoutExtension);
             CsvExportRequest exportRequest = exportData.CreateCsvExportRequest(exportOutputDirectoryPath);
             CsvExportResult exportResult = await _csvActivityExporter.ExportAsync(exportRequest).ConfigureAwait(true);
             exportData.SetExportArtifacts(exportResult.ExportedArtifacts);
@@ -381,17 +381,16 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
         await CreateArchivesAsync();
     }
 
-    private string CreateExportOutputDirectory(string fitFileNameWithoutExtension)
+    private DirectoryDescriptor CreateExportOutputDirectory(string fitFileNameWithoutExtension)
     {
         // Keep generated CSV file names stable inside the archive while isolating each export run in its own
         // temporary directory to avoid collisions between activities that share the same source file fileNameWithoutExtension.
         string directoryName = _temporaryFileManager.MakeFileNameUnique(fitFileNameWithoutExtension);
-        string exportOutputDirectoryPath = Path.Combine(_temporaryFileManager.TemporaryDirectoryPath, directoryName);
-        _ = Directory.CreateDirectory(exportOutputDirectoryPath);
-        return exportOutputDirectoryPath;
+        string exportOutputDirectoryPath = Path.Combine(_temporaryFileManager.TemporaryDirectoryPath.FullPath, directoryName);
+        return new DirectoryDescriptor(exportOutputDirectoryPath);
     }
 
-    private string CreateReportOutputDirectory(ObservableFitActivityExportData exportData)
+    private DirectoryDescriptor CreateReportOutputDirectory(ObservableFitActivityExportData exportData)
     {
         string batchName = exportData.IsAutoRenamingEnabled || string.IsNullOrWhiteSpace(exportData.BatchName)
             ? exportData.AutoRenameBatchName
@@ -402,16 +401,17 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
 
         while (Directory.Exists(Path.Combine(outputDirectoryPath, "report")))
         {
-            outputDirectoryPath = Path.Combine(DestinationFolder, $"{baseDirectoryName}_{duplicateCounter.ToString(CultureInfo.InvariantCulture)}");
+            string alternativeDirectoryName = $"{baseDirectoryName}_{duplicateCounter.ToString(CultureInfo.InvariantCulture)}";
+            outputDirectoryPath = Path.Combine(DestinationFolder, alternativeDirectoryName);
             duplicateCounter++;
         }
 
-        return outputDirectoryPath;
+        return new DirectoryDescriptor(outputDirectoryPath);
     }
 
     private async Task CreateArchivesAsync()
     {
-        List<FileBatch> batchesToArchive = await EnumerateFileBatchesAsync().ToListAsync();
+        List<ArchiveContentBatch> batchesToArchive = await EnumerateFileBatchesAsync().ToListAsync();
         if (batchesToArchive.Count == 0)
         {
             return;
@@ -422,7 +422,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
         await _zipArchiveManager.CreateArchivesAsync(batches, packProgressReporter);
     }
 
-    private async IAsyncEnumerable<FileBatch> EnumerateFileBatchesAsync()
+    private async IAsyncEnumerable<ArchiveContentBatch> EnumerateFileBatchesAsync()
     {
         foreach (ObservableFitActivityExportData exportData in ExportData)
         {
@@ -450,7 +450,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
                 fileDescriptors.Add(reportSummaryFileDescriptor);
             }
 
-            var batch = new FileBatch(
+            var batch = new ArchiveContentBatch(
                 fileDescriptors,
                 fileDescriptors.Count,
                 DestinationFolder,

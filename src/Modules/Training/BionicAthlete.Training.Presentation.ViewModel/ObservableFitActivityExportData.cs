@@ -324,9 +324,9 @@ public class ObservableFitActivityExportData : ViewModel
     /// </summary>
     /// <param name="outputDirectoryPath">The temporary output directory for generated CSV files.</param>
     /// <returns>The CSV export request that represents the current field selections.</returns>
-    internal CsvExportRequest CreateCsvExportRequest(string outputDirectoryPath)
+    internal CsvExportRequest CreateCsvExportRequest(DirectoryDescriptor outputDirectoryPath)
     {
-        ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(outputDirectoryPath);
+        ArgumentNullExceptionAdvanced.ThrowIfDefault(outputDirectoryPath);
 
         if (Activity is null)
         {
@@ -360,17 +360,17 @@ public class ObservableFitActivityExportData : ViewModel
     /// Enumerates the files that should be packaged for this export batch.
     /// </summary>
     /// <returns>The generated export artifacts followed by the user-selected extra files.</returns>
-    internal IEnumerable<FileDescriptor> EnumerateArchiveFileDescriptors()
+    internal IEnumerable<ArchiveContentFileDescriptor> EnumerateArchiveFileDescriptors()
     {
         // Preserve exporter order so ancillary families and the manifest keep a stable bundle layout.
         foreach (ExportedArtifact exportedArtifact in _exportedArtifacts)
         {
-            yield return new FileDescriptor(exportedArtifact.FilePath, isRenamingRequired: false, exportedArtifact.BundlePath);
+            yield return new ArchiveContentFileDescriptor(exportedArtifact.FilePath, exportedArtifact.BundlePath);
         }
 
         foreach (ObservableFileDescriptor observableFileDescriptor in SelectedExtraFilePaths)
         {
-            yield return observableFileDescriptor.ToFileDescriptor();
+            yield return new ArchiveContentFileDescriptor(observableFileDescriptor.ToFileDescriptor());
         }
     }
 

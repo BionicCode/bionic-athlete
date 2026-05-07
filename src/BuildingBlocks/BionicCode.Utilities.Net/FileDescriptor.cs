@@ -31,6 +31,7 @@ public readonly record struct FileDescriptor
         _filePath = Path.Combine(Location.FullPath, Name);
         OriginalName = Name;
         OriginalFullPath = _filePath;
+        IsRelative = location.IsRelative;
     }
 
     /// <summary>
@@ -50,6 +51,7 @@ public readonly record struct FileDescriptor
         _filePath = filePath;
         OriginalName = Name;
         OriginalFullPath = _filePath;
+        IsRelative = !Path.IsPathFullyQualified(FullPath);
     }
 
     /// <summary>
@@ -73,6 +75,7 @@ public readonly record struct FileDescriptor
         _filePath = $"{Location}.{Name}"; // The full name of the embedded resource is typically in the format "Namespace.Folder.FileName"
         OriginalName = Name;
         OriginalFullPath = _filePath;
+        IsRelative = relativeLocation.IsRelative;
     }
 
     public override string ToString() => FullPath;
@@ -121,6 +124,7 @@ public readonly record struct FileDescriptor
     /// </remarks>
     /// <value>The original full path of the file. The default value is the same as <see cref="FullPath"/>.</value>
     public string OriginalFullPath { get; init; }
+    public bool IsRelative { get; }
 
     /// <summary>
     /// Gets the original file name before any renaming operations.

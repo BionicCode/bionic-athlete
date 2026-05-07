@@ -2,12 +2,12 @@
 
 using BionicCode.Utilities.Net;
 
-public readonly struct FileBatches
+public readonly struct FileBatches<T>
 {
-    public IEnumerable<FileBatch> Batches { get; init; }
+    public IEnumerable<T> Batches { get; init; }
     public int BatchesCount { get; init; }
 
-    public FileBatches(IEnumerable<FileBatch> batches, int batchesCount)
+    public FileBatches(IEnumerable<T> batches, int batchesCount)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(batches);
 

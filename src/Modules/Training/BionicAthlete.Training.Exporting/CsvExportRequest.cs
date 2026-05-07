@@ -3,6 +3,7 @@ namespace BionicAthlete.Training.Exporting;
 using System.Collections.Immutable;
 using System.Text;
 using BionicAthlete.Training.Domain.Activities;
+using BionicCode.Utilities.Net;
 
 /// <summary>
 /// Describes a decoded FIT activity export to one or more CSV files.
@@ -42,7 +43,7 @@ public sealed class CsvExportRequest
     public CsvExportRequest(
         FitActivity sourceActivity,
         string sourceFileNameWithoutExtension,
-        string outputDirectoryPath,
+        DirectoryDescriptor outputDirectoryPath,
         ImmutableArray<CsvNodeExportRequest> nodeRequests,
         Encoding? encoding = null,
         FitExportOptions? options = null,
@@ -50,7 +51,7 @@ public sealed class CsvExportRequest
     {
         ArgumentNullException.ThrowIfNull(sourceActivity);
         ArgumentException.ThrowIfNullOrWhiteSpace(sourceFileNameWithoutExtension);
-        ArgumentException.ThrowIfNullOrWhiteSpace(outputDirectoryPath);
+        ArgumentNullExceptionAdvanced.ThrowIfDefault(outputDirectoryPath);
         ValidateDelimiter(delimiter);
 
         SourceActivity = sourceActivity;
@@ -75,7 +76,7 @@ public sealed class CsvExportRequest
     /// <summary>
     /// Gets the destination directory for generated structured export artifacts.
     /// </summary>
-    public string OutputDirectoryPath { get; }
+    public DirectoryDescriptor OutputDirectoryPath { get; }
 
     /// <summary>
     /// Gets the node-specific CSV outputs to generate.

@@ -16,14 +16,46 @@ public readonly record struct ArchiveContentFileDescriptor
     /// </summary>
     /// <param name="name">The source file name.</param>
     /// <param name="location">The source directory.</param>
-    /// <param name="archiveEntryName">
+    /// <param name="relativeArchiveEntryName">
     /// The relative path to use inside an archive.
     /// When <see langword="null"/>, <paramref name="name"/> is used.
     /// </param>
-    public ArchiveContentFileDescriptor(string name, DirectoryDescriptor location, string? archiveEntryName = null)
+    public ArchiveContentFileDescriptor(FileDescriptor fileDescriptor)
+    {
+        ArgumentNullExceptionAdvanced.ThrowIfDefault(fileDescriptor);
+
+        EmbeddedResourceAssembly = null!;
+        IsEmbeddedResource = false;
+        Name = fileDescriptor.Name;
+        Extension = fileDescriptor.Extension;
+        Location = fileDescriptor.Location;
+        _filePath = fileDescriptor.FullPath;
+        RelativeArchiveEntryName = NormalizeArchiveEntryName(Name);
+        OriginalName = Name;
+        OriginalFullPath = _filePath;
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="FileDescriptor"/> struct from a file name and directory.
+    /// </summary>
+    /// <param name="name">The source file name.</param>
+    /// <param name="location">The source directory.</param>
+    /// <param name="relativeArchiveEntryDirectory">
+    /// The relative directory path to use inside an archive.
+    /// When <see langword="null"/>, <paramref name="name"/> is used.
+    /// </param>
+    public ArchiveContentFileDescriptor(string name, DirectoryDescriptor location, DirectoryDescriptor relativeArchiveEntryDirectory = default)
     {
         ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullExceptionAdvanced.ThrowIfDefault(location);
+        if (relativeArchiveEntryDirectory != default)
+        {
+            ArgumentExceptionAdvanced.ThrowIfFalse(relativeArchiveEntryDirectory.IsRelative, $"The argument '{nameof(relativeArchiveEntryDirectory)}' must be a relative path.");
+        }
+        else
+        {
+            relativeArchiveEntryDirectory = new DirectoryDescriptor(name);
+        }
 
         EmbeddedResourceAssembly = null!;
         IsEmbeddedResource = false;
@@ -31,7 +63,7 @@ public readonly record struct ArchiveContentFileDescriptor
         Extension = FileExtension.FromFileName(Name);
         Location = location;
         _filePath = Path.Combine(Location.FullPath, Name);
-        ArchiveEntryName = NormalizeArchiveEntryName(archiveEntryName ?? Name);
+        RelativeArchiveEntryName = NormalizeArchiveEntryName(relativeArchiveEntryDirectory.FullPath ?? Name);
         OriginalName = Name;
         OriginalFullPath = _filePath;
     }
@@ -40,21 +72,29 @@ public readonly record struct ArchiveContentFileDescriptor
     /// Initializes a new instance of the <see cref="FileDescriptor"/> struct from a full source path.
     /// </summary>
     /// <param name="filePath">The full source file path.</param>
-    /// <param name="archiveEntryName">
+    /// <param name="relativeArchiveEntryDirectory">
     /// The relative path to use inside an archive.
     /// When <see langword="null"/>, the source file name is used.
     /// </param>
-    public ArchiveContentFileDescriptor(string filePath, string? archiveEntryName = null)
+    public ArchiveContentFileDescriptor(FileDescriptor filePath, DirectoryDescriptor relativeArchiveEntryDirectory = default)
     {
-        ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(filePath);
+        ArgumentNullExceptionAdvanced.ThrowIfDefault(filePath);
+        if (relativeArchiveEntryDirectory != default)
+        {
+            ArgumentExceptionAdvanced.ThrowIfFalse(relativeArchiveEntryDirectory.IsRelative, $"The argument '{nameof(relativeArchiveEntryDirectory)}' must be a relative path.");
+        }
+        else
+        {
+            relativeArchiveEntryDirectory = new DirectoryDescriptor(filePath.Name);
+        }
 
         EmbeddedResourceAssembly = null!;
         IsEmbeddedResource = false;
-        Name = Path.GetFileName(filePath);
-        Extension = FileExtension.FromFileName(Name);
-        Location = new DirectoryDescriptor(Path.GetDirectoryName(filePath) ?? string.Empty);
-        _filePath = filePath;
-        ArchiveEntryName = NormalizeArchiveEntryName(archiveEntryName ?? Name);
+        Name = filePath.Name;
+        Extension = filePath.Extension;
+        Location = filePath.Location;
+        _filePath = filePath.FullPath;
+        RelativeArchiveEntryName = NormalizeArchiveEntryName(relativeArchiveEntryDirectory.FullPath ?? Name);
         OriginalName = Name;
         OriginalFullPath = _filePath;
     }
@@ -64,16 +104,24 @@ public readonly record struct ArchiveContentFileDescriptor
     /// </summary>
     /// <param name="fileName">The file name including extension.</param>
     /// <param name="relativeLocation">The directory descriptor representing the relative location of the file in the provided <paramref name="embeddedResourceAssembly"/>.</param>
-    /// <param name="archiveEntryName">
+    /// <param name="relativeArchiveEntryName">
     /// The relative path to use inside an archive.
     /// When <see langword="null"/>, the source file name is used.
     /// </param>
     /// <param name="embeddedResourceAssembly">The <see cref="Assembly"/> that the specified file is located in.</param>
-    public ArchiveContentFileDescriptor(string fileName, DirectoryDescriptor relativeLocation, Assembly embeddedResourceAssembly, string? archiveEntryName = null)
+    public ArchiveContentFileDescriptor(string fileName, DirectoryDescriptor relativeLocation, Assembly embeddedResourceAssembly, DirectoryDescriptor relativeArchiveEntryDirectory = default)
     {
         ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(fileName);
         ArgumentNullExceptionAdvanced.ThrowIfDefault(relativeLocation);
         ArgumentNullExceptionAdvanced.ThrowIfNull(embeddedResourceAssembly);
+        if (relativeArchiveEntryDirectory != default)
+        {
+            ArgumentExceptionAdvanced.ThrowIfFalse(relativeArchiveEntryDirectory.IsRelative, $"The argument '{nameof(relativeArchiveEntryDirectory)}' must be a relative path.");
+        }
+        else
+        {
+            relativeArchiveEntryDirectory = new DirectoryDescriptor(fileName);
+        }
 
         IsEmbeddedResource = true;
         EmbeddedResourceAssembly = embeddedResourceAssembly;
@@ -81,7 +129,7 @@ public readonly record struct ArchiveContentFileDescriptor
         Extension = FileExtension.FromFileName(Name);
         Location = relativeLocation;
         _filePath = $"{Location}.{Name}"; // The full name of the embedded resource is typically in the format "Namespace.Folder.FileName"
-        ArchiveEntryName = NormalizeArchiveEntryName(archiveEntryName ?? Name);
+        RelativeArchiveEntryName = NormalizeArchiveEntryName(relativeArchiveEntryDirectory.FullPath ?? Name);
         OriginalName = Name;
         OriginalFullPath = _filePath;
     }
@@ -124,7 +172,7 @@ public readonly record struct ArchiveContentFileDescriptor
     /// <remarks>
     /// This value can contain forward slash directory separators, for example <c>core/activity.csv</c>.
     /// </remarks>
-    public string ArchiveEntryName { get; init; }
+    public string RelativeArchiveEntryName { get; init; }
 
     /// <summary>
     /// The original full path of the file before any moving, renaming or copying operations. For embedded resources, 

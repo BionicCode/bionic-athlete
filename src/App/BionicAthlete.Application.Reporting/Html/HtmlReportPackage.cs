@@ -2,6 +2,7 @@ namespace BionicAthlete.Application.Reporting.Html;
 
 using System.Collections.Immutable;
 using BionicAthlete.Application.Reporting;
+using BionicCode.Utilities.Net;
 
 /// <summary>
 /// Result of writing a View C HTML report package to disk.
@@ -14,10 +15,9 @@ using BionicAthlete.Application.Reporting;
 /// <param name="PageSettings">Neutral page settings used by the package.</param>
 /// <param name="Diagnostics">Warnings emitted while generating the package.</param>
 public sealed record HtmlReportPackage(
-    string ReportDirectoryPath,
-    string HtmlFilePath,
-    IReportManifestBuilder ManifestBuilder,
-    string? PdfFilePath,
+    DirectoryDescriptor ReportDirectoryPath,
+    FileDescriptor HtmlFilePath,
+    IReportManifestBuilder? ManifestBuilder,
     ReportOutputTarget OutputTarget,
     PageSettings PageSettings,
     ImmutableArray<ReportDiagnostic> Diagnostics);

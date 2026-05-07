@@ -2,6 +2,7 @@ namespace BionicAthlete.Training.Exporting;
 
 using System.Collections.Immutable;
 using BionicAthlete.Training.Domain.Activities;
+using BionicCode.Utilities.Net;
 
 /// <summary>
 /// Describes one node-level CSV output within a <see cref="CsvExportRequest"/>.
@@ -22,10 +23,11 @@ public sealed class CsvNodeExportRequest
     /// </exception>
     public CsvNodeExportRequest(
         FitNodeType nodeType,
-        string destinationFilePath,
+        DirectoryDescriptor destinationFilePath,
         ImmutableArray<CsvColumnSelection> columns)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(destinationFilePath);
+        ArgumentNullExceptionAdvanced.ThrowIfDefault(destinationFilePath);
+
         ValidateNodeType(nodeType);
 
         if (columns.IsDefaultOrEmpty)
@@ -56,7 +58,7 @@ public sealed class CsvNodeExportRequest
     /// <summary>
     /// Gets the destination CSV file path for this node output.
     /// </summary>
-    public string DestinationFilePath { get; }
+    public DirectoryDescriptor DestinationFilePath { get; }
 
     /// <summary>
     /// Gets the ordered columns to write for this node output.

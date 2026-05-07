@@ -2,7 +2,10 @@
 
 using System.Collections.Immutable;
 using System.Text;
+using BionicAthlete.Application;
 using BionicAthlete.Application.Exporting;
+using BionicAthlete.Application.Reporting;
+using BionicAthlete.Application.Reporting.Html;
 using BionicAthlete.Training.Domain.Activities;
 using BionicCode.Utilities.Net;
 
@@ -40,13 +43,18 @@ public class FitActivityReportCreator
             .ConfigureAwait(true);
         HtmlDocument htmlDocument = await RenderHtmlAsync(exportData, report, cancellationToken);
 
-        string htmlFilePath = string.Empty;
-        string manifestFilePath = string.Empty;
+        FileDescriptor htmlFilePath = default;
+        ReportManifestBuilder? manifestBuilder = null;
+
+        // If ReportOutputTarget.PdfFromGeneratedHtml then the  HTML must not be persisted to the file system,
+        // because it is only used as an intermediate step for PDF generation.
+        // In all other cases, the generated HTML must be persisted to the file system.
         if (outputTarget is not ReportOutputTarget.PdfFromGeneratedHtml)
         {
-            string fileNameWithoutExtension = exportData.FitFileDescriptor.Name;
+            string fileNameWithoutExtension = exportData.FitFileDescriptor.NameWithoutExtension;
             string fileName = $"{fileNameWithoutExtension}{FileExtensions.Html}";
-            var exportUri = new Uri(Path.Combine(exportData.OutputDirectoryPath, fileName));
+            htmlFilePath = new FileDescriptor(Path.Combine(exportData.OutputDirectoryPath.FullPath, fileName));
+            var exportUri = new Uri(htmlFilePath.FullPath);
             HtmlExporterArgs htmlExporterArgs = _htmlExporterArgsFactory.Create(
                 htmlDocument,
                 exportUri,
@@ -55,7 +63,7 @@ public class FitActivityReportCreator
             await _htmlExporter.ExportAsync(htmlExporterArgs, cancellationToken);
 
             var reportDescriptor = ReportDescriptor.Create(htmlDocument, report, outputTarget);
-            ReportManifestBuilder manifestBuilder = await ReportManifestBuilder.CreateAsync(reportDescriptor, exportData.OutputDirectoryPath, cancellationToken).ConfigureAwait(false);
+            manifestBuilder = await ReportManifestBuilder.CreateAsync(reportDescriptor, exportData.OutputDirectoryPath, cancellationToken).ConfigureAwait(false);
             manifestBuilder.AddArtifact(ArtifactKind.HtmlReport, fileName);
             _ = await manifestBuilder.BuildAsync(cancellationToken).ConfigureAwait(false);
         }
@@ -63,13 +71,13 @@ public class FitActivityReportCreator
         ImmutableArray<ReportDiagnostic> diagnostics = report.Diagnostics.IsDefault
             ? ImmutableArray<ReportDiagnostic>.Empty
             : report.Diagnostics;
-        var package = new HtmlReportPackage(
+
+        return new HtmlReportPackage(
             exportData.OutputDirectoryPath,
             htmlFilePath,
-            manifestFilePath,
-            pdfFilePath,
-            options.OutputTarget,
-            options.PageSettings,
+            manifestBuilder,
+            outputTarget,
+            exportData.ExportOptions.PageSettings,
             diagnostics);
     }
 
@@ -85,7 +93,7 @@ public class FitActivityReportCreator
 
 public sealed class FitFileExportData
 {
-    public FitFileExportData(FileDescriptor fitFileDescriptor, FitActivity activity, string outputDirectoryPath, ReportExportOptions exportOptions)
+    public FitFileExportData(FileDescriptor fitFileDescriptor, FitActivity activity, DirectoryDescriptor outputDirectoryPath, ReportExportOptions exportOptions)
     {
         FitFileDescriptor = fitFileDescriptor;
         Activity = activity;
@@ -95,6 +103,6 @@ public sealed class FitFileExportData
 
     public FileDescriptor FitFileDescriptor { get; init; }
     public FitActivity Activity { get; init; }
-    public string OutputDirectoryPath { get; init; }
+    public DirectoryDescriptor OutputDirectoryPath { get; init; }
     public ReportExportOptions ExportOptions { get; init; }
 }

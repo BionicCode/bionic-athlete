@@ -5,7 +5,7 @@ using BionicCode.Utilities.Net;
 
 public interface IArchiveManager
 {
-    Task CreateArchivesAsync(FileBatches fileBatches, IProgress<ProgressData> progressReporter, CancellationToken cancellationToken = default);
+    Task CreateArchivesAsync(FileBatches<ArchiveContentBatch> fileBatches, IProgress<ProgressData> progressReporter, CancellationToken cancellationToken = default);
     IAsyncEnumerable<FileDescriptor> ExtractArchiveAsync(FileDescriptor archivePath, Func<int, string, IProgress<ProgressData>>? progressReporterFactory, CancellationToken cancellationToken = default);
     IAsyncEnumerable<FileDescriptor> ExtractArchivesAsync(IEnumerable<FileDescriptor> archivePaths, Func<int, string, IProgress<ProgressData>>? progressReporterFactory, CancellationToken cancellationToken = default);
     bool IsFileTypeSupportedArchive(FileDescriptor filePath);

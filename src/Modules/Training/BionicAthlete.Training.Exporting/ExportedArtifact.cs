@@ -1,6 +1,7 @@
 namespace BionicAthlete.Training.Exporting;
 
 using BionicAthlete.Training.Domain.Activities;
+using BionicCode.Utilities.Net;
 
 /// <summary>
 /// Describes one generated export artifact.
@@ -23,12 +24,12 @@ public sealed class ExportedArtifact
         ExportedArtifactKind kind,
         FitNodeType nodeType,
         string artifactName,
-        string filePath,
+        FileDescriptor filePath,
         int rowCount,
-        string? bundlePath = null)
+        DirectoryDescriptor bundlePath = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(artifactName);
-        ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
+        ArgumentNullExceptionAdvanced.ThrowIfDefault(filePath);
 
         if (rowCount < 0)
         {
@@ -40,9 +41,9 @@ public sealed class ExportedArtifact
         ArtifactName = artifactName;
         FilePath = filePath;
         RowCount = rowCount;
-        BundlePath = string.IsNullOrWhiteSpace(bundlePath)
-            ? artifactName
-            : bundlePath.Replace('\\', '/');
+        BundlePath = bundlePath == default
+            ? new(artifactName)
+            : new(bundlePath.FullPath.Replace('\\', '/'));
     }
 
     /// <summary>
@@ -63,12 +64,12 @@ public sealed class ExportedArtifact
     /// <summary>
     /// Gets the generated file path.
     /// </summary>
-    public string FilePath { get; }
+    public FileDescriptor FilePath { get; }
 
     /// <summary>
-    /// Gets the relative path that should be used when the artifact is packaged into an export bundle.
+    /// Gets the relative directorypath that should be used when the artifact is packaged into an export bundle.
     /// </summary>
-    public string BundlePath { get; }
+    public DirectoryDescriptor BundlePath { get; }
 
     /// <summary>
     /// Gets the number of data rows written to the file.

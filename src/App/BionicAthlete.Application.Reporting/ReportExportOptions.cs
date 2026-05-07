@@ -1,6 +1,7 @@
 namespace BionicAthlete.Application.Reporting;
 
 using System.Globalization;
+using BionicCode.Utilities.Net;
 
 /// <summary>
 /// Options that make View C report projection and HTML generation deterministic.
@@ -20,7 +21,7 @@ public sealed class ReportExportOptions
     /// <exception cref="ArgumentException">Thrown when <paramref name="outputDirectoryPath"/> is <see langword="null"/> or whitespace.</exception>
     /// <exception cref="ArgumentNullException">Thrown when a required reference argument is <see langword="null"/>.</exception>
     public ReportExportOptions(
-        string outputDirectoryPath,
+        DirectoryDescriptor outputDirectoryPath,
         ReportOutputTarget outputTarget,
         CultureInfo culture,
         TimeZoneInfo localTimeZone,
@@ -28,7 +29,7 @@ public sealed class ReportExportOptions
         PageSettings pageSettings,
         bool includeProvenanceNotes = true)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(outputDirectoryPath);
+        ArgumentNullExceptionAdvanced.ThrowIfDefault(outputDirectoryPath);
         ArgumentNullException.ThrowIfNull(culture);
         ArgumentNullException.ThrowIfNull(localTimeZone);
         ArgumentNullException.ThrowIfNull(pageSettings);
@@ -45,7 +46,7 @@ public sealed class ReportExportOptions
     /// <summary>
     /// Gets the directory under which the <c>report</c> folder will be created.
     /// </summary>
-    public string OutputDirectoryPath { get; }
+    public DirectoryDescriptor OutputDirectoryPath { get; }
 
     /// <summary>
     /// Gets the requested output target.

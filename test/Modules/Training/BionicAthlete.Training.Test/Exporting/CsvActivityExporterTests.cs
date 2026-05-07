@@ -828,7 +828,7 @@ public sealed class CsvActivityExporterTests
             FileDescriptor[] fileDescriptors = result.ExportedArtifacts
                 .Select(static artifact => new FileDescriptor(artifact.FilePath, isRenamingRequired: false, artifact.BundlePath))
                 .ToArray();
-            FileBatch fileBatch = new(
+            ArchiveContentBatch fileBatch = new(
                 fileDescriptors,
                 fileDescriptors.Length,
                 archiveDirectoryPath,
@@ -1059,7 +1059,7 @@ public sealed class CsvActivityExporterTests
                 new(coreFilePath, isRenamingRequired: false, "core/activity.csv"),
                 new(metadataFilePath, isRenamingRequired: false, "metadata/metadata.csv")
             ];
-            FileBatch fileBatch = new(fileDescriptors, fileDescriptors.Length, outputDirectoryPath, "bundle", Encoding.UTF8, CompressionLevel.Fastest);
+            ArchiveContentBatch fileBatch = new(fileDescriptors, fileDescriptors.Length, outputDirectoryPath, "bundle", Encoding.UTF8, CompressionLevel.Fastest);
             FileBatches fileBatches = new([fileBatch], batchesCount: 1);
             ZipArchiveManager archiveManager = new(new TestTemporaryFileManager(outputDirectoryPath));
 

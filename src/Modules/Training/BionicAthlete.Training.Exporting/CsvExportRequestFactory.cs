@@ -3,6 +3,7 @@ namespace BionicAthlete.Training.Exporting;
 using System.Collections.Immutable;
 using System.Text;
 using BionicAthlete.Training.Domain.Activities;
+using BionicCode.Utilities.Net;
 
 /// <summary>
 /// Creates <see cref="CsvExportRequest"/> instances from higher-level column selection state.
@@ -35,7 +36,7 @@ public static class CsvExportRequestFactory
     public static CsvExportRequest Create(
         FitActivity sourceActivity,
         string sourceFileNameWithoutExtension,
-        string outputDirectoryPath,
+        DirectoryDescriptor outputDirectoryPath,
         IEnumerable<CsvExportColumnRequest> columnRequests,
         Encoding? encoding = null,
         FitExportOptions? options = null,
@@ -43,7 +44,7 @@ public static class CsvExportRequestFactory
     {
         ArgumentNullException.ThrowIfNull(sourceActivity);
         ArgumentException.ThrowIfNullOrWhiteSpace(sourceFileNameWithoutExtension);
-        ArgumentException.ThrowIfNullOrWhiteSpace(outputDirectoryPath);
+        ArgumentNullExceptionAdvanced.ThrowIfDefault(outputDirectoryPath);
         ArgumentNullException.ThrowIfNull(columnRequests);
 
         // Keep node grouping and generated file naming centralized here so UI wrappers only contribute
@@ -68,7 +69,7 @@ public static class CsvExportRequestFactory
     private static CsvNodeExportRequest CreateNodeRequest(
         IGrouping<FitNodeType, CsvExportColumnRequest> columnGroup,
         string sourceFileNameWithoutExtension,
-        string outputDirectoryPath)
+        DirectoryDescriptor outputDirectoryPath)
     {
         var orderedColumns = columnGroup
             // Preserve explicit order first and use source name as a stable tie-breaker so repeated exports
@@ -84,10 +85,10 @@ public static class CsvExportRequestFactory
             .ToImmutableArray();
 
         string destinationFilePath = Path.Combine(
-            outputDirectoryPath,
+            outputDirectoryPath.FullPath,
             "core",
             $"{sourceFileNameWithoutExtension}_{columnGroup.Key.ToString().ToLowerInvariant()}.csv");
 
-        return new CsvNodeExportRequest(columnGroup.Key, destinationFilePath, orderedColumns);
+        return new CsvNodeExportRequest(columnGroup.Key, new DirectoryDescriptor(destinationFilePath), orderedColumns);
     }
 }

@@ -26,7 +26,7 @@ public class ObservableFileDescriptor : ViewModel
         _newName = Name;
         Location = fileDescriptor.Location;
         FullPath = fileDescriptor.FullPath;
-        Extension = Path.GetExtension(FullPath);
+        Extension = FileExtension.FromFilePath(FullPath);
         OriginalFullPath = FullPath;
 
         _setValueOptions = new SetValueOptions
@@ -42,14 +42,13 @@ public class ObservableFileDescriptor : ViewModel
 
         _assemblyOfEmbeddedFile = null!;
         _name = Path.GetFileName(filePath);
-        Location = Path.GetDirectoryName(filePath) ?? string.Empty;
-        ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(Location, $"The argument '{nameof(filePath)}' does not contain a directory. Found: '{filePath}'", nameof(filePath));
+        Location = new DirectoryDescriptor(Path.GetDirectoryName(filePath) ?? string.Empty);
         _isRenamingEnabled = isRenamingRequired;
         IsEmbeddedResource = false;
         _originalName = Name;
         _newName = Name;
         FullPath = filePath;
-        Extension = Path.GetExtension(FullPath);
+        Extension = FileExtension.FromFilePath(FullPath);
         OriginalFullPath = FullPath;
 
         _setValueOptions = new SetValueOptions
@@ -67,13 +66,13 @@ public class ObservableFileDescriptor : ViewModel
 
         _name = embeddedFileName;
         _assemblyOfEmbeddedFile = assemblyOfEmbeddedFile;
-        Location = $"{_assemblyOfEmbeddedFile.GetName().Name}.{folderName.Trim('/', '\\', '.')}";
+        Location = new DirectoryDescriptor($"{_assemblyOfEmbeddedFile.GetName().Name}.{folderName.Trim('/', '\\', '.')}");
         _isRenamingEnabled = false;
         IsEmbeddedResource = true;
         _originalName = Name;
         _newName = Name;
-        FullPath = $"{Location}.{Name}";
-        Extension = Path.GetExtension(FullPath);
+        FullPath = $"{Location.FullPath}.{Name}";
+        Extension = FileExtension.FromFilePath(FullPath);
         OriginalFullPath = FullPath;
 
         _setValueOptions = new SetValueOptions
@@ -91,7 +90,7 @@ public class ObservableFileDescriptor : ViewModel
         }
 
         Name = _originalName;
-        FullPath = Path.Combine(Location, Name);
+        FullPath = Path.Combine(Location.FullPath, Name);
         IsRenamed = false;
     }
 
@@ -103,7 +102,7 @@ public class ObservableFileDescriptor : ViewModel
         }
 
         Name = _newName;
-        FullPath = Path.Combine(Location, Name);
+        FullPath = Path.Combine(Location.FullPath, Name);
         IsRenamed = true;
     }
 
@@ -114,17 +113,17 @@ public class ObservableFileDescriptor : ViewModel
         {
             IsRenamed = true;
             Name = _newName;
-            FullPath = Path.Combine(Location, Name);
+            FullPath = Path.Combine(Location.FullPath, Name);
         }
     }
 
     public FileDescriptor ToFileDescriptor() => IsEmbeddedResource
-            ? new(Name, Location, IsRenamingEnabled, _assemblyOfEmbeddedFile)
+            ? new(Name, Location, _assemblyOfEmbeddedFile)
             {
                 OriginalFullPath = OriginalFullPath,
                 OriginalName = _originalName,
             }
-            : new(Name, Location, IsRenamingEnabled)
+            : new(Name, Location)
             {
                 OriginalFullPath = OriginalFullPath,
                 OriginalName = _originalName,
@@ -134,10 +133,10 @@ public class ObservableFileDescriptor : ViewModel
 
     public event EventHandler<FileDescriptorChangedEventArgs>? Renamed;
 
-    public string Location { get; }
+    public DirectoryDescriptor Location { get; }
     public string FullPath { get; private set; }
     public bool IsEmbeddedResource { get; }
-    public string Extension { get; }
+    public FileExtension Extension { get; }
     public string OriginalFullPath { get; }
     public bool IsRenamed { get; private set; }
 

@@ -96,14 +96,14 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
         });
     }
 
-    public async Task CreateArchivesAsync(FileBatches fileBatches, IProgress<ProgressData> progressReporter, CancellationToken cancellationToken = default)
+    public async Task CreateArchivesAsync(FileBatches<ArchiveContentBatch> fileBatches, IProgress<ProgressData> progressReporter, CancellationToken cancellationToken = default)
     {
         ArgumentNullExceptionAdvanced.ThrowIfDefault(fileBatches);
         ArgumentNullExceptionAdvanced.ThrowIfNull(progressReporter);
 
         int totalFileCount = fileBatches.Batches.Sum(batch => batch.FileDescriptorsCount);
         int completedCount = 1;
-        foreach (FileBatch batch in fileBatches.Batches)
+        foreach (ArchiveContentBatch batch in fileBatches.Batches)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -115,7 +115,7 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
                 FileHelpers.WriteOnlyCreateOrOverwriteOptions);
             await using ZipArchive zipArchive = await ZipArchive.CreateAsync(zipFile, ZipArchiveMode.Create, leaveOpen: false, batch.Encoding, cancellationToken);
 
-            foreach (FileDescriptor fileDescriptor in batch.FileDescriptors)
+            foreach (ArchiveContentFileDescriptor fileDescriptor in batch.FileDescriptors)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -128,7 +128,7 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
                     await using Stream resourceStream = sourceFileDescriptor.EmbeddedResourceAssembly.GetManifestResourceStream(sourceFileDescriptor.FullPath) ?? throw new InvalidOperationException($"Failed to get manifest resource stream for embedded resource: {sourceFileDescriptor.Location}");
                     await using var destinationStream = new FileStream(destinationFilePath.FullPath, FileHelpers.WriteOnlyCreateOrOverwriteOptions);
                     await resourceStream.CopyToAsync(destinationStream, cancellationToken).ConfigureAwait(false);
-                    sourceFileDescriptor = new(destinationFilePath.FullPath, sourceFileDescriptor.ArchiveEntryName);
+                    sourceFileDescriptor = new(destinationFilePath.FullPath, sourceFileDescriptor.RelativeArchiveEntryName);
                 }
 
                 if (sourceFileDescriptor.HasRenamingInformation)
@@ -148,20 +148,20 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
 
                     // Don't rename the original files but create a copy with the new name in the same location and delete it after packing it to the zip archive
                     File.Copy(sourceFileDescriptor.OriginalFullPath, destinationFilePath.FullPath, overwrite: true);
-                    sourceFileDescriptor = new(destinationFilePath.FullPath, sourceFileDescriptor.ArchiveEntryName);
+                    sourceFileDescriptor = new(destinationFilePath.FullPath, sourceFileDescriptor.RelativeArchiveEntryName);
                 }
 
                 progressReporter.Report(new ProgressData
                 {
                     Progress = completedCount,
                     MaxValue = totalFileCount,
-                    Message = $"Packing file #{completedCount} of {totalFileCount} files to {zipFileName}: {sourceFileDescriptor.ArchiveEntryName}"
+                    Message = $"Packing file #{completedCount} of {totalFileCount} files to {zipFileName}: {sourceFileDescriptor.RelativeArchiveEntryName}"
                 });
 
                 cancellationToken.ThrowIfCancellationRequested();
 
                 // Preserve exporter-provided bundle paths so grouped CSV artifacts stay grouped inside the ZIP.
-                _ = await zipArchive.CreateEntryFromFileAsync(sourceFileDescriptor.FullPath, sourceFileDescriptor.ArchiveEntryName, batch.CompressionLevel, cancellationToken);
+                _ = await zipArchive.CreateEntryFromFileAsync(sourceFileDescriptor.FullPath, sourceFileDescriptor.RelativeArchiveEntryName, batch.CompressionLevel, cancellationToken);
                 completedCount++;
             }
         }
