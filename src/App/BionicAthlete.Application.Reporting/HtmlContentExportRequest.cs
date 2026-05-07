@@ -1,6 +1,6 @@
 namespace BionicAthlete.Application.Reporting;
 
-using BionicAthlete.Application.Reporting.Html;
+using BionicAthlete.Application;
 using BionicCode.Utilities.Net;
 
 /// <summary>

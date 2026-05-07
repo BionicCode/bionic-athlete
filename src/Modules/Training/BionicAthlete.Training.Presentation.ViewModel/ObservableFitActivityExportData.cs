@@ -5,7 +5,6 @@ using System.Collections.Specialized;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Reflection;
-using BionicAthlete.FileSystem.Abstractions;
 using BionicAthlete.Training.Application.Decoding;
 using BionicAthlete.Training.Domain.Activities;
 using BionicAthlete.Training.Domain.Fields;

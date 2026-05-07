@@ -8,41 +8,40 @@ using BionicCode.Utilities.Net;
 
 public sealed partial class TemporaryFileManager : ITemporaryFileManager
 {
-    public const string DefaultDestinationFolderName = "FitToCsvConverter";
-    private static readonly ObservableFileSystemPathHashSet s_temporaryFilePaths = [];
-    private readonly string _temporaryDirectoryPath;
+    public const string DefaultDestinationFolderName = "BionicAthlete";
+    private static readonly ObservableHashSet<FileDescriptor> s_temporaryFilePaths = [];
+    private readonly DirectoryDescriptor _temporaryDirectoryPath;
     private readonly IApplicationLogger<TemporaryFileManager> _logger;
 
-    public string TemporaryDirectoryPath => _temporaryDirectoryPath;
+    public DirectoryDescriptor TemporaryDirectoryPath => _temporaryDirectoryPath;
 
     public TemporaryFileManager(IApplicationLogger<TemporaryFileManager> logger)
     {
-        _temporaryDirectoryPath = Path.Combine(Path.GetTempPath(), DefaultDestinationFolderName);
-        if (!Directory.Exists(_temporaryDirectoryPath))
+        _temporaryDirectoryPath = new DirectoryDescriptor(Path.Combine(Path.GetTempPath(), DefaultDestinationFolderName));
+        if (!Directory.Exists(_temporaryDirectoryPath.FullPath))
         {
-            _ = Directory.CreateDirectory(_temporaryDirectoryPath);
+            _ = Directory.CreateDirectory(_temporaryDirectoryPath.FullPath);
         }
 
         _logger = logger;
     }
 
-    public void RegisterTemporaryFilePath(string filePath)
+    public void RegisterTemporaryFilePath(FileDescriptor filePath)
     {
-        if (!string.IsNullOrWhiteSpace(filePath))
-        {
-            _ = s_temporaryFilePaths.Add(filePath);
-        }
+        ArgumentNullExceptionAdvanced.ThrowIfDefault(filePath);
+
+        _ = s_temporaryFilePaths.Add(filePath);
     }
 
     public void CleanUpTemporaryFiles()
     {
-        foreach (string filePath in s_temporaryFilePaths)
+        foreach (FileDescriptor filePath in s_temporaryFilePaths)
         {
             try
             {
-                if (File.Exists(filePath))
+                if (File.Exists(filePath.FullPath))
                 {
-                    File.Delete(filePath);
+                    File.Delete(filePath.FullPath);
                 }
             }
             catch (Exception ex)
@@ -54,11 +53,11 @@ public sealed partial class TemporaryFileManager : ITemporaryFileManager
 
         s_temporaryFilePaths.Clear();
 
-        if (Directory.Exists(_temporaryDirectoryPath))
+        if (Directory.Exists(_temporaryDirectoryPath.FullPath))
         {
             try
             {
-                Directory.Delete(_temporaryDirectoryPath, recursive: true);
+                Directory.Delete(_temporaryDirectoryPath.FullPath, recursive: true);
             }
             catch (Exception ex)
             {
@@ -69,21 +68,21 @@ public sealed partial class TemporaryFileManager : ITemporaryFileManager
     }
 
     // Uses Path.GetFileName() to ensure that only the file name is combined with the temporary directory path, preventing any directory traversal issues.
-    public string CreateTemporaryFilePath() => Path.Combine(TemporaryDirectoryPath, Path.GetTempFileName());
+    public FileDescriptor CreateTemporaryFilePath() => new(Path.GetTempFileName(), TemporaryDirectoryPath);
 
     // Uses Path.GetFileName() to ensure that only the file name is combined with the temporary directory path, preventing any directory traversal issues.
-    public string CreateTemporaryFilePath(string fileName) => Path.Combine(TemporaryDirectoryPath, Path.GetFileName(fileName));
+    public FileDescriptor CreateTemporaryFilePath(string fileName) => new(Path.Combine(TemporaryDirectoryPath.FullPath, Path.GetFileName(fileName)), TemporaryDirectoryPath);
 
     // Uses Path.GetFileName() to ensure that only the file name is combined with the temporary directory path, preventing any directory traversal issues.
-    public string CreateTemporaryFilePath(string subFolder, string fileName)
+    public FileDescriptor CreateTemporaryFilePath(string subfolder, string fileName)
     {
-        string directory = Path.Combine(TemporaryDirectoryPath, subFolder);
+        string directory = Path.Combine(TemporaryDirectoryPath.FullPath, subfolder);
         if (!Directory.Exists(directory))
         {
             _ = Directory.CreateDirectory(directory);
         }
 
-        return Path.Combine(directory, Path.GetFileName(fileName));
+        return new FileDescriptor(Path.Combine(directory, Path.GetFileName(fileName)), new DirectoryDescriptor(directory));
     }
 
     /// <summary>

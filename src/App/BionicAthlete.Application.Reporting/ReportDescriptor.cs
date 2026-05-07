@@ -1,7 +1,8 @@
 ﻿namespace BionicAthlete.Application.Reporting;
 
 using System.Collections.Immutable;
-using BionicAthlete.Application.Reporting.Html;
+using BionicAthlete.Application;
+using BionicAthlete.Application.Exporting;
 using BionicCode.Utilities.Net;
 
 public sealed class ReportDescriptor
@@ -13,8 +14,7 @@ public sealed class ReportDescriptor
     string sourceFilePath,
     DateTimeOffset generatedAtUtc,
     ReportOutputTarget outputTarget,
-    ReportPagePreset pagePreset,
-    ImmutableArray<ReportManifestArtifact> artifacts,
+    PagePreset pagePreset,
     ImmutableArray<string> sectionIds,
     ImmutableArray<ReportDiagnostic> diagnostics)
     {
@@ -24,9 +24,8 @@ public sealed class ReportDescriptor
         ArgumentNullExceptionAdvanced.ThrowIfNullOrWhiteSpace(sourceFilePath);
         ArgumentExceptionAdvanced.ThrowIfEnumIsNotDefined<ReportOutputTarget>(outputTarget);
         ArgumentExceptionAdvanced.ThrowIfEnumEqualsAny(outputTarget, [ReportOutputTarget.Undefined]);
-        ArgumentExceptionAdvanced.ThrowIfEnumIsNotDefined<ReportPagePreset>(pagePreset);
-        ArgumentExceptionAdvanced.ThrowIfEnumEqualsAny(pagePreset, [ReportPagePreset.Undefined]);
-        ArgumentNullExceptionAdvanced.ThrowIfNull(artifacts);
+        ArgumentExceptionAdvanced.ThrowIfEnumIsNotDefined<PagePreset>(pagePreset);
+        ArgumentExceptionAdvanced.ThrowIfEnumEqualsAny(pagePreset, [PagePreset.Undefined]);
         ArgumentNullExceptionAdvanced.ThrowIfNull(sectionIds);
         ArgumentNullExceptionAdvanced.ThrowIfNull(diagnostics);
 
@@ -37,7 +36,6 @@ public sealed class ReportDescriptor
         GeneratedAtUtc = generatedAtUtc;
         OutputTarget = outputTarget;
         PagePreset = pagePreset;
-        Artifacts = artifacts;
         SectionIds = sectionIds;
         Diagnostics = diagnostics;
     }
@@ -57,7 +55,6 @@ public sealed class ReportDescriptor
             report.GeneratedAtUtc,
             outputTarget,
             reportHtmlDocument.PagePreset,
-            ImmutableArray.Create(new ReportManifestArtifact("HtmlReport", $"{report.ReportId}.html", "text/html")),
             report.Sections.Select(section => section.Id).ToImmutableArray(),
             report.Diagnostics);
     }
@@ -68,7 +65,7 @@ public sealed class ReportDescriptor
     public string SourceFilePath { get; init; }
     public DateTimeOffset GeneratedAtUtc { get; init; }
     public ReportOutputTarget OutputTarget { get; init; }
-    public ReportPagePreset PagePreset { get; init; }
+    public PagePreset PagePreset { get; init; }
     public ImmutableArray<ReportManifestArtifact> Artifacts { get; init; }
     public ImmutableArray<string> SectionIds { get; init; }
     public ImmutableArray<ReportDiagnostic> Diagnostics { get; init; }

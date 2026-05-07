@@ -1,8 +1,7 @@
-﻿namespace BionicAthlete.FileSystem.Abstractions;
+﻿namespace BionicAthlete.Application.Exporting;
 
 using System.Text;
-using BionicAthlete.Application.Exporting;
-using BionicAthlete.Application.Reporting.Html;
+using BionicAthlete.Application;
 
 public interface IHtmlExporterArgsFactory
 {

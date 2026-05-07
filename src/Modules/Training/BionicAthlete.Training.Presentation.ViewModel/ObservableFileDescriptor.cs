@@ -3,7 +3,6 @@
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
-using BionicAthlete.FileSystem.Abstractions;
 using BionicCode.Utilities.Net;
 
 [DebuggerDisplay("Name = {Name}, Location = {Location}, IsRenamingEnabled = {IsRenamingEnabled}, IsRenamed = {IsRenamed}")]
@@ -18,7 +17,7 @@ public class ObservableFileDescriptor : ViewModel
 
     public ObservableFileDescriptor(FileDescriptor fileDescriptor)
     {
-        _isRenamingEnabled = fileDescriptor.IsRenamingRequired;
+        _isRenamingEnabled = fileDescriptor.HasRenamingInformation;
         IsEmbeddedResource = false;
         _assemblyOfEmbeddedFile = null!;
 

@@ -1,11 +1,8 @@
 ﻿namespace BionicAthlete.Training.Application.Reporting;
 
+using System.Collections.Immutable;
 using System.Text;
 using BionicAthlete.Application.Exporting;
-using BionicAthlete.Application.Reporting;
-using BionicAthlete.Application.Reporting.Html;
-using BionicAthlete.FileSystem.Abstractions;
-using BionicAthlete.Infrastructure.FileSystem;
 using BionicAthlete.Training.Domain.Activities;
 using BionicCode.Utilities.Net;
 
@@ -43,6 +40,8 @@ public class FitActivityReportCreator
             .ConfigureAwait(true);
         HtmlDocument htmlDocument = await RenderHtmlAsync(exportData, report, cancellationToken);
 
+        string htmlFilePath = string.Empty;
+        string manifestFilePath = string.Empty;
         if (outputTarget is not ReportOutputTarget.PdfFromGeneratedHtml)
         {
             string fileNameWithoutExtension = exportData.FitFileDescriptor.Name;
@@ -60,6 +59,18 @@ public class FitActivityReportCreator
             manifestBuilder.AddArtifact(ArtifactKind.HtmlReport, fileName);
             _ = await manifestBuilder.BuildAsync(cancellationToken).ConfigureAwait(false);
         }
+
+        ImmutableArray<ReportDiagnostic> diagnostics = report.Diagnostics.IsDefault
+            ? ImmutableArray<ReportDiagnostic>.Empty
+            : report.Diagnostics;
+        var package = new HtmlReportPackage(
+            exportData.OutputDirectoryPath,
+            htmlFilePath,
+            manifestFilePath,
+            pdfFilePath,
+            options.OutputTarget,
+            options.PageSettings,
+            diagnostics);
     }
 
     internal async Task<HtmlDocument> RenderHtmlAsync(FitFileExportData exportData, Report report, CancellationToken cancellationToken)

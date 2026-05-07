@@ -8,7 +8,7 @@ using BionicAthlete.Application.Reporting;
 /// </summary>
 /// <param name="ReportDirectoryPath">Physical report folder path.</param>
 /// <param name="HtmlFilePath">Physical path to <c>activity-report.html</c>.</param>
-/// <param name="ManifestFilePath">Physical path to <c>report-manifest.json</c>.</param>
+/// <param name="ManifestBuilder">Builder for the report manifest.</param>
 /// <param name="PdfFilePath">Physical path to <c>activity-report.pdf</c> when a PDF target was requested.</param>
 /// <param name="OutputTarget">Requested output target.</param>
 /// <param name="PageSettings">Neutral page settings used by the package.</param>
@@ -16,7 +16,7 @@ using BionicAthlete.Application.Reporting;
 public sealed record HtmlReportPackage(
     string ReportDirectoryPath,
     string HtmlFilePath,
-    string ManifestFilePath,
+    IReportManifestBuilder ManifestBuilder,
     string? PdfFilePath,
     ReportOutputTarget OutputTarget,
     PageSettings PageSettings,

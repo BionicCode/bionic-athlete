@@ -29,7 +29,7 @@ public sealed record ReportManifest
     public string SourceFilePath { get; }
     public DateTimeOffset ExportTimestampUtc { get; }
     public ReportOutputTarget OutputTarget { get; }
-    public ReportPagePreset PagePreset { get; }
+    public PagePreset PagePreset { get; }
     public ImmutableArray<string> IncludedSections { get; }
     public ImmutableArray<ReportDiagnostic> Diagnostics { get; }
     public bool IsDirty { get; private set; }
@@ -41,7 +41,7 @@ public sealed record ReportManifest
         string sourceFilePath,
         DateTimeOffset exportTimestampUtc,
         ReportOutputTarget outputTarget,
-        ReportPagePreset pagePreset,
+        PagePreset pagePreset,
         ImmutableArray<string> includedSections,
         ImmutableArray<ReportDiagnostic> diagnostics)
     {

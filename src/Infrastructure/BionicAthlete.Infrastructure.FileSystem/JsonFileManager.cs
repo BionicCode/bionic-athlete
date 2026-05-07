@@ -8,7 +8,9 @@ using BionicCode.Utilities.Net;
 
 public sealed class JsonFileManager<TValue> : IFileManager<TValue>
 {
+    private readonly Encoding _defaultEncoding = Encoding.UTF8;
     private readonly ITemporaryFileManager _temporaryFileManager;
+    public JsonSerializerOptions? JsonSerializerOptions { get; set; }
 
     public JsonFileManager(ITemporaryFileManager temporaryFileManager)
     {
@@ -17,24 +19,22 @@ public sealed class JsonFileManager<TValue> : IFileManager<TValue>
         _temporaryFileManager = temporaryFileManager;
     }
 
-    public TValue Read(string filePath, Encoding encoding)
+    public TValue Read(FileDescriptor filePath, Encoding encoding)
     {
-        ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(nameof(filePath));
-        ArgumentNullExceptionAdvanced.ThrowIfNull(nameof(encoding));
+        ArgumentNullExceptionAdvanced.ThrowIfDefault(filePath);
 
-        using var fileStream = new FileStream(filePath, FileHelpers.ReadOnlyOptions);
-        TValue? value = JsonSerializer.Deserialize<TValue>(fileStream);
+        using var fileStream = new FileStream(filePath.FullPath, FileHelpers.ReadOnlyOptions);
+        TValue? value = JsonSerializer.Deserialize<TValue>(fileStream, JsonSerializerOptions);
 
         return value ?? throw new InvalidOperationException($"Deserialization of file '{filePath}' resulted in a null value.");
     }
 
-    public async Task<TValue> ReadAsync(string filePath, Encoding encoding, CancellationToken cancellationToken)
+    public async Task<TValue> ReadAsync(FileDescriptor filePath, Encoding encoding, CancellationToken cancellationToken)
     {
-        ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(nameof(filePath));
-        ArgumentNullExceptionAdvanced.ThrowIfNull(nameof(encoding));
+        ArgumentNullExceptionAdvanced.ThrowIfDefault(filePath);
 
-        await using var fileStream = new FileStream(filePath, FileHelpers.ReadOnlyOptions);
-        TValue? value = await JsonSerializer.DeserializeAsync<TValue>(fileStream, cancellationToken: cancellationToken)
+        await using var fileStream = new FileStream(filePath.FullPath, FileHelpers.ReadOnlyOptions);
+        TValue? value = await JsonSerializer.DeserializeAsync<TValue>(fileStream, JsonSerializerOptions, cancellationToken)
             .ConfigureAwait(false);
 
         return value ?? throw new InvalidOperationException($"Deserialization of file '{filePath}' resulted in a null value.");
@@ -46,52 +46,52 @@ public sealed class JsonFileManager<TValue> : IFileManager<TValue>
     /// <param name="filePath">The path to the file to read.</param>
     /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
     /// <returns>A <see cref="Task{TResult}"/> that represents the asynchronous read operation. The task result contains the file content as a string.</returns>
-    public Task<TValue> ReadAsync(string filePath, CancellationToken cancellationToken) => ReadAsync(filePath, Encoding.UTF8, cancellationToken);
+    public Task<TValue> ReadAsync(FileDescriptor filePath, CancellationToken cancellationToken) => ReadAsync(filePath, Encoding.UTF8, cancellationToken);
 
-    public void Write(TValue value, Encoding encoding, string filePath, bool isOverWriteAllowed)
+    public void Write(TValue value, Encoding encoding, FileDescriptor filePath, bool isOverWriteAllowed)
     {
-        ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(nameof(value));
-        ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(nameof(filePath));
-        ArgumentNullExceptionAdvanced.ThrowIfNull(nameof(encoding));
+        ArgumentNullExceptionAdvanced.ThrowIfNull(value);
+        ArgumentNullExceptionAdvanced.ThrowIfDefault(filePath);
 
         if (!isOverWriteAllowed)
         {
-            ArgumentExceptionAdvanced.ThrowIfTrue(File.Exists(filePath), $"Invalid argument '{nameof(filePath)}'. The file at path '{filePath}' already exists and overwriting is not allowed.");
+            ArgumentExceptionAdvanced.ThrowIfTrue(File.Exists(filePath.FullPath), $"Invalid argument '{nameof(filePath)}'. The file at path '{filePath}' already exists and overwriting is not allowed.");
         }
 
         FileStreamOptions fileStreamOptions = isOverWriteAllowed
             ? FileHelpers.WriteOnlyCreateOrOverwriteOptions
             : FileHelpers.WriteOnlyCreateOptions;
-        using var fileStream = new FileStream(filePath, fileStreamOptions);
-        JsonSerializer.Serialize(fileStream, value);
+        using var fileStream = new FileStream(filePath.FullPath, fileStreamOptions);
+        JsonSerializer.Serialize(fileStream, value, JsonSerializerOptions);
     }
 
-    public async Task WriteAsync(TValue value, Encoding encoding, string filePath, bool isOverWriteAllowed, CancellationToken cancellationToken)
+    public async Task WriteAsync(TValue value, Encoding encoding, FileDescriptor filePath, bool isOverWriteAllowed, CancellationToken cancellationToken)
     {
-        ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(nameof(value));
-        ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(nameof(filePath));
-        ArgumentNullExceptionAdvanced.ThrowIfNull(nameof(encoding));
+        ArgumentNullExceptionAdvanced.ThrowIfNull(value);
+        ArgumentNullExceptionAdvanced.ThrowIfDefault(filePath);
 
         if (!isOverWriteAllowed)
         {
-            ArgumentExceptionAdvanced.ThrowIfTrue(File.Exists(filePath), $"Invalid argument '{nameof(filePath)}'. The file at path '{filePath}' already exists and overwriting is not allowed.");
+            ArgumentExceptionAdvanced.ThrowIfTrue(File.Exists(filePath.FullPath), $"Invalid argument '{nameof(filePath)}'. The file at path '{filePath}' already exists and overwriting is not allowed.");
         }
 
         FileStreamOptions fileStreamOptions = isOverWriteAllowed
             ? FileHelpers.WriteOnlyCreateOrOverwriteOptions
             : FileHelpers.WriteOnlyCreateOptions;
-        await using var fileStream = new FileStream(filePath, fileStreamOptions);
-        await JsonSerializer.SerializeAsync(fileStream, value, cancellationToken: cancellationToken)
+        await using var fileStream = new FileStream(filePath.FullPath, fileStreamOptions);
+        await JsonSerializer.SerializeAsync(fileStream, value, JsonSerializerOptions, cancellationToken)
             .ConfigureAwait(false);
     }
 
-    public Task WriteAsync(TValue value, string filePath, bool isOverWriteAllowed) => WriteAsync(value, Encoding.UTF8, filePath, isOverWriteAllowed, CancellationToken.None);
+    public Task WriteAsync(TValue value, FileDescriptor filePath, bool isOverWriteAllowed) => WriteAsync(value, Encoding.UTF8, filePath, isOverWriteAllowed, CancellationToken.None);
 
-    public async Task<string> WriteTemporaryAsync(TValue value, Encoding encoding, bool isTemporaryFileManaged, CancellationToken cancellationToken)
+    public async Task<FileDescriptor> WriteTemporaryAsync(TValue value, Encoding encoding, bool isTemporaryFileManaged, CancellationToken cancellationToken)
     {
-        string destination = _temporaryFileManager.CreateTemporaryFilePath();
-        await using var fileStream = new FileStream(destination, FileHelpers.WriteOnlyCreateOptions);
-        await JsonSerializer.SerializeAsync(fileStream, value, cancellationToken: cancellationToken)
+        ArgumentNullExceptionAdvanced.ThrowIfNull(value);
+
+        FileDescriptor destination = _temporaryFileManager.CreateTemporaryFilePath();
+        await using var fileStream = new FileStream(destination.FullPath, FileHelpers.WriteOnlyCreateOptions);
+        await JsonSerializer.SerializeAsync(fileStream, value, JsonSerializerOptions, cancellationToken)
             .ConfigureAwait(false);
 
         if (isTemporaryFileManaged)
@@ -102,11 +102,14 @@ public sealed class JsonFileManager<TValue> : IFileManager<TValue>
         return destination;
     }
 
-    public async Task<string> WriteTemporaryAsync(TValue value, Encoding encoding, string subdirectoryName, bool isTemporaryFileManaged, CancellationToken cancellationToken)
+    public async Task<FileDescriptor> WriteTemporaryAsync(TValue value, Encoding encoding, string subdirectoryName, bool isTemporaryFileManaged, CancellationToken cancellationToken)
     {
-        string destination = _temporaryFileManager.CreateTemporaryFilePath(subdirectoryName, Path.GetTempFileName());
-        await using var fileStream = new FileStream(destination, FileHelpers.WriteOnlyCreateOptions);
-        await JsonSerializer.SerializeAsync(fileStream, value, cancellationToken: cancellationToken)
+        ArgumentNullExceptionAdvanced.ThrowIfNull(value);
+        ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(subdirectoryName);
+
+        FileDescriptor destination = _temporaryFileManager.CreateTemporaryFilePath(subdirectoryName, Path.GetTempFileName());
+        await using var fileStream = new FileStream(destination.FullPath, FileHelpers.WriteOnlyCreateOptions);
+        await JsonSerializer.SerializeAsync(fileStream, value, JsonSerializerOptions, cancellationToken)
             .ConfigureAwait(false);
 
         if (isTemporaryFileManaged)

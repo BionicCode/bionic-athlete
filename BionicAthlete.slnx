@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/App/">
+    <Project Path="src/App/BionicAthlete.Application.Reporting/BionicAthlete.Application.Reporting.csproj" Id="6b7d246b-6b40-4e70-8781-f52377bad955" />
     <Project Path="src/App/BionicAthlete.Application/BionicAthlete.Application.csproj" Id="b93b67ad-aab8-427a-b0cc-d224ba12f418" />
     <Project Path="src/App/BionicAthlete.Desktop/BionicAthlete.Desktop.csproj" />
     <Project Path="src/App/BionicAthlete.Presentation.ViewModel/BionicAthlete.Presentation.ViewModel.csproj" Id="67ecd331-b555-433e-bd18-21e431b0e0fc" />

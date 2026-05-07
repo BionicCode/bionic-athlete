@@ -1,9 +1,7 @@
-﻿namespace BionicAthlete.FileSystem.Abstractions;
+﻿namespace BionicAthlete.Application.Exporting;
 
 using System.Text;
-using BionicAthlete.Application.Exporting;
-
-using BionicAthlete.Application.Reporting.Html;
+using BionicAthlete.Application;
 using BionicCode.Utilities.Net;
 
 public class HtmlFileExporterArgs : HtmlExporterArgs
@@ -17,8 +15,8 @@ public class HtmlFileExporterArgs : HtmlExporterArgs
         ArgumentExceptionAdvanced.ThrowIfFalse(destinationUri.IsFile, $"Invalid argument '{destinationUri}'. The URI '{destinationUri.AbsolutePath}' is not a file.");
 
         OutputDirectory = Path.GetDirectoryName(destinationUri.LocalPath) ?? throw new InvalidOperationException($"Unable to determine the directory for '{destinationUri.LocalPath}'.");
-        OutputFileName = Path.GetFileName(destinationUri.LocalPath) is string fileName && !string.IsNullOrWhiteSpace(fileName) 
-            ? fileName 
+        OutputFileName = Path.GetFileName(destinationUri.LocalPath) is string fileName && !string.IsNullOrWhiteSpace(fileName)
+            ? fileName
             : throw new InvalidOperationException($"Unable to determine the file name for '{destinationUri.LocalPath}'.");
         IsOverWriteExistingAllowed = isOverWriteExistingAllowed;
         Encoding = encoding ?? Encoding.UTF8;
@@ -28,9 +26,4 @@ public class HtmlFileExporterArgs : HtmlExporterArgs
     public string OutputFileName { get; init; }
     public bool IsOverWriteExistingAllowed { get; }
     public Encoding Encoding { get; }
-}
-
-public class HtmlFileExporterArgsFactory : IHtmlExporterArgsFactory
-{
-    public HtmlExporterArgs Create(HtmlDocument document, Uri destinationUri, bool isOverWriteExistingAllowed, Encoding? encoding) => new HtmlFileExporterArgs(document, destinationUri, isOverWriteExistingAllowed, encoding);
 }

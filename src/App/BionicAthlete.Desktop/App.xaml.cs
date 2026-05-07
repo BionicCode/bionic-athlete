@@ -10,6 +10,7 @@ using System.Text;
 using System.Windows;
 using System.Windows.Markup;
 using System.Windows.Threading;
+using BionicAthlete.Application.Exporting;
 using BionicAthlete.Application.Reporting;
 using BionicAthlete.FileSystem.Abstractions;
 using BionicAthlete.Infrastructure.FileSystem;

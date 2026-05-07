@@ -1,12 +1,14 @@
 ﻿namespace BionicAthlete.FileSystem.Abstractions;
 
+using BionicCode.Utilities.Net;
+
 public interface ITemporaryFileManager
 {
-    string TemporaryDirectoryPath { get; }
-    string CreateTemporaryFilePath();
-    string CreateTemporaryFilePath(string fileName);
-    string CreateTemporaryFilePath(string subfolder, string fileName);
+    DirectoryDescriptor TemporaryDirectoryPath { get; }
+    FileDescriptor CreateTemporaryFilePath();
+    FileDescriptor CreateTemporaryFilePath(string fileName);
+    FileDescriptor CreateTemporaryFilePath(string subfolder, string fileName);
     string MakeFileNameUnique(string fileName);
-    void RegisterTemporaryFilePath(string filePath);
+    void RegisterTemporaryFilePath(FileDescriptor filePath);
     void CleanUpTemporaryFiles();
 }

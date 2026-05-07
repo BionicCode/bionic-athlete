@@ -1,14 +1,14 @@
-namespace BionicAthlete.Infrastructure.FileSystem;
+namespace BionicAthlete.Application.Reporting;
 
 using BionicAthlete.Application.Exporting;
-using BionicAthlete.Application.Reporting;
 using BionicCode.Utilities.Net;
 
-public class ReportManifestBuilder
+public class ReportManifestBuilder : IReportManifestBuilder
 {
     private static readonly ReportManifestHandler s_handler = new();
     private readonly ReportManifest _reportManifest;
     private readonly string _outputFolder;
+    public bool IsDirty { get; private set; }
 
     private ReportManifestBuilder(ReportManifest manifest, string outputFolder)
     {
@@ -21,7 +21,7 @@ public class ReportManifestBuilder
         ArgumentNullExceptionAdvanced.ThrowIfNull(reportDescriptor);
         ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(outputFolder);
 
-        ReportManifest manifest = await ReportManifestHandler.GetOrCreateManifestAsync(reportDescriptor, outputFolder, cancellationToken);
+        ReportManifest manifest = await s_handler.GetOrCreateManifestAsync(reportDescriptor, outputFolder, cancellationToken);
         return new ReportManifestBuilder(manifest, outputFolder);
     }
 
@@ -33,11 +33,19 @@ public class ReportManifestBuilder
         return new ReportManifestBuilder(manifest, outputFolder);
     }
 
-    public void AddArtifact(ArtifactKind artifactKind, string relativeArtifactFilePath) => _reportManifest.AddArtifact(artifactKind, relativeArtifactFilePath);
+    public void AddArtifact(ArtifactKind artifactKind, string relativeArtifactFilePath)
+    {
+        _reportManifest.AddArtifact(artifactKind, relativeArtifactFilePath);
+        IsDirty = true;
+    }
 
     public async Task<ReportManifest> BuildAsync(CancellationToken cancellationToken)
     {
-        await s_handler.WriteManifestAsync(_outputFolder, _reportManifest, cancellationToken);
+        if (IsDirty)
+        {
+            await s_handler.WriteManifestAsync(_outputFolder, _reportManifest, cancellationToken);
+            IsDirty = false;
+        }
 
         return _reportManifest;
     }

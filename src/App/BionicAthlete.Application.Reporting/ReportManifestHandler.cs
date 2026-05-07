@@ -1,19 +1,19 @@
-namespace BionicAthlete.Infrastructure.FileSystem;
+namespace BionicAthlete.Application.Reporting;
 
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using BionicAthlete.Application.Exporting;
-using BionicAthlete.Application.Reporting;
-using BionicAthlete.FileSystem.Abstractions;
+using BionicAthlete.Infrastructure.FileSystem;
 using BionicCode.Utilities.Net;
 
 /// <summary>
 /// Updates View C report manifests after UI-bound PDF generation succeeds.
 /// </summary>
-public class ReportManifestHandler : IReportManifestHandler
+internal class ReportManifestHandler : IReportManifestHandler
 {
     private static readonly JsonSerializerOptions s_manifestJsonOptions = CreateManifestJsonOptions();
+    private readonly JsonFileManager<ReportManifest> _jsonFileManager = new();
 
     internal static JsonSerializerOptions ManifestJsonOptions => s_manifestJsonOptions;
 
@@ -26,22 +26,19 @@ public class ReportManifestHandler : IReportManifestHandler
         ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(destinationFolder);
 
         string manifestFilePath = Path.Combine(destinationFolder, ArtifactNames.ManifestFileName);
-        string json = JsonSerializer.Serialize(manifest, ManifestJsonOptions);
-        await File.WriteAllTextAsync(manifestFilePath, json, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
+        await _jsonFileManager.WriteAsync(manifest, Encoding.UTF8, manifestFilePath, isOverWriteAllowed: true, cancellationToken).ConfigureAwait(false);
         manifest.SetIsCommitted();
     }
 
-    public async Task<ReportManifest> GetOrCreateManifestAsync(ReportDescriptor reportInfo, string outputFolder, CancellationToken cancellationToken)
+    public async Task<ReportManifest> GetOrCreateManifestAsync(ReportDescriptor reportInfo, DirectoryDescriptor location, CancellationToken cancellationToken)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(reportInfo);
-        ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(outputFolder);
+        ArgumentNullExceptionAdvanced.ThrowIfDefault(location);
 
-        string manifestFilePath = Path.Combine(outputFolder, ArtifactNames.ManifestFileName);
+        string manifestFilePath = Path.Combine(location.FullPath, ArtifactNames.ManifestFileName);
         if (File.Exists(manifestFilePath))
         {
-            await using var jsonFile = new FileStream(manifestFilePath, FileHelpers.ReadOnlyOptions);
-            return await JsonSerializer.DeserializeAsync<ReportManifest>(jsonFile, ManifestJsonOptions, cancellationToken)
-                ?? throw new InvalidOperationException("The report manifest could not be deserialized.");
+            return await _jsonFileManager.ReadAsync(manifestFilePath, cancellationToken).ConfigureAwait(false);
         }
 
         ReportManifest manifest = new(
@@ -68,4 +65,6 @@ public class ReportManifestHandler : IReportManifestHandler
         options.Converters.Add(new JsonStringEnumConverter());
         return options;
     }
+
+    public Task WriteManifestAsync(DirectoryDescriptor destinationFolder, ReportManifest manifest, CancellationToken cancellationToken) => throw new NotImplementedException();
 }

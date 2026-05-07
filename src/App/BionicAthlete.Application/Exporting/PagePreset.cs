@@ -1,9 +1,9 @@
-namespace BionicAthlete.Application.Reporting;
+namespace BionicAthlete.Application.Exporting;
 
 /// <summary>
 /// Identifies the print-layout preset used by the HTML report and WebView2 PDF settings.
 /// </summary>
-public enum ReportPagePreset
+public enum PagePreset
 {
     Undefined = 0,
     /// <summary>

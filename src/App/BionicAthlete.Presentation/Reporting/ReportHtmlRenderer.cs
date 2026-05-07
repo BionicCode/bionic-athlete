@@ -4,8 +4,7 @@ using System.Collections.Immutable;
 using System.Globalization;
 using System.IO;
 using System.Text;
-using BionicAthlete.Application.Reporting;
-using BionicAthlete.Application.Reporting.Html;
+using BionicAthlete.Application;
 
 /// <summary>
 /// Renders a View C report as a deterministic, self-contained HTML package.

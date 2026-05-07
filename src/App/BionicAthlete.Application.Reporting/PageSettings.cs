@@ -1,4 +1,7 @@
 namespace BionicAthlete.Application.Reporting;
+
+using BionicAthlete.Application.Exporting;
+
 /// <summary>
 /// Neutral print settings used by report generation and later mapped to WebView2 print settings in the UI layer.
 /// </summary>
@@ -6,7 +9,7 @@ namespace BionicAthlete.Application.Reporting;
 /// Values are expressed in inches because WebView2 print settings use inch-based page and margin dimensions.
 /// </remarks>
 public sealed record PageSettings(
-    ReportPagePreset PagePreset,
+    PagePreset PagePreset,
     ReportPageOrientation Orientation,
     double PageWidthInches,
     double PageHeightInches,
@@ -23,7 +26,7 @@ public sealed record PageSettings(
     /// Gets the default A4 portrait page settings.
     /// </summary>
     public static PageSettings A4Portrait { get; } = new(
-        ReportPagePreset.A4Portrait,
+        PagePreset.A4Portrait,
         ReportPageOrientation.Portrait,
         PageWidthInches: 8.27d,
         PageHeightInches: 11.69d,
@@ -39,7 +42,7 @@ public sealed record PageSettings(
     /// Gets the default US Letter portrait page settings.
     /// </summary>
     public static PageSettings UsLetterPortrait { get; } = new(
-        ReportPagePreset.UsLetterPortrait,
+        PagePreset.UsLetterPortrait,
         ReportPageOrientation.Portrait,
         PageWidthInches: 8.5d,
         PageHeightInches: 11d,
