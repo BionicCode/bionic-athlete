@@ -8,7 +8,6 @@ using BionicCode.Utilities.Net;
 
 public sealed class JsonFileManager<TValue> : IFileManager<TValue>
 {
-    private readonly Encoding _defaultEncoding = Encoding.UTF8;
     private readonly ITemporaryFileManager _temporaryFileManager;
     public JsonSerializerOptions? JsonSerializerOptions { get; set; }
 

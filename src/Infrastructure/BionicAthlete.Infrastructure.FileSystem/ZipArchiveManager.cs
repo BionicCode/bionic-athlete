@@ -8,27 +8,26 @@ using BionicCode.Utilities.Net;
 
 public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
 {
-    public const string ZipFileExtension = ".zip";
-    public FrozenSet<string> SupportedArchiveFileExtensions { get; }
+    public FrozenSet<FileExtension> SupportedArchiveFileExtensions { get; }
 
     private readonly ITemporaryFileManager _temporaryFileManager;
 
     public ZipArchiveManager(ITemporaryFileManager temporaryFileManager)
     {
         _temporaryFileManager = temporaryFileManager;
-        SupportedArchiveFileExtensions = new HashSet<string>([ZipFileExtension], StringComparer.OrdinalIgnoreCase)
+        SupportedArchiveFileExtensions = new HashSet<FileExtension>([FileExtensions.Zip])
             .ToFrozenSet();
     }
 
-    public async IAsyncEnumerable<string> ExtractArchivesAsync(IEnumerable<string> archivePaths, Func<int, string, IProgress<ProgressData>>? progressReporterFactory, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    public async IAsyncEnumerable<FileDescriptor> ExtractArchivesAsync(IEnumerable<FileDescriptor> archivePaths, Func<int, string, IProgress<ProgressData>>? progressReporterFactory, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(archivePaths);
 
-        foreach (string archivePath in archivePaths)
+        foreach (FileDescriptor archivePath in archivePaths)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            await foreach (string extractedFile in ExtractArchiveAsync(archivePath, progressReporterFactory, cancellationToken).ConfigureAwait(false))
+            await foreach (FileDescriptor extractedFile in ExtractArchiveAsync(archivePath, progressReporterFactory, cancellationToken).ConfigureAwait(false))
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -37,7 +36,7 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
         }
     }
 
-    public async IAsyncEnumerable<string> ExtractArchiveAsync(string archivePath, Func<int, string, IProgress<ProgressData>>? progressReporterFactory, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    public async IAsyncEnumerable<FileDescriptor> ExtractArchiveAsync(FileDescriptor archivePath, Func<int, string, IProgress<ProgressData>>? progressReporterFactory, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(archivePath);
 
@@ -48,7 +47,7 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
             throw new NotSupportedException($"Invalid file type: only .zip files are supported. Found: '{archivePath}'.");
         }
 
-        await using ZipArchive zip = await ZipFile.OpenAsync(archivePath, ZipArchiveMode.Read, cancellationToken).ConfigureAwait(false);
+        await using ZipArchive zip = await ZipFile.OpenAsync(archivePath.FullPath, ZipArchiveMode.Read, cancellationToken).ConfigureAwait(false);
 
         int count = 1;
         IProgress<ProgressData>? progressReporter = progressReporterFactory?.Invoke(zip.Entries.Count, $"Extracting archive: {archivePath}");
@@ -68,14 +67,15 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
                 continue;
             }
 
-            string subDirectoryName = Path.GetFileNameWithoutExtension(archivePath);
-            string destinationFilePath = _temporaryFileManager.CreateTemporaryFilePath(subDirectoryName, entry.Name);
+            string subDirectoryName = archivePath.NameWithoutExtension;
+            FileDescriptor destinationFilePath = _temporaryFileManager.CreateTemporaryFilePath(subDirectoryName, entry.Name);
             _temporaryFileManager.RegisterTemporaryFilePath(destinationFilePath);
-            await entry.ExtractToFileAsync(destinationFilePath, overwrite: true, cancellationToken).ConfigureAwait(false);
+            await entry.ExtractToFileAsync(destinationFilePath.FullPath, overwrite: true, cancellationToken).ConfigureAwait(false);
 
-            if (Path.GetExtension(entry.Name).Equals(ZipFileExtension, StringComparison.OrdinalIgnoreCase))
+            // Check if file is a nested ZIP and extract recursively
+            if (FileExtension.FromFileName(entry.Name).Equals(FileExtensions.Zip))
             {
-                await foreach (string nestedFile in ExtractArchiveAsync(destinationFilePath, progressReporterFactory, cancellationToken).ConfigureAwait(false))
+                await foreach (FileDescriptor nestedFile in ExtractArchiveAsync(destinationFilePath, progressReporterFactory, cancellationToken).ConfigureAwait(false))
                 {
                     yield return nestedFile;
                 }
@@ -107,9 +107,9 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            string zipFileName = $"{batch.BatchName}{ZipFileExtension}";
+            string zipFileName = $"{batch.BatchName}{FileExtensions.Zip}";
             string zipFilePath = Path.Combine(batch.DestinationDirectory, zipFileName);
-            string temporaryDestinationFolderPath = Path.Combine(_temporaryFileManager.TemporaryDirectoryPath, batch.BatchName);
+            string temporaryDestinationFolderPath = Path.Combine(_temporaryFileManager.TemporaryDirectoryPath.FullPath, batch.BatchName);
             await using var zipFile = new FileStream(
                 zipFilePath,
                 FileHelpers.WriteOnlyCreateOrOverwriteOptions);
@@ -119,16 +119,16 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                FileDescriptor sourceFileDescriptor = fileDescriptor;
+                ArchiveContentFileDescriptor sourceFileDescriptor = fileDescriptor;
 
                 if (sourceFileDescriptor.IsEmbeddedResource)
                 {
-                    string destinationFilePath = _temporaryFileManager.CreateTemporaryFilePath(batch.BatchName, sourceFileDescriptor.Name);
+                    FileDescriptor destinationFilePath = _temporaryFileManager.CreateTemporaryFilePath(batch.BatchName, sourceFileDescriptor.Name);
                     _temporaryFileManager.RegisterTemporaryFilePath(destinationFilePath);
                     await using Stream resourceStream = sourceFileDescriptor.EmbeddedResourceAssembly.GetManifestResourceStream(sourceFileDescriptor.FullPath) ?? throw new InvalidOperationException($"Failed to get manifest resource stream for embedded resource: {sourceFileDescriptor.Location}");
-                    await using var destinationStream = new FileStream(destinationFilePath, FileHelpers.WriteOnlyCreateOrOverwriteOptions);
+                    await using var destinationStream = new FileStream(destinationFilePath.FullPath, FileHelpers.WriteOnlyCreateOrOverwriteOptions);
                     await resourceStream.CopyToAsync(destinationStream, cancellationToken).ConfigureAwait(false);
-                    sourceFileDescriptor = new FileDescriptor(destinationFilePath, sourceFileDescriptor.HasRenamingInformation);
+                    sourceFileDescriptor = new(destinationFilePath.FullPath, sourceFileDescriptor.ArchiveEntryName);
                 }
 
                 if (sourceFileDescriptor.HasRenamingInformation)
@@ -143,12 +143,12 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
                     cancellationToken.ThrowIfCancellationRequested();
 
                     string temporaryFileName = _temporaryFileManager.MakeFileNameUnique(sourceFileDescriptor.Name);
-                    string destinationFilePath = _temporaryFileManager.CreateTemporaryFilePath(batch.BatchName, temporaryFileName);
+                    FileDescriptor destinationFilePath = _temporaryFileManager.CreateTemporaryFilePath(batch.BatchName, temporaryFileName);
                     _temporaryFileManager.RegisterTemporaryFilePath(destinationFilePath);
 
                     // Don't rename the original files but create a copy with the new name in the same location and delete it after packing it to the zip archive
-                    File.Copy(sourceFileDescriptor.OriginalFullPath, destinationFilePath, overwrite: true);
-                    sourceFileDescriptor = new FileDescriptor(destinationFilePath, sourceFileDescriptor.HasRenamingInformation);
+                    File.Copy(sourceFileDescriptor.OriginalFullPath, destinationFilePath.FullPath, overwrite: true);
+                    sourceFileDescriptor = new(destinationFilePath.FullPath, sourceFileDescriptor.ArchiveEntryName);
                 }
 
                 progressReporter.Report(new ProgressData
@@ -174,5 +174,5 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
         });
     }
 
-    public bool IsFileTypeSupportedArchive(string filePath) => SupportedArchiveFileExtensions.Contains(Path.GetExtension(filePath));
+    public bool IsFileTypeSupportedArchive(FileDescriptor filePath) => SupportedArchiveFileExtensions.Contains(filePath.Extension);
 }

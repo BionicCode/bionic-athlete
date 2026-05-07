@@ -25,6 +25,7 @@ public readonly record struct FileDescriptor
         EmbeddedResourceAssembly = null!;
         IsEmbeddedResource = false;
         Name = Path.GetFileName(name);
+        NameWithoutExtension = Path.GetFileNameWithoutExtension(Name);
         Extension = FileExtension.FromFileName(Name);
         Location = location;
         _filePath = Path.Combine(Location.FullPath, Name);
@@ -43,6 +44,7 @@ public readonly record struct FileDescriptor
         EmbeddedResourceAssembly = null!;
         IsEmbeddedResource = false;
         Name = Path.GetFileName(filePath);
+        NameWithoutExtension = Path.GetFileNameWithoutExtension(Name);
         Extension = FileExtension.FromFileName(Name);
         Location = new DirectoryDescriptor(Path.GetDirectoryName(filePath) ?? string.Empty);
         _filePath = filePath;
@@ -66,6 +68,7 @@ public readonly record struct FileDescriptor
         EmbeddedResourceAssembly = embeddedResourceAssembly;
         Name = Path.GetFileName(fileName);
         Extension = FileExtension.FromFileName(Name);
+        NameWithoutExtension = Path.GetFileNameWithoutExtension(Name);
         Location = relativeLocation;
         _filePath = $"{Location}.{Name}"; // The full name of the embedded resource is typically in the format "Namespace.Folder.FileName"
         OriginalName = Name;
@@ -84,12 +87,13 @@ public readonly record struct FileDescriptor
     /// </summary>
     /// <remarks>Set <see cref="OriginalName"/> to preserve the original file name and use <see cref="Name"/> for the current file name. 
     /// This can be useful if you need to provide renaming related information where <see cref="OriginalName"/> is the old name and <see cref="Name"/> is the new name.</remarks>
-    public string Name { get; init; }
+    public string Name { get; }
+    public string NameWithoutExtension { get; }
 
     /// <summary>
     /// Gets the <see cref="DirectoryDescriptor"/> that specifies the location associated with the file described by this <see cref="FileDescriptor"/>.
     /// </summary>
-    public DirectoryDescriptor Location { get; init; }
+    public DirectoryDescriptor Location { get; }
 
     /// <summary>
     /// Gets the full file system path represented by this instance.

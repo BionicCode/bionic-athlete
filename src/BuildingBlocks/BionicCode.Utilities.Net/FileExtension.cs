@@ -112,7 +112,7 @@ public readonly record struct FileExtension
         {
             return false;
         }
-        Path.in
+
         foreach (char character in extensionCandidate)
         {
             if (char.IsWhiteSpace(character)
@@ -129,6 +129,8 @@ public readonly record struct FileExtension
     }
 
     public override string ToString() => Value;
+
+    public bool Equals(string fileExtension) => FromExtensionToken(fileExtension).Equals(this);
 
     private static FileExtension FromResolvedExtensionCandidate(string? extension, string parameterName)
     {
