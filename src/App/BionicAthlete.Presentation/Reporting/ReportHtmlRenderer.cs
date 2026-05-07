@@ -1,10 +1,11 @@
 namespace BionicAthlete.Training.Reporting;
 
-using System.Collections.Immutable;
 using System.Globalization;
-using System.IO;
 using System.Text;
 using BionicAthlete.Application;
+using BionicAthlete.Application.Exporting;
+using BionicAthlete.Application.Reporting;
+using BionicAthlete.Application.Reporting.Html;
 
 /// <summary>
 /// Renders a View C report as a deterministic, self-contained HTML package.
@@ -35,40 +36,14 @@ public sealed class ReportHtmlRenderer : IReportHtmlRenderer
         ArgumentNullException.ThrowIfNull(report);
         ArgumentNullException.ThrowIfNull(options);
 
-        string reportDirectoryPath = Path.Combine(options.OutputDirectoryPath, "report");
-        _ = Directory.CreateDirectory(reportDirectoryPath);
-
-        string htmlFilePath = Path.Combine(reportDirectoryPath, "activity-report.html");
-        string manifestFilePath = Path.Combine(reportDirectoryPath, "report-manifest.json");
-        string? pdfFilePath = options.OutputTarget == ReportOutputTarget.HtmlOnly
-            ? null
-            : Path.Combine(reportDirectoryPath, "activity-report.pdf");
-
         string html = RenderHtml(report, options);
-        await File.WriteAllTextAsync(htmlFilePath, html, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
-
-        ImmutableArray<ReportDiagnostic> diagnostics = report.Diagnostics.IsDefault
-            ? ImmutableArray<ReportDiagnostic>.Empty
-            : report.Diagnostics;
-        var package = new HtmlReportPackage(
-            reportDirectoryPath,
-            htmlFilePath,
-            manifestFilePath,
-            pdfFilePath,
-            options.OutputTarget,
-            options.PageSettings,
-            diagnostics);
-
-        ReportManifest manifest = CreateManifest(report, package, includePdfArtifact: false);
-        await WriteManifestAsync(manifestFilePath, manifest, cancellationToken).ConfigureAwait(false);
-
-        return package;
+        return new HtmlDocument(html, options.PageSettings.PagePreset, ReportSchemaVersion, RendererVersion);
     }
 
     private string RenderHtml(Report report, ReportExportOptions options)
     {
         var builder = new StringBuilder();
-        string pageClass = options.PageSettings.PagePreset == ReportPagePreset.UsLetterPortrait
+        string pageClass = options.PageSettings.PagePreset == PagePreset.UsLetterPortrait
             ? "page-us-letter"
             : "page-a4";
 
@@ -186,32 +161,6 @@ public sealed class ReportHtmlRenderer : IReportHtmlRenderer
 
         _ = builder.AppendLine("</tbody></table>");
         _ = builder.AppendLine("</div>");
-    }
-
-    private static ReportManifest CreateManifest(
-        Report report,
-        HtmlReportPackage package,
-        bool includePdfArtifact)
-    {
-        ImmutableArray<ReportManifestArtifact>.Builder artifacts = ImmutableArray.CreateBuilder<ReportManifestArtifact>();
-        artifacts.Add(new ReportManifestArtifact("HtmlReport", "activity-report.html", "text/html"));
-        artifacts.Add(new ReportManifestArtifact("ReportManifest", "report-manifest.json", "application/json"));
-        if (includePdfArtifact && !string.IsNullOrWhiteSpace(package.PdfFilePath))
-        {
-            artifacts.Add(new ReportManifestArtifact("PdfReport", "activity-report.pdf", "application/pdf"));
-        }
-
-        return new ReportManifest(
-            ReportSchemaVersion,
-            RendererVersion,
-            report.ReportId,
-            report.SourceFilePath,
-            report.GeneratedAtUtc,
-            package.OutputTarget,
-            package.PageSettings.PagePreset,
-            artifacts.ToImmutable(),
-            report.Sections.Select(static section => section.Id).ToImmutableArray(),
-            package.Diagnostics);
     }
 
     private static string BuildCss(ReportExportOptions options)
