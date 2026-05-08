@@ -1,5 +1,8 @@
 ﻿namespace BionicCode.Utilities.Net;
 
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
+
 public static class FileHelpers
 {
     /// <summary>
@@ -61,5 +64,44 @@ public static class FileHelpers
         Options = FileOptions.Asynchronous | FileOptions.SequentialScan
     };
 
-    public static required string GetFileName
+    /// <summary>
+    /// Normalizes a file system path by trimming any trailing directory separators and replacing alternate directory
+    /// separators with the platform-specific directory separator.
+    /// </summary>
+    /// <param name="path">The file system path to normalize.</param>
+    /// <returns>The normalized file system path.</returns>
+    public static string NormalizeFileSystemPath(FileDescriptor path) => NormalizeFileSystemPath(path.FullPath);
+
+    /// <summary>
+    /// Normalizes a file system path by trimming any trailing directory separators and replacing alternate directory
+    /// separators with the platform-specific directory separator.
+    /// </summary>
+    /// <param name="path">The file system path to normalize.</param>
+    /// <returns>The normalized file system path.</returns>
+    public static string NormalizeFileSystemPath(DirectoryDescriptor path) => NormalizeFileSystemPath(path.FullPath);
+
+    /// <summary>
+    /// Normalizes a file system path by trimming any trailing directory separators and replacing alternate directory
+    /// separators with the platform-specific directory separator.
+    /// </summary>
+    /// <param name="path">The file system path to normalize.</param>
+    /// <returns>The normalized file system path.</returns>
+    public static string NormalizeFileSystemPath(string path)
+    {
+        string trimmed = Path.TrimEndingDirectorySeparator(path);
+
+        return OperatingSystem.IsWindows()
+            ? trimmed.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar)
+            : trimmed;
+    }
+
+    // Remove leading and trailing directory separator characters to ensure canonical directory name representation.
+    public static string NormalizeDirectoryName(string name)
+    {
+        name = Path.TrimEndingDirectorySeparator(name);
+
+        // Reliably strip leading directory separator characters by getting the file name of the path,
+        // which returns the last segment of the path after stripping any trailing directory separator characters.
+        return Path.GetFileName(name);
+    }
 }

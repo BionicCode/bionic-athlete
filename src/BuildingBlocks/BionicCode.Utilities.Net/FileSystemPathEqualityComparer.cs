@@ -35,8 +35,8 @@ public abstract class FileSystemPathEqualityComparer : StringComparer,
             return false;
         }
 
-        string xNormalized = NormalizeFileSystemPath(x);
-        string yNormalized = NormalizeFileSystemPath(y);
+        string xNormalized = FileHelpers.NormalizeFileSystemPath(x);
+        string yNormalized = FileHelpers.NormalizeFileSystemPath(y);
 
         return Comparer.Equals(xNormalized, yNormalized);
     }
@@ -53,8 +53,8 @@ public abstract class FileSystemPathEqualityComparer : StringComparer,
             return false;
         }
 
-        string xNormalized = NormalizeFileSystemPath(x.FullName);
-        string yNormalized = NormalizeFileSystemPath(y.FullName);
+        string xNormalized = FileHelpers.NormalizeFileSystemPath(x.FullName);
+        string yNormalized = FileHelpers.NormalizeFileSystemPath(y.FullName);
 
         return Comparer.Equals(xNormalized, yNormalized);
     }
@@ -66,8 +66,8 @@ public abstract class FileSystemPathEqualityComparer : StringComparer,
             return true;
         }
 
-        string xNormalized = NormalizeFileSystemPath(x.FullPath);
-        string yNormalized = NormalizeFileSystemPath(y.FullPath);
+        string xNormalized = FileHelpers.NormalizeFileSystemPath(x.FullPath);
+        string yNormalized = FileHelpers.NormalizeFileSystemPath(y.FullPath);
 
         return Comparer.Equals(xNormalized, yNormalized);
     }
@@ -79,8 +79,8 @@ public abstract class FileSystemPathEqualityComparer : StringComparer,
             return true;
         }
 
-        string xNormalized = NormalizeFileSystemPath(x.FullPath);
-        string yNormalized = NormalizeFileSystemPath(y.FullPath);
+        string xNormalized = FileHelpers.NormalizeFileSystemPath(x.FullPath);
+        string yNormalized = FileHelpers.NormalizeFileSystemPath(y.FullPath);
 
         return Comparer.Equals(xNormalized, yNormalized);
     }
@@ -91,22 +91,20 @@ public abstract class FileSystemPathEqualityComparer : StringComparer,
 
     public override bool Equals(object? obj) => obj is IEqualityComparer<string> other && Equals(other);
 
-    private static string NormalizeFileSystemPath(string fileSystemPath) => Path.TrimEndingDirectorySeparator(fileSystemPath);
-
     public override int GetHashCode(string? obj) => obj is not null
-        ? Comparer.GetHashCode(NormalizeFileSystemPath(obj))
+        ? Comparer.GetHashCode(FileHelpers.NormalizeFileSystemPath(obj))
         : 0;
 
     public int GetHashCode([DisallowNull] FileSystemInfo obj) => obj is FileSystemInfo fileSystemInfo
-        ? Comparer.GetHashCode(NormalizeFileSystemPath(fileSystemInfo.FullName))
+        ? Comparer.GetHashCode(FileHelpers.NormalizeFileSystemPath(fileSystemInfo.FullName))
         : 0;
 
     public int GetHashCode([DisallowNull] FileDescriptor obj) => obj is FileDescriptor fileDescriptor
-        ? Comparer.GetHashCode(NormalizeFileSystemPath(fileDescriptor.FullPath))
+        ? Comparer.GetHashCode(FileHelpers.NormalizeFileSystemPath(fileDescriptor.FullPath))
         : 0;
 
     public int GetHashCode([DisallowNull] DirectoryDescriptor obj) => obj is DirectoryDescriptor directoryDescriptor
-        ? Comparer.GetHashCode(NormalizeFileSystemPath(directoryDescriptor.FullPath))
+        ? Comparer.GetHashCode(FileHelpers.NormalizeFileSystemPath(directoryDescriptor.FullPath))
         : 0;
 
     public override int GetHashCode() => Comparer.GetHashCode();
@@ -128,6 +126,6 @@ public abstract class FileSystemPathEqualityComparer : StringComparer,
             return 1;
         }
 
-        return Comparer.Compare(NormalizeFileSystemPath(x), NormalizeFileSystemPath(y));
+        return Comparer.Compare(FileHelpers.NormalizeFileSystemPath(x), FileHelpers.NormalizeFileSystemPath(y));
     }
 }

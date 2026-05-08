@@ -128,7 +128,7 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
                     await using Stream resourceStream = sourceFileDescriptor.EmbeddedResourceAssembly.GetManifestResourceStream(sourceFileDescriptor.FullPath) ?? throw new InvalidOperationException($"Failed to get manifest resource stream for embedded resource: {sourceFileDescriptor.Location}");
                     await using var destinationStream = new FileStream(destinationFilePath.FullPath, FileHelpers.WriteOnlyCreateOrOverwriteOptions);
                     await resourceStream.CopyToAsync(destinationStream, cancellationToken).ConfigureAwait(false);
-                    sourceFileDescriptor = new(destinationFilePath.FullPath, sourceFileDescriptor.RelativeArchiveEntryName);
+                    sourceFileDescriptor = new(destinationFilePath.FullPath, sourceFileDescriptor.RelativeArchiveEntryDirectoryPath);
                 }
 
                 if (sourceFileDescriptor.HasRenamingInformation)
@@ -148,20 +148,20 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
 
                     // Don't rename the original files but create a copy with the new name in the same location and delete it after packing it to the zip archive
                     File.Copy(sourceFileDescriptor.OriginalFullPath, destinationFilePath.FullPath, overwrite: true);
-                    sourceFileDescriptor = new(destinationFilePath.FullPath, sourceFileDescriptor.RelativeArchiveEntryName);
+                    sourceFileDescriptor = new(destinationFilePath.FullPath, sourceFileDescriptor.RelativeArchiveEntryDirectoryPath);
                 }
 
                 progressReporter.Report(new ProgressData
                 {
                     Progress = completedCount,
                     MaxValue = totalFileCount,
-                    Message = $"Packing file #{completedCount} of {totalFileCount} files to {zipFileName}: {sourceFileDescriptor.RelativeArchiveEntryName}"
+                    Message = $"Packing file #{completedCount} of {totalFileCount} files to {zipFileName}: {sourceFileDescriptor.RelativeArchiveEntryDirectoryPath}"
                 });
 
                 cancellationToken.ThrowIfCancellationRequested();
 
                 // Preserve exporter-provided bundle paths so grouped CSV artifacts stay grouped inside the ZIP.
-                _ = await zipArchive.CreateEntryFromFileAsync(sourceFileDescriptor.FullPath, sourceFileDescriptor.RelativeArchiveEntryName, batch.CompressionLevel, cancellationToken);
+                _ = await zipArchive.CreateEntryFromFileAsync(sourceFileDescriptor.FullPath, sourceFileDescriptor.RelativeArchiveEntryDirectoryPath.FullPath, batch.CompressionLevel, cancellationToken);
                 completedCount++;
             }
         }

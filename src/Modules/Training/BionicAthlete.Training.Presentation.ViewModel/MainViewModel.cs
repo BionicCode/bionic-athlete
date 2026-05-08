@@ -17,7 +17,6 @@ using BionicCode.Utilities.Net;
 
 public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
 {
-    private const string FitFileExtension = ".fit";
     private const string CoachingContextFileName = "coach_context.md";
     private string _destinationFolder;
     private ObservableFitActivityExportData? _selectedExportData;
@@ -68,7 +67,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
         _fitFilePathToExportDataLookup = [];
         _selectedFitFilePath = string.Empty;
         _destinationFolder = _temporaryFileManager.TemporaryDirectoryPath;
-        ExportCommand = new AsyncRelayCommand(ExecuteExportCommandAsync, CanExecuteExportCommand);
+        ExportCommand = new AsyncRelayCommand(ExecuteExportToCsvCommandAsync, CanExecuteExportToCsvCommand);
         StartNewSessionCommand = new RelayCommand(ExecuteStartNewSessionCommand, () => !((IProgressReporter)this).IsReportingProgress);
         _allowedFileExtensions = _zipArchiveManager.SupportedArchiveFileExtensions.Concat([FitFileExtension]).JoinToString();
         _pdfFilePathToManifestFilePathMap = [];
@@ -94,7 +93,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
         RemoveAllObservableProgressData();
     }
 
-    public PropertyValidationResult IsFitFilePathValid(string fitFilePath)
+    public PropertyValidationResult IsFitFilePathValid(FileDescriptor fitFilePath)
     {
         PropertyValidationResult result = IsFilePathValid(fitFilePath);
         if (!result.IsValid)
@@ -102,7 +101,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
             return result;
         }
 
-        if (!Path.GetExtension(fitFilePath).Equals(FitFileExtension, StringComparison.OrdinalIgnoreCase)
+        if (!fitFilePath.Extension.Equals(FileExtensions.Fit)
             && !_zipArchiveManager.IsFileTypeSupportedArchive(fitFilePath))
         {
             return new PropertyValidationResult(false, [$"Invalid file type: only '{_allowedFileExtensions}' files are allowed. Found: '{fitFilePath}'."]);
@@ -111,14 +110,9 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
         return new PropertyValidationResult(true, Array.Empty<string>());
     }
 
-    public PropertyValidationResult IsFilePathValid(string filePath)
+    public static PropertyValidationResult IsFilePathValid(FileDescriptor filePath)
     {
-        if (string.IsNullOrWhiteSpace(filePath))
-        {
-            return new PropertyValidationResult(false, ["File path cannot be NULL or empty."]);
-        }
-
-        if (!File.Exists(filePath))
+        if (!filePath.IsExisting)
         {
             return new PropertyValidationResult(false, [$"Invalid file path: '{filePath}'."]);
         }
@@ -126,7 +120,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
         return new PropertyValidationResult(true, Array.Empty<string>());
     }
 
-    public async Task AddFitFilePathsAsync(IList<string> fitFilePaths, CancellationToken cancellationToken)
+    public async Task AddFitFilePathsAsync(IList<FileDescriptor> fitFilePaths, CancellationToken cancellationToken)
     {
         ArgumentExceptionAdvanced.ThrowIfNullOrEmpty(fitFilePaths);
 
@@ -145,13 +139,13 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
             IProgress<ProgressData> addFileProgressReporter = StartNewObservableProgressReporting(string.Empty, $"Adding .fit files...", isIndeterminate: false, maxValue: fitFilePaths.Count);
             for (int index = 0; index < fitFilePaths.Count; index++)
             {
-                string fitFilePath = fitFilePaths[index];
+                FileDescriptor fitFilePath = fitFilePaths[index];
                 cancellationToken.ThrowIfCancellationRequested();
 
-                addFileProgressReporter.Report(new ProgressData(index + 1, fitFilePaths.Count, $"Adding '{Path.GetFileName(fitFilePath)}'..."));
+                addFileProgressReporter.Report(new ProgressData(index + 1, fitFilePaths.Count, $"Adding '{fitFilePath}'..."));
                 if (_zipArchiveManager.IsFileTypeSupportedArchive(fitFilePath))
                 {
-                    await foreach (string extractedFilePath in _zipArchiveManager.ExtractArchiveAsync(fitFilePath, (int maxValue, string operationTitle) => StartNewObservableProgressReporting(string.Empty, operationTitle, isIndeterminate: false, maxValue: maxValue), cancellationToken).ConfigureAwait(true))
+                    await foreach (FileDescriptor extractedFilePath in _zipArchiveManager.ExtractArchiveAsync(fitFilePath, (int maxValue, string operationTitle) => StartNewObservableProgressReporting(string.Empty, operationTitle, isIndeterminate: false, maxValue: maxValue), cancellationToken).ConfigureAwait(true))
                     {
                         wasAdded = await AddFitFilePathAsync(extractedFilePath, cancellationToken);
                         if (wasAdded)
@@ -313,13 +307,8 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
 
     public void UpdateManifestWithPdfEntry() => throw new NotImplementedException();
 
-    private async Task<bool> AddFitFilePathAsync(string fitFilePath, CancellationToken cancellationToken)
+    private async Task<bool> AddFitFilePathAsync(FileDescriptor fitFilePath, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(fitFilePath))
-        {
-            return false;
-        }
-
         PropertyValidationResult filePathValidationResult = IsFitFilePathValid(fitFilePath);
         if (FitFilePaths.Contains(fitFilePath)
             || !filePathValidationResult.IsValid)
@@ -338,11 +327,11 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
         return true;
     }
 
-    private bool CanExecuteExportCommand() => ExportData.Any()
+    private bool CanExecuteExportToCsvCommand() => ExportData.Any()
         && !string.IsNullOrEmpty(DestinationFolder)
         && FitFilePaths.Any();
 
-    private async Task ExecuteExportCommandAsync()
+    private async Task ExecuteExportToCsvCommandAsync()
     {
         RemoveAllCompletedObservableProgressData();
 
@@ -510,7 +499,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
         }
     }
 
-    private PropertyValidationDelegate<ObservableFileSystemPathHashSet> IsFitFilePathsValid() => fitFilePaths =>
+    private static PropertyValidationDelegate<ObservableFileSystemPathHashSet> IsFitFilePathsValid() => fitFilePaths =>
         {
             if (fitFilePaths.Count == 0)
             {
@@ -529,7 +518,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
             return new PropertyValidationResult(true, Array.Empty<string>());
         };
 
-    private PropertyValidationDelegate<string> IsFilePathsValid() => filePath =>
+    private static PropertyValidationDelegate<string> IsFilePathsValid() => filePath =>
         {
             ArgumentNullExceptionAdvanced.ThrowIfNull(filePath);
 

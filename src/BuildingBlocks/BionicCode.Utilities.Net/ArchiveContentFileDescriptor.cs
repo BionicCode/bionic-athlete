@@ -7,9 +7,10 @@ using System.Reflection;
 /// Describes a file that can be included in a conversion or archive batch.
 /// </summary>
 [DebuggerDisplay("Name = {Name}, Location = {Location}, IsRenamingRequired = {IsRenamingRequired}")]
-public readonly record struct ArchiveContentFileDescriptor
+public readonly struct ArchiveContentFileDescriptor : IEquatable<ArchiveContentFileDescriptor>
 {
     private readonly string _filePath;
+    private static readonly FileSystemPathEqualityComparer s_pathEqualityComparer = FileSystemPathEqualityComparer.Instance;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="FileDescriptor"/> struct from a file name and directory.
@@ -20,19 +21,21 @@ public readonly record struct ArchiveContentFileDescriptor
     /// The relative path to use inside an archive.
     /// When <see langword="null"/>, <paramref name="name"/> is used.
     /// </param>
-    public ArchiveContentFileDescriptor(FileDescriptor fileDescriptor)
+    public ArchiveContentFileDescriptor(string filePath)
     {
-        ArgumentNullExceptionAdvanced.ThrowIfDefault(fileDescriptor);
+        FileSystemPathValidator.ThrowIfInvalidFilePath(filePath);
 
         EmbeddedResourceAssembly = null!;
         IsEmbeddedResource = false;
-        Name = fileDescriptor.Name;
-        Extension = fileDescriptor.Extension;
-        Location = fileDescriptor.Location;
-        _filePath = fileDescriptor.FullPath;
-        RelativeArchiveEntryName = NormalizeArchiveEntryName(Name);
+        Name = Path.GetFileName(filePath);
+        NameWithoutExtension = Path.GetFileNameWithoutExtension(Name);
+        Extension = FileExtension.FromFilePath(Name);
+        Location = new DirectoryDescriptor(Path.GetDirectoryName(filePath) ?? string.Empty);
+        _filePath = filePath;
+        RelativeArchiveEntryDirectoryPath = NormalizeArchiveEntryName(Name);
         OriginalName = Name;
         OriginalFullPath = _filePath;
+        IsRelative = Location.IsRelative;
     }
 
     /// <summary>
@@ -46,11 +49,13 @@ public readonly record struct ArchiveContentFileDescriptor
     /// </param>
     public ArchiveContentFileDescriptor(string name, DirectoryDescriptor location, DirectoryDescriptor relativeArchiveEntryDirectory = default)
     {
-        ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(name);
+        FileSystemPathValidator.ThrowIfInvalidFileName(name);
         ArgumentNullExceptionAdvanced.ThrowIfDefault(location);
         if (relativeArchiveEntryDirectory != default)
         {
-            ArgumentExceptionAdvanced.ThrowIfFalse(relativeArchiveEntryDirectory.IsRelative, $"The argument '{nameof(relativeArchiveEntryDirectory)}' must be a relative path.");
+            ArgumentExceptionAdvanced.ThrowIfFalse(
+                relativeArchiveEntryDirectory.IsRelative,
+                $"The argument '{nameof(relativeArchiveEntryDirectory)}' must be a relative path.");
         }
         else
         {
@@ -60,12 +65,14 @@ public readonly record struct ArchiveContentFileDescriptor
         EmbeddedResourceAssembly = null!;
         IsEmbeddedResource = false;
         Name = Path.GetFileName(name);
+        NameWithoutExtension = Path.GetFileNameWithoutExtension(Name);
         Extension = FileExtension.FromFileName(Name);
         Location = location;
         _filePath = Path.Combine(Location.FullPath, Name);
-        RelativeArchiveEntryName = NormalizeArchiveEntryName(relativeArchiveEntryDirectory.FullPath ?? Name);
+        RelativeArchiveEntryDirectoryPath = NormalizeArchiveEntryName(relativeArchiveEntryDirectory.FullPath ?? Name);
         OriginalName = Name;
         OriginalFullPath = _filePath;
+        IsRelative = Location.IsRelative;
     }
 
     /// <summary>
@@ -92,11 +99,13 @@ public readonly record struct ArchiveContentFileDescriptor
         IsEmbeddedResource = false;
         Name = filePath.Name;
         Extension = filePath.Extension;
+        NameWithoutExtension = filePath.NameWithoutExtension;
         Location = filePath.Location;
         _filePath = filePath.FullPath;
-        RelativeArchiveEntryName = NormalizeArchiveEntryName(relativeArchiveEntryDirectory.FullPath ?? Name);
+        RelativeArchiveEntryDirectoryPath = NormalizeArchiveEntryName(relativeArchiveEntryDirectory.FullPath ?? Name);
         OriginalName = Name;
         OriginalFullPath = _filePath;
+        IsRelative = Location.IsRelative;
     }
 
     /// <summary>
@@ -111,12 +120,14 @@ public readonly record struct ArchiveContentFileDescriptor
     /// <param name="embeddedResourceAssembly">The <see cref="Assembly"/> that the specified file is located in.</param>
     public ArchiveContentFileDescriptor(string fileName, DirectoryDescriptor relativeLocation, Assembly embeddedResourceAssembly, DirectoryDescriptor relativeArchiveEntryDirectory = default)
     {
-        ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(fileName);
+        FileSystemPathValidator.ThrowIfInvalidFileName(fileName);
         ArgumentNullExceptionAdvanced.ThrowIfDefault(relativeLocation);
         ArgumentNullExceptionAdvanced.ThrowIfNull(embeddedResourceAssembly);
         if (relativeArchiveEntryDirectory != default)
         {
-            ArgumentExceptionAdvanced.ThrowIfFalse(relativeArchiveEntryDirectory.IsRelative, $"The argument '{nameof(relativeArchiveEntryDirectory)}' must be a relative path.");
+            ArgumentExceptionAdvanced.ThrowIfFalse(
+                relativeArchiveEntryDirectory.IsRelative,
+                $"The argument '{nameof(relativeArchiveEntryDirectory)}' must be a relative path.");
         }
         else
         {
@@ -126,31 +137,115 @@ public readonly record struct ArchiveContentFileDescriptor
         IsEmbeddedResource = true;
         EmbeddedResourceAssembly = embeddedResourceAssembly;
         Name = Path.GetFileName(fileName);
+        NameWithoutExtension = Path.GetFileNameWithoutExtension(Name);
         Extension = FileExtension.FromFileName(Name);
         Location = relativeLocation;
         _filePath = $"{Location}.{Name}"; // The full name of the embedded resource is typically in the format "Namespace.Folder.FileName"
-        RelativeArchiveEntryName = NormalizeArchiveEntryName(relativeArchiveEntryDirectory.FullPath ?? Name);
+        RelativeArchiveEntryDirectoryPath = NormalizeArchiveEntryName(relativeArchiveEntryDirectory.FullPath ?? Name);
         OriginalName = Name;
         OriginalFullPath = _filePath;
+        IsRelative = relativeLocation.IsRelative;
+    }
+
+    public static ArchiveContentFileDescriptor CreateWithOriginalPath(string filePath, string originalFullPath)
+    {
+        FileSystemPathValidator.ThrowIfInvalidFilePath(filePath);
+        FileSystemPathValidator.ThrowIfInvalidFilePath(originalFullPath);
+
+        return new ArchiveContentFileDescriptor(filePath)
+        {
+            OriginalFullPath = originalFullPath,
+            OriginalName = Path.GetFileName(originalFullPath)
+        };
+    }
+
+    public static ArchiveContentFileDescriptor CreateWithOriginalPath(ArchiveContentFileDescriptor filePath, string originalFullPath)
+    {
+        ArgumentNullExceptionAdvanced.ThrowIfDefault(filePath);
+        FileSystemPathValidator.ThrowIfInvalidFilePath(originalFullPath);
+
+        return filePath with
+        {
+            OriginalFullPath = originalFullPath,
+            OriginalName = Path.GetFileName(originalFullPath)
+        };
+    }
+
+    public static ArchiveContentFileDescriptor CreateWithOriginalName(string filePath, string originalName)
+    {
+        FileSystemPathValidator.ThrowIfInvalidFilePath(filePath);
+        FileSystemPathValidator.ThrowIfInvalidFileName(originalName);
+
+        return new ArchiveContentFileDescriptor(filePath)
+        {
+            OriginalFullPath = filePath,
+            OriginalName = originalName
+        };
+    }
+
+    public static ArchiveContentFileDescriptor CreateWithOriginalName(ArchiveContentFileDescriptor filePath, string originalName)
+    {
+        ArgumentNullExceptionAdvanced.ThrowIfDefault(filePath);
+        FileSystemPathValidator.ThrowIfInvalidFileName(originalName);
+
+        return filePath with
+        {
+            OriginalFullPath = filePath.FullPath,
+            OriginalName = originalName
+        };
+    }
+
+    public ArchiveContentFileDescriptor GetPathRelativeTo(DirectoryDescriptor baseDirectory)
+    {
+        ArgumentNullExceptionAdvanced.ThrowIfDefault(baseDirectory);
+        ArgumentExceptionAdvanced.ThrowIfTrue(baseDirectory.IsRelative, "Base directory must be an absolute path.", nameof(baseDirectory));
+
+        if (IsRelative)
+        {
+            return this;
+        }
+
+        string relativePath = Path.GetRelativePath(baseDirectory.FullPath, FullPath);
+        return new ArchiveContentFileDescriptor(relativePath);
+    }
+
+    public ArchiveContentFileDescriptor Combine(params DirectoryDescriptor[] additionalLocationSegments)
+    {
+        ArgumentExceptionAdvanced.ThrowIfAny(additionalLocationSegments, item => item == default);
+
+        IEnumerable<string> pathSegments = additionalLocationSegments
+            .Select(segment => segment.FullPath)
+            .Concat([Name]);
+        string combinedPath = pathSegments.JoinToString(Path.DirectorySeparatorChar.ToString());
+        FileSystemPathValidator.ThrowIfInvalidFilePath(combinedPath);
+
+        return new ArchiveContentFileDescriptor(combinedPath);
     }
 
     public override string ToString() => FullPath;
 
-    public bool HasRenamingInformation { get; init; }
+    public bool HasRenamingInformation => !s_pathEqualityComparer.Equals(OriginalFullPath, FullPath)
+        || !s_pathEqualityComparer.Equals(OriginalName, Name);
+
     public Assembly EmbeddedResourceAssembly { get; }
-    public bool IsEmbeddedResource { get; init; }
+    public bool IsEmbeddedResource { get; }
+
+    public bool IsExisting => IsEmbeddedResource
+        ? EmbeddedResourceAssembly.GetManifestResourceNames().Contains(FullPath)
+        : File.Exists(FullPath);
 
     /// <summary>
     /// Gets the file name.
     /// </summary>
     /// <remarks>Set <see cref="OriginalName"/> to preserve the original file name and use <see cref="Name"/> for the current file name. 
     /// This can be useful if you need to provide renaming related information where <see cref="OriginalName"/> is the old name and <see cref="Name"/> is the new name.</remarks>
-    public string Name { get; init; }
+    public string Name { get; }
+    public string NameWithoutExtension { get; }
 
     /// <summary>
     /// Gets the <see cref="DirectoryDescriptor"/> that specifies the location associated with the file described by this <see cref="FileDescriptor"/>.
     /// </summary>
-    public DirectoryDescriptor Location { get; init; }
+    public DirectoryDescriptor Location { get; }
 
     /// <summary>
     /// Gets the full file system path represented by this instance.
@@ -170,9 +265,9 @@ public readonly record struct ArchiveContentFileDescriptor
     /// Gets the relative path that should be used for the file inside an archive.
     /// </summary>
     /// <remarks>
-    /// This value can contain forward slash directory separators, for example <c>core/activity.csv</c>.
+    /// This value can contain forward slash directory separators, for example <c>core/activity</c>.
     /// </remarks>
-    public string RelativeArchiveEntryName { get; init; }
+    public DirectoryDescriptor RelativeArchiveEntryDirectoryPath { get; }
 
     /// <summary>
     /// The original full path of the file before any moving, renaming or copying operations. For embedded resources, 
@@ -185,7 +280,7 @@ public readonly record struct ArchiveContentFileDescriptor
     /// This can be useful if you need to provide renaming or moving related file information where <see cref="OriginalFullPath"/> is the old path and <see cref="FullPath"/> is the new path.
     /// </remarks>
     /// <value>The original full path of the file. The default value is the same as <see cref="FullPath"/>.</value>
-    public string OriginalFullPath { get; init; }
+    public string OriginalFullPath { get; private init; }
 
     /// <summary>
     /// Gets the original file name before any renaming operations.
@@ -197,8 +292,38 @@ public readonly record struct ArchiveContentFileDescriptor
     /// This can be useful if you need to provide renaming related information where <see cref="OriginalName"/> is the old name and <see cref="Name"/> is the new name.
     /// </remarks>
     /// <value>The original file name. The default value is the same as <see cref="Name"/>.</value>
-    public string OriginalName { get; init; }
+    public string OriginalName { get; private init; }
+    public bool IsRelative { get; }
 
-    private static string NormalizeArchiveEntryName(string archiveEntryName)
-        => archiveEntryName.Replace('\\', '/').TrimStart('/');
+    private static DirectoryDescriptor NormalizeArchiveEntryName(string archiveEntryName)
+        => new(archiveEntryName.Replace('\\', '/').TrimStart('/'));
+
+    /// <summary>
+    /// Compares a <see cref="FileDescriptor"/> to this instance using the <see cref="FileSystemPathEqualityComparer"/> to compare two <see cref="ArchiveContentFileDescriptor"/> instances based on platform specific file system naming rules.
+    /// </summary>
+    /// <param name="other">The other <see cref="ArchiveContentFileDescriptor"/> too compare to.</param>
+    /// <returns><see langword="true"/> if <paramref name="other"/> is equal to this instance; otherwise, <see langword="false"/>.</returns>
+    public bool Equals(ArchiveContentFileDescriptor other) => s_pathEqualityComparer.Equals(this, other);
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(HasRenamingInformation);
+        hash.Add(EmbeddedResourceAssembly);
+        hash.Add(Name);
+        hash.Add(Location);
+        hash.Add(FullPath);
+        hash.Add(Extension);
+        hash.Add(NameWithoutExtension);
+        hash.Add(IsRelative);
+        hash.Add(RelativeArchiveEntryDirectoryPath);
+        hash.Add(OriginalFullPath);
+        hash.Add(OriginalName);
+        return hash.ToHashCode();
+    }
+
+    public static bool operator ==(ArchiveContentFileDescriptor left, ArchiveContentFileDescriptor right) => left.Equals(right);
+    public static bool operator !=(ArchiveContentFileDescriptor left, ArchiveContentFileDescriptor right) => !(left == right);
+
+    public override bool Equals(object? obj) => obj is ArchiveContentFileDescriptor other && Equals(other);
 }

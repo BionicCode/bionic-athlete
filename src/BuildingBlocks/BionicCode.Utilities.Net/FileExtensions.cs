@@ -86,6 +86,7 @@ public static class FileExtensions
     public static FileExtension Evy { get; } = FileExtension.FromExtension(".evy");
     public static FileExtension Fdf { get; } = FileExtension.FromExtension(".fdf");
     public static FileExtension Fif { get; } = FileExtension.FromExtension(".fif");
+    public static FileExtension Fit { get; } = FileExtension.FromExtension(".fit");
     public static FileExtension Fla { get; } = FileExtension.FromExtension(".fla");
     public static FileExtension Flr { get; } = FileExtension.FromExtension(".flr");
     public static FileExtension Flv { get; } = FileExtension.FromExtension(".flv");

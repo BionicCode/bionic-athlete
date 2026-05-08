@@ -6,25 +6,25 @@ using System.Reflection;
 /// <summary>
 /// Describes a file that can be included in a conversion or archive batch.
 /// </summary>
-[DebuggerDisplay("Name = {Name}, Location = {Location}, IsRenamingRequired = {IsRenamingRequired}")]
-public readonly record struct FileDescriptor
+[DebuggerDisplay("Name = {Name}, Location = {Location}, IsRelative = {IsRelative}")]
+public readonly struct FileDescriptor : IEquatable<FileDescriptor>
 {
     private readonly string _filePath;
-    private readonly FileSystemPathEqualityComparer _pathEqualityComparer = FileSystemPathEqualityComparer.Instance;
+    private static readonly FileSystemPathEqualityComparer s_pathEqualityComparer = FileSystemPathEqualityComparer.Instance;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="FileDescriptor"/> struct from a file name and directory.
     /// </summary>
-    /// <param name="name">The source file name.</param>
-    /// <param name="location">The source directory.</param>
-    public FileDescriptor(string name, DirectoryDescriptor location)
+    /// <param name="fileName">The file name including the file extension.</param>
+    /// <param name="location">The directory (location) of the file. Can be absolute or relative.</param>
+    public FileDescriptor(string fileName, DirectoryDescriptor location)
     {
-        ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullExceptionAdvanced.ThrowIfDefault(location);
+        FileSystemPathValidator.ThrowIfInvalidFileName(fileName);
 
         EmbeddedResourceAssembly = null!;
         IsEmbeddedResource = false;
-        Name = Path.GetFileName(name);
+        Name = fileName;
         NameWithoutExtension = Path.GetFileNameWithoutExtension(Name);
         Extension = FileExtension.FromFileName(Name);
         Location = location;
@@ -37,18 +37,19 @@ public readonly record struct FileDescriptor
     /// <summary>
     /// Initializes a new instance of the <see cref="FileDescriptor"/> struct from a full source path.
     /// </summary>
-    /// <param name="filePath">The full source file path.</param>
+    /// <param name="filePath">The full file path. The path can be absolute or relative.</param>
     public FileDescriptor(string filePath)
     {
-        ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(filePath);
+        FileSystemPathValidator.ThrowIfInvalidFilePath(filePath);
 
+        string normalizedFilePath = FileHelpers.NormalizeFileSystemPath(filePath);
         EmbeddedResourceAssembly = null!;
         IsEmbeddedResource = false;
-        Name = Path.GetFileName(filePath);
+        Name = Path.GetFileName(normalizedFilePath);
         NameWithoutExtension = Path.GetFileNameWithoutExtension(Name);
-        Extension = FileExtension.FromFileName(Name);
-        Location = new DirectoryDescriptor(Path.GetDirectoryName(filePath) ?? string.Empty);
-        _filePath = filePath;
+        Extension = FileExtension.FromFilePath(Name);
+        Location = new DirectoryDescriptor(Path.GetDirectoryName(normalizedFilePath) ?? string.Empty);
+        _filePath = normalizedFilePath;
         OriginalName = Name;
         OriginalFullPath = _filePath;
         IsRelative = !Path.IsPathFullyQualified(FullPath);
@@ -62,13 +63,14 @@ public readonly record struct FileDescriptor
     /// <param name="embeddedResourceAssembly">The <see cref="Assembly"/> that the specified file is located in.</param>
     public FileDescriptor(string fileName, DirectoryDescriptor relativeLocation, Assembly embeddedResourceAssembly)
     {
-        ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(fileName);
+        FileSystemPathValidator.ThrowIfInvalidFileName(fileName);
         ArgumentNullExceptionAdvanced.ThrowIfDefault(relativeLocation);
+        ArgumentExceptionAdvanced.ThrowIfFalse(relativeLocation.IsRelative, "The provided location must be a relative path.", nameof(relativeLocation));
         ArgumentNullExceptionAdvanced.ThrowIfNull(embeddedResourceAssembly);
 
         IsEmbeddedResource = true;
         EmbeddedResourceAssembly = embeddedResourceAssembly;
-        Name = Path.GetFileName(fileName);
+        Name = fileName;
         Extension = FileExtension.FromFileName(Name);
         NameWithoutExtension = Path.GetFileNameWithoutExtension(Name);
         Location = relativeLocation;
@@ -76,6 +78,59 @@ public readonly record struct FileDescriptor
         OriginalName = Name;
         OriginalFullPath = _filePath;
         IsRelative = relativeLocation.IsRelative;
+    }
+
+    public static FileDescriptor CreateWithOriginalPath(string filePath, string originalFullPath)
+    {
+        FileSystemPathValidator.ThrowIfInvalidFilePath(filePath);
+        FileSystemPathValidator.ThrowIfInvalidFilePath(originalFullPath);
+
+        string normalizedFilePath = FileHelpers.NormalizeFileSystemPath(filePath);
+        string normalizedOriginalFullPath = FileHelpers.NormalizeFileSystemPath(originalFullPath);
+
+        return new FileDescriptor(normalizedFilePath)
+        {
+            OriginalFullPath = normalizedOriginalFullPath,
+            OriginalName = Path.GetFileName(normalizedOriginalFullPath)
+        };
+    }
+
+    public static FileDescriptor CreateWithOriginalPath(FileDescriptor filePath, string originalFullPath)
+    {
+        ArgumentNullExceptionAdvanced.ThrowIfDefault(filePath);
+        FileSystemPathValidator.ThrowIfInvalidFilePath(originalFullPath);
+
+        string normalizedOriginalFullPath = FileHelpers.NormalizeFileSystemPath(originalFullPath);
+        return filePath with
+        {
+            OriginalFullPath = normalizedOriginalFullPath,
+            OriginalName = Path.GetFileName(normalizedOriginalFullPath)
+        };
+    }
+
+    public static FileDescriptor CreateWithOriginalName(string filePath, string originalName)
+    {
+        FileSystemPathValidator.ThrowIfInvalidFilePath(filePath);
+        FileSystemPathValidator.ThrowIfInvalidFileName(originalName);
+
+        string normalizedFilePath = FileHelpers.NormalizeFileSystemPath(filePath);
+        return new FileDescriptor(normalizedFilePath)
+        {
+            OriginalFullPath = normalizedFilePath,
+            OriginalName = originalName
+        };
+    }
+
+    public static FileDescriptor CreateWithOriginalName(FileDescriptor filePath, string originalName)
+    {
+        ArgumentNullExceptionAdvanced.ThrowIfDefault(filePath);
+        FileSystemPathValidator.ThrowIfInvalidFileName(originalName);
+
+        return filePath with
+        {
+            OriginalFullPath = filePath.FullPath,
+            OriginalName = originalName
+        };
     }
 
     public FileDescriptor GetPathRelativeTo(DirectoryDescriptor baseDirectory)
@@ -92,12 +147,53 @@ public readonly record struct FileDescriptor
         return new FileDescriptor(relativePath);
     }
 
+    public FileDescriptor Combine(params DirectoryDescriptor[] additionalLocationSegments)
+    {
+        ArgumentExceptionAdvanced.ThrowIfAny(additionalLocationSegments, item => item == default);
+
+        IEnumerable<string> pathSegments = additionalLocationSegments
+            .Select(segment => segment.FullPath)
+            .Concat([Name]);
+        string combinedPath = pathSegments.JoinToString(Path.DirectorySeparatorChar.ToString());
+        FileSystemPathValidator.ThrowIfInvalidFilePath(combinedPath);
+
+        return new FileDescriptor(combinedPath);
+    }
+
     public override string ToString() => FullPath;
 
-    public bool HasRenamingInformation => !_pathEqualityComparer.Equals(OriginalFullPath, FullPath)
-        || !_pathEqualityComparer.Equals(OriginalName, Name);
+    /// <summary>
+    /// Compares a <see cref="FileDescriptor"/> to this instance using the <see cref="FileSystemPathEqualityComparer"/> to compare two <see cref="FileDescriptor"/> instances based on platform specific file system naming rules.
+    /// </summary>
+    /// <param name="other">The other <see cref="FileDescriptor"/> too compare to.</param>
+    /// <returns><see langword="true"/> if <paramref name="other"/> is equal to this instance; otherwise, <see langword="false"/>.</returns>
+    public bool Equals(FileDescriptor other) => s_pathEqualityComparer.Equals(this, other);
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(HasRenamingInformation);
+        hash.Add(EmbeddedResourceAssembly);
+        hash.Add(Name);
+        hash.Add(NameWithoutExtension);
+        hash.Add(Location);
+        hash.Add(FullPath);
+        hash.Add(Extension);
+        hash.Add(OriginalFullPath);
+        hash.Add(IsRelative);
+        hash.Add(OriginalName);
+        return hash.ToHashCode();
+    }
+
+    public bool HasRenamingInformation => !s_pathEqualityComparer.Equals(OriginalFullPath, FullPath)
+        || !s_pathEqualityComparer.Equals(OriginalName, Name);
+
     public Assembly EmbeddedResourceAssembly { get; }
-    public bool IsEmbeddedResource { get; init; }
+    public bool IsEmbeddedResource { get; }
+
+    public bool IsExisting => IsEmbeddedResource
+        ? EmbeddedResourceAssembly.GetManifestResourceNames().Contains(FullPath)
+        : File.Exists(FullPath);
 
     /// <summary>
     /// Gets the file name.
@@ -137,7 +233,7 @@ public readonly record struct FileDescriptor
     /// This can be useful if you need to provide renaming or moving related file information where <see cref="OriginalFullPath"/> is the old path and <see cref="FullPath"/> is the new path.
     /// </remarks>
     /// <value>The original full path of the file. The default value is the same as <see cref="FullPath"/>.</value>
-    public string OriginalFullPath { get; init; }
+    public string OriginalFullPath { get; private init; }
     public bool IsRelative { get; }
 
     /// <summary>
@@ -150,5 +246,10 @@ public readonly record struct FileDescriptor
     /// This can be useful if you need to provide renaming related information where <see cref="OriginalName"/> is the old name and <see cref="Name"/> is the new name.
     /// </remarks>
     /// <value>The original file name. The default value is the same as <see cref="Name"/>.</value>
-    public string OriginalName { get; init; }
+    public string OriginalName { get; private init; }
+
+    public static bool operator ==(FileDescriptor left, FileDescriptor right) => left.Equals(right);
+    public static bool operator !=(FileDescriptor left, FileDescriptor right) => !(left == right);
+
+    public override bool Equals(object? obj) => obj is FileDescriptor other && Equals(other);
 }
