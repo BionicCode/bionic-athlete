@@ -33,8 +33,12 @@ public class ReportManifestBuilder : IReportManifestBuilder
         return new ReportManifestBuilder(manifest, outputFolder);
     }
 
-    public void AddArtifact(ArtifactKind artifactKind, string relativeArtifactFilePath)
+    public void AddArtifact(ArtifactKind artifactKind, FileDescriptor relativeArtifactFilePath)
     {
+        ArgumentExceptionAdvanced.ThrowIfFalse(
+            relativeArtifactFilePath.IsRelative,
+            $"The argument '{nameof(relativeArtifactFilePath)}' must be a relative file path, but an absolute path was provided: '{relativeArtifactFilePath.FullPath}'.");
+
         _reportManifest.AddArtifact(artifactKind, relativeArtifactFilePath);
         IsDirty = true;
     }

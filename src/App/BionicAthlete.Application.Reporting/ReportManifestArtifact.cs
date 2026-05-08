@@ -11,7 +11,7 @@ using BionicCode.Utilities.Net;
 /// <param name="RelativePath">Path relative to the report folder.</param>
 public readonly record struct ReportManifestArtifact
 {
-    internal ReportManifestArtifact(ArtifactKind artifactKind, string relativePath, string mediaType)
+    internal ReportManifestArtifact(ArtifactKind artifactKind, FileDescriptor relativePath, string mediaType)
     {
         ArtifactKind = artifactKind;
         RelativePath = relativePath;
@@ -25,10 +25,10 @@ public readonly record struct ReportManifestArtifact
     /// <param name="artifactKind">The kind of artifact, such as <see cref="ArtifactKind.HtmlReport"/> or <see cref="ArtifactKind.PdfReport"/>.</param>
     /// <param name="relativeArtifactFilePath">The path relative to the report folder.</param>
     /// <returns>A new instance of <see cref="ReportManifestArtifact"/>.</returns>
-    public static ReportManifestArtifact Create(ArtifactKind artifactKind, string relativeArtifactFilePath) => ReportManifestArtifactFactory.Create(artifactKind, relativeArtifactFilePath);
+    public static ReportManifestArtifact Create(ArtifactKind artifactKind, FileDescriptor relativeArtifactFilePath) => ReportManifestArtifactFactory.Create(artifactKind, relativeArtifactFilePath);
 
     public ArtifactKind ArtifactKind { get; }
-    public string RelativePath { get; }
+    public FileDescriptor RelativePath { get; }
     public string MediaType { get; }
 
     #region ReportManifestArtifactFactory
@@ -36,9 +36,10 @@ public readonly record struct ReportManifestArtifact
     {
         private static readonly AspNetCoreMimeMediaTypeMapProvider s_mediaTypeProvider = new ();
 
-        public static ReportManifestArtifact Create(ArtifactKind artifactKind, string relativeArtifactFilePath)
+        public static ReportManifestArtifact Create(ArtifactKind artifactKind, FileDescriptor relativeArtifactFilePath)
         {
-            ArgumentException.ThrowIfNullOrWhiteSpace(relativeArtifactFilePath);
+            ArgumentNullExceptionAdvanced.ThrowIfDefault(relativeArtifactFilePath);
+            ArgumentExceptionAdvanced.ThrowIfFalse(relativeArtifactFilePath.IsRelative, $"The argument '{nameof(relativeArtifactFilePath)}' must be a relative file path, but an absolute path was provided: '{relativeArtifactFilePath.FullPath}'.");
             ArgumentExceptionAdvanced.ThrowIfEnumIsNotDefined<ArtifactKind>(artifactKind);
             ArgumentExceptionAdvanced.ThrowIfEnumEqualsAny(artifactKind, [ArtifactKind.Undefined]);
 
@@ -47,7 +48,7 @@ public readonly record struct ReportManifestArtifact
                 throw new NotImplementedException($"The file extension for artifact kind '{artifactKind}' is not defined in the artifact kind to file extension mapping.");
             }
 
-            var providedArtifactExtension = FileExtension.FromFilePath(relativeArtifactFilePath);
+            var providedArtifactExtension = FileExtension.FromFilePath(relativeArtifactFilePath.FullPath);
             ArgumentExceptionAdvanced.ThrowIfFalse(
                 providedArtifactExtension == requiredFileExtension,
                 $"The argument '{relativeArtifactFilePath}' has an invalid file extension for artifact kind '{artifactKind}'. Expected '{requiredFileExtension}', but got '{providedArtifactExtension}'.");

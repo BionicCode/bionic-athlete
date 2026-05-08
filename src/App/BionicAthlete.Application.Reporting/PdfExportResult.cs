@@ -1,6 +1,7 @@
 namespace BionicAthlete.Application.Reporting;
 
 using System.Collections.Immutable;
+using BionicCode.Utilities.Net;
 
 /// <summary>
 /// Result of a successful View C PDF export.
@@ -10,6 +11,6 @@ using System.Collections.Immutable;
 /// <param name="Diagnostics">Non-fatal diagnostics from settings mapping or manifest updates.</param>
 public sealed record PdfExportResult(
     bool IsSuccessful,
-    string PdfFilePath,
+    FileDescriptor PdfFilePath,
     long PdfFileLength,
     ImmutableArray<ReportDiagnostic> Diagnostics);

@@ -17,15 +17,20 @@ public sealed class HtmlContentExportRequest : PdfExportRequest
     /// <param name="timeout">Maximum time to wait for navigation, readiness, and PDF generation.</param>
     /// <param name="htmlDocument">The HTML content tto export to PDF.</param>
     public HtmlContentExportRequest(
-        string outputPdfFilePath,
+        FileDescriptor outputPdfFilePath,
+        DirectoryDescriptor rootOutputDirectoryPath,
         HtmlDocument htmlDocument,
         PageSettings pageSettings,
         TimeSpan timeout,
-        int retryCount) : base(outputPdfFilePath, pageSettings, timeout, retryCount)
+        int retryCount,
+        IReportManifestBuilder? manifestBuilder,
+        ReportDescriptor reportDescriptor) : base(outputPdfFilePath, rootOutputDirectoryPath, pageSettings, timeout, retryCount, manifestBuilder, reportDescriptor)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(outputPdfFilePath);
+        ArgumentNullExceptionAdvanced.ThrowIfDefault(outputPdfFilePath);
+        ArgumentNullExceptionAdvanced.ThrowIfDefault(rootOutputDirectoryPath);
         ArgumentNullExceptionAdvanced.ThrowIfDefault(htmlDocument);
-        ArgumentNullException.ThrowIfNull(pageSettings);
+        ArgumentNullExceptionAdvanced.ThrowIfNull(pageSettings);
+        ArgumentNullExceptionAdvanced.ThrowIfNull(reportDescriptor);
 
         HtmlDocument = htmlDocument;
     }

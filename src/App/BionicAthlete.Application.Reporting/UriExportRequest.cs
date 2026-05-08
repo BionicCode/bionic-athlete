@@ -15,15 +15,20 @@ public sealed class UriExportRequest : PdfExportRequest
     /// <param name="timeout">Maximum time to wait for navigation, readiness, and PDF generation.</param>
     /// <param name="sourceUri">The <see cref="Uri"/> that references the source which must be exported to PDF.</param>
     public UriExportRequest(
-        string outputPdfFilePath,
+        FileDescriptor outputPdfFilePath,
+        DirectoryDescriptor rootOutputDirectoryPath,
         Uri sourceUri,
         PageSettings pageSettings,
         TimeSpan timeout,
-        int retryCount) : base(outputPdfFilePath, pageSettings, timeout, retryCount)
+        int retryCount,
+        IReportManifestBuilder? manifestBuilder,
+        ReportDescriptor reportDescriptor) : base(outputPdfFilePath, rootOutputDirectoryPath, pageSettings, timeout, retryCount, manifestBuilder, reportDescriptor)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(sourceUri);
-        ArgumentException.ThrowIfNullOrWhiteSpace(outputPdfFilePath);
-        ArgumentNullException.ThrowIfNull(pageSettings);
+        ArgumentNullExceptionAdvanced.ThrowIfDefault(outputPdfFilePath);
+        ArgumentNullExceptionAdvanced.ThrowIfDefault(rootOutputDirectoryPath);
+        ArgumentNullExceptionAdvanced.ThrowIfNull(pageSettings);
+        ArgumentNullExceptionAdvanced.ThrowIfNull(reportDescriptor);
 
         SourceUri = sourceUri;
     }

@@ -17,6 +17,7 @@ using BionicCode.Utilities.Net;
 public sealed record HtmlReportPackage(
     DirectoryDescriptor ReportDirectoryPath,
     FileDescriptor HtmlFilePath,
+    ReportDescriptor ReportDescriptor,
     IReportManifestBuilder? ManifestBuilder,
     ReportOutputTarget OutputTarget,
     PageSettings PageSettings,

@@ -78,6 +78,20 @@ public readonly record struct FileDescriptor
         IsRelative = relativeLocation.IsRelative;
     }
 
+    public FileDescriptor GetPathRelativeTo(DirectoryDescriptor baseDirectory)
+    {
+        ArgumentNullExceptionAdvanced.ThrowIfDefault(baseDirectory);
+        ArgumentExceptionAdvanced.ThrowIfTrue(baseDirectory.IsRelative, "Base directory must be an absolute path.", nameof(baseDirectory));
+
+        if (IsRelative)
+        {
+            return this;
+        }
+
+        string relativePath = Path.GetRelativePath(baseDirectory.FullPath, FullPath);
+        return new FileDescriptor(relativePath);
+    }
+
     public override string ToString() => FullPath;
 
     public bool HasRenamingInformation => !_pathEqualityComparer.Equals(OriginalFullPath, FullPath)

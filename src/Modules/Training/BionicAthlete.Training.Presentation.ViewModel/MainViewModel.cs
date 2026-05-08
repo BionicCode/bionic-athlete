@@ -291,25 +291,24 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
     public async Task<PdfExportRequest> CreatePdfExportRequestAsync(
         ObservableFitActivityExportData exportData,
         ReportOutputTarget outputTarget,
+        bool isOverWriteExistingAllowed,
         CancellationToken cancellationToken)
     {
         // TODO::Improve the design of this method and move domain logic related to report generation and export request creation out of the ViewModel layer.
         ArgumentNullExceptionAdvanced.ThrowIfNull(exportData);
         ArgumentExceptionAdvanced.ThrowIfTrue(outputTarget is ReportOutputTarget.HtmlOnly, "Output target must be PDF or HTML and PDF.");
 
-        HtmlReportPackage reportPackage = await CreateHtmlReportAsync(
-            exportData,
-            ReportOutputTarget.PdfFromGeneratedHtml,
-            CancellationToken.None);
-        string pdfFilePath = reportPackage.PdfFilePath ?? Path.Combine(reportPackage.ReportDirectoryPath, "activity-report.pdf");
-        var exportRequest = new UriExportRequest(
-            pdfFilePath,
-            new Uri(reportPackage.HtmlFilePath),
-            reportPackage.PageSettings,
-            TimeSpan.FromSeconds(60),
-            3);
-
-        return exportRequest;
+        var fitFileDescriptor = exportData.FitFileDescriptor.ToFileDescriptor();
+        DirectoryDescriptor outputDirectoryPath = CreateReportOutputDirectory(exportData);
+        var options = new ReportExportOptions(
+            outputDirectoryPath,
+            outputTarget,
+            CultureInfo.CurrentCulture,
+            TimeZoneInfo.Local,
+            DateTimeOffset.UtcNow,
+            PageSettings.A4Portrait);
+        var exportArgs = new FitFileExportData(fitFileDescriptor, exportData.Activity, outputDirectoryPath, options);
+        return await _fitActivityReportCreator.CreatePdfExportRequestAsync(exportArgs, outputTarget, isOverWriteExistingAllowed, cancellationToken).ConfigureAwait(true);
     }
 
     public void UpdateManifestWithPdfEntry() => throw new NotImplementedException();

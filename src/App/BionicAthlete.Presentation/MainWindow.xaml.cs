@@ -3,7 +3,6 @@
 using System.Windows;
 using System.Windows.Input;
 using BionicAthlete.Application.Reporting;
-using BionicAthlete.Application.Reporting.Html;
 using BionicAthlete.Training.Presentation.ViewModel;
 using BionicCode.Utilities.Net;
 using Microsoft.Win32;
@@ -197,6 +196,7 @@ public partial class MainWindow : Window, IDisposableAdvanced
         _ = await _viewModel.CreateHtmlReportAsync(
             _viewModel.SelectedExportData,
             ReportOutputTarget.HtmlOnly,
+            isOverWriteExistingAllowed: true,
             CancellationToken.None);
     }
 
@@ -212,23 +212,24 @@ public partial class MainWindow : Window, IDisposableAdvanced
             initialMessage: "Preparing report for PDF export...",
             operationTitle: "Exporting PDF Report",
             maxValue: numberOfOperations);
+        progressReporter.Report(new ProgressData { Message = "PDF export request created. Exporting...", Progress = 1 });
         PdfExportRequest exportRequest = await _viewModel.CreatePdfExportRequestAsync(
             _viewModel.SelectedExportData,
             ReportOutputTarget.PdfFromGeneratedHtml,
+            isOverWriteExistingAllowed: true,
             CancellationToken.None).ConfigureAwait(true);
-        progressReporter.Report(new ProgressData { Message = "PDF export request created. Exporting...", Progress = 1 });
         PdfExportResult exportResult = await _activityReportPdfExporter.ExportToPdfAsync(exportRequest, CancellationToken.None);
         progressReporter.Report(new ProgressData { Message = "PDF export completed...", Progress = 2 });
+        progressReporter.Report(new ProgressData { Message = "Updating manifest with PDF entry...", Progress = 2 });
+        await exportRequest.SetRequestCompletedAsync(exportResult);
         if (exportResult.IsSuccessful)
         {
-            // TODO::Fix/implement manifest update using the IReportManifestManager implementation to include PDF artifact after export.
-            // Invoke on view model when export completes instead of directly in the view.
-            progressReporter.Report(new ProgressData { Message = "Updating manifest with PDF entry...", Progress = 3 });
-            _viewModel.UpdateManifestWithPdfEntry();
-            HtmlReportPackage packageWithPdf = exportRequest.ReportPackage with { PdfFilePath = exportRequest.OutputPdfFilePath };
+            progressReporter.Report(new ProgressData { Message = "Export to PDF completed...", Progress = 3 });
         }
-
-        await _manifestUpdater.AddPdfArtifactAsync(packageWithPdf, cancellationToken).ConfigureAwait(true);
+        else
+        {
+            progressReporter.Report(new ProgressData { Message = "Export to PDF failed. See diagnostics for details.", Progress = 3 });
+        }
     }
 
     private bool CanExecuteHumanReadableReportExport()

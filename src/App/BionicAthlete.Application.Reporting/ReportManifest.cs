@@ -34,7 +34,7 @@ public sealed record ReportManifest
     public ImmutableArray<ReportDiagnostic> Diagnostics { get; }
     public bool IsDirty { get; private set; }
 
-    public ReportManifest(
+    internal ReportManifest(
         int reportSchemaVersion,
         string rendererVersion,
         string reportId,
@@ -58,10 +58,17 @@ public sealed record ReportManifest
         Diagnostics = diagnostics;
     }
 
+    public static Task<ReportManifestBuilder> CreateBuilderAsync(ReportDescriptor reportDescriptor, DirectoryDescriptor outputFolder, CancellationToken cancellationToken) => ReportManifestBuilder.CreateAsync(reportDescriptor, outputFolder, cancellationToken);
+
+    public static ReportManifestBuilder Create(ReportManifest manifest, DirectoryDescriptor outputFolder) => ReportManifestBuilder.Create(manifest, outputFolder);
+
     /// <inheritdoc />
-    public void AddArtifact(ArtifactKind artifactKind, string relativeArtifactFilePath)
+    public void AddArtifact(ArtifactKind artifactKind, FileDescriptor relativeArtifactFilePath)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(relativeArtifactFilePath);
+        ArgumentNullExceptionAdvanced.ThrowIfDefault(relativeArtifactFilePath);
+        ArgumentExceptionAdvanced.ThrowIfFalse(
+            relativeArtifactFilePath.IsRelative,
+            $"The argument '{nameof(relativeArtifactFilePath)}' must be a relative file path, but an absolute path was provided: '{relativeArtifactFilePath.FullPath}'.");
         ArgumentExceptionAdvanced.ThrowIfEnumIsNotDefined<ArtifactKind>(artifactKind);
         ArgumentExceptionAdvanced.ThrowIfEnumEqualsAny(artifactKind, [ArtifactKind.Undefined]);
 

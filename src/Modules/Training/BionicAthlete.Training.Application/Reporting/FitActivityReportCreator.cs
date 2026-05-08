@@ -45,6 +45,7 @@ public class FitActivityReportCreator
 
         FileDescriptor htmlFilePath = default;
         ReportManifestBuilder? manifestBuilder = null;
+        var reportDescriptor = ReportDescriptor.Create(htmlDocument, report, outputTarget);
 
         // If ReportOutputTarget.PdfFromGeneratedHtml then the  HTML must not be persisted to the file system,
         // because it is only used as an intermediate step for PDF generation.
@@ -62,9 +63,9 @@ public class FitActivityReportCreator
                 Encoding.UTF8);
             await _htmlExporter.ExportAsync(htmlExporterArgs, cancellationToken);
 
-            var reportDescriptor = ReportDescriptor.Create(htmlDocument, report, outputTarget);
-            manifestBuilder = await ReportManifestBuilder.CreateAsync(reportDescriptor, exportData.OutputDirectoryPath, cancellationToken).ConfigureAwait(false);
-            manifestBuilder.AddArtifact(ArtifactKind.HtmlReport, fileName);
+            manifestBuilder = await ReportManifest.CreateBuilderAsync(reportDescriptor, exportData.OutputDirectoryPath, cancellationToken).ConfigureAwait(false);
+            FileDescriptor relativeFilePath = htmlFilePath.GetPathRelativeTo(exportData.OutputDirectoryPath);
+            manifestBuilder.AddArtifact(ArtifactKind.HtmlReport, relativeFilePath);
             _ = await manifestBuilder.BuildAsync(cancellationToken).ConfigureAwait(false);
         }
 
@@ -75,10 +76,67 @@ public class FitActivityReportCreator
         return new HtmlReportPackage(
             exportData.OutputDirectoryPath,
             htmlFilePath,
+            reportDescriptor,
             manifestBuilder,
             outputTarget,
             exportData.ExportOptions.PageSettings,
             diagnostics);
+    }
+
+    public async Task<PdfExportRequest> CreatePdfExportRequestAsync(
+        FitFileExportData exportData,
+        ReportOutputTarget outputTarget,
+        bool isOverWriteExistingAllowed,
+        CancellationToken cancellationToken)
+    {
+        // TODO::Improve the design of this method and move domain logic related to report generation and export request creation out of the ViewModel layer.
+        ArgumentNullExceptionAdvanced.ThrowIfNull(exportData);
+        ArgumentExceptionAdvanced.ThrowIfTrue(outputTarget is ReportOutputTarget.HtmlOnly, "Output target must be PDF or HTML and PDF.");
+
+        HtmlReportPackage reportPackage = await CreateHtmlReportAsync(
+            exportData,
+            ReportOutputTarget.PdfFromGeneratedHtml,
+            isOverWriteExistingAllowed,
+            cancellationToken);
+        string fileNameWithoutExtension = exportData.FitFileDescriptor.NameWithoutExtension;
+        string fileName = $"{fileNameWithoutExtension}{FileExtensions.Pdf}";
+        var pdfFilePath = new FileDescriptor(Path.Combine(exportData.OutputDirectoryPath.FullPath, fileName));
+        var exportRequest = new UriExportRequest(
+            pdfFilePath,
+            exportData.OutputDirectoryPath,
+            new Uri(reportPackage.HtmlFilePath.FullPath),
+            reportPackage.PageSettings,
+            TimeSpan.FromSeconds(60),
+            3,
+            reportPackage.ManifestBuilder,
+            reportPackage.ReportDescriptor);
+
+        exportRequest.RequestCompleted += OnPdfExportRequestCompleted;
+
+        return exportRequest;
+    }
+
+    private async void OnPdfExportRequestCompleted(object? sender, PdfExportRequestEventArgs e)
+    {
+        if (sender is not PdfExportRequest exportRequest)
+        {
+            return;
+        }
+
+        exportRequest.RequestCompleted -= OnPdfExportRequestCompleted;
+
+        if (!e.IsSuccessful)
+        {
+            return;
+        }
+
+        IReportManifestBuilder manifestBuilder = exportRequest.ManifestBuilder ?? await ReportManifest.CreateBuilderAsync(exportRequest.ReportDescriptor, exportRequest.RootOutputDirectoryPath, CancellationToken.None)
+            .ConfigureAwait(false);
+        FileDescriptor relativeFilePath = e.PdfExportResult.PdfFilePath.GetPathRelativeTo(exportRequest.RootOutputDirectoryPath);
+        manifestBuilder.AddArtifact(ArtifactKind.PdfReport, relativeFilePath);
+        _ = await manifestBuilder.BuildAsync(CancellationToken.None)
+            .ConfigureAwait(false);
+        e.Handled = true;
     }
 
     internal async Task<HtmlDocument> RenderHtmlAsync(FitFileExportData exportData, Report report, CancellationToken cancellationToken)
