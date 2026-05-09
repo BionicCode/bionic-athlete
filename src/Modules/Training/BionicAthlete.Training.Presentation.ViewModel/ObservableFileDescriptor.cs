@@ -5,7 +5,7 @@ using System.IO;
 using System.Reflection;
 using BionicCode.Utilities.Net;
 
-[DebuggerDisplay("Name = {Name}, Location = {Location}, IsRenamingEnabled = {IsRenamingEnabled}, IsRenamed = {IsRenamed}")]
+[DebuggerDisplay("SourceFileName = {SourceFileName}, Location = {Location}, IsRenamingEnabled = {IsRenamingEnabled}, IsRenamed = {IsRenamed}")]
 public class ObservableFileDescriptor : ViewModel
 {
     private bool _isRenamingEnabled;

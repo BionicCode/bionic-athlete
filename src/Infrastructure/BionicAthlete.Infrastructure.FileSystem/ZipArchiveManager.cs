@@ -123,9 +123,9 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
 
                 if (sourceFileDescriptor.IsEmbeddedResource)
                 {
-                    FileDescriptor destinationFilePath = _temporaryFileManager.CreateTemporaryFilePath(batch.BatchName, sourceFileDescriptor.Name);
+                    FileDescriptor destinationFilePath = _temporaryFileManager.CreateTemporaryFilePath(batch.BatchName, sourceFileDescriptor.SourceFileName);
                     _temporaryFileManager.RegisterTemporaryFilePath(destinationFilePath);
-                    await using Stream resourceStream = sourceFileDescriptor.EmbeddedResourceAssembly.GetManifestResourceStream(sourceFileDescriptor.FullPath) ?? throw new InvalidOperationException($"Failed to get manifest resource stream for embedded resource: {sourceFileDescriptor.Location}");
+                    await using Stream resourceStream = sourceFileDescriptor.EmbeddedResourceAssembly.GetManifestResourceStream(sourceFileDescriptor.SourceFilePath) ?? throw new InvalidOperationException($"Failed to get manifest resource stream for embedded resource: {sourceFileDescriptor.Location}");
                     await using var destinationStream = new FileStream(destinationFilePath.FullPath, FileHelpers.WriteOnlyCreateOrOverwriteOptions);
                     await resourceStream.CopyToAsync(destinationStream, cancellationToken).ConfigureAwait(false);
                     sourceFileDescriptor = new(destinationFilePath.FullPath, sourceFileDescriptor.RelativeArchiveEntryDirectoryPath);
@@ -137,12 +137,12 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
                     {
                         Progress = completedCount,
                         MaxValue = totalFileCount,
-                        Message = $"Renaming file from {sourceFileDescriptor.OriginalName} to {sourceFileDescriptor.Name}"
+                        Message = $"Renaming file from {sourceFileDescriptor.OriginalName} to {sourceFileDescriptor.SourceFileName}"
                     });
 
                     cancellationToken.ThrowIfCancellationRequested();
 
-                    string temporaryFileName = _temporaryFileManager.MakeFileNameUnique(sourceFileDescriptor.Name);
+                    string temporaryFileName = _temporaryFileManager.MakeFileNameUnique(sourceFileDescriptor.SourceFileName);
                     FileDescriptor destinationFilePath = _temporaryFileManager.CreateTemporaryFilePath(batch.BatchName, temporaryFileName);
                     _temporaryFileManager.RegisterTemporaryFilePath(destinationFilePath);
 
@@ -161,7 +161,7 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
                 cancellationToken.ThrowIfCancellationRequested();
 
                 // Preserve exporter-provided bundle paths so grouped CSV artifacts stay grouped inside the ZIP.
-                _ = await zipArchive.CreateEntryFromFileAsync(sourceFileDescriptor.FullPath, sourceFileDescriptor.RelativeArchiveEntryDirectoryPath.FullPath, batch.CompressionLevel, cancellationToken);
+                _ = await zipArchive.CreateEntryFromFileAsync(sourceFileDescriptor.SourceFilePath, sourceFileDescriptor.RelativeArchiveEntryDirectoryPath.FullPath, batch.CompressionLevel, cancellationToken);
                 completedCount++;
             }
         }

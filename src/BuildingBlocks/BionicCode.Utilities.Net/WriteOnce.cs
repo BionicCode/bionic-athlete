@@ -44,7 +44,7 @@ using System.Diagnostics.CodeAnalysis;
 ///             
 ///             // If 'TValue' is IFormattable, the WriteOnce&lt;TValue&gt; can be formatted directly 
 ///             // without needing to access the underlying value.
-///             Console.WriteLine($"Name: {_name}, Length: {length:F2}");
+///             Console.WriteLine($"SourceFileName: {_name}, Length: {length:F2}");
 ///         }
 ///     }
 /// }

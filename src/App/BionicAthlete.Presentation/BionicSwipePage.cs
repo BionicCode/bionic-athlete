@@ -8,7 +8,7 @@ using System.Windows.Controls;
 /// </summary>
 /// <example>
 /// <code>
-/// &lt;BionicSwipePageFrame x:Name="PageFrame" Height="500" &gt;
+/// &lt;BionicSwipePageFrame x:SourceFileName="PageFrame" Height="500" &gt;
 ///   &lt;BionicSwipePage&gt;First XAML created page&lt;/BionicSwipePage&gt;
 ///   &lt;BionicSwipePage&gt;Second XAML created page&lt;/BionicSwipePage&gt;
 ///   &lt;BionicSwipePage&gt;Third XAML created page&lt;/BionicSwipePage&gt;
