@@ -89,13 +89,9 @@ public abstract class FileSystemPathEqualityComparer : StringComparer,
         ? Comparer.GetHashCode(FileHelpers.NormalizeFileSystemPath(fileSystemInfo.FullName))
         : 0;
 
-    public int GetHashCode([DisallowNull] FileDescriptor obj) => obj is FileDescriptor fileDescriptor
-        ? Comparer.GetHashCode(FileHelpers.NormalizeFileSystemPath(fileDescriptor.FullPath))
-        : 0;
+    public int GetHashCode([DisallowNull] FileDescriptor obj) => Comparer.GetHashCode(FileHelpers.NormalizeFileSystemPath(obj.FullPath));
 
-    public int GetHashCode([DisallowNull] DirectoryDescriptor obj) => obj is DirectoryDescriptor directoryDescriptor
-        ? Comparer.GetHashCode(FileHelpers.NormalizeFileSystemPath(directoryDescriptor.FullPath))
-        : 0;
+    public int GetHashCode([DisallowNull] DirectoryDescriptor obj) => Comparer.GetHashCode(FileHelpers.NormalizeFileSystemPath(obj.FullPath));
 
     public override int GetHashCode() => Comparer.GetHashCode();
 

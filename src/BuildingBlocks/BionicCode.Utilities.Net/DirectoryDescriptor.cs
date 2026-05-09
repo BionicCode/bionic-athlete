@@ -20,9 +20,9 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         FileSystemPathValidator.ThrowIfInvalidDirectoryName(name);
         FileSystemPathValidator.ThrowIfInvalidDirectoryPath(location);
 
-        Name = FileHelpers.NormalizeDirectoryName(name);
+        Name = name;
         Location = FileHelpers.NormalizeFileSystemPath(location);
-        FullPath = Path.Combine(Location, Name);
+        FullPath = Path.Join(Location, Name);
         IsRelative = !Path.IsPathFullyQualified(FullPath);
     }
 
@@ -35,10 +35,20 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         FileSystemPathValidator.ThrowIfInvalidDirectoryPath(fullPath);
 
         string normalizedFullPath = FileHelpers.NormalizeFileSystemPath(fullPath);
+        FullPath = normalizedFullPath;
+        IsRelative = !Path.IsPathFullyQualified(FullPath);
+
+        if (IsSpecialDirectorySymbol(normalizedFullPath))
+        {
+            // Special directory symbols like "." and ".." are treated as relative paths with the symbol as the name and the location as the current directory symbol "."
+            Name = string.Empty;
+            Location = normalizedFullPath;
+
+            return;
+        }
+
         Name = Path.GetFileName(normalizedFullPath);
         Location = Path.GetDirectoryName(normalizedFullPath) ?? string.Empty;
-        FullPath = Path.Combine(Location, Name);
-        IsRelative = !Path.IsPathFullyQualified(FullPath);
     }
 
     /// <summary>
@@ -140,4 +150,6 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     public static bool operator !=(DirectoryDescriptor left, DirectoryDescriptor right) => !(left == right);
 
     public override bool Equals(object? obj) => obj is DirectoryDescriptor other && Equals(other);
+
+    private static bool IsSpecialDirectorySymbol(string value) => value is "." or "..";
 }
