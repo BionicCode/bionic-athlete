@@ -15,7 +15,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// <remarks>The value combines a period (.) with the platform-specific directory separator character.
     /// This symbol is commonly used in file system operations to indicate the current working directory.</remarks>
     /// <value>The string representing the current directory symbol. Usually <c>.</c> followed by the platform-specific directory separator character, for example <c>.\</c> on Windows.</value>
-    public static readonly string CurrentDirectorySymbol = $".{Path.DirectorySeparatorChar}";
+    public static readonly string CurrentDirectorySymbol = $".";
 
     /// <summary>
     /// Represents the symbol used to refer to the parent directory, including the platform-specific directory separator
@@ -25,7 +25,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// operating system. It can be used when constructing or parsing file system paths that reference a parent
     /// directory.</remarks>
     /// <value>The string representing the parent directory symbol. Usually <c>..</c> followed by the platform-specific directory separator character, for example <c>..\</c> on Windows.</value>
-    public static readonly string ParentDirectorySymbol = $"..{Path.DirectorySeparatorChar}";
+    public static readonly string ParentDirectorySymbol = $"..";
 
     public static readonly FrozenSet<string> SpecialDirectorySymbols = FrozenSet.Create(CurrentDirectorySymbol, ParentDirectorySymbol, ".", "..");
 
@@ -62,6 +62,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         Location = FileHelpers.NormalizeFileSystemPath(location);
         FullPath = Path.Join(Location, Name);
         IsRelative = !Path.IsPathFullyQualified(FullPath);
+        IsRoot = Path.GetDirectoryName(FullPath) is null;
     }
 
     /// <summary>
@@ -75,15 +76,29 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         string normalizedFullPath = FileHelpers.NormalizeFileSystemPath(fullPath);
 
         if (IsSpecialDirectorySymbol(normalizedFullPath)
-            && SpecialRelativeUnrootedDirectorySymbolSet.TryGetValue(normalizedFullPath, out string? symbol))
+            && SpecialRelativeUnrootedDirectorySymbolSet.TryGetValue(normalizedFullPath, out string? canonicalSymbol))
         {
-            // Special directory symbols like "." and ".." are treated as relative paths with the symbol as the full path (e.g. "./" or "../")
-            // and the location as the symbol "." or ".." respectively,
-            // while the name is empty since they do not represent a specific directory name but rather a relative reference to the current or parent directory.
+            // Special directory symbols like "." and ".." are treated as relative paths with the symbol as the full path and the location
+            // both returning "." or ".." respectively, while the name is empty
+            // since they do not represent a specific directory name but rather a relative reference to the current or parent directory.
             Name = string.Empty;
-            FullPath = symbol;
-            Location = normalizedFullPath;
+            FullPath = canonicalSymbol;
+            Location = canonicalSymbol;
             IsRelative = true;
+            IsRoot = false;
+
+            return;
+        }
+
+        if (Path.GetDirectoryName(normalizedFullPath) is null)
+        {
+            // If GetDirectoryName returns null, it means the path consists of only a directory name e.g. C: or C:\ or C:/ without any directory segments.
+            // In this case, we  define the directory as nameless and set the name to string.Empty.
+            Name = string.Empty;
+            Location = normalizedFullPath;
+            FullPath = normalizedFullPath;
+            IsRelative = false;
+            IsRoot = true;
 
             return;
         }
@@ -92,6 +107,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         IsRelative = !Path.IsPathFullyQualified(FullPath);
         Name = Path.GetFileName(normalizedFullPath);
         Location = Path.GetDirectoryName(normalizedFullPath) ?? string.Empty;
+        IsRoot = false;
     }
 
     /// <summary>
@@ -155,7 +171,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     {
         ArgumentOutOfRangeExceptionAdvanced.ThrowIfLessThan(levels, 1);
         using PooledStringBuilder pathBuilder = StringBuilderFactory.GetOrCreate()
-            .Append(ParentDirectorySymbol, 0, levels);
+            .Append($"{ParentDirectorySymbol}{Path.DirectorySeparatorChar}", levels);
 
         if (!string.IsNullOrEmpty(directoryPathWithoutLeadingSeparator))
         {
@@ -210,7 +226,6 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     public DirectoryDescriptor Combine(FileDescriptor relativeFilePath, bool isImplicitRootAllowed = false, params DirectoryDescriptor[] appendingLocationSegments)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(appendingLocationSegments);
-
         if (relativeFilePath != default)
         {
             ArgumentExceptionAdvanced.ThrowIfFalse(relativeFilePath.IsRelative, $"The argument '{nameof(relativeFilePath)}' must be a relative file path.");
@@ -342,6 +357,8 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// </summary>
     /// <value><see langword="true"/> if the directory exists or <see langword="false"/> an error occurred during the check or the directory does not exist at the time of the check.</value>
     public bool IsExisting => Directory.Exists(FullPath);
+
+    public bool IsRoot { get; }
 
     public static bool operator ==(DirectoryDescriptor left, DirectoryDescriptor right) => left.Equals(right);
     public static bool operator !=(DirectoryDescriptor left, DirectoryDescriptor right) => !(left == right);
