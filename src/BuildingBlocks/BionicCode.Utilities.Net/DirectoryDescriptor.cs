@@ -6,7 +6,7 @@ using System.Diagnostics;
 /// <summary>
 /// Describes a directory that can be included in a conversion or archive batch.
 /// </summary>
-[DebuggerDisplay("SourceFileName = {SourceFileName}, Location = {Location}, IsSourceRelative = {IsSourceRelative}")]
+[DebuggerDisplay("DirectoryName = {Name}, Location = {Location}, IsRelative = {IsRelative}")]
 public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
 {
     /// <summary>

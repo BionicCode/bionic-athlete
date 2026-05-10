@@ -5,7 +5,7 @@ using System.Diagnostics;
 /// <summary>
 /// Describes a file that can be included in a conversion or archive batch.
 /// </summary>
-[DebuggerDisplay("SourceFileName = {SourceFileName}, Location = {Location}, IsRenamingRequired = {IsRenamingRequired}")]
+[DebuggerDisplay("SourceFileName = {SourceFileName}, Location = {Location}, RelativeArchiveEntryFilePath = {RelativeArchiveEntryFilePath}, IsRenamingRequired = {IsRenamingRequired}")]
 public readonly struct ArchiveContentFileDescriptor : IEquatable<ArchiveContentFileDescriptor>
 {
     private static readonly FileSystemPathEqualityComparer s_pathEqualityComparer = FileSystemPathEqualityComparer.Instance;
@@ -53,7 +53,7 @@ public readonly struct ArchiveContentFileDescriptor : IEquatable<ArchiveContentF
         else
         {
             // Create a default root entry location with path symbol ".\"
-            relativeArchiveEntryLocation = DirectoryDescriptor.CreateRelativeUnrootedBase();
+            relativeArchiveEntryLocation = DirectoryDescriptor.CreateRelativeToCurrentDirectory();
         }
 
         SourceFilePath = sourceFilePath;

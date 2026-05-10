@@ -6,7 +6,7 @@ using System.Reflection;
 /// <summary>
 /// Describes a file that can be included in a conversion or archive batch.
 /// </summary>
-[DebuggerDisplay("SourceFileName = {SourceFileName}, Location = {Location}, IsSourceRelative = {IsSourceRelative}")]
+[DebuggerDisplay("FileName = {Name}, Location = {Location}, OriginalFullPath = {OriginalFullPath}, OriginalName = {OriginalName}, IsRelative = {IsRelative}")]
 public readonly struct FileDescriptor : IEquatable<FileDescriptor>
 {
     private readonly string _filePath;
