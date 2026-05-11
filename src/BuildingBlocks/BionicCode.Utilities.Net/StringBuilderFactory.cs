@@ -8,8 +8,8 @@ using System.Text;
 internal static class StringBuilderFactory
 {
     private const int MaxPoolSize = 10;
-    private static readonly ConcurrentBag<StringBuilder> s_stringBuilderPool = new ConcurrentBag<StringBuilder>();
-    private static readonly object s_syncLock = new object();
+    private static readonly ConcurrentBag<StringBuilder> s_stringBuilderPool = [];
+    private static readonly object s_syncLock = new();
 
     public static PooledStringBuilder GetOrCreate()
         => GetOrCreateInternal(0, ReadOnlySpan<char>.Empty);
@@ -25,10 +25,11 @@ internal static class StringBuilderFactory
         if (!StringBuilderFactory.s_stringBuilderPool.TryTake(out StringBuilder? stringBuilder))
         {
             stringBuilder = new StringBuilder(capacity);
-            if (!content.IsEmpty)
-            {
-                _ = stringBuilder.Append(content);
-            }
+        }
+
+        if (!content.IsEmpty)
+        {
+            _ = stringBuilder.Append(content);
         }
 
         return PooledStringBuilder.CreateInternal(stringBuilder);

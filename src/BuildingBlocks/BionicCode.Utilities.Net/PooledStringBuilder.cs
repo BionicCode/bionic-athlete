@@ -793,46 +793,48 @@ public class PooledStringBuilder : IDisposable
         return this;
     }
 
-    public PooledStringBuilder Append([InterpolatedStringHandlerArgument("")] ref PooledStringBuilder.AppendInterpolatedStringHandler handler)
-        => this;
+#pragma warning disable CA1822 // Mark members as static
+    public PooledStringBuilder Append([InterpolatedStringHandlerArgument("")] ref PooledStringBuilder.AppendInterpolatedBufferedStringHandler handler)
+        => handler.FlushBuffer(isAppendNewLineEnabled: false);
 
-    public PooledStringBuilder Append(int repeatCount, [InterpolatedStringHandlerArgument("", nameof(repeatCount))] ref PooledStringBuilder.AppendInterpolatedStringHandler handler)
-        => handler.WriteTo(this);
+    public PooledStringBuilder Append(int repeatCount, [InterpolatedStringHandlerArgument("", nameof(repeatCount))] ref PooledStringBuilder.AppendInterpolatedBufferedStringHandler handler)
+        => handler.FlushBuffer(isAppendNewLineEnabled: false);
 
-    public PooledStringBuilder AppendIndented(int indentationLevel, char indentationChar, [InterpolatedStringHandlerArgument("", nameof(indentationLevel), nameof(indentationChar))] ref PooledStringBuilder.AppendInterpolatedStringHandler handler)
-        => this;
+    public PooledStringBuilder AppendIndented(char indentationChar, int indentationLevel, [InterpolatedStringHandlerArgument("", nameof(indentationChar), nameof(indentationLevel))] ref PooledStringBuilder.AppendInterpolatedBufferedStringHandler handler)
+        => handler.FlushBuffer(isAppendNewLineEnabled: false);
 
-    public PooledStringBuilder AppendIndented([InterpolatedStringHandlerArgument("")] ref PooledStringBuilder.AppendInterpolatedStringHandler handler)
-        => AppendInterpolatedIndented(ref handler);
+    public PooledStringBuilder AppendIndented([InterpolatedStringHandlerArgument("")] ref PooledStringBuilder.AppendInterpolatedBufferedStringHandler handler)
+        => FlushBufferWithIndentation(ref handler);
 
-    public PooledStringBuilder AppendIndented(int indentationLevel, char indentationChar, int repeatCount, [InterpolatedStringHandlerArgument("", nameof(indentationLevel), nameof(indentationChar), nameof(repeatCount))] ref PooledStringBuilder.AppendInterpolatedStringHandler handler)
-        => this;
+    public PooledStringBuilder AppendIndented(char indentationChar, int indentationLevel, int repeatCount, [InterpolatedStringHandlerArgument("", nameof(indentationChar), nameof(indentationLevel), nameof(repeatCount))] ref PooledStringBuilder.AppendInterpolatedBufferedStringHandler handler)
+        => handler.FlushBuffer(isAppendNewLineEnabled: false);
 
-    public PooledStringBuilder AppendIndented(int repeatCount, [InterpolatedStringHandlerArgument("", nameof(repeatCount))] ref PooledStringBuilder.AppendInterpolatedStringHandler handler)
-        => AppendInterpolatedIndented(ref handler);
+    public PooledStringBuilder AppendIndented(int repeatCount, [InterpolatedStringHandlerArgument("", nameof(repeatCount))] ref PooledStringBuilder.AppendInterpolatedBufferedStringHandler handler)
+        => FlushBufferWithIndentation(ref handler);
 
-    public PooledStringBuilder Append(IFormatProvider? provider, [InterpolatedStringHandlerArgument("", nameof(provider))] ref PooledStringBuilder.AppendInterpolatedStringHandler handler)
-        => this;
+    public PooledStringBuilder Append(IFormatProvider? provider, [InterpolatedStringHandlerArgument("", nameof(provider))] ref PooledStringBuilder.AppendInterpolatedBufferedStringHandler handler)
+        => handler.FlushBuffer(isAppendNewLineEnabled: false);
 
-    public PooledStringBuilder Append(IFormatProvider? provider, int repeatCount, [InterpolatedStringHandlerArgument("", nameof(provider), nameof(repeatCount))] ref PooledStringBuilder.AppendInterpolatedStringHandler handler)
-        => handler.WriteTo(this);
+    public PooledStringBuilder Append(IFormatProvider? provider, int repeatCount, [InterpolatedStringHandlerArgument("", nameof(provider), nameof(repeatCount))] ref PooledStringBuilder.AppendInterpolatedBufferedStringHandler handler)
+        => handler.FlushBuffer(isAppendNewLineEnabled: false);
 
-    public PooledStringBuilder AppendIndented(IFormatProvider? provider, int indentationLevel, char indentationChar, [InterpolatedStringHandlerArgument("", nameof(provider), nameof(indentationLevel), nameof(indentationChar))] ref PooledStringBuilder.AppendInterpolatedStringHandler handler)
-        => this;
+    public PooledStringBuilder AppendIndented(IFormatProvider? provider, char indentationChar, int indentationLevel, [InterpolatedStringHandlerArgument("", nameof(provider), nameof(indentationChar), nameof(indentationLevel))] ref PooledStringBuilder.AppendInterpolatedBufferedStringHandler handler)
+        => handler.FlushBuffer(isAppendNewLineEnabled: false);
 
-    public PooledStringBuilder AppendIndented(IFormatProvider? provider, [InterpolatedStringHandlerArgument("", nameof(provider))] ref PooledStringBuilder.AppendInterpolatedStringHandler handler)
-        => AppendInterpolatedIndented(ref handler);
+    public PooledStringBuilder AppendIndented(IFormatProvider? provider, [InterpolatedStringHandlerArgument("", nameof(provider))] ref PooledStringBuilder.AppendInterpolatedBufferedStringHandler handler)
+        => FlushBufferWithIndentation(ref handler);
 
-    public PooledStringBuilder AppendIndented(IFormatProvider? provider, int indentationLevel, char indentationChar, int repeatCount, [InterpolatedStringHandlerArgument("", nameof(provider), nameof(indentationLevel), nameof(indentationChar), nameof(repeatCount))] ref PooledStringBuilder.AppendInterpolatedStringHandler handler)
-        => this;
+    public PooledStringBuilder AppendIndented(IFormatProvider? provider, char indentationChar, int indentationLevel, int repeatCount, [InterpolatedStringHandlerArgument("", nameof(provider), nameof(indentationChar), nameof(indentationLevel), nameof(repeatCount))] ref PooledStringBuilder.AppendInterpolatedBufferedStringHandler handler)
+        => handler.FlushBuffer(isAppendNewLineEnabled: false);
 
-    public PooledStringBuilder AppendIndented(IFormatProvider? provider, int repeatCount, [InterpolatedStringHandlerArgument("", nameof(provider), nameof(repeatCount))] ref PooledStringBuilder.AppendInterpolatedStringHandler handler)
-        => AppendInterpolatedIndented(ref handler);
+    public PooledStringBuilder AppendIndented(IFormatProvider? provider, int repeatCount, [InterpolatedStringHandlerArgument("", nameof(provider), nameof(repeatCount))] ref PooledStringBuilder.AppendInterpolatedBufferedStringHandler handler)
+        => FlushBufferWithIndentation(ref handler);
+#pragma warning restore CA1822 // Mark members as static
 
-    private PooledStringBuilder AppendInterpolatedIndented(ref AppendInterpolatedStringHandler handler)
+    private PooledStringBuilder FlushBufferWithIndentation(ref AppendInterpolatedBufferedStringHandler handler)
     {
         (int indentationLevel, char indentationChar) = CurrentIndentationInfo;
-        return handler.WriteTo(this, indentationLevel, indentationChar);
+        return handler.FlushBuffer(indentationLevel, indentationChar, isAppendNewLineEnabled: false);
     }
 
     // ============================================================================
@@ -983,37 +985,39 @@ public class PooledStringBuilder : IDisposable
         return this;
     }
 
-    public PooledStringBuilder AppendLine([InterpolatedStringHandlerArgument("")] ref PooledStringBuilder.AppendInterpolatedStringHandler handler)
-        => AppendLine();
+#pragma warning disable CA1822 // Mark members as static
+    public PooledStringBuilder AppendLine([InterpolatedStringHandlerArgument("")] ref PooledStringBuilder.AppendInterpolatedBufferedStringHandler handler)
+        => handler.FlushBuffer(isAppendNewLineEnabled: true);
 
-    public PooledStringBuilder AppendLine(int repeatCount, [InterpolatedStringHandlerArgument("", nameof(repeatCount))] ref PooledStringBuilder.AppendInterpolatedStringHandler handler)
-        => handler.WriteLineTo(this); // Repeated append requires buffering the interpolated string. Hence we must manually invoke the handler to flush the buffer into the provided StringBuilder or PooledStringBuilder
+    public PooledStringBuilder AppendLine(int repeatCount, [InterpolatedStringHandlerArgument("", nameof(repeatCount))] ref PooledStringBuilder.AppendInterpolatedBufferedStringHandler handler)
+        => handler.FlushBuffer(isAppendNewLineEnabled: true); // Repeated append requires buffering the interpolated string. Hence we must manually invoke the handler to flush the buffer into the provided StringBuilder or PooledStringBuilder
 
-    public PooledStringBuilder AppendIndentedLine(int indentationLevel, char indentationChar, [InterpolatedStringHandlerArgument("", nameof(indentationLevel), nameof(indentationChar))] ref PooledStringBuilder.AppendInterpolatedStringHandler handler)
-        => AppendLine();
+    public PooledStringBuilder AppendIndentedLine(char indentationChar, int indentationLevel, [InterpolatedStringHandlerArgument("", nameof(indentationChar), nameof(indentationLevel))] ref PooledStringBuilder.AppendInterpolatedBufferedStringHandler handler)
+        => handler.FlushBuffer(isAppendNewLineEnabled: true);
 
-    public PooledStringBuilder AppendIndentedLine(int repeatCount, [InterpolatedStringHandlerArgument("", nameof(repeatCount))] ref PooledStringBuilder.AppendInterpolatedStringHandler handler)
-        => AppendInterpolatedIndentedLine(ref handler); // Explicitly indent using instance indentation values
+    public PooledStringBuilder AppendIndentedLine(int repeatCount, [InterpolatedStringHandlerArgument("", nameof(repeatCount))] ref PooledStringBuilder.AppendInterpolatedBufferedStringHandler handler)
+        => FlushBufferWithIndentationAndNewLine(ref handler); // Explicitly indent using instance indentation values
 
-    public PooledStringBuilder AppendIndentedLine([InterpolatedStringHandlerArgument("")] ref PooledStringBuilder.AppendInterpolatedStringHandler handler)
-        => AppendInterpolatedIndentedLine(ref handler);
+    public PooledStringBuilder AppendIndentedLine([InterpolatedStringHandlerArgument("")] ref PooledStringBuilder.AppendInterpolatedBufferedStringHandler handler)
+        => FlushBufferWithIndentationAndNewLine(ref handler);
 
-    public PooledStringBuilder AppendLine(IFormatProvider? provider, [InterpolatedStringHandlerArgument("", nameof(provider))] ref PooledStringBuilder.AppendInterpolatedStringHandler handler)
-        => AppendLine();
+    public PooledStringBuilder AppendLine(IFormatProvider? provider, [InterpolatedStringHandlerArgument("", nameof(provider))] ref PooledStringBuilder.AppendInterpolatedBufferedStringHandler handler)
+        => handler.FlushBuffer(isAppendNewLineEnabled: true);
 
-    public PooledStringBuilder AppendIndentedLine(IFormatProvider? provider, int indentationLevel, char indentationChar, [InterpolatedStringHandlerArgument("", nameof(provider), nameof(indentationLevel), nameof(indentationChar))] ref PooledStringBuilder.AppendInterpolatedStringHandler handler)
-        => AppendLine();
+    public PooledStringBuilder AppendIndentedLine(IFormatProvider? provider, char indentationChar, int indentationLevel, [InterpolatedStringHandlerArgument("", nameof(provider), nameof(indentationChar), nameof(indentationLevel))] ref PooledStringBuilder.AppendInterpolatedBufferedStringHandler handler)
+        => handler.FlushBuffer(isAppendNewLineEnabled: true);
 
-    public PooledStringBuilder AppendIndentedLine(IFormatProvider? provider, [InterpolatedStringHandlerArgument("", nameof(provider))] ref PooledStringBuilder.AppendInterpolatedStringHandler handler)
-        => AppendInterpolatedIndentedLine(ref handler);
+    public PooledStringBuilder AppendIndentedLine(IFormatProvider? provider, [InterpolatedStringHandlerArgument("", nameof(provider))] ref PooledStringBuilder.AppendInterpolatedBufferedStringHandler handler)
+        => FlushBufferWithIndentationAndNewLine(ref handler);
 
-    public PooledStringBuilder AppendIndentedLine(IFormatProvider? provider, int repeatCount, [InterpolatedStringHandlerArgument("", nameof(provider), nameof(repeatCount))] ref PooledStringBuilder.AppendInterpolatedStringHandler handler)
-        => AppendInterpolatedIndentedLine(ref handler);
+    public PooledStringBuilder AppendIndentedLine(IFormatProvider? provider, int repeatCount, [InterpolatedStringHandlerArgument("", nameof(provider), nameof(repeatCount))] ref PooledStringBuilder.AppendInterpolatedBufferedStringHandler handler)
+        => FlushBufferWithIndentationAndNewLine(ref handler);
+#pragma warning restore CA1822 // Mark members as static
 
-    private PooledStringBuilder AppendInterpolatedIndentedLine(ref AppendInterpolatedStringHandler handler)
+    private PooledStringBuilder FlushBufferWithIndentationAndNewLine(ref AppendInterpolatedBufferedStringHandler handler)
     {
         (int indentationLevel, char indentationChar) = CurrentIndentationInfo;
-        return handler.WriteLineTo(this, indentationLevel, indentationChar);
+        return handler.FlushBuffer(indentationLevel, indentationChar, isAppendNewLineEnabled: true);
     }
 
     // ============================================================================
@@ -1130,11 +1134,12 @@ public class PooledStringBuilder : IDisposable
     /// <param name="indentationChar">The character to use for indentation. Defaults to a space character if not specified.</param>
     /// <param name="values">An array of <see cref="string"/> to join and append.</param>
     /// <returns>The current instance of the <see cref="PooledStringBuilder"/>, enabling method chaining.</returns>
-    public PooledStringBuilder AppendIndentedJoin(string? separator, int indentationLevel, char indentationChar, params string?[] values)
+    public PooledStringBuilder AppendIndentedJoin(string? separator, char indentationChar, int indentationLevel, params string?[] values)
     {
         ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(indentationLevel);
 
-        _ = Indent()
+        StringBuilder builder = StringBuilder;
+        _ = builder.Append(indentationChar, indentationLevel)
             .AppendJoin(separator, values);
         return this;
     }
@@ -1866,18 +1871,20 @@ public class PooledStringBuilder : IDisposable
     // Nested handler that wraps StringBuilder's handler
     [InterpolatedStringHandler]
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1034:Nested types should not be visible", Justification = "Interpolated-string handler requires access to the containing instance's internals like the private static StringBuilder; this nested public ref struct is intentional.")]
-    public ref struct AppendInterpolatedStringHandler
+    public ref struct AppendInterpolatedBufferedStringHandler
     {
+        // The original StringBuilder handler. We use it's implementation to write the interpolated string into our buffer,
+        // and then we can flush that buffer into the captured PooledStringBuilder when needed.
         private StringBuilder.AppendInterpolatedStringHandler _inner;
+
         private readonly char _indentationChar;
         private readonly int _indentationLevel;
         private readonly int _repeatCount;
-        private readonly StringBuilder? _buffer;
-
-        public bool IsBuffered => _repeatCount != 1;
+        private readonly PooledStringBuilder _buffer;
+        private readonly PooledStringBuilder _capturedTarget;
 
         // Constructor for WriteTo($"...")
-        public AppendInterpolatedStringHandler(
+        public AppendInterpolatedBufferedStringHandler(
             int literalLength,
             int formattedCount,
             PooledStringBuilder pooledBuilder) : this(
@@ -1892,7 +1899,7 @@ public class PooledStringBuilder : IDisposable
         }
 
         // Constructor for WriteTo(repeatCount, $"...")
-        public AppendInterpolatedStringHandler(
+        public AppendInterpolatedBufferedStringHandler(
             int literalLength,
             int formattedCount,
             PooledStringBuilder pooledBuilder,
@@ -1908,7 +1915,7 @@ public class PooledStringBuilder : IDisposable
         }
 
         // Constructor for WriteTo(provider, $"...")
-        public AppendInterpolatedStringHandler(
+        public AppendInterpolatedBufferedStringHandler(
             int literalLength,
             int formattedCount,
             PooledStringBuilder pooledBuilder,
@@ -1924,7 +1931,7 @@ public class PooledStringBuilder : IDisposable
         }
 
         // Constructor for WriteTo(provider, repeatCount, $"...")
-        public AppendInterpolatedStringHandler(
+        public AppendInterpolatedBufferedStringHandler(
             int literalLength,
             int formattedCount,
             PooledStringBuilder pooledBuilder,
@@ -1941,7 +1948,7 @@ public class PooledStringBuilder : IDisposable
         }
 
         // Constructor for WriteTo(provider, indentationChar, indentationLevel, $"...")
-        public AppendInterpolatedStringHandler(
+        public AppendInterpolatedBufferedStringHandler(
             int literalLength,
             int formattedCount,
             PooledStringBuilder pooledBuilder,
@@ -1959,7 +1966,7 @@ public class PooledStringBuilder : IDisposable
         }
 
         // Constructor for WriteTo(indentationChar, indentationLevel, $"...")
-        public AppendInterpolatedStringHandler(
+        public AppendInterpolatedBufferedStringHandler(
             int literalLength,
             int formattedCount,
             PooledStringBuilder pooledBuilder,
@@ -1976,7 +1983,7 @@ public class PooledStringBuilder : IDisposable
         }
 
         // Constructor for WriteTo(indentationChar, indentationLevel, repeatCount, $"...")
-        public AppendInterpolatedStringHandler(
+        public AppendInterpolatedBufferedStringHandler(
             int literalLength,
             int formattedCount,
             PooledStringBuilder pooledBuilder,
@@ -1994,7 +2001,7 @@ public class PooledStringBuilder : IDisposable
         }
 
         // Constructor for WriteTo(provider, indentationChar, indentationLevel, repeatCount, $"...")
-        public AppendInterpolatedStringHandler(
+        public AppendInterpolatedBufferedStringHandler(
             int literalLength,
             int formattedCount,
             PooledStringBuilder pooledBuilder,
@@ -2009,74 +2016,44 @@ public class PooledStringBuilder : IDisposable
             _indentationChar = indentationChar;
             _indentationLevel = indentationLevel;
             _repeatCount = repeatCount;
+            _capturedTarget = pooledBuilder;
 
-            StringBuilder capturedOrBufferStringBuilder;
-            if (IsBuffered)
-            {
-                _buffer = new StringBuilder(Math.Max(literalLength, 16));
-                capturedOrBufferStringBuilder = _buffer;
-            }
-            else
-            {
-                _buffer = null;
-                capturedOrBufferStringBuilder = pooledBuilder.StringBuilder;
-
-                // If not buffering, we need to append the indentation before the interpolated content
-                if (indentationLevel > 0)
-                {
-                    _ = capturedOrBufferStringBuilder.Append(indentationChar, indentationLevel);
-                }
-            }
+            _buffer = StringBuilderFactory.GetOrCreate(Math.Max(literalLength, 16), ReadOnlySpan<char>.Empty);
 
             _inner = new StringBuilder.AppendInterpolatedStringHandler(
                 literalLength,
                 formattedCount,
-                capturedOrBufferStringBuilder,
+                _buffer.StringBuilder,
                 provider);
         }
 
-        public PooledStringBuilder WriteTo(PooledStringBuilder pooledBuilder) => WriteTo(pooledBuilder, _indentationLevel, _indentationChar);
+        public PooledStringBuilder FlushBuffer(bool isAppendNewLineEnabled) => FlushBuffer(_indentationLevel, _indentationChar, isAppendNewLineEnabled);
 
-        public PooledStringBuilder WriteTo(PooledStringBuilder pooledBuilder, int indentationLevel, char indentationChar)
+        public PooledStringBuilder FlushBuffer(int indentationLevel, char indentationChar, bool isAppendNewLineEnabled)
         {
-            ArgumentNullException.ThrowIfNull(pooledBuilder);
             ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(indentationLevel);
 
-            if (!IsBuffered)
+            if (_buffer.Length == 0)
             {
-                return pooledBuilder;
+                _buffer.Recycle();
+                return _capturedTarget;
             }
 
             for (int i = 0; i < _repeatCount; i++)
             {
                 _ = indentationLevel > 0
-                    ? pooledBuilder.AppendIndented(_buffer, indentationLevel, indentationChar)
-                    : pooledBuilder.Append(_buffer);
+                    ? _capturedTarget.AppendIndented(_buffer.StringBuilder, indentationLevel, indentationChar)
+                    : _capturedTarget.Append(_buffer.StringBuilder);
+
+                if (isAppendNewLineEnabled)
+                {
+                    _ = _capturedTarget.AppendLine();
+                }
             }
 
-            return pooledBuilder;
-        }
+            _buffer.Recycle();
 
-        public PooledStringBuilder WriteLineTo(PooledStringBuilder pooledBuilder) => WriteLineTo(pooledBuilder, _indentationLevel, _indentationChar);
-
-        public PooledStringBuilder WriteLineTo(PooledStringBuilder pooledBuilder, int indentationLevel, char indentationChar)
-        {
-            ArgumentNullException.ThrowIfNull(pooledBuilder);
-            ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(indentationLevel);
-
-            if (!IsBuffered)
-            {
-                return pooledBuilder;
-            }
-
-            for (int i = 0; i < _repeatCount; i++)
-            {
-                _ = indentationLevel > 0
-                    ? pooledBuilder.AppendIndentedLine(_buffer!, indentationLevel, indentationChar)
-                    : pooledBuilder.AppendLine(_buffer!);
-            }
-
-            return pooledBuilder;
+            return _capturedTarget;
         }
 
         // Forward all calls to the inner handler
