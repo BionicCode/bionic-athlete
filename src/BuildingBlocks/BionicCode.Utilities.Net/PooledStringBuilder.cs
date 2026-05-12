@@ -958,7 +958,7 @@ public class PooledStringBuilder : IDisposable
 
     /// <summary>
     /// Appends the default line terminator to the end of the current <see cref="PooledStringBuilder"/> object 
-    /// <br/>and indents the next line using the specified indentation character and level, followed by the default line terminator.
+    /// <br/>and indents the next line using the specified indentation character and level.
     /// </summary>
     /// <param name="indentationLevel">The level of indentation to apply.</param>
     /// <param name="indentationChar">The character to use for indentation.</param>
@@ -975,9 +975,8 @@ public class PooledStringBuilder : IDisposable
 
     /// <summary>
     /// Appends the default line terminator to the end of the current <see cref="PooledStringBuilder"/> object 
-    /// <br/>and indents the next line using the <see cref="indentationChar"/> character (or the default indentation character <see cref="DefaultIndentationChar"/>) 
-    /// and <see cref="indentationLevel"/> level (or the default indentation level <see cref="DefaultIndentationLevel"/>), 
-    /// followed by the default line terminator.
+    /// <br/>and indents the next line using the <see cref="IndentationChar"/> character (or the default indentation character <see cref="DefaultIndentationChar"/>) 
+    /// and <see cref="IndentationLevel"/> level (or the default indentation level <see cref="DefaultIndentationLevel"/>).
     /// </summary>
     /// <returns>The current <see cref="PooledStringBuilder"/> instance.</returns>
     public PooledStringBuilder AppendIndentedLine()
@@ -1976,7 +1975,110 @@ public class PooledStringBuilder : IDisposable
         return builder;
     }
 
-    // Nested handler that wraps StringBuilder's handler
+    /// <summary>
+    /// Buffers an interpolated string into a pooled temporary <see cref="StringBuilder"/> and later replays the
+    /// buffered content into a target <see cref="PooledStringBuilder"/> using the formatting semantics selected
+    /// by the consuming API overload.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Important:</b> This type is <b>not intended for direct public consumption</b>. Although it is
+    /// publicly visible, it exists primarily because the C# interpolated-string-handler pattern requires a
+    /// handler type and its applicable constructors to be accessible to the compiler for public API binding.
+    /// In other words, this type is part of a compiler-level contract and call flow, not a general-purpose
+    /// user-facing abstraction.
+    /// </para>
+    ///
+    /// <para>
+    /// The expected usage model is that callers invoke one of the interpolated-string overloads on
+    /// <see cref="PooledStringBuilder"/>, for example <c>Append</c>, <c>AppendIndented</c>,
+    /// <c>AppendLine</c>, or <c>AppendIndentedLine</c>. The compiler then synthesizes code that:
+    /// <list type="number">
+    /// <item>
+    /// <description>constructs an instance of this handler,</description>
+    /// </item>
+    /// <item>
+    /// <description>feeds literal and formatted interpolation segments into it via <c>AppendLiteral</c> and <c>AppendFormatted</c>, and</description>
+    /// </item>
+    /// <item>
+    /// <description>passes the populated handler to the selected <see cref="PooledStringBuilder"/> overload, which completes the operation by calling <see cref="FlushBuffer(bool)"/> or <see cref="FlushBuffer(char, int, bool)"/>.</description>
+    /// </item>
+    /// </list>
+    /// </para>
+    ///
+    /// <para>
+    /// Unlike <see cref="StringBuilder.AppendInterpolatedStringHandler"/>, which writes directly into a target
+    /// builder as interpolation proceeds, this handler always writes first into its own pooled temporary
+    /// buffer. That deferred buffering model is intentional. It allows the consuming
+    /// <see cref="PooledStringBuilder"/> method body to decide, <i>after</i> the compiler has already created
+    /// the handler, how the buffered text should be replayed:
+    /// <list type="bullet">
+    /// <item>
+    /// <description>whether the content should be appended once or repeated multiple times,</description>
+    /// </item>
+    /// <item>
+    /// <description>whether indentation should be applied explicitly or derived from the target instance, and</description>
+    /// </item>
+    /// <item>
+    /// <description>whether a trailing line terminator should be appended after each replay.</description>
+    /// </item>
+    /// </list>
+    /// </para>
+    ///
+    /// <para>
+    /// The handler therefore acts as a temporary staging area between compiler-produced interpolation steps
+    /// and the library-specific replay behavior implemented by <see cref="PooledStringBuilder"/>.
+    /// </para>
+    ///
+    /// <para>
+    /// Internally, the handler rents a temporary unmanaged <see cref="StringBuilder"/> from
+    /// <c>StringBuilderFactory</c> and stores the interpolated content in that buffer. When one of the
+    /// flush methods is invoked, the buffer content is replayed into the captured target
+    /// <see cref="PooledStringBuilder"/> according to the configured indentation, repetition, and newline
+    /// settings. After that replay completes, the temporary buffer is returned to the pool and the handler is
+    /// invalidated for further use.
+    /// </para>
+    ///
+    /// <para>
+    /// This makes the handler a <b>single-use</b> type with explicit completion semantics:
+    /// <list type="bullet">
+    /// <item>
+    /// <description>an instance is created for one interpolated-string operation,</description>
+    /// </item>
+    /// <item>
+    /// <description>it accumulates interpolation segments exactly once,</description>
+    /// </item>
+    /// <item>
+    /// <description>it must be flushed exactly once, and</description>
+    /// </item>
+    /// <item>
+    /// <description>after flushing, it becomes unusable and subsequent flush attempts throw <see cref="InvalidOperationException"/>.</description>
+    /// </item>
+    /// </list>
+    /// </para>
+    ///
+    /// <para>
+    /// Because this type is a <see langword="ref struct"/>, it is stack-bound and cannot participate in
+    /// normal heap-based lifetime management patterns such as finalization. For that reason, correct cleanup
+    /// depends on the intended compiler-driven flow reaching one of the flush methods. Manual construction or
+    /// manual use outside that flow is strongly discouraged. In particular, if an instance is created
+    /// directly and never flushed, its rented temporary buffer is not returned through the normal completion
+    /// path.
+    /// </para>
+    ///
+    /// <para>
+    /// The <see cref="EditorBrowsableAttribute"/> annotations applied to this type and its constructors exist
+    /// to reduce accidental discovery in IntelliSense. They are only a discoverability hint and not a
+    /// security or correctness boundary.
+    /// </para>
+    ///
+    /// <para>
+    /// Conceptually, <see cref="PooledStringBuilder"/> is the public lifetime-management facade and this
+    /// handler is merely one of the compiler-facing implementation details that enables interpolated-string
+    /// syntax to participate in that facade's pooling and indentation model without exposing the pooled
+    /// temporary buffer directly.
+    /// </para>
+    /// </remarks>
     [InterpolatedStringHandler]
     [EditorBrowsable(EditorBrowsableState.Never)]
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1034:Nested types should not be visible", Justification = "Interpolated-string handler requires access to the containing instance's internals like the private static StringBuilder; this nested public ref struct is intentional.")]
@@ -1993,6 +2095,7 @@ public class PooledStringBuilder : IDisposable
         private readonly PooledStringBuilder _capturedTarget;
 
         // Constructor for WriteTo($"...")
+        [EditorBrowsable(EditorBrowsableState.Never)]
         public AppendInterpolatedBufferedStringHandler(
             int literalLength,
             int formattedCount,
@@ -2008,6 +2111,7 @@ public class PooledStringBuilder : IDisposable
         }
 
         // Constructor for WriteTo(repeatCount, $"...")
+        [EditorBrowsable(EditorBrowsableState.Never)]
         public AppendInterpolatedBufferedStringHandler(
             int literalLength,
             int formattedCount,
@@ -2024,6 +2128,7 @@ public class PooledStringBuilder : IDisposable
         }
 
         // Constructor for WriteTo(provider, $"...")
+        [EditorBrowsable(EditorBrowsableState.Never)]
         public AppendInterpolatedBufferedStringHandler(
             int literalLength,
             int formattedCount,
@@ -2040,6 +2145,7 @@ public class PooledStringBuilder : IDisposable
         }
 
         // Constructor for WriteTo(provider, repeatCount, $"...")
+        [EditorBrowsable(EditorBrowsableState.Never)]
         public AppendInterpolatedBufferedStringHandler(
             int literalLength,
             int formattedCount,
@@ -2057,6 +2163,7 @@ public class PooledStringBuilder : IDisposable
         }
 
         // Constructor for WriteTo(provider, indentationChar, indentationLevel, $"...")
+        [EditorBrowsable(EditorBrowsableState.Never)]
         public AppendInterpolatedBufferedStringHandler(
             int literalLength,
             int formattedCount,
@@ -2075,6 +2182,7 @@ public class PooledStringBuilder : IDisposable
         }
 
         // Constructor for WriteTo(indentationChar, indentationLevel, $"...")
+        [EditorBrowsable(EditorBrowsableState.Never)]
         public AppendInterpolatedBufferedStringHandler(
             int literalLength,
             int formattedCount,
@@ -2092,6 +2200,7 @@ public class PooledStringBuilder : IDisposable
         }
 
         // Constructor for WriteTo(indentationChar, indentationLevel, repeatCount, $"...")
+        [EditorBrowsable(EditorBrowsableState.Never)]
         public AppendInterpolatedBufferedStringHandler(
             int literalLength,
             int formattedCount,
@@ -2110,6 +2219,7 @@ public class PooledStringBuilder : IDisposable
         }
 
         // Constructor for WriteTo(provider, indentationChar, indentationLevel, repeatCount, $"...")
+        [EditorBrowsable(EditorBrowsableState.Never)]
         public AppendInterpolatedBufferedStringHandler(
             int literalLength,
             int formattedCount,
@@ -2136,8 +2246,41 @@ public class PooledStringBuilder : IDisposable
                 provider);
         }
 
+        /// <summary>
+        /// Flushes the buffered content into the captured target <see cref="PooledStringBuilder"/> according to the configured indentation and repeat settings.
+        /// </summary>
+        /// <remarks>
+        /// <b>Important:</b> This type is <b>not intended for direct public consumption</b>. Although it is
+        /// publicly visible, it exists primarily because the C# interpolated-string-handler pattern requires a
+        /// handler type and its applicable constructors to be accessible to the compiler for public API binding.
+        /// In other words, this type is part of a compiler-level contract and call flow, not a general-purpose
+        /// user-facing abstraction.
+        /// 
+        /// <para/>It's mandatory to call this method to ensure that the buffered content is properly flushed and the resources (buffer) are properly released. 
+        /// <b>Not doing this can negatively impact performance.</b></remarks>
+        /// <param name="isAppendNewLineEnabled">Indicates whether a new line should be appended after the buffered content.</param>
+        /// <returns>The captured <see cref="PooledStringBuilder"/> with the flushed content.</returns>
         public PooledStringBuilder FlushBuffer(bool isAppendNewLineEnabled) => FlushBuffer(_indentationChar, _indentationLevel, isAppendNewLineEnabled);
 
+        /// <summary>
+        /// Flushes the current buffer to the underlying pooled string builder, applying optional indentation and line
+        /// breaks as specified.
+        /// </summary>
+        /// <remarks>
+        /// <b>Important:</b> This type is <b>not intended for direct public consumption</b>. Although it is
+        /// publicly visible, it exists primarily because the C# interpolated-string-handler pattern requires a
+        /// handler type and its applicable constructors to be accessible to the compiler for public API binding.
+        /// In other words, this type is part of a compiler-level contract and call flow, not a general-purpose
+        /// user-facing abstraction.
+        /// 
+        /// <para/>It's mandatory to call this method to ensure that the buffered content is properly flushed and the resources (buffer) are properly released. 
+        /// <b>Not doing this can negatively impact performance.</b></remarks>
+        /// <param name="indentationChar">The character to use for indentation at the start of each appended line.</param>
+        /// <param name="indentationLevel">The number of times to repeat the indentation character at the beginning of each line. Must be zero or
+        /// greater.</param>
+        /// <param name="isAppendNewLineEnabled">true to append a new line after each buffer flush; otherwise, false.</param>
+        /// <returns>The pooled string builder that contains the flushed content.</returns>
+        /// <exception cref="InvalidOperationException">Thrown if the buffer has already been flushed.</exception>
         public PooledStringBuilder FlushBuffer(char indentationChar, int indentationLevel, bool isAppendNewLineEnabled)
         {
             ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(indentationLevel);
