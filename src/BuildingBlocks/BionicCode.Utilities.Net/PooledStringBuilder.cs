@@ -3,6 +3,7 @@ namespace BionicCode.Utilities.Net;
 
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -95,12 +96,14 @@ using System.Text;
 /// should not cache instances, store them in shared state, or attempt to continue using them after
 /// disposal or recycling. While caller side caching will not prevent or impact the recycling of the underlying buffer, 
 /// it is discouraged since it would imply incorrect semantics. 
-/// <br/>A string reference to the <see cref="PooledStringBuilder"/> does not create a strong reference to the underlying <see cref="StringBuilder"/>. 
+/// <br/>A strong reference to the <see cref="PooledStringBuilder"/> does not does not preserve ownership of the underlying builder <see cref="StringBuilder"/> 
+/// and does not prevent it from being recycled. 
 /// A <see cref="PooledStringBuilder"/> should be acquired, used to build a
 /// result, converted to the desired representation, and then released promptly. 
+/// </para>
+/// 
 /// <para/>To reuse the same buffer for multiple operations, callers should acquire a new <see cref="PooledStringBuilder"/> instance for each operation 
 /// rather than attempting to reuse the same wrapper object across multiple lifetimes.
-/// </para>
 ///
 /// <para>
 /// This type is most useful in scenarios where temporary mutable text buffers are created frequently,
@@ -221,9 +224,6 @@ public class PooledStringBuilder : IDisposable
 
     public static PooledStringBuilder GetOrCreate(int capacity, ReadOnlySpan<char> seed)
         => StringBuilderFactory.GetOrCreate(capacity, seed);
-
-    public static PooledStringBuilder Create(StringBuilder stringBuilder)
-        => new(stringBuilder);
 
     internal static PooledStringBuilder CreateInternal(StringBuilder stringBuilder)
         => new(stringBuilder);
@@ -1978,6 +1978,7 @@ public class PooledStringBuilder : IDisposable
 
     // Nested handler that wraps StringBuilder's handler
     [InterpolatedStringHandler]
+    [EditorBrowsable(EditorBrowsableState.Never)]
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1034:Nested types should not be visible", Justification = "Interpolated-string handler requires access to the containing instance's internals like the private static StringBuilder; this nested public ref struct is intentional.")]
     public ref struct AppendInterpolatedBufferedStringHandler
     {
@@ -1988,7 +1989,7 @@ public class PooledStringBuilder : IDisposable
         private readonly char _indentationChar;
         private readonly int _indentationLevel;
         private readonly int _repeatCount;
-        private readonly StringBuilder _buffer;
+        private StringBuilder? _buffer;
         private readonly PooledStringBuilder _capturedTarget;
 
         // Constructor for WriteTo($"...")
@@ -2139,11 +2140,13 @@ public class PooledStringBuilder : IDisposable
 
         public PooledStringBuilder FlushBuffer(char indentationChar, int indentationLevel, bool isAppendNewLineEnabled)
         {
+            ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(indentationLevel);
+
+            StringBuilder buffer = _buffer ?? throw new InvalidOperationException("Buffer has already been flushed.");
+
             try
             {
-                ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(indentationLevel);
-
-                if (_buffer.Length == 0)
+                if (buffer.Length == 0)
                 {
                     return _capturedTarget;
                 }
@@ -2151,8 +2154,8 @@ public class PooledStringBuilder : IDisposable
                 for (int i = 0; i < _repeatCount; i++)
                 {
                     _ = indentationLevel > 0
-                        ? _capturedTarget.AppendIndented(_buffer, indentationLevel, indentationChar)
-                        : _capturedTarget.Append(_buffer);
+                        ? _capturedTarget.AppendIndented(buffer, indentationChar, indentationLevel)
+                        : _capturedTarget.Append(buffer);
 
                     if (isAppendNewLineEnabled)
                     {
@@ -2164,7 +2167,10 @@ public class PooledStringBuilder : IDisposable
             }
             finally
             {
-                StringBuilderFactory.Recycle(_buffer);
+                // Free _inner since it holds a strong reference to the buffer, and we need to return the buffer to the pool. 
+                _inner = default;
+                _buffer = null!;
+                StringBuilderFactory.Recycle(buffer);
             }
         }
 
