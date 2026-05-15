@@ -30,6 +30,7 @@ Recommended CI approach: protect all content above the repository-specific marke
 - Do not hide problems by weakening rules, disabling analyzers, changing style configuration, or lowering warning severities unless the user explicitly asks for that.
 - Follow existing repository conventions unless they conflict with the user prompt or this file.
 - Treat documentation as part of engineering quality, not optional polish.
+- Remove branches and accept cheap no-op operations when that simplifies control flow and avoids unnecessary cyclomatic complexity.
 
 ## Scope Discovery and Routing
 - If the user names entry points, files, types, methods, projects, tests, or directories, treat those as the starting scope.

@@ -132,6 +132,8 @@ internal static class StringBuilderFactory
 
     private static StringBuilder GetOrCreateUnmanagedInternal(int capacity, ReadOnlySpan<char> content)
     {
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(capacity);
+
         if (s_stringBuilderPool.TryTake(out StringBuilder? stringBuilder))
         {
             _ = Interlocked.Decrement(ref s_count);

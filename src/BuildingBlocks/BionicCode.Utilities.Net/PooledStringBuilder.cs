@@ -112,6 +112,25 @@ using System.Text;
 /// <see cref="StringBuilder"/> instances would otherwise become unnecessary overhead.
 /// </para>
 /// </remarks>
+/// <example>
+/// <code>
+/// using BionicCode.Utilities.Net;
+///
+/// using PooledStringBuilder builder = PooledStringBuilder.GetOrCreate();
+///
+/// builder.IndentationChar = ' ';
+/// builder.IndentationLevel = 4;
+///
+/// builder.AppendLine("Report");
+/// builder.AppendIndentedLine("Item 1");
+/// builder.AppendIndentedLine("Item 2");
+///
+/// string result = builder.ToString();
+///
+/// // The rented buffer is automatically returned to the pool when the
+/// // using scope ends, even if the method exits early or throws.
+/// </code>
+/// </example>
 public class PooledStringBuilder : IDisposable
 {
     private const string StringBuilderRecycledExceptionMessage = "Underlying StringBuilder has been recycled. Create a new PooledStringBuilder instance.";
@@ -182,7 +201,7 @@ public class PooledStringBuilder : IDisposable
         }
     }
 
-    public bool IsDisposed => IsRecycled;
+    private bool IsDisposed => IsRecycled;
 
     public bool IsRecycled => _stringBuilder is null;
 
@@ -636,7 +655,7 @@ public class PooledStringBuilder : IDisposable
         return this;
     }
 
-    public PooledStringBuilder AppendIndented(string value, char indentationChar, int indentationLevel)
+    public PooledStringBuilder AppendIndented(string? value, char indentationChar, int indentationLevel)
     {
         ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(indentationLevel);
 
@@ -646,7 +665,7 @@ public class PooledStringBuilder : IDisposable
         return this;
     }
 
-    public PooledStringBuilder AppendIndented(string value)
+    public PooledStringBuilder AppendIndented(string? value)
     {
         _ = Indent()
             .Append(value);
@@ -909,13 +928,13 @@ public class PooledStringBuilder : IDisposable
         => handler.FlushBuffer(isAppendNewLineEnabled: false);
 
     public PooledStringBuilder AppendIndented(char indentationChar, int indentationLevel, [InterpolatedStringHandlerArgument("", nameof(indentationChar), nameof(indentationLevel))] ref PooledStringBuilder.AppendInterpolatedBufferedStringHandler handler)
-        => handler.FlushBuffer(isAppendNewLineEnabled: false);
+        => handler.FlushBuffer(indentationChar, indentationLevel, isAppendNewLineEnabled: false);
 
     public PooledStringBuilder AppendIndented([InterpolatedStringHandlerArgument("")] ref PooledStringBuilder.AppendInterpolatedBufferedStringHandler handler)
         => FlushBufferWithIndentation(ref handler);
 
     public PooledStringBuilder AppendIndented(char indentationChar, int indentationLevel, int repeatCount, [InterpolatedStringHandlerArgument("", nameof(indentationChar), nameof(indentationLevel), nameof(repeatCount))] ref PooledStringBuilder.AppendInterpolatedBufferedStringHandler handler)
-        => handler.FlushBuffer(isAppendNewLineEnabled: false);
+        => handler.FlushBuffer(indentationChar, indentationLevel, isAppendNewLineEnabled: false);
 
     public PooledStringBuilder AppendIndented(int repeatCount, [InterpolatedStringHandlerArgument("", nameof(repeatCount))] ref PooledStringBuilder.AppendInterpolatedBufferedStringHandler handler)
         => FlushBufferWithIndentation(ref handler);
@@ -927,13 +946,13 @@ public class PooledStringBuilder : IDisposable
         => handler.FlushBuffer(isAppendNewLineEnabled: false);
 
     public PooledStringBuilder AppendIndented(IFormatProvider? provider, char indentationChar, int indentationLevel, [InterpolatedStringHandlerArgument("", nameof(provider), nameof(indentationChar), nameof(indentationLevel))] ref PooledStringBuilder.AppendInterpolatedBufferedStringHandler handler)
-        => handler.FlushBuffer(isAppendNewLineEnabled: false);
+        => handler.FlushBuffer(indentationChar, indentationLevel, isAppendNewLineEnabled: false);
 
     public PooledStringBuilder AppendIndented(IFormatProvider? provider, [InterpolatedStringHandlerArgument("", nameof(provider))] ref PooledStringBuilder.AppendInterpolatedBufferedStringHandler handler)
         => FlushBufferWithIndentation(ref handler);
 
     public PooledStringBuilder AppendIndented(IFormatProvider? provider, char indentationChar, int indentationLevel, int repeatCount, [InterpolatedStringHandlerArgument("", nameof(provider), nameof(indentationChar), nameof(indentationLevel), nameof(repeatCount))] ref PooledStringBuilder.AppendInterpolatedBufferedStringHandler handler)
-        => handler.FlushBuffer(isAppendNewLineEnabled: false);
+        => handler.FlushBuffer(indentationChar, indentationLevel, isAppendNewLineEnabled: false);
 
     public PooledStringBuilder AppendIndented(IFormatProvider? provider, int repeatCount, [InterpolatedStringHandlerArgument("", nameof(provider), nameof(repeatCount))] ref PooledStringBuilder.AppendInterpolatedBufferedStringHandler handler)
         => FlushBufferWithIndentation(ref handler);
@@ -1009,9 +1028,9 @@ public class PooledStringBuilder : IDisposable
     /// </summary>
     /// <remarks>This method is useful for efficiently building multi-line strings. The line terminator
     /// appended is determined by the underlying StringBuilder implementation.</remarks>
-    /// <param name="value">The string to append. If <see langword="null"/>, only the line terminator is appended.</param>
+    /// <param name="value">The <see cref="StringBuilder"/> to append. If <see langword="null"/>, only the line terminator is appended.</param>
     /// <returns>The current instance of the <see cref="PooledStringBuilder"/>, enabling method chaining.</returns>
-    public PooledStringBuilder AppendLine(StringBuilder value)
+    public PooledStringBuilder AppendLine(StringBuilder? value)
     {
         StringBuilder builder = StringBuilder;
         _ = builder
@@ -1027,7 +1046,7 @@ public class PooledStringBuilder : IDisposable
     /// <param name="indentationLevel">The level of indentation to apply.</param>
     /// <param name="indentationChar">The character to use for indentation.</param>
     /// <returns>The current <see cref="PooledStringBuilder"/> instance.</returns>
-    public PooledStringBuilder AppendIndentedLine(string value, char indentationChar, int indentationLevel)
+    public PooledStringBuilder AppendIndentedLine(string? value, char indentationChar, int indentationLevel)
     {
         ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(indentationLevel);
 
@@ -1044,7 +1063,7 @@ public class PooledStringBuilder : IDisposable
     /// </summary>
     /// <param name="value">The indented value to append.</param>
     /// <returns>The current <see cref="PooledStringBuilder"/> instance.</returns>
-    public PooledStringBuilder AppendIndentedLine(string value)
+    public PooledStringBuilder AppendIndentedLine(string? value)
     {
         (char indentationChar, int indentationLevel) = CurrentIndentationInfo;
         StringBuilder builder = StringBuilder;
@@ -1061,7 +1080,7 @@ public class PooledStringBuilder : IDisposable
     /// <param name="indentationLevel">The level of indentation to apply.</param>
     /// <param name="indentationChar">The character to use for indentation.</param>
     /// <returns>The current <see cref="PooledStringBuilder"/> instance.</returns>
-    public PooledStringBuilder AppendIndentedLine(StringBuilder value, char indentationChar, int indentationLevel)
+    public PooledStringBuilder AppendIndentedLine(StringBuilder? value, char indentationChar, int indentationLevel)
     {
         ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(indentationLevel);
 
@@ -1080,7 +1099,7 @@ public class PooledStringBuilder : IDisposable
     /// </summary>
     /// <param name="value">The indented value to append.</param>
     /// <returns>The current <see cref="PooledStringBuilder"/> instance.</returns>
-    public PooledStringBuilder AppendIndentedLine(StringBuilder value)
+    public PooledStringBuilder AppendIndentedLine(StringBuilder? value)
     {
         (char indentationChar, int indentationLevel) = CurrentIndentationInfo;
         StringBuilder builder = StringBuilder;
@@ -1100,7 +1119,7 @@ public class PooledStringBuilder : IDisposable
         => handler.FlushBuffer(isAppendNewLineEnabled: true); // Repeated append requires buffering the interpolated string. Hence we must manually invoke the handler to flush the buffer into the provided StringBuilder or PooledStringBuilder
 
     public PooledStringBuilder AppendIndentedLine(char indentationChar, int indentationLevel, [InterpolatedStringHandlerArgument("", nameof(indentationChar), nameof(indentationLevel))] ref PooledStringBuilder.AppendInterpolatedBufferedStringHandler handler)
-        => handler.FlushBuffer(isAppendNewLineEnabled: true);
+        => handler.FlushBuffer(indentationChar, indentationLevel, isAppendNewLineEnabled: true);
 
     public PooledStringBuilder AppendIndentedLine(int repeatCount, [InterpolatedStringHandlerArgument("", nameof(repeatCount))] ref PooledStringBuilder.AppendInterpolatedBufferedStringHandler handler)
         => FlushBufferWithIndentationAndNewLine(ref handler); // Explicitly indent using instance indentation values
@@ -1112,7 +1131,7 @@ public class PooledStringBuilder : IDisposable
         => handler.FlushBuffer(isAppendNewLineEnabled: true);
 
     public PooledStringBuilder AppendIndentedLine(IFormatProvider? provider, char indentationChar, int indentationLevel, [InterpolatedStringHandlerArgument("", nameof(provider), nameof(indentationChar), nameof(indentationLevel))] ref PooledStringBuilder.AppendInterpolatedBufferedStringHandler handler)
-        => handler.FlushBuffer(isAppendNewLineEnabled: true);
+        => handler.FlushBuffer(indentationChar, indentationLevel, isAppendNewLineEnabled: true);
 
     public PooledStringBuilder AppendIndentedLine(IFormatProvider? provider, [InterpolatedStringHandlerArgument("", nameof(provider))] ref PooledStringBuilder.AppendInterpolatedBufferedStringHandler handler)
         => FlushBufferWithIndentationAndNewLine(ref handler);
@@ -1938,6 +1957,28 @@ public class PooledStringBuilder : IDisposable
     // Lifetime / pooling
     // ----------------------------
 
+    /// <summary>
+    /// Ends the current rental lifetime and returns the underlying <see cref="StringBuilder"/> to the shared pool.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Calling <see cref="Recycle"/> detaches the underlying pooled <see cref="StringBuilder"/> from this
+    /// <see cref="PooledStringBuilder"/> instance and makes the wrapper unusable for further operations.
+    /// Any subsequent attempt to access members that require the underlying builder will throw an
+    /// <see cref="InvalidOperationException"/>.
+    /// </para>
+    ///
+    /// <para>
+    /// This method is the explicit lifetime-ending counterpart to <see cref="Dispose()"/>. Both members
+    /// complete the same logical action: they end the caller's ownership of the rented buffer and make
+    /// it available for reuse by later operations.
+    /// </para>
+    ///
+    /// <para>
+    /// Calling this method more than once is safe. Once the wrapper has already been recycled, additional
+    /// calls have no effect.
+    /// </para>
+    /// </remarks>
     public void Recycle()
     {
         if (_stringBuilder is null)
@@ -1949,6 +1990,33 @@ public class PooledStringBuilder : IDisposable
         _stringBuilder = null;
     }
 
+    /// <summary>
+    /// Ends the current rental lifetime and returns the underlying <see cref="StringBuilder"/> to the shared pool.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="Dispose()"/> is equivalent to <see cref="Recycle()"/> and exists so that
+    /// <see cref="PooledStringBuilder"/> can participate naturally in scope-based cleanup patterns such as
+    /// <see langword="using"/> declarations and <see langword="using"/> statements.
+    /// </para>
+    ///
+    /// <para>
+    /// Disposing this instance does not destroy the underlying <see cref="StringBuilder"/>. Instead, it
+    /// releases the caller's ownership of the rented buffer and returns that buffer to the shared pool,
+    /// subject to the pool's retention policy.
+    /// </para>
+    ///
+    /// <para>
+    /// Calling <see cref="Dispose()"/> after the instance has already been recycled or disposed is safe and
+    /// has no additional effect.
+    /// </para>
+    /// </remarks>
+    public void Dispose()
+    {
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
+    }
+
     protected virtual void Dispose(bool disposing)
     {
         if (!IsDisposed)
@@ -1958,12 +2026,6 @@ public class PooledStringBuilder : IDisposable
                 Recycle();
             }
         }
-    }
-
-    public void Dispose()
-    {
-        Dispose(disposing: true);
-        GC.SuppressFinalize(this);
     }
 
     private StringBuilder Indent()
@@ -2247,7 +2309,7 @@ public class PooledStringBuilder : IDisposable
         }
 
         /// <summary>
-        /// Flushes the buffered content into the captured target <see cref="PooledStringBuilder"/> according to the configured indentation and repeat settings.
+        /// Flushes the buffered interpolated-string operation into the captured target <see cref="PooledStringBuilder"/> according to the configured indentation and repeat settings.
         /// </summary>
         /// <remarks>
         /// <b>Important:</b> This type is <b>not intended for direct public consumption</b>. Although it is
@@ -2263,7 +2325,7 @@ public class PooledStringBuilder : IDisposable
         public PooledStringBuilder FlushBuffer(bool isAppendNewLineEnabled) => FlushBuffer(_indentationChar, _indentationLevel, isAppendNewLineEnabled);
 
         /// <summary>
-        /// Flushes the current buffer to the underlying pooled string builder, applying optional indentation and line
+        /// Flushes the buffered interpolated-string operation into the underlying <see cref="PooledStringBuilder"/>, applying optional indentation and line
         /// breaks as specified.
         /// </summary>
         /// <remarks>
@@ -2289,11 +2351,6 @@ public class PooledStringBuilder : IDisposable
 
             try
             {
-                if (buffer.Length == 0)
-                {
-                    return _capturedTarget;
-                }
-
                 for (int i = 0; i < _repeatCount; i++)
                 {
                     _ = indentationLevel > 0
