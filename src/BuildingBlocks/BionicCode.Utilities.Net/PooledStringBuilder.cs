@@ -288,7 +288,8 @@ public class PooledStringBuilder : IDisposable
             throw new InvalidOperationException(PooledStringBuilder.StringBuilderRecycledExceptionMessage);
         }
 
-        return new(this);
+        var chunkSnapshot = new ChunkSnapshot(StringBuilder);
+        return chunkSnapshot.GetEnumerator();
     }
 
     // ============================================================================
@@ -2412,62 +2413,98 @@ public class PooledStringBuilder : IDisposable
     /// (which is why it is a nested type).
     /// </summary>
     [SuppressMessage("Design", "CA1034:Nested types should not be visible", Justification = "Accesses parent StringBuilder property.")]
-    public readonly struct ChunkEnumerator
+    public struct ChunkEnumerator
     {
-        private readonly StringBuilder.ChunkEnumerator _chunkEnumerator; // The enumerator for the chunks, used when there are many chunks (see constructor)
-        private readonly PooledStringBuilder _stringBuilder;
+        private readonly ReadOnlyMemory<char>[]? _chunks;
+        private int _index;
+        private ReadOnlyMemory<char> _current;
+        private bool _hasCurrent;
 
-        /// <summary>
-        /// Implement IEnumerable.GetEnumerator() to return  'this' as the IEnumerator
-        /// </summary>
-        [EditorBrowsable(EditorBrowsableState.Never)] // Only here to make foreach work
+        internal ChunkEnumerator(ReadOnlyMemory<char>[] chunks)
+        {
+            ArgumentNullExceptionAdvanced.ThrowIfDefault(chunks);
+
+            _hasCurrent = false;
+            _index = -1;
+            _current = ReadOnlyMemory<char>.Empty;
+        }
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
         public ChunkEnumerator GetEnumerator()
         {
-            if (_stringBuilder.IsRecycled)
+            if (_chunks is null)
             {
-                throw new InvalidOperationException($"The '{nameof(PooledStringBuilder)}' associated with this enumerator has been recycled.");
+                throw new InvalidOperationException("The enumerator was not initialized and instance is 'default(ChunkEnumerator)'.");
             }
 
             return this;
         }
 
-        /// <summary>
-        /// Implements the IEnumerator pattern.
-        /// </summary>
         public bool MoveNext()
         {
-            if (_stringBuilder.IsRecycled)
+            if (_chunks is null)
             {
-                throw new InvalidOperationException($"The '{nameof(PooledStringBuilder)}' associated with this enumerator has been recycled.");
+                throw new InvalidOperationException("The enumerator was not initialized and instance is 'default(ChunkEnumerator)'.");
             }
 
-            return _chunkEnumerator.MoveNext();
+            if (_index + 1 >= _chunks!.Length)
+            {
+                _hasCurrent = false;
+                _current = ReadOnlyMemory<char>.Empty;
+                return false;
+            }
+
+            _index++;
+            _current = _chunks[_index];
+            _hasCurrent = true;
+
+            return true;
         }
 
-        /// <summary>
-        /// Implements the IEnumerator pattern.
-        /// </summary>
         public ReadOnlyMemory<char> Current
         {
             get
             {
-                if (_stringBuilder.IsRecycled)
+                if (_chunks is null)
                 {
-                    throw new InvalidOperationException($"The '{nameof(PooledStringBuilder)}' associated with this enumerator has been recycled.");
+                    throw new InvalidOperationException("The enumerator was not initialized and instance is 'default(ChunkEnumerator)'.");
                 }
 
-                return _chunkEnumerator.Current;
+                if (!_hasCurrent)
+                {
+                    throw new InvalidOperationException(
+                        "Enumeration has not started (call MoveNext() before accessing Current) or has already completed.");
+                }
+
+                return _current;
             }
         }
+    }
 
-        #region private
-        internal ChunkEnumerator(PooledStringBuilder stringBuilder)
+    private readonly struct ChunkSnapshot
+    {
+        private readonly ReadOnlyMemory<char>[] _chunks;
+
+        internal ChunkSnapshot(StringBuilder stringBuilder)
         {
             ArgumentNullExceptionAdvanced.ThrowIfNull(stringBuilder);
 
-            _chunkEnumerator = stringBuilder.StringBuilder.GetChunks();
-            _stringBuilder = stringBuilder;
+            var chunks = new List<ReadOnlyMemory<char>>();
+
+            foreach (ReadOnlyMemory<char> chunk in stringBuilder.GetChunks())
+            {
+                if (!chunk.IsEmpty)
+                {
+                    chunks.Add(chunk.ToArray());
+                }
+            }
+
+            _chunks = chunks.Count == 0
+                ? []
+                : chunks.ToArray();
         }
-        #endregion
+
+        public ChunkEnumerator GetEnumerator()
+            => new(_chunks);
     }
 }

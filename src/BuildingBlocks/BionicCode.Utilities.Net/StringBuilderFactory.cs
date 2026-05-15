@@ -104,6 +104,10 @@ internal static class StringBuilderFactory
     private static readonly ConcurrentBag<StringBuilder> s_stringBuilderPool = [];
     public const int MaxPoolSize = 32;
     public const int MaxRetainedCapacityPerBuilder = 512;
+
+    // Total retained character capacity budget across the entire pool.
+    // Intentionally lower than MaxPoolSize * MaxRetainedCapacityPerBuilder
+    // so the pool favors many small/medium builders over fewer large ones.
     public const int MaxRetainedTotalCapacity = 16 * MaxRetainedCapacityPerBuilder;
 
     private static int s_currentRetainedCapacity;
