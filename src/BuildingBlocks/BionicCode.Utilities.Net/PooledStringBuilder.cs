@@ -133,7 +133,7 @@ using System.Text;
 /// </example>
 public class PooledStringBuilder : IDisposable
 {
-    private const string StringBuilderRecycledExceptionMessage = "Underlying StringBuilder has been recycled. Create a new PooledStringBuilder instance.";
+    private const string StringBuilderRecycledExceptionMessage = $"Underlying StringBuilder has been recycled. Create a new '{nameof(PooledStringBuilder)}' instance.";
 
     /// <summary>
     /// Represents the default character used for indentation.
@@ -280,7 +280,16 @@ public class PooledStringBuilder : IDisposable
     // ENUMERATION
     // ============================================================================
 
-    public PooledStringBuilder.ChunkEnumerator GetChunks() => new(this);
+    [SuppressMessage("Design", "CA1024:Use properties where appropriate", Justification = "Is StringBuilder API")]
+    public PooledStringBuilder.ChunkEnumerator GetChunks()
+    {
+        if (IsRecycled)
+        {
+            throw new InvalidOperationException(PooledStringBuilder.StringBuilderRecycledExceptionMessage);
+        }
+
+        return new(this);
+    }
 
     // ============================================================================
     // APPEND METHODS
@@ -1982,8 +1991,9 @@ public class PooledStringBuilder : IDisposable
             return;
         }
 
-        StringBuilderFactory.Recycle(_stringBuilder);
+        StringBuilder recycledBuilder = _stringBuilder;
         _stringBuilder = null;
+        StringBuilderFactory.Recycle(recycledBuilder);
     }
 
     /// <summary>
@@ -2342,6 +2352,11 @@ public class PooledStringBuilder : IDisposable
         public PooledStringBuilder FlushBuffer(char indentationChar, int indentationLevel, bool isAppendNewLineEnabled)
         {
             ArgumentOutOfRangeExceptionAdvanced.ThrowIfNegative(indentationLevel);
+
+            if (_capturedTarget.IsRecycled)
+            {
+                throw new InvalidOperationException($"The '{nameof(PooledStringBuilder)}' captured by this handler has been recycled.");
+            }
 
             StringBuilder buffer = _buffer ?? throw new InvalidOperationException("Buffer has already been flushed.");
 
