@@ -280,8 +280,18 @@ public class PooledStringBuilder : IDisposable
     // ENUMERATION
     // ============================================================================
 
+    /// <summary>
+    /// Returns a snapshot of the current chunk sequence.
+    /// </summary>
+    /// <remarks>
+    /// Unlike <see cref="StringBuilder.GetChunks"/>, this method does not return live views
+    /// into the underlying <see cref="StringBuilder"/>. Each chunk is copied when this method
+    /// is called so that returned memory remains valid after this <see cref="PooledStringBuilder"/>
+    /// is recycled. Chunk boundaries match the underlying <see cref="StringBuilder"/> chunks at
+    /// the time of the snapshot, but the operation is not zero-copy.
+    /// </remarks>
     [SuppressMessage("Design", "CA1024:Use properties where appropriate", Justification = "Is StringBuilder API")]
-    public PooledStringBuilder.ChunkEnumerator GetChunks()
+    public PooledStringBuilder.ChunkEnumerator GetSnapshotChunks()
     {
         if (IsRecycled)
         {
@@ -2406,81 +2416,6 @@ public class PooledStringBuilder : IDisposable
         #endregion Compiler contract methods
     }
 
-    /// <summary>
-    /// ChunkEnumerator supports both the IEnumerable and IEnumerator pattern so foreach
-    /// works (see GetChunks).  It needs to be public (so the compiler can use it
-    /// when building a foreach statement) but users typically don't use it explicitly.
-    /// (which is why it is a nested type).
-    /// </summary>
-    [SuppressMessage("Design", "CA1034:Nested types should not be visible", Justification = "Accesses parent StringBuilder property.")]
-    public struct ChunkEnumerator
-    {
-        private readonly ReadOnlyMemory<char>[]? _chunks;
-        private int _index;
-        private ReadOnlyMemory<char> _current;
-        private bool _hasCurrent;
-
-        internal ChunkEnumerator(ReadOnlyMemory<char>[] chunks)
-        {
-            ArgumentNullExceptionAdvanced.ThrowIfDefault(chunks);
-
-            _hasCurrent = false;
-            _index = -1;
-            _current = ReadOnlyMemory<char>.Empty;
-        }
-
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        public ChunkEnumerator GetEnumerator()
-        {
-            if (_chunks is null)
-            {
-                throw new InvalidOperationException("The enumerator was not initialized and instance is 'default(ChunkEnumerator)'.");
-            }
-
-            return this;
-        }
-
-        public bool MoveNext()
-        {
-            if (_chunks is null)
-            {
-                throw new InvalidOperationException("The enumerator was not initialized and instance is 'default(ChunkEnumerator)'.");
-            }
-
-            if (_index + 1 >= _chunks!.Length)
-            {
-                _hasCurrent = false;
-                _current = ReadOnlyMemory<char>.Empty;
-                return false;
-            }
-
-            _index++;
-            _current = _chunks[_index];
-            _hasCurrent = true;
-
-            return true;
-        }
-
-        public ReadOnlyMemory<char> Current
-        {
-            get
-            {
-                if (_chunks is null)
-                {
-                    throw new InvalidOperationException("The enumerator was not initialized and instance is 'default(ChunkEnumerator)'.");
-                }
-
-                if (!_hasCurrent)
-                {
-                    throw new InvalidOperationException(
-                        "Enumeration has not started (call MoveNext() before accessing Current) or has already completed.");
-                }
-
-                return _current;
-            }
-        }
-    }
-
     private readonly struct ChunkSnapshot
     {
         private readonly ReadOnlyMemory<char>[] _chunks;
@@ -2506,5 +2441,80 @@ public class PooledStringBuilder : IDisposable
 
         public ChunkEnumerator GetEnumerator()
             => new(_chunks);
+    }
+}
+
+/// <summary>
+/// ChunkEnumerator supports both the IEnumerable and IEnumerator pattern so foreach
+/// works (see GetChunks).  It needs to be public (so the compiler can use it
+/// when building a foreach statement) but users typically don't use it explicitly.
+/// (which is why it is a nested type).
+/// </summary>
+public struct ChunkEnumerator
+{
+    private readonly ReadOnlyMemory<char>[]? _chunks;
+    private int _index;
+    private ReadOnlyMemory<char> _current;
+    private bool _hasCurrent;
+
+    internal ChunkEnumerator(ReadOnlyMemory<char>[] chunks)
+    {
+        ArgumentNullExceptionAdvanced.ThrowIfDefault(chunks);
+
+        _hasCurrent = false;
+        _index = -1;
+        _current = ReadOnlyMemory<char>.Empty;
+        _chunks = chunks;
+    }
+
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    public ChunkEnumerator GetEnumerator()
+    {
+        if (_chunks is null)
+        {
+            throw new InvalidOperationException("The enumerator was not initialized and instance is 'default(ChunkEnumerator)'.");
+        }
+
+        return this;
+    }
+
+    public bool MoveNext()
+    {
+        if (_chunks is null)
+        {
+            throw new InvalidOperationException("The enumerator was not initialized and instance is 'default(ChunkEnumerator)'.");
+        }
+
+        if (_index + 1 >= _chunks!.Length)
+        {
+            _hasCurrent = false;
+            _current = ReadOnlyMemory<char>.Empty;
+            return false;
+        }
+
+        _index++;
+        _current = _chunks[_index];
+        _hasCurrent = true;
+
+        return true;
+    }
+
+    public ReadOnlyMemory<char> Current
+    {
+        get
+        {
+            if (_chunks is null)
+            {
+                throw new InvalidOperationException("The enumerator was not initialized and instance is 'default(ChunkEnumerator)'.");
+            }
+
+            if (!_hasCurrent)
+            {
+                throw new InvalidOperationException(
+                    "Enumeration has not started (call MoveNext() before accessing Current) or has already completed.");
+            }
+
+            return _current;
+        }
     }
 }
