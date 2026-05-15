@@ -293,13 +293,25 @@ public class PooledStringBuilder : IDisposable
     [SuppressMessage("Design", "CA1024:Use properties where appropriate", Justification = "Is StringBuilder API")]
     public PooledStringBuilder.ChunkEnumerator GetSnapshotChunks()
     {
-        if (IsRecycled)
+        ReadOnlyMemory<char>[] chunks = CreateSnapshotChunks(StringBuilder);
+        return new ChunkEnumerator(chunks);
+    }
+
+    private static ReadOnlyMemory<char>[] CreateSnapshotChunks(StringBuilder stringBuilder)
+    {
+        var chunks = new List<ReadOnlyMemory<char>>();
+
+        foreach (ReadOnlyMemory<char> chunk in stringBuilder.GetChunks())
         {
-            throw new InvalidOperationException(PooledStringBuilder.StringBuilderRecycledExceptionMessage);
+            if (!chunk.IsEmpty)
+            {
+                chunks.Add(chunk.ToArray());
+            }
         }
 
-        var chunkSnapshot = new ChunkSnapshot(StringBuilder);
-        return chunkSnapshot.GetEnumerator();
+        return chunks.Count == 0
+            ? Array.Empty<ReadOnlyMemory<char>>()
+            : chunks.ToArray();
     }
 
     // ============================================================================
@@ -2416,6 +2428,81 @@ public class PooledStringBuilder : IDisposable
         #endregion Compiler contract methods
     }
 
+    /// <summary>
+    /// ChunkEnumerator supports both the IEnumerable and IEnumerator pattern so foreach
+    /// works (see GetSnapshotChunks).  It needs to be public (so the compiler can use it
+    /// when building a foreach statement) but users typically don't use it explicitly.
+    /// (which is why it is a nested type).
+    /// </summary>
+    [SuppressMessage("Design", "CA1034:Nested types should not be visible", Justification = "It needs to be public (so the compiler can use it when building a foreach statement) but users typically don't use it explicitly (which is why it is a nested type).")]
+    public struct ChunkEnumerator
+    {
+        private readonly ReadOnlyMemory<char>[]? _chunks;
+        private int _index;
+        private ReadOnlyMemory<char> _current;
+        private bool _hasCurrent;
+
+        internal ChunkEnumerator(ReadOnlyMemory<char>[] chunks)
+        {
+            ArgumentNullExceptionAdvanced.ThrowIfDefault(chunks);
+
+            _hasCurrent = false;
+            _index = -1;
+            _current = ReadOnlyMemory<char>.Empty;
+            _chunks = chunks;
+        }
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public ChunkEnumerator GetEnumerator()
+        {
+            if (_chunks is null)
+            {
+                throw new InvalidOperationException("The enumerator was not initialized and instance is 'default(ChunkEnumerator)'.");
+            }
+
+            return this;
+        }
+
+        public bool MoveNext()
+        {
+            ReadOnlyMemory<char>[] chunks = _chunks 
+                ?? throw new InvalidOperationException("The enumerator was not initialized and instance is 'default(ChunkEnumerator)'.");
+
+            int nextIndex = _index + 1;
+            if (nextIndex >= chunks.Length)
+            {
+                _hasCurrent = false;
+                _current = ReadOnlyMemory<char>.Empty;
+                return false;
+            }
+
+            _index = nextIndex;
+            _current = chunks[_index];
+            _hasCurrent = true;
+
+            return true;
+        }
+
+        public ReadOnlyMemory<char> Current
+        {
+            get
+            {
+                if (_chunks is null)
+                {
+                    throw new InvalidOperationException("The enumerator was not initialized and instance is 'default(ChunkEnumerator)'.");
+                }
+
+                if (!_hasCurrent)
+                {
+                    throw new InvalidOperationException(
+                        "Enumeration has not started (call MoveNext() before accessing Current) or has already completed.");
+                }
+
+                return _current;
+            }
+        }
+    }
+
     private readonly struct ChunkSnapshot
     {
         private readonly ReadOnlyMemory<char>[] _chunks;
@@ -2441,80 +2528,5 @@ public class PooledStringBuilder : IDisposable
 
         public ChunkEnumerator GetEnumerator()
             => new(_chunks);
-    }
-}
-
-/// <summary>
-/// ChunkEnumerator supports both the IEnumerable and IEnumerator pattern so foreach
-/// works (see GetChunks).  It needs to be public (so the compiler can use it
-/// when building a foreach statement) but users typically don't use it explicitly.
-/// (which is why it is a nested type).
-/// </summary>
-public struct ChunkEnumerator
-{
-    private readonly ReadOnlyMemory<char>[]? _chunks;
-    private int _index;
-    private ReadOnlyMemory<char> _current;
-    private bool _hasCurrent;
-
-    internal ChunkEnumerator(ReadOnlyMemory<char>[] chunks)
-    {
-        ArgumentNullExceptionAdvanced.ThrowIfDefault(chunks);
-
-        _hasCurrent = false;
-        _index = -1;
-        _current = ReadOnlyMemory<char>.Empty;
-        _chunks = chunks;
-    }
-
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    public ChunkEnumerator GetEnumerator()
-    {
-        if (_chunks is null)
-        {
-            throw new InvalidOperationException("The enumerator was not initialized and instance is 'default(ChunkEnumerator)'.");
-        }
-
-        return this;
-    }
-
-    public bool MoveNext()
-    {
-        if (_chunks is null)
-        {
-            throw new InvalidOperationException("The enumerator was not initialized and instance is 'default(ChunkEnumerator)'.");
-        }
-
-        if (_index + 1 >= _chunks!.Length)
-        {
-            _hasCurrent = false;
-            _current = ReadOnlyMemory<char>.Empty;
-            return false;
-        }
-
-        _index++;
-        _current = _chunks[_index];
-        _hasCurrent = true;
-
-        return true;
-    }
-
-    public ReadOnlyMemory<char> Current
-    {
-        get
-        {
-            if (_chunks is null)
-            {
-                throw new InvalidOperationException("The enumerator was not initialized and instance is 'default(ChunkEnumerator)'.");
-            }
-
-            if (!_hasCurrent)
-            {
-                throw new InvalidOperationException(
-                    "Enumeration has not started (call MoveNext() before accessing Current) or has already completed.");
-            }
-
-            return _current;
-        }
     }
 }
