@@ -280,11 +280,7 @@ public class PooledStringBuilder : IDisposable
     // ENUMERATION
     // ============================================================================
 
-    public StringBuilder.ChunkEnumerator GetChunks()
-    {
-        StringBuilder builder = StringBuilder;
-        return builder.GetChunks();
-    }
+    public PooledStringBuilder.ChunkEnumerator GetChunks() => new(this);
 
     // ============================================================================
     // APPEND METHODS
@@ -2392,5 +2388,71 @@ public class PooledStringBuilder : IDisposable
         public void AppendFormatted(string? value, int alignment = 0, string? format = null) => _inner.AppendFormatted(value, alignment, format);
         public void AppendFormatted(object? value, int alignment = 0, string? format = null) => _inner.AppendFormatted(value, alignment, format);
         #endregion Compiler contract methods
+    }
+
+    /// <summary>
+    /// ChunkEnumerator supports both the IEnumerable and IEnumerator pattern so foreach
+    /// works (see GetChunks).  It needs to be public (so the compiler can use it
+    /// when building a foreach statement) but users typically don't use it explicitly.
+    /// (which is why it is a nested type).
+    /// </summary>
+    [SuppressMessage("Design", "CA1034:Nested types should not be visible", Justification = "Accesses parent StringBuilder property.")]
+    public readonly struct ChunkEnumerator
+    {
+        private readonly StringBuilder.ChunkEnumerator _chunkEnumerator; // The enumerator for the chunks, used when there are many chunks (see constructor)
+        private readonly PooledStringBuilder _stringBuilder;
+
+        /// <summary>
+        /// Implement IEnumerable.GetEnumerator() to return  'this' as the IEnumerator
+        /// </summary>
+        [EditorBrowsable(EditorBrowsableState.Never)] // Only here to make foreach work
+        public ChunkEnumerator GetEnumerator()
+        {
+            if (_stringBuilder.IsRecycled)
+            {
+                throw new InvalidOperationException($"The '{nameof(PooledStringBuilder)}' associated with this enumerator has been recycled.");
+            }
+
+            return this;
+        }
+
+        /// <summary>
+        /// Implements the IEnumerator pattern.
+        /// </summary>
+        public bool MoveNext()
+        {
+            if (_stringBuilder.IsRecycled)
+            {
+                throw new InvalidOperationException($"The '{nameof(PooledStringBuilder)}' associated with this enumerator has been recycled.");
+            }
+
+            return _chunkEnumerator.MoveNext();
+        }
+
+        /// <summary>
+        /// Implements the IEnumerator pattern.
+        /// </summary>
+        public ReadOnlyMemory<char> Current
+        {
+            get
+            {
+                if (_stringBuilder.IsRecycled)
+                {
+                    throw new InvalidOperationException($"The '{nameof(PooledStringBuilder)}' associated with this enumerator has been recycled.");
+                }
+
+                return _chunkEnumerator.Current;
+            }
+        }
+
+        #region private
+        internal ChunkEnumerator(PooledStringBuilder stringBuilder)
+        {
+            ArgumentNullExceptionAdvanced.ThrowIfNull(stringBuilder);
+
+            _chunkEnumerator = stringBuilder.StringBuilder.GetChunks();
+            _stringBuilder = stringBuilder;
+        }
+        #endregion
     }
 }
