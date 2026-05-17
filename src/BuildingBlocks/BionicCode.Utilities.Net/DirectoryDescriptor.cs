@@ -251,13 +251,31 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
                 segmentPath = segmentPath[1..];
             }
 
-            basePath = ResolveRelativePathStrict(segmentPath, basePath);
+            try
+            {
+                basePath = ResolveRelativePathStrict(segmentPath, basePath);
+            }
+            catch (ArgumentException ex)
+            {
+                throw new ArgumentException(
+                    $"Invalid argument '{appendingLocationSegments}'. The provided relative directory path is invalid and exceeded the path depth of the current '{nameof(DirectoryDescriptor)}.{nameof(FullPath)}' value by traversing too many parent directories.",
+                    ex);
+            }
         }
 
         // Finally, IF a relative file path is provided THEN combine it as well and produce the final combined path.
         if (relativeFilePath != default)
         {
-            basePath = ResolveRelativePathStrict(relativeFilePath.FullPath, basePath);
+            try
+            {
+                basePath = ResolveRelativePathStrict(relativeFilePath.FullPath, basePath);
+            }
+            catch (ArgumentException ex)
+            {
+                throw new ArgumentException(
+                    $"Invalid argument '{relativeFilePath}'. The provided relative file path is invalid and exceeded the path depth of the current combined directory path by traversing too many parent directories.",
+                    ex);
+            }
         }
 
         return new DirectoryDescriptor(basePath);
