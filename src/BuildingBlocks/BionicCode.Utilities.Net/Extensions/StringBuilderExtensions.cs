@@ -123,8 +123,5 @@ public static class StringBuilderExtensions
 
         return stringBuilder;
     }
-
-    public static PooledStringBuilder Append([InterpolatedStringHandlerArgument("")] ref PooledStringBuilder.AppendInterpolatedBufferedStringHandler handler)
-        => this;
     #endregion PooledStringBuilder
 }

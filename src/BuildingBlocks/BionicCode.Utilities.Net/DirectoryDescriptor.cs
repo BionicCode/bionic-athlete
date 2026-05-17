@@ -145,7 +145,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
             {
                 _ when directoryPathWithoutLeadingSeparator.StartsWith(CurrentDirectorySymbol, StringComparison.Ordinal) => new(directoryPathWithoutLeadingSeparator),
                 _ when directoryPathWithoutLeadingSeparator.StartsWith(ParentDirectorySymbol, StringComparison.Ordinal) => new(directoryPathWithoutLeadingSeparator),
-                _ => new($"{CurrentDirectorySymbol}{directoryPathWithoutLeadingSeparator}")
+                _ => new(Path.Join(CurrentDirectorySymbol, directoryPathWithoutLeadingSeparator))
             };
         }
 
@@ -240,10 +240,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
             string segmentPath = segment.FullPath;
             if (segment.HasImplicitDriveRoot)
             {
-                if (!isImplicitRootAllowed)
-                {
-                    ArgumentExceptionAdvanced.ThrowIfTrue(isImplicitRootAllowed, $"The segment '{segment.FullPath}' is implicitly drive rooted. The argument '{nameof(isImplicitRootAllowed)}' must be set to TRUE to allow implicit drive rooted segments.");
-                }
+                ArgumentExceptionAdvanced.ThrowIfFalse(isImplicitRootAllowed, $"The segment '{segment.FullPath}' is implicitly drive rooted. The argument '{nameof(isImplicitRootAllowed)}' must be set to TRUE to allow implicit drive rooted segments.");
 
                 // Remove the leading directory separator to prevent it from being treated as a rooted path segment in the combined path.
                 segmentPath = segmentPath[1..];

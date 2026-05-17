@@ -3,6 +3,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
@@ -360,9 +361,8 @@ public class ArgumentExceptionAdvanced : ArgumentException
 
         if (!Enum.IsDefined<TEnum>(parsedEnum))
         {
-            throw new ArgumentException(
-                paramName,
-                message ?? $"The value '{parsedEnum}' of argument '{paramName}' is not defined in enum '{typeof(TEnum).FullName}'.");
+            throw new InvalidEnumArgumentException(message
+                ?? $"The value '{parsedEnum}' of argument '{paramName}' is not defined in enum '{typeof(TEnum).FullName}'.");
         }
     }
 
@@ -412,7 +412,9 @@ public class ArgumentExceptionAdvanced : ArgumentException
                 : $"{messageStart} Allowed: {allowedValues.JoinToString(value => $"{fullyQualifiedEnumTypeName}.{value.ToString()}", ", ")}.";
         }
 
-        throw new ArgumentException(paramName, message);
+        throw message is null
+            ? new InvalidEnumArgumentException(paramName, (int)value, typeof(TEnum))
+            : new InvalidEnumArgumentException(message);
     }
 
     /// <summary>
@@ -454,7 +456,9 @@ public class ArgumentExceptionAdvanced : ArgumentException
                         : $"{messageStart} Allowed: {allowedValues.JoinToString(value => $"{fullyQualifiedEnumTypeName}.{value.ToString()}", ", ")}.";
                 }
 
-                throw new ArgumentException(paramName, message);
+                throw message is null
+                    ? new InvalidEnumArgumentException(paramName, (int)value, typeof(TEnum))
+                    : new InvalidEnumArgumentException(message);
             }
         }
     }
@@ -467,9 +471,8 @@ public class ArgumentExceptionAdvanced : ArgumentException
         {
             result = rawEnum is TEnum castEnum
                 ? castEnum
-                : throw new ArgumentException(
-                    $"Type mismatch. The enum value '{rawEnum.GetType().FullName}' is not of the expected type '{typeof(TEnum).FullName}'.",
-                    paramName);
+                : throw new InvalidEnumArgumentException(
+                    $"Type mismatch. The enum value '{rawEnum.GetType().FullName}' of argument '{paramName}' is not of the expected type '{typeof(TEnum).FullName}'.");
         }
         else
         {
@@ -486,7 +489,7 @@ public class ArgumentExceptionAdvanced : ArgumentException
                         or OverflowException
                         or FormatException)
                 {
-                    throw new ArgumentException($"The argument {paramName} is not a valid enum value.", paramName, e);
+                    throw new InvalidEnumArgumentException($"The value of argument '{paramName}' is not convertible to  enum '{typeof(TEnum).FullName}'.", e);
                 }
             }
             else
@@ -495,9 +498,8 @@ public class ArgumentExceptionAdvanced : ArgumentException
                 const string iConvertibleToStringMethodName = nameof(IConvertible.ToString);
                 MethodInfo? iConvertibleToStringMethodData = iConvertibleType.GetMethod(iConvertibleToStringMethodName);
 
-                throw new ArgumentException(
-                    $"Invalid value. The '{iConvertibleToStringMethodData?.Name ?? $"{nameof(IConvertible.ToString)}.{iConvertibleToStringMethodName}"}' conversion of the argument '{paramName}' returned 'null'.",
-                    paramName);
+                throw new InvalidEnumArgumentException(
+                    $"Invalid value. The '{iConvertibleToStringMethodData?.Name ?? $"{nameof(IConvertible.ToString)}.{iConvertibleToStringMethodName}"}' conversion of the argument '{paramName}' returned 'null'.");
             }
         }
 
