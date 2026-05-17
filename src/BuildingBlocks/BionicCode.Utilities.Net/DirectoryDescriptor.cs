@@ -340,6 +340,15 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         return Combine(relativeFilePath, isImplicitRootAllowed, absoluteBaseDirectory);
     }
 
+    /// <summary>
+    /// Resolves a relative path against a base path, ensuring that the resulting path does not escape above the base path in the directory hierarchy.
+    /// </summary>
+    /// <param name="basePath">The base path against which to resolve the relative path. Can be relative or absolute.</param>
+    /// <param name="relativePath">The relative path to resolve against the relative or absolute base path <paramref name="basePath"/>.</param>
+    /// <param name="basePathParameterName">Optional. The name of the parameter representing the base path. If not provided, the method will capture the caller argument expression to resolve the caller's original argument name.</param>
+    /// <param name="relativePathParameterName">Optional. The name of the parameter representing the relative path. If not provided, the method will capture the caller argument expression to resolve the caller's original argument name.</param>
+    /// <returns>The resolved path.</returns>
+    /// <exception cref="ArgumentException">Thrown if the relative path escapes above the base path.</exception>
     public static string ResolveRelativePathStrict(
         string basePath,
         string relativePath,
