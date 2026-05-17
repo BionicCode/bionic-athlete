@@ -2,6 +2,7 @@
 
 using System.Collections.Frozen;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 
 /// <summary>
 /// Describes a directory that can be included in a conversion or archive batch.
@@ -231,6 +232,10 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
             ArgumentExceptionAdvanced.ThrowIfFalse(relativeFilePath.IsRelative, $"The argument '{nameof(relativeFilePath)}' must be a relative file path.");
         }
 
+        // Combine the current directory path with each of the provided relative directory segments in order. Each segment is validated to ensure it is a relative path
+        // without an explicit drive root, and if implicit roots are not allowed, it must not be implicitly drive rooted.
+        // Provided relative paths are resolved against the current base path (the current DirectoryDescriptor) to produce a final combined path
+        // that correctly resolves special path symbols like ".." and ".". If the current DirectoryDescriptor is a relative path, the resulting apth will be realtive to.
         string basePath = FullPath;
         foreach (DirectoryDescriptor segment in appendingLocationSegments)
         {
@@ -246,13 +251,13 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
                 segmentPath = segmentPath[1..];
             }
 
-            // Use Path.GetFullPath to resolve special path symbols like "../" and "./"
-            basePath = Path.GetFullPath(segmentPath, basePath);
+            basePath = ResolveRelativePathStrict(segmentPath, basePath);
         }
 
+        // Finally, IF a relative file path is provided THEN combine it as well and produce the final combined path.
         if (relativeFilePath != default)
         {
-            basePath = Path.GetFullPath(relativeFilePath.FullPath, basePath);
+            basePath = ResolveRelativePathStrict(relativeFilePath.FullPath, basePath);
         }
 
         return new DirectoryDescriptor(basePath);
@@ -315,6 +320,42 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         }
 
         return Combine(relativeFilePath, isImplicitRootAllowed, absoluteBaseDirectory);
+    }
+
+    public static string ResolveRelativePathStrict(
+        string basePath,
+        string relativePath,
+        [CallerArgumentExpression(nameof(basePath))] string? basePathParameterName = null,
+        [CallerArgumentExpression(nameof(relativePath))] string? relativePathParameterName = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(basePath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(relativePath);
+
+        if (Path.IsPathFullyQualified(basePath))
+        {
+            return Path.GetFullPath(relativePath, basePath);
+        }
+
+        // Create a synthetic absolute path by combining the relative base path with a fixed synthetic root.
+        // This allows us to resolve the relative path against the base path using Path.GetFullPath() (which only works with absolute paths).
+        // We later remove the synthetic root to get the final relative path result. 
+        // Note: The synthetic path  is virtual or lexical. It must not exists since Path.GetFullPath() does not check for the existence of the path.
+        const string syntheticRoot = @"C:\__synthetic_path_root__";
+
+        string syntheticAbsoluteBase = Path.GetFullPath(basePath, syntheticRoot);
+        string absoluteResult = Path.GetFullPath(relativePath, syntheticAbsoluteBase);
+
+        string relativeResult = Path.GetRelativePath(syntheticRoot, absoluteResult);
+
+        if (relativeResult.Equals(ParentDirectorySymbol, StringComparison.Ordinal) ||
+            relativeResult.StartsWith($@"{ParentDirectorySymbol}{Path.DirectorySeparatorChar}", StringComparison.Ordinal) ||
+            relativeResult.StartsWith($"{ParentDirectorySymbol}{Path.AltDirectorySeparatorChar}", StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                $"Invalid arguments. The relative path argument '{relativePathParameterName}' escapes above the logical base argument '{basePathParameterName}'.");
+        }
+
+        return relativeResult;
     }
 
     public override string ToString() => FullPath;
