@@ -53,7 +53,7 @@ public readonly struct ArchiveContentFileDescriptor : IEquatable<ArchiveContentF
         else
         {
             // Create a default root entry location with path symbol ".\"
-            relativeArchiveEntryLocation = DirectoryDescriptor.CreateRelativeToCurrentDirectory();
+            relativeArchiveEntryLocation = DirectoryDescriptor.CreateDirectoryRelativeToCurrent();
         }
 
         SourceFilePath = sourceFilePath;

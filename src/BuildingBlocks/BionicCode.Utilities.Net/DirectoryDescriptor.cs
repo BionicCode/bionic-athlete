@@ -13,19 +13,18 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// <summary>
     /// Represents the symbol used to refer to the current directory in file system paths.
     /// </summary>
-    /// <remarks>The value combines a period (.) with the platform-specific directory separator character.
+    /// <remarks>The value is a period (.) without the platform-specific directory separator character.
     /// This symbol is commonly used in file system operations to indicate the current working directory.</remarks>
-    /// <value>The string representing the current directory symbol. Usually <c>.</c> followed by the platform-specific directory separator character, for example <c>.\</c> on Windows.</value>
+    /// <value>The string representing the current directory symbol. Usually <c>.</c>.</value>
     public static readonly string CurrentDirectorySymbol = $".";
 
     /// <summary>
     /// Represents the symbol used to refer to the parent directory, including the platform-specific directory separator
     /// character.
     /// </summary>
-    /// <remarks>This value combines two dots (..) with the appropriate directory separator for the current
-    /// operating system. It can be used when constructing or parsing file system paths that reference a parent
-    /// directory.</remarks>
-    /// <value>The string representing the parent directory symbol. Usually <c>..</c> followed by the platform-specific directory separator character, for example <c>..\</c> on Windows.</value>
+    /// <remarks>This value is two dots (..) without the platform-specific directory separator character.
+    /// It can be used when constructing or parsing file system paths that reference a parent directory.</remarks>
+    /// <value>The string representing the parent directory symbol. Usually <c>..</c>.</value>
     public static readonly string ParentDirectorySymbol = $"..";
 
     public static readonly FrozenSet<string> SpecialDirectorySymbols = FrozenSet.Create(CurrentDirectorySymbol, ParentDirectorySymbol, ".", "..");
@@ -33,12 +32,14 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// <summary>
     /// Platform-specific special directory path symbols for true relative (unrooted) paths.
     /// </summary>
-    /// <remarks>These symbols represent the current and parent directory in a relative, unrooted context. They are used to identify paths that are explicitly relative without an implicit or explicit drive root. For example, a path like <c>.\Temp</c> is considered a relative, unrooted path because it starts with the current directory symbol and does not have an explicit drive root.
+    /// <remarks>These symbols represent the current and parent directory in a relative, unrooted context. 
+    /// They are used to identify paths that are explicitly relative without an implicit or explicit drive root. 
+    /// For example, a path like <c>.\Temp</c> is considered a relative, unrooted path because it starts with the current directory symbol 
+    /// and does not have an explicit drive root.
     /// <para/>The set contains:
     /// <list type="bullet">
-    /// <item><c>.\</c> on Windows or <c>./</c> on Unix-like systems and Windows. 
-    /// <br/>This symbol has the same meaning as completely omitting any symbol and only provide the directory name: <c>./temp</c> and <c>temp</c> are equivalent.</item>
-    /// <item><c>..\</c> on Windows or <c>../</c> on Unix-like systems and Windows</item>
+    /// <item><c>.</c>. This symbol has the same meaning as completely omitting any symbol and only provide the directory name: <c>./temp</c> and <c>temp</c> are equivalent.</item>
+    /// <item><c>..</c>. This symbol represents the parent directory in a relative, unrooted context.</item>
     /// </list>
     /// </remarks>
     public static readonly FrozenDictionary<string, string> SpecialRelativeUnrootedDirectorySymbolSet = FrozenDictionary.Create(
@@ -48,6 +49,15 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         new KeyValuePair<string, string>("..", ParentDirectorySymbol));
 
     private static readonly FileSystemPathEqualityComparer s_pathEqualityComparer = FileSystemPathEqualityComparer.Instance;
+
+    // Create a synthetic absolute path by combining the relative base path with a fixed synthetic root.
+    // This allows us to resolve the relative path against the base path using Path.GetFullPath() (which only works with absolute paths).
+    // We later remove the synthetic root to get the final relative path result. 
+    // Note: The synthetic path is virtual or lexical. It must not exists since Path.GetFullPath() does not check for the existence of the path.
+    // Uses forward slash to ensure platform agnostic behavior.
+    private static readonly string s_syntheticRoot = OperatingSystem.IsWindows()
+        ? @$"C:{Path.DirectorySeparatorChar}__synthetic_path_root__"
+        : @$"{Path.DirectorySeparatorChar}__synthetic_path_root__";
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DirectoryDescriptor"/> struct from a directory name and location.
@@ -136,7 +146,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// a segment is not relative, 
     /// a segment has an explicit drive root, 
     /// or a segment is implicitly drive rooted when <paramref name="isImplicitRootAllowed"/> is <see langword="false"/>.</exception>
-    public DirectoryDescriptor Combine(bool isImplicitRootAllowed = false, params DirectoryDescriptor[] appendingLocationSegments) => Combine(default, isImplicitRootAllowed, appendingLocationSegments);
+    public DirectoryDescriptor Combine(bool isImplicitRootAllowed = false, params DirectoryDescriptor[] appendingLocationSegments) => new(CombineInternal(default, appendingLocationSegments.OrEmpty(), isImplicitRootAllowed));
 
     /// <summary>
     /// Combines the current directory path with one or more relative directory segments and an optional relative file
@@ -157,14 +167,19 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// a segment has an explicit drive root, 
     /// a segment is implicitly drive rooted when <paramref name="isImplicitRootAllowed"/> is <see langword="false"/>
     /// or <paramref name="relativeFilePath"/> is not relative.</exception>
-    public DirectoryDescriptor Combine(FileDescriptor relativeFilePath, bool isImplicitRootAllowed = false, params DirectoryDescriptor[] appendingLocationSegments)
+    public FileDescriptor Combine(FileDescriptor relativeFilePath, bool isImplicitRootAllowed = false, params DirectoryDescriptor[] appendingLocationSegments)
     {
+        ArgumentNullExceptionAdvanced.ThrowIfDefault(relativeFilePath);
+        ArgumentExceptionAdvanced.ThrowIfFalse(relativeFilePath.IsRelative, $"The argument '{nameof(relativeFilePath)}' must be a relative file path.");
         ArgumentNullExceptionAdvanced.ThrowIfNull(appendingLocationSegments);
-        if (relativeFilePath != default)
-        {
-            ArgumentExceptionAdvanced.ThrowIfFalse(relativeFilePath.IsRelative, $"The argument '{nameof(relativeFilePath)}' must be a relative file path.");
-        }
 
+        string path = CombineInternal(relativeFilePath, appendingLocationSegments.OrEmpty(), isImplicitRootAllowed);
+
+        return new FileDescriptor(path);
+    }
+
+    private string CombineInternal(FileDescriptor relativeFilePath, DirectoryDescriptor[] appendingLocationSegments, bool isImplicitRootAllowed = false)
+    {
         // Combine the current directory path with each of the provided relative directory segments in order. Each segment is validated to ensure it is a relative path
         // without an explicit drive root, and if implicit roots are not allowed, it must not be implicitly drive rooted.
         // Provided relative paths are resolved against the current base path (the current DirectoryDescriptor) to produce a final combined path
@@ -186,7 +201,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
 
             try
             {
-                basePath = ResolveRelativePathStrict(segmentPath, basePath);
+                basePath = ResolveRelativePathStrict(basePath, segmentPath);
             }
             catch (ArgumentException ex)
             {
@@ -196,12 +211,12 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
             }
         }
 
-        // Finally, IF a relative file path is provided THEN combine it as well and produce the final combined path.
+        string combinedPath = basePath;
         if (relativeFilePath != default)
         {
             try
             {
-                basePath = ResolveRelativePathStrict(relativeFilePath.FullPath, basePath);
+                combinedPath = ResolveRelativePathStrict(basePath, relativeFilePath.FullPath);
             }
             catch (ArgumentException ex)
             {
@@ -211,7 +226,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
             }
         }
 
-        return new DirectoryDescriptor(basePath);
+        return combinedPath;
     }
 
     /// <summary>
@@ -248,8 +263,10 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         }
 
         string currentRelativePath = FullPath;
-        if (isImplicitRootAllowed && HasImplicitDriveRoot)
+        if (HasImplicitDriveRoot)
         {
+            ArgumentExceptionAdvanced.ThrowIfFalse(isImplicitRootAllowed, $"The current path '{FullPath}' is implicitly drive rooted. The argument '{nameof(isImplicitRootAllowed)}' must be set to TRUE to allow implicit drive rooted paths.");
+
             // If implicit rooted paths are allowed and the current path starts with a directory separator, we treat it as implicitly rooted and remove the leading separator to combine it with the base directory.
             currentRelativePath = currentRelativePath[1..];
         }
@@ -293,11 +310,11 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
             throw new InvalidOperationException($"Cannot convert to an absolute path because the current path '{FullPath}' has an explicit drive root but is relative. An absolute base directory cannot be used to resolve this path.");
         }
 
-        DirectoryDescriptor absolutePathDescriptor = ToAbsolutePath(absoluteBaseDirectory);
+        DirectoryDescriptor absolutePathDescriptor = ToAbsolutePath(absoluteBaseDirectory, isImplicitRootAllowed);
         return ResolveRelativePathStrict(absolutePathDescriptor, relativeFilePath);
     }
-    #region Helpers
 
+    #region Helpers
     /// <summary>
     /// Factory method that creates a new <see cref="DirectoryDescriptor"/> representing the current directory as a relative, unrooted base path.
     /// </summary>
@@ -312,7 +329,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// <br/>And if <paramref name="directoryPathWithoutLeadingSeparator"/> is <c>"../subdir"</c>, the resulting descriptor will represent <c>"../subdir"</c> as well.</remarks>
     /// <returns>A <see cref="DirectoryDescriptor"/> instance initialized to the current directory using a relative, unrooted
     /// path symbol <c>"./"</c> joined with the specified relative path if provided.</returns>
-    public static DirectoryDescriptor CreateRelativeToCurrentDirectory(string? directoryPathWithoutLeadingSeparator = null)
+    public static DirectoryDescriptor CreateDirectoryRelativeToCurrent(string? directoryPathWithoutLeadingSeparator = null)
     {
         if (!string.IsNullOrWhiteSpace(directoryPathWithoutLeadingSeparator))
         {
@@ -323,8 +340,29 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
 
             return directoryPathWithoutLeadingSeparator switch
             {
-                _ when directoryPathWithoutLeadingSeparator.StartsWith(CurrentDirectorySymbol, StringComparison.Ordinal) => new(directoryPathWithoutLeadingSeparator),
-                _ when directoryPathWithoutLeadingSeparator.StartsWith(ParentDirectorySymbol, StringComparison.Ordinal) => new(directoryPathWithoutLeadingSeparator),
+                // Is already realtive to current e.g. ".\subdir"
+                _ when directoryPathWithoutLeadingSeparator.StartsWith($"{CurrentDirectorySymbol}{Path.DirectorySeparatorChar}", StringComparison.Ordinal) => new(directoryPathWithoutLeadingSeparator),
+
+                // Is already realtive to current e.g. "./subdir"
+                _ when directoryPathWithoutLeadingSeparator.StartsWith($"{CurrentDirectorySymbol}{Path.AltDirectorySeparatorChar}", StringComparison.Ordinal) => new(directoryPathWithoutLeadingSeparator),
+
+                // Is already realtive to current e.g. "..\subdir"
+                _ when directoryPathWithoutLeadingSeparator.StartsWith($"{ParentDirectorySymbol}{Path.DirectorySeparatorChar}", StringComparison.Ordinal) => new(directoryPathWithoutLeadingSeparator),
+
+                // Is already realtive to current e.g. "../subdir"
+                _ when directoryPathWithoutLeadingSeparator.StartsWith($"{ParentDirectorySymbol}{Path.AltDirectorySeparatorChar}", StringComparison.Ordinal) => new(directoryPathWithoutLeadingSeparator),
+
+                // Is current directory symbol e.g. "."
+                _ when directoryPathWithoutLeadingSeparator.Equals(CurrentDirectorySymbol, StringComparison.Ordinal) => new($"{CurrentDirectorySymbol}{Path.DirectorySeparatorChar}"),
+
+                // Is parent directory symbol e.g. ".."
+                _ when directoryPathWithoutLeadingSeparator.Equals(ParentDirectorySymbol, StringComparison.Ordinal) => new($"{ParentDirectorySymbol}{Path.DirectorySeparatorChar}"),
+
+                // Is potentially a file starting with a dot e.g. ".gitignore"
+                _ when directoryPathWithoutLeadingSeparator.StartsWith(CurrentDirectorySymbol, StringComparison.Ordinal)
+                    && directoryPathWithoutLeadingSeparator.Length > 1 => new($"{CurrentDirectorySymbol}{Path.DirectorySeparatorChar}{directoryPathWithoutLeadingSeparator}"),
+
+                // Empty or whitespace only, which defaults to current directory, or a true relative path e.g. "subdir"
                 _ => string.IsNullOrWhiteSpace(directoryPathWithoutLeadingSeparator)
                     ? new($"{CurrentDirectorySymbol}{Path.DirectorySeparatorChar}")
                     : new(Path.Join(CurrentDirectorySymbol, directoryPathWithoutLeadingSeparator))
@@ -350,7 +388,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// <returns>A <see cref="DirectoryDescriptor"/> representing an unrooted relative directory path.</returns>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="levels"/> is less than 1.</exception>
     /// <exception cref="ArgumentException">Thrown when <paramref name="directoryPathWithoutLeadingSeparator"/> is a rooted path.</exception>
-    public static DirectoryDescriptor CreateRelativeToParentDirectory(int levels = 1, string? directoryPathWithoutLeadingSeparator = null)
+    public static DirectoryDescriptor CreateDirectoryRelativeToParent(int levels = 1, string? directoryPathWithoutLeadingSeparator = null)
     {
         ArgumentOutOfRangeExceptionAdvanced.ThrowIfLessThan(levels, 1);
         using PooledStringBuilder pathBuilder = StringBuilderFactory.GetOrCreate()
@@ -363,14 +401,10 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
                 $"The argument '{nameof(directoryPathWithoutLeadingSeparator)}' must not be a rooted path.");
             FileSystemPathValidator.ThrowIfInvalidDirectoryPath(directoryPathWithoutLeadingSeparator);
 
-            string path = directoryPathWithoutLeadingSeparator.StartsWith(CurrentDirectorySymbol, StringComparison.Ordinal)
-                ? directoryPathWithoutLeadingSeparator[1..]
+            string path = directoryPathWithoutLeadingSeparator.StartsWith($"{CurrentDirectorySymbol}{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+                || directoryPathWithoutLeadingSeparator.StartsWith($"{CurrentDirectorySymbol}{Path.AltDirectorySeparatorChar}", StringComparison.Ordinal)
+                ? directoryPathWithoutLeadingSeparator[2..]
                 : directoryPathWithoutLeadingSeparator;
-
-            // Can only be true if the original path started with the current directory symbol, for example "./subdir" or ".\subdir". 
-            path = Path.IsPathRooted(path)
-                ? path[1..]
-                : path;
 
             _ = pathBuilder
                 .Append(path);
@@ -428,20 +462,14 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
             return Path.GetFullPath(relativePath, basePath);
         }
 
-        // Create a synthetic absolute path by combining the relative base path with a fixed synthetic root.
-        // This allows us to resolve the relative path against the base path using Path.GetFullPath() (which only works with absolute paths).
-        // We later remove the synthetic root to get the final relative path result. 
-        // Note: The synthetic path  is virtual or lexical. It must not exists since Path.GetFullPath() does not check for the existence of the path.
-        const string syntheticRoot = @"C:\__synthetic_path_root__";
-
-        string syntheticAbsoluteBase = Path.GetFullPath(basePath, syntheticRoot);
+        string syntheticAbsoluteBase = Path.GetFullPath(basePath, s_syntheticRoot);
         string absoluteResult = Path.GetFullPath(relativePath, syntheticAbsoluteBase);
 
-        string relativeResult = Path.GetRelativePath(syntheticRoot, absoluteResult);
+        string relativeResult = Path.GetRelativePath(s_syntheticRoot, absoluteResult);
 
-        if (relativeResult.Equals(ParentDirectorySymbol, StringComparison.Ordinal) ||
-            relativeResult.StartsWith($@"{ParentDirectorySymbol}{Path.DirectorySeparatorChar}", StringComparison.Ordinal) ||
-            relativeResult.StartsWith($"{ParentDirectorySymbol}{Path.AltDirectorySeparatorChar}", StringComparison.Ordinal))
+        if (relativeResult.Equals(ParentDirectorySymbol, StringComparison.Ordinal)
+            || relativeResult.StartsWith($@"{ParentDirectorySymbol}{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+            || relativeResult.StartsWith($"{ParentDirectorySymbol}{Path.AltDirectorySeparatorChar}", StringComparison.Ordinal))
         {
             throw new ArgumentException(
                 $"Invalid arguments. The relative path argument '{relativePathParameterName}' escapes above the logical base argument '{basePathParameterName}'.");
