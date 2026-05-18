@@ -120,74 +120,6 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     }
 
     /// <summary>
-    /// Creates a new <see cref="DirectoryDescriptor"/> representing the current directory as a relative, unrooted base path.
-    /// </summary>
-    /// <param name="directoryPathWithoutLeadingSeparator">An optional relative directory path to append to the current directory symbol. 
-    /// <br/>Must not be a rooted path. For example, <c>subdirOfCurrent/subdir</c> or <c>./subdirOfCurrent/subdir</c> are valid unrooted relative paths. 
-    /// <br/>On the contrary, <c>/subdir/subdir2</c> or <c>c:subdir/subdir2</c> are invalid 
-    /// since they symbolize a rooted relative path (relative to current working directory or a drive).</param>
-    /// <remarks>This method is useful when a relative directory base is required without specifying an
-    /// absolute or rooted path where rooted means relative to a drive. The resulting descriptor uses the path symbol <c>"./"</c> unless the provided <paramref name="directoryPathWithoutLeadingSeparator"/> overrides it.
-    /// <para/>For example, if <paramref name="directoryPathWithoutLeadingSeparator"/> is <c>"subdir"</c> or <c>"./subdir"</c>, the resulting descriptor will represent <c>"./subdir"</c>.
-    /// And if <paramref name="directoryPathWithoutLeadingSeparator"/> is <see langword="null"/> or empty or only consists of whitespace, the resulting descriptor will represent <c>"./"</c> (which is the default behavior when no path is provided).
-    /// <br/>And if <paramref name="directoryPathWithoutLeadingSeparator"/> is <c>"../subdir"</c>, the resulting descriptor will represent <c>"../subdir"</c> as well.</remarks>
-    /// <returns>A <see cref="DirectoryDescriptor"/> instance initialized to the current directory using a relative, unrooted
-    /// path symbol <c>"./"</c> joined with the specified relative path if provided.</returns>
-    public static DirectoryDescriptor CreateRelativeToCurrentDirectory(string? directoryPathWithoutLeadingSeparator = null)
-    {
-        if (!string.IsNullOrWhiteSpace(directoryPathWithoutLeadingSeparator))
-        {
-            ArgumentExceptionAdvanced.ThrowIfTrue(
-                Path.IsPathRooted(directoryPathWithoutLeadingSeparator),
-                $"Invalid argument {nameof(directoryPathWithoutLeadingSeparator)}. The path '{directoryPathWithoutLeadingSeparator}' must not be rooted.");
-            FileSystemPathValidator.ThrowIfInvalidDirectoryPath(directoryPathWithoutLeadingSeparator);
-
-            return directoryPathWithoutLeadingSeparator switch
-            {
-                _ when directoryPathWithoutLeadingSeparator.StartsWith(CurrentDirectorySymbol, StringComparison.Ordinal) => new(directoryPathWithoutLeadingSeparator),
-                _ when directoryPathWithoutLeadingSeparator.StartsWith(ParentDirectorySymbol, StringComparison.Ordinal) => new(directoryPathWithoutLeadingSeparator),
-                _ => new(Path.Join(CurrentDirectorySymbol, directoryPathWithoutLeadingSeparator))
-            };
-        }
-
-        return new(CurrentDirectorySymbol);
-    }
-
-    /// <summary>
-    /// Creates a new <see cref="DirectoryDescriptor"/> representing a directory relative to its parent directory by the specified
-    /// number of levels, joined with an optional relative path.
-    /// </summary>
-    /// <param name="levels">The number of parent directory levels to traverse. Must be greater than or equal to 1. Defaults to 1.</param>
-    /// <param name="directoryPathWithoutLeadingSeparator">An optional relative directory path to append after traversing the parent directories. Must not be a rooted
-    /// path. For example, <c>../subdirOfParentOrSiblingOfCurrent/subdir</c> or <c>subdirOfCurrent/subdir</c> or <c>./subdirOfCurrent/subdir</c> are all valid unrooted relative paths. On the contrary, <c>/subdir/subdir2</c> or <c>c:subdir/subdir2</c> are invalid since they symbolize a rooted relative path (relative to current working directory or a drive).
-    /// <para/>If <see langword="null"/> or empty, only the parent directory traversal is used.</param>
-    /// <remarks>The resulting descriptor uses the path symbol <c>..</c> for each parent directory level and joins them with the specified relative path.
-    /// <para/>For example, <paramref name="levels"/> = 2 and <paramref name="directoryPathWithoutLeadingSeparator"/> = "subdir" would result in a path like <c>../../subdir</c>.
-    /// <br/>And <paramref name="levels"/> = 1 and <paramref name="directoryPathWithoutLeadingSeparator"/> = <see langword="null"/> would result in a path like <c>../</c>.
-    /// <br/>And <paramref name="levels"/> = 2 and <paramref name="directoryPathWithoutLeadingSeparator"/> = "./subdir/subdir2" would result in a path like <c>../../subdir/subdir2</c>.</remarks>
-    /// <returns>A <see cref="DirectoryDescriptor"/> representing an unrooted relative directory path.</returns>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="levels"/> is less than 1.</exception>
-    /// <exception cref="ArgumentException">Thrown when <paramref name="directoryPathWithoutLeadingSeparator"/> is a rooted path.</exception>
-    public static DirectoryDescriptor CreateRelativeToParentDirectory(int levels = 1, string? directoryPathWithoutLeadingSeparator = null)
-    {
-        ArgumentOutOfRangeExceptionAdvanced.ThrowIfLessThan(levels, 1);
-        using PooledStringBuilder pathBuilder = StringBuilderFactory.GetOrCreate()
-            .Append($"{ParentDirectorySymbol}{Path.DirectorySeparatorChar}", levels);
-
-        if (!string.IsNullOrEmpty(directoryPathWithoutLeadingSeparator))
-        {
-            ArgumentExceptionAdvanced.ThrowIfTrue(Path.IsPathRooted(directoryPathWithoutLeadingSeparator), $"The argument '{nameof(directoryPathWithoutLeadingSeparator)}' must not be a rooted path.");
-            FileSystemPathValidator.ThrowIfInvalidDirectoryPath(directoryPathWithoutLeadingSeparator);
-
-            _ = pathBuilder
-                .Append(Path.DirectorySeparatorChar)
-                .Append(directoryPathWithoutLeadingSeparator.TrimStart(CurrentDirectorySymbol));
-        }
-
-        return new(pathBuilder.ToString());
-    }
-
-    /// <summary>
     /// Combines the current directory path with one or more relative directory segments, 
     /// returning a new <see cref="DirectoryDescriptor"/> representing the resulting path.
     /// </summary>
@@ -306,7 +238,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
             throw new InvalidOperationException($"Cannot convert to an absolute path because the current path '{FullPath}' has an explicit drive root but is relative. An absolute base directory cannot be used to resolve this path.");
         }
 
-        return Combine(isImplicitRootAllowed, absoluteBaseDirectory);
+        return new(ResolveRelativePathStrict(absoluteBaseDirectory.FullPath, FullPath));
     }
 
     /// <summary>
@@ -338,6 +270,89 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         }
 
         return Combine(relativeFilePath, isImplicitRootAllowed, absoluteBaseDirectory);
+    }
+
+    #region Helpers
+
+    /// <summary>
+    /// Factory method that creates a new <see cref="DirectoryDescriptor"/> representing the current directory as a relative, unrooted base path.
+    /// </summary>
+    /// <param name="directoryPathWithoutLeadingSeparator">An optional unrooted relative directory path to append to the current directory symbol. 
+    /// <br/>Must not be a rooted path. For example, <c>subdirOfCurrent/subdir</c> or <c>./subdirOfCurrent/subdir</c> are valid unrooted relative paths. 
+    /// <br/>On the contrary, <c>/subdir/subdir2</c> or <c>c:subdir/subdir2</c> are invalid 
+    /// since they symbolize a rooted relative path (relative to current working directory or a drive).</param>
+    /// <remarks>This method is useful when a relative directory base is required without specifying an
+    /// absolute or rooted path where rooted means relative to a drive. The resulting descriptor uses the path symbol <c>"./"</c> unless the provided <paramref name="directoryPathWithoutLeadingSeparator"/> overrides it.
+    /// <para/>For example, if <paramref name="directoryPathWithoutLeadingSeparator"/> is <c>"subdir"</c> or <c>"./subdir"</c>, the resulting descriptor will represent <c>"./subdir"</c>.
+    /// And if <paramref name="directoryPathWithoutLeadingSeparator"/> is <see langword="null"/> or empty or only consists of whitespace, the resulting descriptor will represent <c>"./"</c> (which is the default behavior when no path is provided).
+    /// <br/>And if <paramref name="directoryPathWithoutLeadingSeparator"/> is <c>"../subdir"</c>, the resulting descriptor will represent <c>"../subdir"</c> as well.</remarks>
+    /// <returns>A <see cref="DirectoryDescriptor"/> instance initialized to the current directory using a relative, unrooted
+    /// path symbol <c>"./"</c> joined with the specified relative path if provided.</returns>
+    public static DirectoryDescriptor CreateRelativeToCurrentDirectory(string? directoryPathWithoutLeadingSeparator = null)
+    {
+        if (!string.IsNullOrWhiteSpace(directoryPathWithoutLeadingSeparator))
+        {
+            ArgumentExceptionAdvanced.ThrowIfTrue(
+                Path.IsPathRooted(directoryPathWithoutLeadingSeparator),
+                $"Invalid argument {nameof(directoryPathWithoutLeadingSeparator)}. The path '{directoryPathWithoutLeadingSeparator}' must not be rooted.");
+            FileSystemPathValidator.ThrowIfInvalidDirectoryPath(directoryPathWithoutLeadingSeparator);
+
+            return directoryPathWithoutLeadingSeparator switch
+            {
+                _ when directoryPathWithoutLeadingSeparator.StartsWith(CurrentDirectorySymbol, StringComparison.Ordinal) => new(directoryPathWithoutLeadingSeparator),
+                _ when directoryPathWithoutLeadingSeparator.StartsWith(ParentDirectorySymbol, StringComparison.Ordinal) => new(directoryPathWithoutLeadingSeparator),
+                _ => string.IsNullOrWhiteSpace(directoryPathWithoutLeadingSeparator)
+                    ? new($"{CurrentDirectorySymbol}{Path.DirectorySeparatorChar}")
+                    : new(Path.Join(CurrentDirectorySymbol, directoryPathWithoutLeadingSeparator))
+            };
+        }
+
+        return new(CurrentDirectorySymbol);
+    }
+
+    /// <summary>
+    /// Factory method that creates a new <see cref="DirectoryDescriptor"/> representing a directory relative to its parent directory by the specified
+    /// number of levels, joined with an optional relative path.
+    /// </summary>
+    /// <param name="levels">The number of parent directory levels to traverse. Must be greater than or equal to 1. Defaults to 1.</param>
+    /// <param name="directoryPathWithoutLeadingSeparator">An optional unrooted relative directory path to append after traversing the parent directories. Must not be a rooted
+    /// path. For example, <c>../subdirOfParentOrSiblingOfCurrent/subdir</c> or <c>subdirOfCurrent/subdir</c> or <c>./subdirOfCurrent/subdir</c> are all valid unrooted relative paths. 
+    /// On the contrary, <c>/subdir/subdir2</c> or <c>c:subdir/subdir2</c> are invalid since they symbolize a rooted relative path (relative to current working directory or a drive).
+    /// <para/>If <see langword="null"/> or empty, only the parent directory traversal is used.</param>
+    /// <remarks>The resulting descriptor uses the path symbol <c>..</c> for each parent directory level and joins them with the specified relative path.
+    /// <para/>For example, <paramref name="levels"/> = 2 and <paramref name="directoryPathWithoutLeadingSeparator"/> = "subdir" would result in a path like <c>../../subdir</c>.
+    /// <br/>And <paramref name="levels"/> = 1 and <paramref name="directoryPathWithoutLeadingSeparator"/> = <see langword="null"/> would result in a path like <c>../</c>.
+    /// <br/>And <paramref name="levels"/> = 2 and <paramref name="directoryPathWithoutLeadingSeparator"/> = "./subdir/subdir2" would result in a path like <c>../../subdir/subdir2</c>.</remarks>
+    /// <returns>A <see cref="DirectoryDescriptor"/> representing an unrooted relative directory path.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="levels"/> is less than 1.</exception>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="directoryPathWithoutLeadingSeparator"/> is a rooted path.</exception>
+    public static DirectoryDescriptor CreateRelativeToParentDirectory(int levels = 1, string? directoryPathWithoutLeadingSeparator = null)
+    {
+        ArgumentOutOfRangeExceptionAdvanced.ThrowIfLessThan(levels, 1);
+        using PooledStringBuilder pathBuilder = StringBuilderFactory.GetOrCreate()
+            .Append($"{ParentDirectorySymbol}{Path.DirectorySeparatorChar}", levels);
+
+        if (!string.IsNullOrEmpty(directoryPathWithoutLeadingSeparator))
+        {
+            ArgumentExceptionAdvanced.ThrowIfTrue(Path.IsPathRooted(
+                directoryPathWithoutLeadingSeparator),
+                $"The argument '{nameof(directoryPathWithoutLeadingSeparator)}' must not be a rooted path.");
+            FileSystemPathValidator.ThrowIfInvalidDirectoryPath(directoryPathWithoutLeadingSeparator);
+
+            string path = directoryPathWithoutLeadingSeparator.StartsWith(CurrentDirectorySymbol, StringComparison.Ordinal)
+                ? directoryPathWithoutLeadingSeparator[1..]
+                : directoryPathWithoutLeadingSeparator;
+
+            // Can only be true if the original path started with the current directory symbol, for example "./subdir" or ".\subdir". 
+            path = Path.IsPathRooted(path)
+                ? path[1..]
+                : path;
+
+            _ = pathBuilder
+                .Append(path);
+        }
+
+        return new(pathBuilder.ToString());
     }
 
     /// <summary>
@@ -384,6 +399,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
 
         return relativeResult;
     }
+    #endregion Helpers
 
     public override string ToString() => FullPath;
     public bool Equals(DirectoryDescriptor other) => s_pathEqualityComparer.Equals(this, other);
@@ -394,6 +410,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     // The parent directory path without the name. Can be absolute or relative.
     public string Location { get; }
     public string FullPath { get; }
+    public string PathRoot => Path.GetPathRoot(FullPath) ?? string.Empty;
 
     /// <summary>
     /// Gets a value indicating whether the current path is relative rather than absolute.
