@@ -61,16 +61,24 @@ public abstract class FileSystemPathEqualityComparer : StringComparer,
 
     public virtual bool Equals(FileDescriptor x, FileDescriptor y)
     {
-        string xNormalized = FileHelpers.NormalizeFileSystemPath(x.FullPath);
-        string yNormalized = FileHelpers.NormalizeFileSystemPath(y.FullPath);
+        string? xNormalized = x.FullPath is null 
+            ? null 
+            : FileHelpers.NormalizeFileSystemPath(x.FullPath);
+        string? yNormalized = y.FullPath is null
+            ? null
+            : FileHelpers.NormalizeFileSystemPath(y.FullPath);
 
         return Comparer.Equals(xNormalized, yNormalized);
     }
 
     public virtual bool Equals(DirectoryDescriptor x, DirectoryDescriptor y)
     {
-        string xNormalizedFullPath = FileHelpers.NormalizeFileSystemPath(x.FullPath);
-        string yNormalizedFullPath = FileHelpers.NormalizeFileSystemPath(y.FullPath);
+        string? xNormalizedFullPath = x.FullPath is null 
+            ? null 
+            : FileHelpers.NormalizeFileSystemPath(x.FullPath);
+        string? yNormalizedFullPath = y.FullPath is null 
+            ? null 
+            : FileHelpers.NormalizeFileSystemPath(y.FullPath);
 
         return Comparer.Equals(xNormalizedFullPath, yNormalizedFullPath);
     }

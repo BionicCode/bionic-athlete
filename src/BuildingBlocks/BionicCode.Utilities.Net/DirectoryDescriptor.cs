@@ -149,8 +149,8 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     public DirectoryDescriptor Combine(bool isImplicitRootAllowed = false, params DirectoryDescriptor[] appendingLocationSegments) => new(CombineInternal(default, appendingLocationSegments.OrEmpty(), isImplicitRootAllowed));
 
     /// <summary>
-    /// Combines the current directory path with one or more relative directory segments and an optional relative file
-    /// path, returning a new <see cref="DirectoryDescriptor"/> representing the resulting path.
+    /// Combines the current directory path with one or more relative directory segments and a relative file
+    /// path, returning a new <see cref="FileDescriptor"/> representing the resulting file path.
     /// </summary>
     /// <remarks>All directory segments in <paramref name="appendingLocationSegments"/> must be relative and must not have an
     /// explicit drive root. If <paramref name="isImplicitRootAllowed"/> is <see langword="false"/>, segments with an implicit drive root (e.g. <c>/subdir</c>) are not permitted.
@@ -459,6 +459,11 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
 
         if (Path.IsPathFullyQualified(basePath))
         {
+            int pathSegmentCount = GetPathSegments(basePath, isSpecialSegementsOnly: false).Count;
+            int relativePathSegmentCount = GetPathSegments(relativePath, isSpecialSegementsOnly: true).Count;
+            ArgumentExceptionAdvanced.ThrowIfTrue(
+                relativePathSegmentCount > pathSegmentCount,
+                $"The relative path argument '{relativePathParameterName}' has more path segments than the base path argument '{basePathParameterName}', which indicates that it escapes above the base path in the directory hierarchy. Resolved path: '{Path.GetFullPath(relativePath, basePath)}'.");
             return Path.GetFullPath(relativePath, basePath);
         }
 
@@ -476,6 +481,20 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         }
 
         return relativeResult;
+    }
+
+    public static List<PathSegment> GetPathSegments(string path, bool isSpecialSegementsOnly)
+    {
+        ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(path);
+
+        return isSpecialSegementsOnly
+            ? path.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar, StringSplitOptions.TrimEntries)
+                .TakeWhile(IsSpecialDirectorySymbol)
+                .Select(segment => new PathSegment { Value = segment, IsSpecial = true })
+                .ToList()
+            : path.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar, StringSplitOptions.TrimEntries)
+                .Select(segment => new PathSegment { Value = segment, IsSpecial = segment.Equals(ParentDirectorySymbol, StringComparison.Ordinal) || segment.Equals(CurrentDirectorySymbol, StringComparison.Ordinal) })
+                .ToList();
     }
     #endregion Helpers
 
