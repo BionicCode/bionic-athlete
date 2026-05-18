@@ -91,21 +91,22 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
             return;
         }
 
-        if (Path.GetDirectoryName(normalizedFullPath) is null)
+        IsRelative = !Path.IsPathFullyQualified(normalizedFullPath);
+
+        // If GetDirectoryName returns null, it means the path consists of only a drive name e.g. C: or C:\ or C:/ without any directory segments.
+        // In this case, we define the directory as nameless and set the name to string.Empty.
+        if (Path.IsPathRooted(normalizedFullPath)
+            && s_pathEqualityComparer.Equals(Path.GetPathRoot(normalizedFullPath), normalizedFullPath))
         {
-            // If GetDirectoryName returns null, it means the path consists of only a directory name e.g. C: or C:\ or C:/ without any directory segments.
-            // In this case, we  define the directory as nameless and set the name to string.Empty.
             Name = string.Empty;
             Location = normalizedFullPath;
             FullPath = normalizedFullPath;
-            IsRelative = false;
-            IsRoot = true;
+            IsRoot = Path.EndsInDirectorySeparator(normalizedFullPath);
 
             return;
         }
 
         FullPath = normalizedFullPath;
-        IsRelative = !Path.IsPathFullyQualified(FullPath);
         Name = Path.GetFileName(normalizedFullPath);
         Location = Path.GetDirectoryName(normalizedFullPath) ?? string.Empty;
         IsRoot = false;
