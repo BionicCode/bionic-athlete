@@ -220,7 +220,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// directory is ignored. This method does not support resolving relative paths with explicit drive roots, as the
     /// current drive context is required. And it replaces implicit drive roots with the provided base directory. For example, if the current path is "\Temp" and the base directory is "C:\Base", the resulting absolute path will be "C:\Base\Temp".</remarks>
     /// <param name="absoluteBaseDirectory">An absolute directory path that serves as the base for resolving the current relative directory path.</param>
-    /// <param name="isImplicitRootAllowed"><see langword="true"/> to allow directory segments that are implicitly drive rooted. In that case <c>/subdir</c> will be treated as <c>./subdir</c> (aka <c>subdir</c>); otherwise, <see langword="false"/> to disallow conversion of implicit rooted paths. 
+    /// <param name="isImplicitRootAllowed"><see langword="true"/> to allow the current directory to be implicitly drive rooted. In that case <c>/subdir</c> will be treated as <c>./subdir</c> (aka <c>subdir</c>); otherwise, <see langword="false"/> to disallow conversion of implicit rooted paths. 
     /// If <see langword="false"/>, any segment with an implicit drive root will cause an exception.</param>
     /// <returns>A new DirectoryDescriptor representing the absolute path resolved from the current path and the specified base
     /// directory.</returns>
@@ -229,16 +229,31 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="absoluteBaseDirectory"/> is <see langword="default"/>.</exception>
     public DirectoryDescriptor ToAbsolutePath(DirectoryDescriptor absoluteBaseDirectory, bool isImplicitRootAllowed = false)
     {
-        ArgumentNullExceptionAdvanced.ThrowIfDefault(absoluteBaseDirectory);
-        ArgumentExceptionAdvanced.ThrowIfTrue(absoluteBaseDirectory.IsRelative, $"The argument '{nameof(absoluteBaseDirectory)}' must be an absolute directory path.");
+        // If the current path is already absolute we can return it as is without combining with the base directory.
+        if (!IsRelative)
+        {
+            return this;
+        }
 
-        if (HasExplicitDriveRoot && IsRelative)
+        ArgumentNullExceptionAdvanced.ThrowIfDefault(absoluteBaseDirectory);
+        ArgumentExceptionAdvanced.ThrowIfTrue(
+            absoluteBaseDirectory.IsRelative,
+            $"The argument '{nameof(absoluteBaseDirectory)}' must be an absolute directory path.");
+
+        if (HasExplicitDriveRoot)
         {
             // If the current path has an explicit drive root but is relative, we cannot resolve it to an absolute path without knowing the current drive. Therefore, we throw an exception in this case.
             throw new InvalidOperationException($"Cannot convert to an absolute path because the current path '{FullPath}' has an explicit drive root but is relative. An absolute base directory cannot be used to resolve this path.");
         }
 
-        return new(ResolveRelativePathStrict(absoluteBaseDirectory.FullPath, FullPath));
+        string currentRelativePath = FullPath;
+        if (isImplicitRootAllowed && HasImplicitDriveRoot)
+        {
+            // If implicit rooted paths are allowed and the current path starts with a directory separator, we treat it as implicitly rooted and remove the leading separator to combine it with the base directory.
+            currentRelativePath = currentRelativePath[1..];
+        }
+
+        return new(ResolveRelativePathStrict(absoluteBaseDirectory.FullPath, currentRelativePath));
     }
 
     /// <summary>
@@ -248,7 +263,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// directory is ignored. This method does not support resolving relative paths with explicit drive roots, as the
     /// current drive context is required. And it replaces implicit drive roots with the provided base directory. For example, if the current path is "\Temp" and the base directory is "C:\Base", the resulting absolute path will be "C:\Base\Temp".</remarks>
     /// <param name="absoluteBaseDirectory">An absolute directory path that serves as the base for resolving the current relative directory path.</param>
-    /// <param name="isImplicitRootAllowed"><see langword="true"/> to allow directory segments that are implicitly drive rooted. In that case <c>/subdir</c> will be treated as <c>./subdir</c> (aka <c>subdir</c>); otherwise, <see langword="false"/> to disallow conversion of implicit rooted paths. 
+    /// <param name="isImplicitRootAllowed"><see langword="true"/> to allow the current directory to be implicitly drive rooted. In that case <c>/subdir</c> will be treated as <c>./subdir</c> (aka <c>subdir</c>); otherwise, <see langword="false"/> to disallow conversion of implicit rooted paths. 
     /// If <see langword="false"/>, any segment with an implicit drive root will cause an exception.</param>
     /// <param name="relativeFilePath">A relative file path to append to the combined directory path. Must be relative or set to the default value to
     /// omit.</param>
@@ -257,21 +272,29 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// <exception cref="ArgumentException">Thrown if <paramref name="absoluteBaseDirectory"/> represents a relative path or <paramref name="relativeFilePath"/> is not relative.</exception>
     /// <exception cref="InvalidOperationException">Thrown if the current path has an explicit drive root but is relative, making it impossible to resolve to an absolute path using the provided base directory.</exception>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="absoluteBaseDirectory"/> is <see langword="default"/>.</exception>
-    public DirectoryDescriptor ToAbsolutePath(DirectoryDescriptor absoluteBaseDirectory, FileDescriptor relativeFilePath, bool isImplicitRootAllowed = false)
+    public FileDescriptor ToAbsolutePath(DirectoryDescriptor absoluteBaseDirectory, FileDescriptor relativeFilePath, bool isImplicitRootAllowed = false)
     {
-        ArgumentNullExceptionAdvanced.ThrowIfDefault(absoluteBaseDirectory);
-        ArgumentExceptionAdvanced.ThrowIfTrue(absoluteBaseDirectory.IsRelative, $"The argument '{nameof(absoluteBaseDirectory)}' must be an absolute directory path.");
+        ArgumentNullExceptionAdvanced.ThrowIfDefault(relativeFilePath);
         ArgumentExceptionAdvanced.ThrowIfFalse(relativeFilePath.IsRelative, $"The argument '{nameof(relativeFilePath)}' must be a relative file path.");
 
-        if (HasExplicitDriveRoot && IsRelative)
+        // If the current path is already absolute we can return it as is without combining with the base directory.
+        if (!IsRelative)
+        {
+            return ResolveRelativePathStrict(this, relativeFilePath);
+        }
+
+        ArgumentNullExceptionAdvanced.ThrowIfDefault(absoluteBaseDirectory);
+        ArgumentExceptionAdvanced.ThrowIfTrue(absoluteBaseDirectory.IsRelative, $"The argument '{nameof(absoluteBaseDirectory)}' must be an absolute directory path.");
+
+        if (HasExplicitDriveRoot)
         {
             // If the current path has an explicit drive root but is relative, we cannot resolve it to an absolute path without knowing the current drive. Therefore, we throw an exception in this case.
             throw new InvalidOperationException($"Cannot convert to an absolute path because the current path '{FullPath}' has an explicit drive root but is relative. An absolute base directory cannot be used to resolve this path.");
         }
 
-        return Combine(relativeFilePath, isImplicitRootAllowed, absoluteBaseDirectory);
+        DirectoryDescriptor absolutePathDescriptor = ToAbsolutePath(absoluteBaseDirectory);
+        return ResolveRelativePathStrict(absolutePathDescriptor, relativeFilePath);
     }
-
     #region Helpers
 
     /// <summary>
@@ -353,6 +376,32 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         }
 
         return new(pathBuilder.ToString());
+    }
+
+    public static DirectoryDescriptor ResolveRelativePathStrict(
+        DirectoryDescriptor basePath,
+        DirectoryDescriptor relativeDirectoryPath,
+        [CallerArgumentExpression(nameof(basePath))] string? basePathParameterName = null,
+        [CallerArgumentExpression(nameof(relativeDirectoryPath))] string? relativePathParameterName = null)
+    {
+        ArgumentNullExceptionAdvanced.ThrowIfDefault(basePath);
+        ArgumentNullExceptionAdvanced.ThrowIfDefault(relativeDirectoryPath);
+
+        string resolvedPath = ResolveRelativePathStrict(basePath.FullPath, relativeDirectoryPath.FullPath, basePathParameterName, relativePathParameterName);
+        return new(resolvedPath);
+    }
+
+    public static FileDescriptor ResolveRelativePathStrict(
+        DirectoryDescriptor basePath,
+        FileDescriptor relativeFilePath,
+        [CallerArgumentExpression(nameof(basePath))] string? baseDirectoryPathParameterName = null,
+        [CallerArgumentExpression(nameof(relativeFilePath))] string? relativeFilePathParameterName = null)
+    {
+        ArgumentNullExceptionAdvanced.ThrowIfDefault(basePath);
+        ArgumentNullExceptionAdvanced.ThrowIfDefault(relativeFilePath);
+
+        string resolvedPath = ResolveRelativePathStrict(basePath.FullPath, relativeFilePath.FullPath, baseDirectoryPathParameterName, relativeFilePathParameterName);
+        return new(resolvedPath);
     }
 
     /// <summary>
