@@ -85,6 +85,8 @@ public static class FileHelpers
     /// <returns>The normalized file system path.</returns>
     public static string NormalizeFileSystemPath(string path)
     {
+        ArgumentNullExceptionAdvanced.ThrowIfNull(path);
+
         string trimmed = Path.TrimEndingDirectorySeparator(path);
 
         return OperatingSystem.IsWindows()
