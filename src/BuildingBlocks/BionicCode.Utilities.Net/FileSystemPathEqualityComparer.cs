@@ -14,6 +14,7 @@ public abstract class FileSystemPathEqualityComparer : StringComparer,
     IEqualityComparer<FileSystemInfo>,
     IEqualityComparer<string>,
     IEqualityComparer<FileDescriptor>,
+    IEqualityComparer<PathDescriptor>,
     IEqualityComparer<DirectoryDescriptor>
 {
     protected StringComparer Comparer { get; }
