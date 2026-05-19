@@ -1,5 +1,6 @@
 ﻿namespace BionicCode.Utilities.Net;
 
+using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 
 /// <summary>
@@ -96,21 +97,19 @@ public sealed class WriteOnce<TValue> : IFormattable
     {
         if (!TrySetValue(value))
         {
-            throw new InvalidOperationException("Value has already been initialized and cannot be modified.");
+            throw new InvalidOperationException("Name has already been initialized and cannot be modified.");
         }
     }
 
     [SuppressMessage("Design", "CA1024:Use properties where appropriate", Justification = "Required.")]
     public TValue GetValueOrDefault() => Volatile.Read(ref _isSet) != 0 ? _value : default!;
 
+    /// <summary>
+    /// Gets whether the current instance has been set with a value and is therefore sealed. 
+    /// </summary>
+    /// <remarks>Once a value has been set, the <see cref="WriteOnce{TValue}"/> instance is considered sealed and immutable. This property indicates whether the instance has been set with a value or not.</remarks>
+    /// <value><see langword="true"/> if the instance has been set with a value and is sealed for further writes; otherwise, <see langword="false"/>.</value>
     public bool IsSet => Volatile.Read(ref _isSet) != 0;
-    public bool IsSealed => IsSet;
-
-    public static implicit operator TValue(WriteOnce<TValue>? source) => source is null
-        ? default!
-        : source.GetValueOrDefault();
-
-    public static implicit operator WriteOnce<TValue>(TValue source) => new(source);
 
     /// <summary>
     /// Returns a string representation of the current underlying value, or an empty string if no value is present.
@@ -154,4 +153,12 @@ public sealed class WriteOnce<TValue> : IFormattable
     public string ToString(string? format, IFormatProvider? formatProvider) => GetValueOrDefault() is IFormattable formattable
         ? formattable.ToString(format, formatProvider)
         : ToString();
+
+    #region Operators
+    public static implicit operator TValue(WriteOnce<TValue>? source) => source is null
+        ? default!
+        : source.GetValueOrDefault();
+
+    public static implicit operator WriteOnce<TValue>(TValue source) => new(source);
+    #endregion Operators
 }

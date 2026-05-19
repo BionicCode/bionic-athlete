@@ -43,7 +43,7 @@ public sealed record ReportSection(
 /// </summary>
 /// <param name="CanonicalName">Stable canonical name, independent of Garmin Connect labels.</param>
 /// <param name="Label">Human-readable label for View C.</param>
-/// <param name="FormattedValue">Value already formatted for the selected culture and report target.</param>
+/// <param name="FormattedValue">Name already formatted for the selected culture and report target.</param>
 /// <param name="Unit">Optional display unit.</param>
 /// <param name="Classification">How the metric relates to source FIT data.</param>
 /// <param name="SourceField">Canonical source field when one exists.</param>

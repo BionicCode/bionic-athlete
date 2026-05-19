@@ -1,6 +1,7 @@
 ﻿namespace BionicCode.Utilities.Net;
 
 using System.Collections.Frozen;
+using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
@@ -16,7 +17,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// <remarks>The value is a period (.) without the platform-specific directory separator character.
     /// This symbol is commonly used in file system operations to indicate the current working directory.</remarks>
     /// <value>The string representing the current directory symbol. Usually <c>.</c>.</value>
-    public static readonly string CurrentDirectorySymbol = $".";
+    public static readonly string CurrentDirectorySymbol = ".";
 
     /// <summary>
     /// Represents the symbol used to refer to the parent directory, including the platform-specific directory separator
@@ -25,9 +26,13 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// <remarks>This value is two dots (..) without the platform-specific directory separator character.
     /// It can be used when constructing or parsing file system paths that reference a parent directory.</remarks>
     /// <value>The string representing the parent directory symbol. Usually <c>..</c>.</value>
-    public static readonly string ParentDirectorySymbol = $"..";
+    public static readonly string ParentDirectorySymbol = "..";
+
+    public static readonly string UncRootDirectorySymbol = @"\\";
 
     public static readonly FrozenSet<string> SpecialDirectorySymbols = FrozenSet.Create(CurrentDirectorySymbol, ParentDirectorySymbol, ".", "..");
+    public static readonly FrozenSet<char> DirectorySeparatorChars = FrozenSet.Create(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+    public static readonly FrozenSet<string> DirectorySeparatorStrings = DirectorySeparatorChars.Select(c => c.ToString()).ToFrozenSet();
 
     /// <summary>
     /// Platform-specific special directory path symbols for true relative (unrooted) paths.
@@ -42,7 +47,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// <item><c>..</c>. This symbol represents the parent directory in a relative, unrooted context.</item>
     /// </list>
     /// </remarks>
-    public static readonly FrozenDictionary<string, string> SpecialRelativeUnrootedDirectorySymbolSet = FrozenDictionary.Create(
+    public static readonly FrozenDictionary<string, string> SpecialRelativeUnrootedDirectorySymbolNormalizationTable = FrozenDictionary.Create(
         new KeyValuePair<string, string>(CurrentDirectorySymbol, CurrentDirectorySymbol),
         new KeyValuePair<string, string>(".", CurrentDirectorySymbol),
         new KeyValuePair<string, string>(ParentDirectorySymbol, ParentDirectorySymbol),
@@ -86,8 +91,11 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
 
         string normalizedFullPath = FileHelpers.NormalizeFileSystemPath(fullPath);
 
+        IsRelative = !Path.IsPathFullyQualified(normalizedFullPath);
+        FullPath = normalizedFullPath;
+
         if (IsSpecialDirectorySymbol(normalizedFullPath)
-            && SpecialRelativeUnrootedDirectorySymbolSet.TryGetValue(normalizedFullPath, out string? canonicalSymbol))
+            && SpecialRelativeUnrootedDirectorySymbolNormalizationTable.TryGetValue(normalizedFullPath, out string? canonicalSymbol))
         {
             // Special directory symbols like "." and ".." are treated as relative paths with the symbol as the full path and the location
             // both returning "." or ".." respectively, while the name is empty
@@ -101,8 +109,6 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
             return;
         }
 
-        IsRelative = !Path.IsPathFullyQualified(normalizedFullPath);
-
         // If GetDirectoryName returns null, it means the path consists of only a drive name e.g. C: or C:\ or C:/ without any directory segments.
         // In this case, we define the directory as nameless and set the name to string.Empty.
         if (Path.IsPathRooted(normalizedFullPath)
@@ -110,13 +116,11 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         {
             Name = string.Empty;
             Location = normalizedFullPath;
-            FullPath = normalizedFullPath;
             IsRoot = Path.EndsInDirectorySeparator(normalizedFullPath);
 
             return;
         }
 
-        FullPath = normalizedFullPath;
         Name = Path.GetFileName(normalizedFullPath);
         Location = Path.GetDirectoryName(normalizedFullPath) ?? string.Empty;
         IsRoot = false;
@@ -448,7 +452,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// <param name="relativePathParameterName">Optional. The name of the parameter representing the relative path. If not provided, the method will capture the caller argument expression to resolve the caller's original argument name.</param>
     /// <returns>The resolved path.</returns>
     /// <exception cref="ArgumentException">Thrown if the relative path escapes above the base path.</exception>
-    public static string ResolveRelativePathStrict(
+    private static string ResolveRelativePathStrict(
         string basePath,
         string relativePath,
         [CallerArgumentExpression(nameof(basePath))] string? basePathParameterName = null,
@@ -483,24 +487,118 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         return relativeResult;
     }
 
-    public static List<PathSegment> GetPathSegments(string path, bool isSpecialSegementsOnly)
-    {
-        ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(path);
+    public IEnumerable<PathSegment> EnumeratePathSegments() => EnumeratePathSegments(FullPath);
 
-        return isSpecialSegementsOnly
-            ? path.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar, StringSplitOptions.TrimEntries)
-                .TakeWhile(IsSpecialDirectorySymbol)
-                .Select(segment => new PathSegment { Value = segment, IsSpecial = true })
-                .ToList()
-            : path.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar, StringSplitOptions.TrimEntries)
-                .Select(segment => new PathSegment { Value = segment, IsSpecial = segment.Equals(ParentDirectorySymbol, StringComparison.Ordinal) || segment.Equals(CurrentDirectorySymbol, StringComparison.Ordinal) })
-                .ToList();
+    private IEnumerable<PathSegment> EnumeratePathSegments(string path)
+    {
+        if (_pathSegments.IsSet)
+        {
+            foreach (PathSegment segment in _pathSegments.GetValueOrDefault())
+            {
+                yield return segment;
+            }
+
+            yield break;
+        }
+
+        int startIndex = 0;
+        string pathRoot = Path.GetPathRoot(path) ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(pathRoot))
+        {
+            var rootSegment = new PathSegment
+            {
+                Name = pathRoot,
+                IsSpecial = SpecialDirectorySymbols.Contains(pathRoot),
+                IsRoot = true
+            };
+
+            yield return rootSegment;
+
+            // Adjust startIndex to ignore any leading directory separator characters after the root.
+            // For example, Path.GetPathRoot returns "\\server\share" for UNC paths like "\\server\share\dir\a" - without the trailing directory separator.
+            // So we have to look-ahead to check if there is a directory separator character after the root
+            // to determine the correct starting index for the first path segment after the root.
+            startIndex = DirectorySeparatorChars.Contains(path[pathRoot.Length + 1])
+                ? pathRoot.Length + 2
+                : pathRoot.Length + 1;
+        }
+
+        for (int endIndex = startIndex; endIndex < path.Length; endIndex++)
+        {
+            if (DirectorySeparatorChars.Contains(path[endIndex]))
+            {
+                // Index notation is exclusive for the end index,
+                // so it will give us the correct segment name without including the separator character.
+                string segmentName = path[startIndex..endIndex];
+                var segment = new PathSegment
+                {
+                    Name = segmentName,
+                    IsSpecial = SpecialDirectorySymbols.Contains(segmentName),
+                    IsRoot = false
+                };
+                startIndex = endIndex + 1;
+
+                yield return segment;
+            }
+        }
+    }
+
+    private int CalculatePathDepth()
+    {
+        int depth = 0;
+        foreach (PathSegment pathSegment in EnumeratePathSegments())
+        {
+            if (pathSegment.IsRoot)
+            {
+                continue;
+            }
+            else if (pathSegment.IsSpecial)
+            {
+                if (pathSegment.Name.Equals(ParentDirectorySymbol, StringComparison.Ordinal))
+                {
+                    depth--;
+                }
+
+                if (pathSegment.Name.Equals(CurrentDirectorySymbol, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+            }
+            else
+            {
+                depth++;
+            }
+        }
+
+        return depth;
     }
     #endregion Helpers
 
     public override string ToString() => FullPath;
     public bool Equals(DirectoryDescriptor other) => s_pathEqualityComparer.Equals(this, other);
     public override int GetHashCode() => s_pathEqualityComparer.GetHashCode(this);
+
+    private readonly WriteOnce<ImmutableList<PathSegment>> _pathSegments;
+    private readonly WriteOnce<int> _pathDepth;
+
+    /// <summary>
+    /// Gets the depth of the current <see cref="DirectoryDescriptor"/> path.
+    /// </summary>
+    /// <remarks>The depth is calculated based on the number of path segments in the <see cref="FullPath"/> excluding the root.
+    /// <para/>
+    /// For example, the path <c>C:\Users\Public</c> has a depth of 2. The path <c>C:\</c> has a depth of 0. On Unix the path <c>/usr/local/bin</c> has a depth of 3.</remarks>
+    public int PathDepth
+    {
+        get
+        {
+            if (!_pathDepth.IsSet)
+            {
+                _pathDepth.SetValue(CalculatePathDepth());
+            }
+
+            return _pathDepth;
+        }
+    }
 
     public string Name { get; }
 
@@ -544,5 +642,5 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
 
     public override bool Equals(object? obj) => obj is DirectoryDescriptor other && Equals(other);
 
-    private static bool IsSpecialDirectorySymbol(string value) => SpecialRelativeUnrootedDirectorySymbolSet.ContainsKey(value);
+    private static bool IsSpecialDirectorySymbol(string value) => SpecialRelativeUnrootedDirectorySymbolNormalizationTable.ContainsKey(value);
 }

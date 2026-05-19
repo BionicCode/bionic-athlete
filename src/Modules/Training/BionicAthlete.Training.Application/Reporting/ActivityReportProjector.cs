@@ -273,10 +273,10 @@ public sealed class ActivityReportProjector : IActivityReportProjector
             "data-quality",
             "Data Quality and Provenance",
             ImmutableArray.Create(
-                new ReportMetric("provenance.direct_fit", "Direct FIT", "Value comes directly from a documented or decoded FIT field.", null, ReportFieldClassification.DirectStandardFit),
-                new ReportMetric("provenance.derived", "Formula-derived", "Value is calculated from decoded FIT fields.", null, ReportFieldClassification.DerivedFromFit),
-                new ReportMetric("provenance.mapped_unknown", "Mapped unknown FIT field", "Value is inferred from preserved unknown FIT data and marked with a caveat.", null, ReportFieldClassification.MappedFromUnmappedFitField),
-                new ReportMetric("provenance.unavailable", "Unavailable", "Value was not present or not reliably derivable from this activity.", null, ReportFieldClassification.Unavailable)),
+                new ReportMetric("provenance.direct_fit", "Direct FIT", "Name comes directly from a documented or decoded FIT field.", null, ReportFieldClassification.DirectStandardFit),
+                new ReportMetric("provenance.derived", "Formula-derived", "Name is calculated from decoded FIT fields.", null, ReportFieldClassification.DerivedFromFit),
+                new ReportMetric("provenance.mapped_unknown", "Mapped unknown FIT field", "Name is inferred from preserved unknown FIT data and marked with a caveat.", null, ReportFieldClassification.MappedFromUnmappedFitField),
+                new ReportMetric("provenance.unavailable", "Unavailable", "Name was not present or not reliably derivable from this activity.", null, ReportFieldClassification.Unavailable)),
             ImmutableArray<ReportChart>.Empty,
             ImmutableArray<ReportTable>.Empty,
             "The report is projected from decoded FIT data. It does not invent Garmin Connect-only values.");

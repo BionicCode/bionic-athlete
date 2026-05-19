@@ -121,7 +121,7 @@ public class UniformToolBar : HeaderedItemsControl
     /// <summary>
     ///     The DependencyProperty for the HasOverflowItems property.
     ///     Flags:              None
-    ///     Default Value:      false
+    ///     Default Name:      false
     /// </summary>
     public static readonly DependencyProperty HasOverflowItemsProperty =
             HasOverflowItemsPropertyKey.DependencyProperty;

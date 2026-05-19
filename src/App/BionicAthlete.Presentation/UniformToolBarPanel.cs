@@ -29,7 +29,7 @@ public class UniformToolBarPanel : VirtualizingPanel
     /// <summary>
     ///     The DependencyProperty for the IsOverflowItem property.
     ///     Flags:              None
-    ///     Default Value:      false
+    ///     Default Name:      false
     /// </summary>
     public static readonly DependencyProperty IsOverflowItemProperty = IsOverflowItemPropertyKey.DependencyProperty;
 
