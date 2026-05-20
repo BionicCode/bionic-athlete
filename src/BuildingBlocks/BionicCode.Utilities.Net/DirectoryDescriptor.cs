@@ -607,7 +607,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         {
             if (!_path.IsSet)
             {
-                _path.SetValue(new PathDescriptor(EnumeratePathSegments().ToImmutableList(), IsRelative, HasExplicitDriveRoot || HasImplicitDriveRoot));
+                _path.SetValue(new PathDescriptor(this));
             }
 
             return _path;

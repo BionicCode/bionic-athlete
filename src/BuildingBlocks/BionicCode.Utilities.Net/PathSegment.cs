@@ -9,19 +9,20 @@ public readonly record struct PathSegment
     /// Creates a new instance of the <see cref="PathSegment"/> struct with the specified name and root status. 
     /// </summary>
     /// <param name="name">The name of the path segment. </param>
-    /// <param name="isRoot">Indicates whether this segment represents the root of a path.</param>
-    public PathSegment(string name, bool isRoot) : this()
+    /// <param name="kind">The <see cref="PathSegmentKind"/> of the path segment.</param>
+    internal PathSegment(string name, PathSegmentKind kind) : this()
     {
         ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(name);
+        ArgumentExceptionAdvanced.ThrowIfEnumIsNotDefined<PathSegmentKind>(kind);
 
         string normalizedName = FileHelpers.NormalizeDirectorySeparators(name);
         // Only root is allowed to contain directory separator characters e.g., "C:\" or "\\server\share" or "\".
-        if (!isRoot)
+        if (kind is not PathSegmentKind.FullyQualifiedRoot and not PathSegmentKind.RelativeRoot)
         {
             ArgumentExceptionAdvanced.ThrowIfContainsAny(
                 name,
                 DirectoryDescriptor.DirectorySeparatorChars,
-                message: $"Invalid argument '{nameof(name)}'. If the argument '{nameof(isRoot)}' is TRUE, the segment cannot contain directory separator characters. Directory separator characters are only allowed for the path root segment.");
+                message: $"Invalid argument '{nameof(name)}'. If the argument '{nameof(kind)}' is not a '{nameof(PathSegmentKind.FullyQualifiedRoot)}' or '{nameof(PathSegmentKind.RelativeRoot)}', the segment cannot contain directory separator characters. Directory separator characters are only allowed for the path root segment.");
         }
         else
         {
@@ -29,42 +30,28 @@ public readonly record struct PathSegment
             // to ensure a valid comparison. For example, on Windows, both "C:\" and "C:/" are valid path roots
             // and should be considered equal after normalization.
             ArgumentExceptionAdvanced.ThrowIfFalse(Path.GetPathRoot(normalizedName)!.Equals(normalizedName, StringComparison.Ordinal),
-                message: $"Invalid argument '{nameof(name)}'. The argument '{nameof(name)}' must be a valid path root if the argument '{nameof(isRoot)}' is TRUE. Valid path root examples include 'C:\\', '\\\\server\\share', or '\\'.");
+                message: $@"Invalid argument '{nameof(name)}'. The argument '{nameof(name)}' must be a valid path root if the argument '{nameof(kind)}' is '{nameof(PathSegmentKind.FullyQualifiedRoot)}' or '{nameof(PathSegmentKind.RelativeRoot)}'. Valid path root examples include 'C:\', '\\server\\share', or '\'.");
         }
 
         Name = normalizedName;
-        IsRoot = isRoot;
         IsSpecial = DirectoryDescriptor.SpecialDirectorySymbols.Contains(Name);
-        Kind = GetSegmentKind();
+        Kind = kind;
     }
 
-    private PathSegmentKind GetSegmentKind()
+    public static PathSegmentKind GetRootSegmentKind(bool isRelative) => isRelative
+        ? PathSegmentKind.RelativeRoot
+        : PathSegmentKind.FullyQualifiedRoot;
+
+    public static PathSegmentKind GetSpecialSegmentKind(string segmentName) => segmentName switch
     {
-        if (IsRoot)
-        {
-            return IsRelative
-                ? PathSegmentKind.RelativeRoot
-                : PathSegmentKind.FullyQualifiedRoot;
-        }
-        else if (IsSpecial) // Pre-filter to avoid a huge switch expression where each case has to be visited.
-        {
-            return Name switch
-            {
-                _ when DirectoryDescriptor.CurrentDirectorySymbol.Equals(Name, StringComparison.Ordinal) => PathSegmentKind.CurrentDirectory,
-                _ when DirectoryDescriptor.ParentDirectorySymbol.Equals(Name, StringComparison.Ordinal) => PathSegmentKind.ParentDirectory,
-                _ => throw new NotImplementedException($"Currently unsupported special directory symbol: '{Name}'.")
-            };
-        }
-        else
-        {
-            return Name switch
-            {
-                _ when Path.GetFileName(Name).Equals(Name, StringComparison.Ordinal) => PathSegmentKind.FileName,
-                _ when Path.GetDirectoryName(Name)!.Equals(Name, StringComparison.Ordinal) => PathSegmentKind.FileName,
-                _ => throw new NotImplementedException($"Currently unsupported segment value: '{Name}'.")
-            };
-        }
-    }
+        _ when DirectoryDescriptor.CurrentDirectorySymbol.Equals(segmentName, StringComparison.Ordinal) => PathSegmentKind.CurrentDirectory,
+        _ when DirectoryDescriptor.ParentDirectorySymbol.Equals(segmentName, StringComparison.Ordinal) => PathSegmentKind.ParentDirectory,
+        _ => throw new NotImplementedException($"Currently unsupported special directory symbol: '{segmentName}'.")
+    };
+
+    public static PathSegmentKind GetNormalSegmentKind(bool isDirectory) => isDirectory
+        ? PathSegmentKind.DirectoryName
+        : PathSegmentKind.FileName;
 
     /// <summary>
     /// The name of the path segment.
@@ -111,9 +98,9 @@ public readonly record struct PathSegment
     /// </list>
     /// </remarks>
     /// <value><see langword="true"/> if the segment is the root of a path; otherwise, <see langword="false"/>.</value>
-    public bool IsRoot { get; }
+    public bool IsRoot => Kind is PathSegmentKind.FullyQualifiedRoot or PathSegmentKind.RelativeRoot;
 
-    public bool IsRelative => !Path.IsPathFullyQualified(Name);
+    public bool IsRelative => Kind is not PathSegmentKind.FullyQualifiedRoot;
 }
 
 public enum PathSegmentKind
@@ -130,15 +117,15 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
 {
     private static readonly FileSystemPathEqualityComparer s_pathEqualityComparer = FileSystemPathEqualityComparer.Instance;
 
-    private PathDescriptor(ImmutableList<PathSegment> segments, bool isRelative, bool isRooted)
+    internal PathDescriptor(FileDescriptor filePath) : this(filePath.FullPath, isDirectory: false)
     {
-        ArgumentExceptionAdvanced.ThrowIfNullOrEmpty(segments);
-
-        Segments = segments;
-        IsRelative = isRelative;
     }
 
-    public PathDescriptor(string path)
+    internal PathDescriptor(DirectoryDescriptor directoryPath) : this(directoryPath.FullPath, isDirectory: true)
+    {
+    }
+
+    public PathDescriptor(string path, bool isDirectory)
     {
         ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(path);
         FileSystemPathValidator.ThrowIfInvalidDirectoryPath(path);
@@ -149,7 +136,8 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
         string pathRoot = Path.GetPathRoot(path) ?? string.Empty;
         if (!string.IsNullOrWhiteSpace(pathRoot))
         {
-            var rootSegment = new PathSegment(pathRoot, true);
+            bool isRootRelative = !Path.IsPathFullyQualified(pathRoot);
+            PathSegment rootSegment = CreateRootSegment(pathRoot, isRootRelative);
             segments.Add(rootSegment);
 
             // Adjust startIndex to ignore any leading directory separator characters after the root.
@@ -169,7 +157,7 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
                 // Index notation is exclusive for the end index,
                 // so it will give us the correct segment name without including the separator character.
                 string segmentName = path[startIndex..endIndex];
-                var segment = new PathSegment(segmentName, false);
+                PathSegment segment = CreateDirectorySegment(segmentName);
                 startIndex = endIndex + 1;
 
                 segments.Add(segment);
@@ -180,12 +168,43 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
         {
             string segmentName = path[startIndex..];
             string segmentNameWithoutTrailingSeparator = Path.TrimEndingDirectorySeparator(segmentName);
-            var segment = new PathSegment(segmentNameWithoutTrailingSeparator, false);
+            PathSegment segment = isDirectory
+                ? CreateDirectorySegment(segmentNameWithoutTrailingSeparator)
+                : CreateFileSegment(segmentNameWithoutTrailingSeparator);
             segments.Add(segment);
         }
 
-        IsRelative = !Path.IsPathFullyQualified(path);
         Segments = [.. segments];
+        IsRelative = Segments[0].Kind is not PathSegmentKind.FullyQualifiedRoot;
+    }
+
+    private static PathSegment CreateRootSegment(string pathRoot, bool isRootRelative)
+    {
+        PathSegmentKind segmentKind = isRootRelative
+                        ? PathSegmentKind.RelativeRoot
+                        : PathSegmentKind.FullyQualifiedRoot;
+        var rootSegment = new PathSegment(pathRoot, segmentKind);
+        return rootSegment;
+    }
+
+    private static PathSegment CreateDirectorySegment(string segmentName)
+    {
+        bool isSpecial = DirectoryDescriptor.SpecialDirectorySymbols.Contains(segmentName);
+        PathSegmentKind segmentKind = isSpecial
+            ? PathSegment.GetSpecialSegmentKind(segmentName)
+            : PathSegmentKind.DirectoryName;
+        var segment = new PathSegment(segmentName, segmentKind);
+        return segment;
+    }
+
+    private static PathSegment CreateFileSegment(string segmentName)
+    {
+        bool isSpecial = DirectoryDescriptor.SpecialDirectorySymbols.Contains(segmentName);
+        PathSegmentKind segmentKind = isSpecial
+            ? PathSegment.GetSpecialSegmentKind(segmentName)
+            : PathSegmentKind.FileName;
+        var segment = new PathSegment(segmentName, segmentKind);
+        return segment;
     }
 
     public string PathString => ToString();
@@ -273,11 +292,11 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
         }
         else
         {
-            using var pooledStringBuilder = PooledStringBuilder.GetOrCreate();
+            using var pathBuilder = PooledStringBuilder.GetOrCreate();
             int index = 0;
             PathSegment segment = Segments[index];
             index++;
-            _ = pooledStringBuilder.Append(segment.Name);
+            _ = pathBuilder.Append(segment.Name);
 
             // We append a directory separator only if the first segment is
             // * a root segment that is fully qualified and without a trailing separator (e.g., "\\server\share") and at least one more segment is following.
@@ -294,22 +313,22 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
                 || segment.IsSpecial
                 || segment.Kind is PathSegmentKind.DirectoryName))
             {
-                _ = pooledStringBuilder.Append(Path.DirectorySeparatorChar);
+                _ = pathBuilder.Append(Path.DirectorySeparatorChar);
             }
 
             for (; index < Segments.Count; index++)
             {
                 segment = Segments[index];
-                _ = pooledStringBuilder.Append(segment.Name);
+                _ = pathBuilder.Append(segment.Name);
 
                 // We append a directory separator character after each segment except for the last one to ensure a correct path representation.
                 if (index < Segments.Count - 1)
                 {
-                    _ = pooledStringBuilder.Append(Path.DirectorySeparatorChar);
+                    _ = pathBuilder.Append(Path.DirectorySeparatorChar);
                 }
             }
 
-            return string.Join(Path.DirectorySeparatorChar, Segments.Select(s => s.Name));
+            return pathBuilder.ToString();
         }
     }
 
