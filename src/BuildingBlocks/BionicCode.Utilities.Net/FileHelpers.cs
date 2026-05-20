@@ -89,9 +89,27 @@ public static class FileHelpers
 
         string trimmed = Path.TrimEndingDirectorySeparator(path);
 
+        return NormalizeDirectorySeparators(trimmed);
+    }
+
+    /// <summary>
+    /// Normalizes directory separators of the provided string by replacing alternate directory separators 
+    /// with the platform-specific directory separator.
+    /// </summary>
+    /// <remarks>This method does not trim trailing directory separators. Use <see cref="NormalizeFileSystemPath(string)"/> for full path normalization.
+    /// <para/>
+    /// This method normalizes directory separators across different platforms by replacing alternate directory separators with the platform-specific directory separator.
+    /// <br/>For example, on Windows, it replaces '/' with '\'.
+    /// </remarks>
+    /// <param name="path">The file system path or path segment to normalize.</param>
+    /// <returns>The normalized file system path or path segment.</returns>
+    public static string NormalizeDirectorySeparators(string path)
+    {
+        ArgumentNullExceptionAdvanced.ThrowIfNull(path);
+
         return OperatingSystem.IsWindows()
-            ? trimmed.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar)
-            : trimmed;
+            ? path.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar)
+            : path;
     }
 
     // Remove leading and trailing directory separator characters to ensure canonical directory name representation.
