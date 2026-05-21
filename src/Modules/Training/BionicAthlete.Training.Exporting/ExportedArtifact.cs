@@ -43,7 +43,7 @@ public sealed class ExportedArtifact
         RowCount = rowCount;
         BundlePath = bundlePath == default
             ? new(artifactName)
-            : new(bundlePath.FullPath.Replace('\\', '/'));
+            : new(bundlePath.PathString.Replace('\\', '/'));
     }
 
     /// <summary>

@@ -58,6 +58,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
 
     private readonly WriteOnce<PathDescriptor> _path;
     private readonly WriteOnce<int> _pathDepth;
+    private readonly string _rawPath;
 
     // Create a synthetic absolute path by combining the relative base path with a fixed synthetic root.
     // This allows us to resolve the relative path against the base path using Path.GetFullPath() (which only works with absolute paths).
@@ -83,9 +84,9 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
 
         Name = name;
         Location = FileHelpers.NormalizeFileSystemPath(location);
-        FullPath = SystemIoPath.Join(Location, Name);
-        IsRelative = !SystemIoPath.IsPathFullyQualified(FullPath);
-        IsRoot = SystemIoPath.GetDirectoryName(FullPath) is null;
+        _rawPath = SystemIoPath.Join(Location, Name);
+        IsRelative = !SystemIoPath.IsPathFullyQualified(PathString);
+        IsRoot = SystemIoPath.GetDirectoryName(PathString) is null;
     }
 
     /// <summary>
@@ -102,7 +103,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         string normalizedFullPath = FileHelpers.NormalizeFileSystemPath(fullPath);
 
         IsRelative = !SystemIoPath.IsPathFullyQualified(normalizedFullPath);
-        FullPath = normalizedFullPath;
+        _rawPath = normalizedFullPath;
 
         if (IsSpecialDirectorySymbol(normalizedFullPath)
             && SpecialRelativeUnrootedDirectorySymbolNormalizationTable.TryGetValue(normalizedFullPath, out string? canonicalSymbol))
@@ -111,7 +112,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
             // both returning "." or ".." respectively, while the name is empty
             // since they do not represent a specific directory name but rather a relative reference to the current or parent directory.
             Name = string.Empty;
-            FullPath = canonicalSymbol;
+            _rawPath = canonicalSymbol;
             Location = canonicalSymbol;
             IsRelative = true;
             IsRoot = false;
@@ -198,16 +199,16 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         // without an explicit drive root, and if implicit roots are not allowed, it must not be implicitly drive rooted.
         // Provided relative paths are resolved against the current base path (the current DirectoryDescriptor) to produce a final combined path
         // that correctly resolves special path symbols like ".." and ".". If the current DirectoryDescriptor is a relative path, the resulting apth will be realtive to.
-        string basePath = FullPath;
+        string basePath = PathString;
         foreach (DirectoryDescriptor segment in appendingLocationSegments)
         {
-            ArgumentExceptionAdvanced.ThrowIfFalse(segment.IsRelative, $"All '{nameof(appendingLocationSegments)}' must be relative directory paths. The segment '{segment.FullPath}' is not relative.");
-            ArgumentExceptionAdvanced.ThrowIfTrue(segment.HasExplicitDriveRoot, $"All '{nameof(appendingLocationSegments)}' must not have an explicit drive root. The segment '{segment.FullPath}' has an explicit drive root.");
+            ArgumentExceptionAdvanced.ThrowIfFalse(segment.IsRelative, $"All '{nameof(appendingLocationSegments)}' must be relative directory paths. The segment '{segment.PathString}' is not relative.");
+            ArgumentExceptionAdvanced.ThrowIfTrue(segment.HasExplicitDriveRoot, $"All '{nameof(appendingLocationSegments)}' must not have an explicit drive root. The segment '{segment.PathString}' has an explicit drive root.");
 
-            string segmentPath = segment.FullPath;
+            string segmentPath = segment.PathString;
             if (segment.HasImplicitDriveRoot)
             {
-                ArgumentExceptionAdvanced.ThrowIfFalse(isImplicitRootAllowed, $"The segment '{segment.FullPath}' is implicitly drive rooted. The argument '{nameof(isImplicitRootAllowed)}' must be set to TRUE to allow implicit drive rooted segments.");
+                ArgumentExceptionAdvanced.ThrowIfFalse(isImplicitRootAllowed, $"The segment '{segment.PathString}' is implicitly drive rooted. The argument '{nameof(isImplicitRootAllowed)}' must be set to TRUE to allow implicit drive rooted segments.");
 
                 // Remove the leading directory separator to prevent it from being treated as a rooted path segment in the combined path.
                 segmentPath = segmentPath[1..];
@@ -220,7 +221,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
             catch (ArgumentException ex)
             {
                 throw new ArgumentException(
-                    $"Invalid argument '{appendingLocationSegments}'. The provided relative directory path is invalid and exceeded the path depth of the current '{nameof(DirectoryDescriptor)}.{nameof(FullPath)}' value by traversing too many parent directories.",
+                    $"Invalid argument '{appendingLocationSegments}'. The provided relative directory path is invalid and exceeded the path depth of the current '{nameof(DirectoryDescriptor)}.{nameof(PathString)}' value by traversing too many parent directories.",
                     ex);
             }
         }
@@ -273,19 +274,19 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         if (HasExplicitDriveRoot)
         {
             // If the current path has an explicit drive root but is relative, we cannot resolve it to an absolute path without knowing the current drive. Therefore, we throw an exception in this case.
-            throw new InvalidOperationException($"Cannot convert to an absolute path because the current path '{FullPath}' has an explicit drive root but is relative. An absolute base directory cannot be used to resolve this path.");
+            throw new InvalidOperationException($"Cannot convert to an absolute path because the current path '{PathString}' has an explicit drive root but is relative. An absolute base directory cannot be used to resolve this path.");
         }
 
-        string currentRelativePath = FullPath;
+        string currentRelativePath = PathString;
         if (HasImplicitDriveRoot)
         {
-            ArgumentExceptionAdvanced.ThrowIfFalse(isImplicitRootAllowed, $"The current path '{FullPath}' is implicitly drive rooted. The argument '{nameof(isImplicitRootAllowed)}' must be set to TRUE to allow implicit drive rooted paths.");
+            ArgumentExceptionAdvanced.ThrowIfFalse(isImplicitRootAllowed, $"The current path '{PathString}' is implicitly drive rooted. The argument '{nameof(isImplicitRootAllowed)}' must be set to TRUE to allow implicit drive rooted paths.");
 
             // If implicit rooted paths are allowed and the current path starts with a directory separator, we treat it as implicitly rooted and remove the leading separator to combine it with the base directory.
             currentRelativePath = currentRelativePath[1..];
         }
 
-        return new(ResolveRelativePathStrict(absoluteBaseDirectory.FullPath, currentRelativePath));
+        return new(ResolveRelativePathStrict(absoluteBaseDirectory.PathString, currentRelativePath));
     }
 
     /// <summary>
@@ -321,7 +322,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         if (HasExplicitDriveRoot)
         {
             // If the current path has an explicit drive root but is relative, we cannot resolve it to an absolute path without knowing the current drive. Therefore, we throw an exception in this case.
-            throw new InvalidOperationException($"Cannot convert to an absolute path because the current path '{FullPath}' has an explicit drive root but is relative. An absolute base directory cannot be used to resolve this path.");
+            throw new InvalidOperationException($"Cannot convert to an absolute path because the current path '{PathString}' has an explicit drive root but is relative. An absolute base directory cannot be used to resolve this path.");
         }
 
         DirectoryDescriptor absolutePathDescriptor = ToAbsolutePath(absoluteBaseDirectory, isImplicitRootAllowed);
@@ -436,7 +437,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         ArgumentNullExceptionAdvanced.ThrowIfDefault(basePath);
         ArgumentNullExceptionAdvanced.ThrowIfDefault(relativeDirectoryPath);
 
-        string resolvedPath = ResolveRelativePathStrict(basePath.FullPath, relativeDirectoryPath.FullPath, basePathParameterName, relativePathParameterName);
+        string resolvedPath = ResolveRelativePathStrict(basePath.PathString, relativeDirectoryPath.PathString, basePathParameterName, relativePathParameterName);
         return new(resolvedPath);
     }
 
@@ -449,7 +450,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         ArgumentNullExceptionAdvanced.ThrowIfDefault(basePath);
         ArgumentNullExceptionAdvanced.ThrowIfDefault(relativeFilePath);
 
-        string resolvedPath = ResolveRelativePathStrict(basePath.FullPath, relativeFilePath.FullPath, baseDirectoryPathParameterName, relativeFilePathParameterName);
+        string resolvedPath = ResolveRelativePathStrict(basePath.PathString, relativeFilePath.FullPath, baseDirectoryPathParameterName, relativeFilePathParameterName);
         return new(resolvedPath);
     }
 
@@ -497,7 +498,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         return relativeResult;
     }
 
-    public IEnumerable<PathSegment> EnumeratePathSegments() => EnumeratePathSegments(FullPath);
+    public IEnumerable<PathSegment> EnumeratePathSegments() => EnumeratePathSegments(PathString);
 
     private static IEnumerable<PathSegment> EnumeratePathSegments(string path)
     {
@@ -584,17 +585,17 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     }
     #endregion Helpers
 
-    public override string ToString() => FullPath;
+    public override string ToString() => Path.ToString();
     public bool Equals(DirectoryDescriptor other) => s_pathEqualityComparer.Equals(this, other);
     public override int GetHashCode() => s_pathEqualityComparer.GetHashCode(this);
 
     /// <summary>
     /// Gets the depth of the current <see cref="DirectoryDescriptor"/> path.
     /// </summary>
-    /// <remarks>The depth is calculated based on the number of path segments in the <see cref="FullPath"/> excluding the root.
+    /// <remarks>The depth is calculated based on the number of path segments in the <see cref="PathString"/> excluding the root.
     /// <para/>
     /// For example, the path <c>C:\Users\Public</c> has a depth of 2. The path <c>C:\</c> has a depth of 0. On Unix the path <c>/usr/local/bin</c> has a depth of 3.</remarks>
-    public int RelativePathDepthDelta
+    public int GetRelativePathDepthDelta(DirectoryDescriptor other)
     {
         get
         {
@@ -629,7 +630,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
 
             if (!_path.IsSet)
             {
-                _path.SetValue(new PathDescriptor(this));
+                _path.SetValue(new PathDescriptor(_rawPath, isDirectory: true));
             }
 
             return _path;
@@ -640,8 +641,8 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
 
     // The parent directory path without the name. Can be absolute or relative.
     public string Location { get; }
-    public string FullPath { get; }
-    public string PathRoot => SystemIoPath.GetPathRoot(FullPath) ?? string.Empty;
+    public string PathString => ToString();
+    public string PathRoot => SystemIoPath.GetPathRoot(PathString) ?? string.Empty;
 
     /// <summary>
     /// Gets a value indicating whether the current path is relative rather than absolute.
@@ -656,20 +657,20 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// <remarks>A directory has an explicit drive root if it is an absolute path or a relative path with an explicit root like "C:Temp".
     /// <br/>The property will treat paths like "/Temp" as implicitly drive rooted.</remarks>
     /// <value><see langword="true"/> if the directory has an explicit drive root like "C:Temp" or is an absolute path like "C:\User\Temp"; otherwise, <see langword="false"/>.</value>
-    public bool HasExplicitDriveRoot => SystemIoPath.IsPathRooted(FullPath) && (SystemIoPath.GetPathRoot(FullPath)?.Length ?? 0) > 1;
+    public bool HasExplicitDriveRoot => SystemIoPath.IsPathRooted(PathString) && (SystemIoPath.GetPathRoot(PathString)?.Length ?? 0) > 1;
 
     /// <summary>
     /// Gets a value indicating whether the path has an implicit drive root (for example, <c>/subdir</c>).
     /// </summary>
     /// <remarks>An implicit drive root is present when the path is rooted and its root consists of a single
     /// character, typically representing a directory separator, for example <c>/subdir</c>.</remarks>
-    public bool HasImplicitDriveRoot => SystemIoPath.IsPathRooted(FullPath) && (SystemIoPath.GetPathRoot(FullPath)?.Length ?? 0) == 1;
+    public bool HasImplicitDriveRoot => SystemIoPath.IsPathRooted(PathString) && (SystemIoPath.GetPathRoot(PathString)?.Length ?? 0) == 1;
 
     /// <summary>
     /// Gets a value indicating whether the directory at the specified path currently exists.
     /// </summary>
     /// <value><see langword="true"/> if the directory exists or <see langword="false"/> an error occurred during the check or the directory does not exist at the time of the check.</value>
-    public bool IsExisting => Directory.Exists(FullPath);
+    public bool IsExisting => Directory.Exists(PathString);
 
     public bool IsRoot { get; }
 

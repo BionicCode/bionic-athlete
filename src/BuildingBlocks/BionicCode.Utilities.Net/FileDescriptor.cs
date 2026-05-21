@@ -28,7 +28,7 @@ public readonly struct FileDescriptor : IEquatable<FileDescriptor>
         NameWithoutExtension = Path.GetFileNameWithoutExtension(Name);
         Extension = FileExtension.FromFileName(Name);
         Location = location;
-        _filePath = Path.Combine(Location.FullPath, Name);
+        _filePath = Path.Combine(Location.PathString, Name);
         OriginalName = Name;
         OriginalFullPath = _filePath;
         IsRelative = location.IsRelative;
@@ -141,7 +141,7 @@ public readonly struct FileDescriptor : IEquatable<FileDescriptor>
         FileSystemPathValidator.ThrowIfInvalidFileName(originalName);
 
         // FileDescriptor.Location is already valid and normalized due to the validation in the constructor, so we can directly use it.
-        string sharedDirectoryPath = newFilePath.Location.FullPath;
+        string sharedDirectoryPath = newFilePath.Location.PathString;
 
         string originalFilePath = Path.Combine(sharedDirectoryPath, originalName);
 
@@ -162,7 +162,7 @@ public readonly struct FileDescriptor : IEquatable<FileDescriptor>
             return this;
         }
 
-        string relativePath = Path.GetRelativePath(baseDirectory.FullPath, FullPath);
+        string relativePath = Path.GetRelativePath(baseDirectory.PathString, FullPath);
         return new FileDescriptor(relativePath);
     }
 
@@ -171,7 +171,7 @@ public readonly struct FileDescriptor : IEquatable<FileDescriptor>
         ArgumentExceptionAdvanced.ThrowIfAny(precedingLocationSegments, item => item == default);
 
         IEnumerable<string> pathSegments = precedingLocationSegments
-            .Select(segment => segment.FullPath)
+            .Select(segment => segment.PathString)
             .Concat([Name]);
         string combinedPath = pathSegments.JoinToString(Path.DirectorySeparatorChar.ToString());
         FileSystemPathValidator.ThrowIfInvalidFilePath(combinedPath);

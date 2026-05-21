@@ -374,7 +374,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
         // Keep generated CSV file names stable inside the archive while isolating each export run in its own
         // temporary directory to avoid collisions between activities that share the same source file fileNameWithoutExtension.
         string directoryName = _temporaryFileManager.MakeFileNameUnique(fitFileNameWithoutExtension);
-        string exportOutputDirectoryPath = Path.Combine(_temporaryFileManager.TemporaryDirectoryPath.FullPath, directoryName);
+        string exportOutputDirectoryPath = Path.Combine(_temporaryFileManager.TemporaryDirectoryPath.PathString, directoryName);
         return new DirectoryDescriptor(exportOutputDirectoryPath);
     }
 

@@ -12,14 +12,6 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
     private readonly WriteOnce<int> _hashCodeCache;
     private readonly WriteOnce<string> _toStringCache;
 
-    internal PathDescriptor(FileDescriptor filePath) : this(filePath.FullPath, isDirectory: false)
-    {
-    }
-
-    internal PathDescriptor(DirectoryDescriptor directoryPath) : this(directoryPath.FullPath, isDirectory: true)
-    {
-    }
-
     public PathDescriptor(string path, bool isDirectory)
     {
         ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(path);

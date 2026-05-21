@@ -109,7 +109,7 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
 
             string zipFileName = $"{batch.BatchName}{FileExtensions.Zip}";
             string zipFilePath = Path.Combine(batch.DestinationDirectory, zipFileName);
-            string temporaryDestinationFolderPath = Path.Combine(_temporaryFileManager.TemporaryDirectoryPath.FullPath, batch.BatchName);
+            string temporaryDestinationFolderPath = Path.Combine(_temporaryFileManager.TemporaryDirectoryPath.PathString, batch.BatchName);
             await using var zipFile = new FileStream(
                 zipFilePath,
                 FileHelpers.WriteOnlyCreateOrOverwriteOptions);

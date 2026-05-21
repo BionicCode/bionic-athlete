@@ -35,7 +35,7 @@ internal class ReportManifestHandler : IReportManifestHandler
         ArgumentNullExceptionAdvanced.ThrowIfNull(reportInfo);
         ArgumentNullExceptionAdvanced.ThrowIfDefault(location);
 
-        string manifestFilePath = Path.Combine(location.FullPath, ArtifactNames.ManifestFileName);
+        string manifestFilePath = Path.Combine(location.PathString, ArtifactNames.ManifestFileName);
         if (File.Exists(manifestFilePath))
         {
             return await _jsonFileManager.ReadAsync(manifestFilePath, cancellationToken).ConfigureAwait(false);

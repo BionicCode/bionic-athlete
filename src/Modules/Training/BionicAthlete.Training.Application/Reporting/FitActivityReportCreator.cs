@@ -54,7 +54,7 @@ public class FitActivityReportCreator
         {
             string fileNameWithoutExtension = exportData.FitFileDescriptor.NameWithoutExtension;
             string fileName = $"{fileNameWithoutExtension}{FileExtensions.Html}";
-            htmlFilePath = new FileDescriptor(Path.Combine(exportData.OutputDirectoryPath.FullPath, fileName));
+            htmlFilePath = new FileDescriptor(Path.Combine(exportData.OutputDirectoryPath.PathString, fileName));
             var exportUri = new Uri(htmlFilePath.FullPath);
             HtmlExporterArgs htmlExporterArgs = _htmlExporterArgsFactory.Create(
                 htmlDocument,
@@ -100,7 +100,7 @@ public class FitActivityReportCreator
             cancellationToken);
         string fileNameWithoutExtension = exportData.FitFileDescriptor.NameWithoutExtension;
         string fileName = $"{fileNameWithoutExtension}{FileExtensions.Pdf}";
-        var pdfFilePath = new FileDescriptor(Path.Combine(exportData.OutputDirectoryPath.FullPath, fileName));
+        var pdfFilePath = new FileDescriptor(Path.Combine(exportData.OutputDirectoryPath.PathString, fileName));
         var exportRequest = new UriExportRequest(
             pdfFilePath,
             exportData.OutputDirectoryPath,

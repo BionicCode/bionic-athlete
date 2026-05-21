@@ -85,7 +85,7 @@ public static class CsvExportRequestFactory
             .ToImmutableArray();
 
         string destinationFilePath = Path.Combine(
-            outputDirectoryPath.FullPath,
+            outputDirectoryPath.PathString,
             "core",
             $"{sourceFileNameWithoutExtension}_{columnGroup.Key.ToString().ToLowerInvariant()}.csv");
 

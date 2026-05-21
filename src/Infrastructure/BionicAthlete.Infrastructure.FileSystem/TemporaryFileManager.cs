@@ -18,9 +18,9 @@ public sealed partial class TemporaryFileManager : ITemporaryFileManager
     public TemporaryFileManager(IApplicationLogger<TemporaryFileManager> logger)
     {
         _temporaryDirectoryPath = new DirectoryDescriptor(Path.Combine(Path.GetTempPath(), DefaultDestinationFolderName));
-        if (!Directory.Exists(_temporaryDirectoryPath.FullPath))
+        if (!Directory.Exists(_temporaryDirectoryPath.PathString))
         {
-            _ = Directory.CreateDirectory(_temporaryDirectoryPath.FullPath);
+            _ = Directory.CreateDirectory(_temporaryDirectoryPath.PathString);
         }
 
         _logger = logger;
@@ -53,11 +53,11 @@ public sealed partial class TemporaryFileManager : ITemporaryFileManager
 
         s_temporaryFilePaths.Clear();
 
-        if (Directory.Exists(_temporaryDirectoryPath.FullPath))
+        if (Directory.Exists(_temporaryDirectoryPath.PathString))
         {
             try
             {
-                Directory.Delete(_temporaryDirectoryPath.FullPath, recursive: true);
+                Directory.Delete(_temporaryDirectoryPath.PathString, recursive: true);
             }
             catch (Exception ex)
             {
@@ -71,12 +71,12 @@ public sealed partial class TemporaryFileManager : ITemporaryFileManager
     public FileDescriptor CreateTemporaryFilePath() => new(Path.GetTempFileName(), TemporaryDirectoryPath);
 
     // Uses Path.GetFileName() to ensure that only the file name is combined with the temporary directory path, preventing any directory traversal issues.
-    public FileDescriptor CreateTemporaryFilePath(string fileName) => new(Path.Combine(TemporaryDirectoryPath.FullPath, Path.GetFileName(fileName)), TemporaryDirectoryPath);
+    public FileDescriptor CreateTemporaryFilePath(string fileName) => new(Path.Combine(TemporaryDirectoryPath.PathString, Path.GetFileName(fileName)), TemporaryDirectoryPath);
 
     // Uses Path.GetFileName() to ensure that only the file name is combined with the temporary directory path, preventing any directory traversal issues.
     public FileDescriptor CreateTemporaryFilePath(string subfolder, string fileName)
     {
-        string directory = Path.Combine(TemporaryDirectoryPath.FullPath, subfolder);
+        string directory = Path.Combine(TemporaryDirectoryPath.PathString, subfolder);
         if (!Directory.Exists(directory))
         {
             _ = Directory.CreateDirectory(directory);

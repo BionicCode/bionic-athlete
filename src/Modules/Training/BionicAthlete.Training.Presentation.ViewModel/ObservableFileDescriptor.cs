@@ -71,7 +71,7 @@ public class ObservableFileDescriptor : ViewModel
         IsEmbeddedResource = true;
         _originalName = Name;
         _newName = Name;
-        FullPath = $"{Location.FullPath}.{Name}";
+        FullPath = $"{Location.PathString}.{Name}";
         Extension = FileExtension.FromFilePath(FullPath);
         OriginalFullPath = FullPath;
 
@@ -90,7 +90,7 @@ public class ObservableFileDescriptor : ViewModel
         }
 
         Name = _originalName;
-        FullPath = Path.Combine(Location.FullPath, Name);
+        FullPath = Path.Combine(Location.PathString, Name);
         IsRenamed = false;
     }
 
@@ -102,7 +102,7 @@ public class ObservableFileDescriptor : ViewModel
         }
 
         Name = _newName;
-        FullPath = Path.Combine(Location.FullPath, Name);
+        FullPath = Path.Combine(Location.PathString, Name);
         IsRenamed = true;
     }
 
@@ -113,7 +113,7 @@ public class ObservableFileDescriptor : ViewModel
         {
             IsRenamed = true;
             Name = _newName;
-            FullPath = Path.Combine(Location.FullPath, Name);
+            FullPath = Path.Combine(Location.PathString, Name);
         }
     }
 
