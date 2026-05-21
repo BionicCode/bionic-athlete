@@ -56,6 +56,9 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
 
     private static readonly FileSystemPathEqualityComparer s_pathEqualityComparer = FileSystemPathEqualityComparer.Instance;
 
+    private readonly WriteOnce<PathDescriptor> _path;
+    private readonly WriteOnce<int> _pathDepth;
+
     // Create a synthetic absolute path by combining the relative base path with a fixed synthetic root.
     // This allows us to resolve the relative path against the base path using Path.GetFullPath() (which only works with absolute paths).
     // We later remove the synthetic root to get the final relative path result. 
@@ -75,6 +78,9 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         FileSystemPathValidator.ThrowIfInvalidDirectoryName(name);
         FileSystemPathValidator.ThrowIfInvalidDirectoryPath(location);
 
+        _path = new WriteOnce<PathDescriptor>();
+        _pathDepth = new WriteOnce<int>();
+
         Name = name;
         Location = FileHelpers.NormalizeFileSystemPath(location);
         FullPath = SystemIoPath.Join(Location, Name);
@@ -89,6 +95,9 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     public DirectoryDescriptor(string fullPath)
     {
         FileSystemPathValidator.ThrowIfInvalidDirectoryPath(fullPath);
+
+        _path = new WriteOnce<PathDescriptor>();
+        _pathDepth = new WriteOnce<int>();
 
         string normalizedFullPath = FileHelpers.NormalizeFileSystemPath(fullPath);
 
@@ -579,9 +588,6 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     public bool Equals(DirectoryDescriptor other) => s_pathEqualityComparer.Equals(this, other);
     public override int GetHashCode() => s_pathEqualityComparer.GetHashCode(this);
 
-    private readonly WriteOnce<PathDescriptor> _path;
-    private readonly WriteOnce<int> _pathDepth;
-
     /// <summary>
     /// Gets the depth of the current <see cref="DirectoryDescriptor"/> path.
     /// </summary>
@@ -592,6 +598,14 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     {
         get
         {
+            // Can only be NULL when instance is default or the implicit default constructor was used to create this instance.
+            // In both cases the instance is considered invalid.
+            // Since string.Empty is not considered valid under normal construction returning string.Empty is fine to communicate an uninitialized compiler default state and least disturbing.
+            if (_pathDepth is null)
+            {
+                return 0;
+            }
+
             if (!_pathDepth.IsSet)
             {
                 _pathDepth.SetValue(CalculatePathDepthDelta());
@@ -605,6 +619,14 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     {
         get
         {
+            // Can only be NULL when instance is default or the implicit default constructor was used to create this instance.
+            // In both cases the instance is considered invalid.
+            // Since string.Empty is not considered valid under normal construction returning string.Empty is fine to communicate an uninitialized compiler default state and least disturbing.
+            if (_path is null)
+            {
+                return default;
+            }
+
             if (!_path.IsSet)
             {
                 _path.SetValue(new PathDescriptor(this));

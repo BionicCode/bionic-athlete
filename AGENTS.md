@@ -132,6 +132,10 @@ Prioritize findings in this order:
   - you hit a boundary caused by missing files, generated code, dynamic dispatch you cannot resolve, external dependencies, or insufficient context.
 - Prefer evidence-based findings over speculative concerns.
 - Distinguish clearly between confirmed defects, likely risks, and unverified suspicions.
+- When a finding depends on branch-sensitive behavior or framework/library helper behavior, verify it with at least one concrete witness input and trace that input through the relevant branches before labeling the finding as `[BUG]`.
+- If the concern is based on a plausible pattern but no concrete witness input has been traced successfully, report it as `[RISK]` or stop with uncertainty instead of escalating it to a confirmed defect.
+- For edge-case claims, include the minimal witness input in the finding explanation.
+- If a finding depends on framework or library API semantics that are not proven by the local code alone, verify that behavior from trusted documentation, runtime evidence, or other repository-local proof before labeling the finding as `[BUG]`; otherwise report it as `[RISK]` or stop with uncertainty.
 
 ### Review Output Format
 Organize the review by file.

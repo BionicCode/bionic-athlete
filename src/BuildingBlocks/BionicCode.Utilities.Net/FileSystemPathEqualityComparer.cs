@@ -62,16 +62,6 @@ public abstract class FileSystemPathEqualityComparer : StringComparer,
 
     public virtual bool Equals(FileDescriptor x, FileDescriptor y)
     {
-        if (x == default && y == default)
-        {
-            return true;
-        }
-
-        if (x == default || y == default)
-        {
-            return false;
-        }
-
         string? xNormalized = x.FullPath is null
             ? null
             : FileHelpers.NormalizeFileSystemPath(x.FullPath);
@@ -84,16 +74,6 @@ public abstract class FileSystemPathEqualityComparer : StringComparer,
 
     public virtual bool Equals(DirectoryDescriptor x, DirectoryDescriptor y)
     {
-        if (x == default && y == default)
-        {
-            return true;
-        }
-
-        if (x == default || y == default)
-        {
-            return false;
-        }
-
         string? xNormalizedFullPath = x.FullPath is null
             ? null
             : FileHelpers.NormalizeFileSystemPath(x.FullPath);
@@ -113,7 +93,17 @@ public abstract class FileSystemPathEqualityComparer : StringComparer,
             ? null
             : FileHelpers.NormalizeFileSystemPath(y.PathString);
 
-        return Comparer.Equals(xNormalizedFullPath, yNormalizedFullPath);
+        if (!Comparer.Equals(xNormalizedFullPath, yNormalizedFullPath))
+        {
+            return false;
+        }
+
+        if (!x.Segments.SequenceEqual(y.Segments))
+        {
+            return false;
+        }
+
+        return true;
     }
 
     public virtual bool Equals(IEqualityComparer<string>? other) => ReferenceEquals(this, other);
@@ -140,7 +130,11 @@ public abstract class FileSystemPathEqualityComparer : StringComparer,
 
     public int GetHashCode([DisallowNull] PathDescriptor pathDescriptor) => string.IsNullOrWhiteSpace(pathDescriptor.PathString)
         ? 0
-        : Comparer.GetHashCode(FileHelpers.NormalizeFileSystemPath(pathDescriptor.PathString));
+        : HashCode.Combine(
+            Comparer.GetHashCode(FileHelpers.NormalizeFileSystemPath(pathDescriptor.PathString)),
+            pathDescriptor.Segments
+                .Select(static segment => segment.GetHashCode())
+                .Aggregate(0, static (a, b) => HashCode.Combine(a, b)));
 
     public override int GetHashCode() => Comparer.GetHashCode();
 
