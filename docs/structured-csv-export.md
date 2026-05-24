@@ -5,15 +5,14 @@
 `ICsvActivityExporter` currently implements the machine-parseable export target only.
 This path is intended for structured data interchange, deterministic tests, aggregation, and later re-import.
 
-Human-readable presentation export is implemented separately as View C report export.
-It does not parse View B CSV output and does not change the structured CSV contract.
+The current exporter does not implement the future human-readable presentation export target.
 
 ## Entry points
 
-- [`ICsvActivityExporter`](../src/BionicAthlete.Training.Domain/Exporting/ICsvActivityExporter.cs)
-- [`CsvExportRequest`](../src/BionicAthlete.Training.Domain/Exporting/CsvExportRequest.cs)
-- [`FitExportOptions`](../src/BionicAthlete.Training.Domain/Exporting/FitExportOptions.cs)
-- [`CsvActivityExporter`](../src/BionicAthlete.Training.Domain/Exporting/CsvActivityExporter.cs)
+- [`ICsvActivityExporter`](../src/FitToCsvConverter.Data/Exporting/ICsvActivityExporter.cs)
+- [`CsvExportRequest`](../src/FitToCsvConverter.Data/Exporting/CsvExportRequest.cs)
+- [`FitExportOptions`](../src/FitToCsvConverter.Data/Exporting/FitExportOptions.cs)
+- [`CsvActivityExporter`](../src/FitToCsvConverter.Data/Exporting/CsvActivityExporter.cs)
 
 For shared terminology, see [FIT Export Glossary](fit-export-glossary.md).
 
@@ -23,7 +22,7 @@ The exporter treats export output as data views over the same decoded FIT source
 
 - View A: raw canonical FIT view. This is the exhaustive, lossless source view used for debugging, auditability, and later persistence ingestion.
 - View B: structured machine view. This is the default user-facing CSV projection and is optimized for stable machine parsing.
-- View C: human-readable presentation view. This is implemented by the reporting pipeline as deterministic HTML plus optional PDF, not by the CSV exporter.
+- View C: human-readable presentation view. This is intentionally deferred.
 
 The default `FitExportDataView.StructuredMachine` package emits View B only:
 
@@ -177,9 +176,9 @@ Mapped unknown fields use:
 - PDF/report equivalence is intentionally honest rather than speculative.
   - When a Garmin Connect value is not directly present in the FIT file and is not reliably derivable from FIT data, the manifest should classify it as `GarminConnectOnlyOrUnconfirmed` instead of fabricating it as source-native FIT data.
 
-## Separate presentation export
+## Deferred presentation export
 
-View C presentation export handles concerns such as:
+The future presentation export target is expected to handle concerns such as:
 
 - human-facing date and time formatting,
 - readable duration formatting such as `hh:mm:ss`,
@@ -187,5 +186,4 @@ View C presentation export handles concerns such as:
 - summary blocks,
 - charts or workbook-style presentation.
 
-Those policies stay outside the decoded source model and outside the structured CSV rules.
-See [View C Report Export](view-c-report-export.md) for the HTML/PDF report boundary.
+Those policies must stay outside the decoded source model and outside the structured CSV rules implemented in this step.

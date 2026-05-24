@@ -15,7 +15,7 @@
   },
   "retrieved": {
     "date": "2026-05-24",
-    "timestampUtc": "2026-05-24T09:58:24.6659785Z",
+    "timestampUtc": "2026-05-24T09:35:14.1176444Z",
     "by": "github-actions-or-local-script",
     "notes": "Updated from latest semantic version tag in Garmin fit-sdk-tools using Git LFS."
   },

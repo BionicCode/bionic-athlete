@@ -1,1 +1,0 @@
-﻿Training-specific viewmodels; UI-bound PDF export adapter view models if kept in module UI

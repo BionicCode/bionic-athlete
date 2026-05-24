@@ -1,0 +1,16 @@
+{
+  "$schema": "./sync-manifest.schema.json",
+  "schema_version": 1,
+  "entries": [
+    {
+      "source_repo": "BionicCode/template-visual-studio-repository",
+      "source_ref": "main",
+      "source_path": "README.md",
+      "target_path": "README.md",
+      "direction": "source_to_target",
+      "lifecycle_policy": "seed_once",
+      "uniqueness_policy": "none",
+      "managed_scope": "whole_file"
+    }
+  ]
+}

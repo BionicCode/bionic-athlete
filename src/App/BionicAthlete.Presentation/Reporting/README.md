@@ -1,1 +1,0 @@
-﻿HTML/report data view C projection/rendering implementation of application contracts

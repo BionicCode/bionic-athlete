@@ -1,1 +1,0 @@
-﻿Pure derived-metric calculators and shared semantic mappers
