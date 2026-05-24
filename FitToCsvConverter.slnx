@@ -4,8 +4,10 @@
   <Project Path="src/FitToCsvConverter.Controls/FitToCsvConverter.Controls.csproj" Id="cb6f6f76-849f-4bf0-aec8-bbcdad644629" />
   <Project Path="src/FitToCsvConverter.Data/FitToCsvConverter.Data.csproj" Id="1389a9c6-e976-42f0-821f-adfa93806686" />
   <Project Path="src/FitToCsvConverter.Main/FitToCsvConverter.Main.csproj" />
-  <Project Path="src/FitToCsvConverter.Reporting/FitToCsvConverter.Reporting.csproj" Id="b2d0de9e-1f8d-4b58-8b26-f5e99e5eb2c3" />
+  <Project Path="src/FitToCsvConverter.Reporting/FitToCsvConverter.Reporting.csproj" Id="b2d0de9e-1f8d-4b58-8b26-f5e99e5eb2c3">
+    <Build Solution="Debug|*" Project="false" />
+  </Project>
   <Project Path="src/FitToCsvConverter.Shared/FitToCsvConverter.Shared.csproj" Id="5379f4eb-ed6c-42ff-98a0-19fe178d6d72" />
-  <Project Path="test/FitToCsvConverter.Test/FitToCsvConverter.Test.csproj" Id="dd37f401-590b-48d6-b6e4-6962a05e8dca" />
   <Project Path="src/FitToCsvConverter.ViewMode/FitToCsvConverter.ViewModel.csproj" />
+  <Project Path="test/FitToCsvConverter.Test/FitToCsvConverter.Test.csproj" Id="dd37f401-590b-48d6-b6e4-6962a05e8dca" />
 </Solution>
