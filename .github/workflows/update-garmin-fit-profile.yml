@@ -60,6 +60,9 @@ jobs:
           set -euo pipefail
 
           branch_name="automation/update-garmin-fit-profile"
+          
+          # Always update the repository default branch.
+          # Feature branches should receive Profile.xlsx/Profile.source.json updates by merging/rebasing main.
           base_branch="${{ github.event.repository.default_branch }}"
 
           tag="$(pwsh -NoLogo -NoProfile -Command "(Get-Content 'docs/reference/garmin-fit/Profile.source.json' -Raw | ConvertFrom-Json).upstream.tag")"
