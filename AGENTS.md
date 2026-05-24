@@ -198,7 +198,9 @@ If execution was blocked, report the exact blocker instead of pretending verific
 - Put detailed workflow instructions for recurring specialized tasks in separate repository files, nested `AGENTS.md` files, or skills, and reference them from this file when needed.
 - Keep repository-specific commands, framework choices, and detailed local processes in the `Repository Specifics` section or a more specific instructions file.
 
-<!-- BEGIN REPOSITORY SPECIFICS: repository owners may edit only this section -->
+<!-- BEGIN REPOSITORY SPECIFICS -->
+<!-- Repository owners may edit only this section -->
+
 # Repository Specifics
 
 Fill in or edit this section per repository. Everything above this section is intended to remain stable across repositories.
