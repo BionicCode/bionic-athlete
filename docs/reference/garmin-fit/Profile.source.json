@@ -6,21 +6,21 @@
   "upstream": {
     "repositoryUrl": "https://github.com/garmin/fit-sdk-tools.git",
     "filePath": "Profile.xlsx",
-    "tag": "21.202.0",
-    "ref": "refs/tags/21.202.0",
-    "tagRefSha": "6e062e094fe8a911b2629370fe270778d66d147a",
-    "sourceUrl": "https://github.com/garmin/fit-sdk-tools/blob/21.202.0/Profile.xlsx",
-    "rawUrl": "git-lfs:https://github.com/garmin/fit-sdk-tools.git@21.202.0/Profile.xlsx",
+    "tag": "21.205.0",
+    "ref": "refs/tags/21.205.0",
+    "tagRefSha": "18c29accab8b5d5b6cdc504b6a5749ee0c8af72f",
+    "sourceUrl": "https://github.com/garmin/fit-sdk-tools/blob/21.205.0/Profile.xlsx",
+    "rawUrl": "git-lfs:https://github.com/garmin/fit-sdk-tools.git@21.205.0/Profile.xlsx",
     "changeId": null
   },
   "retrieved": {
-    "date": "2026-05-18",
-    "timestampUtc": "2026-05-18T08:16:22.1881080Z",
+    "date": "2026-05-24",
+    "timestampUtc": "2026-05-24T09:35:14.1176444Z",
     "by": "github-actions-or-local-script",
     "notes": "Updated from latest semantic version tag in Garmin fit-sdk-tools using Git LFS."
   },
   "hashes": {
-    "sha256": "1128a4f29c959ab45c2489227779d1326b09a82c442f4b2f35e91eaf3417d628"
+    "sha256": "e68d1ca4824d5f330a86ce5f27ccff29b2c417d12d7a0702b6382e511279dcba"
   },
   "previous": {
     "tag": "21.201.0",
