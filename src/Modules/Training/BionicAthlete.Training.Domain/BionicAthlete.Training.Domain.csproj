@@ -15,4 +15,8 @@
     <ProjectReference Include="..\..\..\BuildingBlocks\BionicAthlete.Shared\BionicAthlete.Shared.csproj" />
     <ProjectReference Include="..\..\..\BuildingBlocks\BionicCode.Utilities.Net\BionicCode.Utilities.Net.Common.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Reference\" />
+  </ItemGroup>
 </Project>

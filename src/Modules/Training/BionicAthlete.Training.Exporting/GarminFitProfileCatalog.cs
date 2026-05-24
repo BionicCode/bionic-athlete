@@ -1,12 +1,11 @@
 namespace BionicAthlete.Training.Exporting;
 
 using System.Collections.Frozen;
-using System.Reflection;
 using System.Text.Json;
 
 internal sealed class GarminFitProfileCatalog
 {
-    private const string CatalogResourceName = "BionicAthlete.Training.Domain.Reference.GarminFitProfileCatalog.json";
+    private const string CatalogResourceName = "BionicAthlete.Training.Exporting.Reference.Profile.catalog.json";
 
     private static readonly Lazy<GarminFitProfileCatalog> s_default = new(LoadDefaultCatalog);
 
@@ -44,13 +43,11 @@ internal sealed class GarminFitProfileCatalog
 
     private static GarminFitProfileCatalog LoadDefaultCatalog()
     {
-        using Stream? resourceStream = Assembly.GetExecutingAssembly().GetManifestResourceStream(CatalogResourceName);
-        if (resourceStream is null)
-        {
-            return CreateEmptyCatalog();
-        }
+        using Stream resourceStream =
+            typeof(GarminFitProfileCatalog).Assembly.GetManifestResourceStream(CatalogResourceName)
+            ?? throw new InvalidOperationException($"Embedded Garmin FIT profile catalog resource '{CatalogResourceName}' was not found.");
 
-        using JsonDocument catalogDocument = JsonDocument.Parse(resourceStream);
+        using var catalogDocument = JsonDocument.Parse(resourceStream);
         JsonElement root = catalogDocument.RootElement;
         string sourceWorkbook = root.TryGetProperty("sourceWorkbook", out JsonElement sourceWorkbookElement)
             ? sourceWorkbookElement.GetString() ?? string.Empty
