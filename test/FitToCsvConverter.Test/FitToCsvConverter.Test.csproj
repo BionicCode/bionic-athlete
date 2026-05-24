@@ -28,6 +28,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\BionicCode.Utilities.Net\BionicCode.Utilities.Net.Common.csproj" />
     <ProjectReference Include="..\..\src\FitToCsvConverter.Data\FitToCsvConverter.Data.csproj" />
+    <ProjectReference Include="..\..\src\FitToCsvConverter.Reporting\FitToCsvConverter.Reporting.csproj" />
   </ItemGroup>
 
   <ItemGroup>

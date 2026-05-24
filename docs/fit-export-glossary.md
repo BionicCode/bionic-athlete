@@ -6,10 +6,11 @@ This glossary defines the export vocabulary used by the decoded FIT exporter, ma
 
 - **View A**: The raw canonical FIT view. It is the exhaustive decoded source view used for audit, debugging, and later local persistence ingestion.
 - **View B**: The structured machine view. It is the default CSV projection for users and downstream tools.
-- **View C**: The future human-readable presentation view. It is intentionally not implemented by the current exporter.
+- **View C**: The human-readable presentation view. View C v1 generates deterministic HTML report packages and can render PDF from that same HTML through the UI boundary.
 - **Raw canonical view**: Same as View A. It preserves standard, developer, unknown, and vendor/future data with source metadata.
 - **Structured machine view**: Same as View B. It applies deterministic grouping, units, canonical names, aliases, and documented derived or mapped convenience columns.
-- **Human-readable presentation view**: Same as View C. It will later handle readable labels, local-time display, formatted durations, summaries, charts, and reports.
+- **Human-readable presentation view**: Same as View C. It handles readable labels, local-time display, formatted durations, summaries, charts, data-quality notes, and report/PDF output.
+- **ReportReady**: A WebView2 readiness message posted by generated View C HTML after DOM, CSS/layout, fonts, images, inline SVG charts, and two animation frames are ready.
 
 ## Field Origins
 

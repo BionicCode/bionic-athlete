@@ -2,6 +2,7 @@ namespace FitToCsvConverter.ViewModel;
 
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Text;
@@ -9,6 +10,7 @@ using BionicCode.Utilities.Net;
 using FitToCsvConverter.Data;
 using FitToCsvConverter.Data.Decoding;
 using FitToCsvConverter.Data.Exporting;
+using FitToCsvConverter.Reporting;
 
 public class MainViewModel : ViewModel, IDisposableAdvanced
 {
@@ -23,6 +25,8 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
     private readonly SetValueOptions _setValueOptions;
     private readonly IArchiveManager _zipArchiveManager;
     private readonly ICsvActivityExporter _csvActivityExporter;
+    private readonly IActivityReportProjector _activityReportProjector;
+    private readonly IActivityReportHtmlRenderer _activityReportHtmlRenderer;
     private readonly ITemporaryFileManager _temporaryFileManager;
     private readonly Func<IFitActivityDecoder> _cachingFitActivityDecoderFactory;
     private readonly Dictionary<string, ExportData> _fitFilePathToExportDataLookup;
@@ -38,12 +42,16 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
 
     public MainViewModel(IZipArchiveManager zipArchiveManager,
         ICsvActivityExporter csvActivityExporter,
+        IActivityReportProjector activityReportProjector,
+        IActivityReportHtmlRenderer activityReportHtmlRenderer,
         ITemporaryFileManager temporaryFileManager,
         Func<IFitActivityDecoder> cachingFitActivityDecoderFactory)
     {
         _temporaryFileManager = temporaryFileManager;
         _zipArchiveManager = zipArchiveManager;
         _csvActivityExporter = csvActivityExporter;
+        _activityReportProjector = activityReportProjector;
+        _activityReportHtmlRenderer = activityReportHtmlRenderer;
         _cachingFitActivityDecoderFactory = cachingFitActivityDecoderFactory;
         _addFitFilesSemaphore = new SemaphoreSlim(1, 1);
         _fitFilePathsValidator = IsFitFilePathsValid();
@@ -232,6 +240,37 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
     public void SetAllSessionFieldsSelected(bool isSelected) => SelectedExportData?.SetAllSessionFieldsSelected(isSelected);
     public void SetAllLapFieldsSelected(bool isSelected) => SelectedExportData?.SetAllLapFieldsSelected(isSelected);
 
+    /// <summary>
+    /// Creates the neutral View C HTML report package for the selected decoded activity.
+    /// </summary>
+    /// <param name="exportData">The decoded activity and UI-facing batch state to export.</param>
+    /// <param name="outputTarget">The requested View C output target.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The generated HTML report package.</returns>
+    public async Task<HtmlReportPackage> PrepareHumanReadableReportAsync(
+        ExportData exportData,
+        ActivityReportOutputTarget outputTarget,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullExceptionAdvanced.ThrowIfNull(exportData);
+
+        string outputDirectoryPath = CreateReportOutputDirectory(exportData);
+        var options = new ActivityReportExportOptions(
+            outputDirectoryPath,
+            outputTarget,
+            CultureInfo.CurrentCulture,
+            TimeZoneInfo.Local,
+            DateTimeOffset.UtcNow,
+            ActivityReportPageSettings.A4Portrait);
+
+        ActivityReport report = await _activityReportProjector
+            .ProjectAsync(exportData.Activity, options, cancellationToken)
+            .ConfigureAwait(true);
+        return await _activityReportHtmlRenderer
+            .RenderAsync(report, options, cancellationToken)
+            .ConfigureAwait(true);
+    }
+
     private async Task<bool> AddFitFilePathAsync(string fitFilePath, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(fitFilePath))
@@ -309,6 +348,25 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
         return exportOutputDirectoryPath;
     }
 
+    private string CreateReportOutputDirectory(ExportData exportData)
+    {
+        string batchName = exportData.IsAutoRenamingEnabled || string.IsNullOrWhiteSpace(exportData.BatchName)
+            ? exportData.AutoRenameBatchName
+            : exportData.BatchName;
+        string baseDirectoryName = $"{SanitizeFileNameSegment(batchName)}_report";
+        string outputDirectoryPath = Path.Combine(DestinationFolder, baseDirectoryName);
+        int duplicateCounter = 1;
+
+        while (Directory.Exists(Path.Combine(outputDirectoryPath, "report")))
+        {
+            outputDirectoryPath = Path.Combine(DestinationFolder, $"{baseDirectoryName}_{duplicateCounter.ToString(CultureInfo.InvariantCulture)}");
+            duplicateCounter++;
+        }
+
+        _ = Directory.CreateDirectory(outputDirectoryPath);
+        return outputDirectoryPath;
+    }
+
     private async Task CreateArchivesAsync()
     {
         List<FileBatch> batchesToArchive = await EnumerateFileBatchesAsync().ToListAsync();
@@ -363,6 +421,14 @@ public class MainViewModel : ViewModel, IDisposableAdvanced
     }
 
     private void ExecuteStartNewSessionCommand() => StartNewSession();
+
+    private static string SanitizeFileNameSegment(string value)
+    {
+        char[] invalidFileNameChars = Path.GetInvalidFileNameChars();
+        char[] sanitizedChars = value.Select(character => invalidFileNameChars.Contains(character) ? '_' : character).ToArray();
+        string sanitizedValue = new(sanitizedChars);
+        return string.IsNullOrWhiteSpace(sanitizedValue) ? "activity" : sanitizedValue.Trim();
+    }
 
     public string DestinationFolder
     {

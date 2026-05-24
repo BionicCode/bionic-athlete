@@ -5,7 +5,8 @@
 `ICsvActivityExporter` currently implements the machine-parseable export target only.
 This path is intended for structured data interchange, deterministic tests, aggregation, and later re-import.
 
-The current exporter does not implement the future human-readable presentation export target.
+Human-readable presentation export is implemented separately as View C report export.
+It does not parse View B CSV output and does not change the structured CSV contract.
 
 ## Entry points
 
@@ -22,7 +23,7 @@ The exporter treats export output as data views over the same decoded FIT source
 
 - View A: raw canonical FIT view. This is the exhaustive, lossless source view used for debugging, auditability, and later persistence ingestion.
 - View B: structured machine view. This is the default user-facing CSV projection and is optimized for stable machine parsing.
-- View C: human-readable presentation view. This is intentionally deferred.
+- View C: human-readable presentation view. This is implemented by the reporting pipeline as deterministic HTML plus optional PDF, not by the CSV exporter.
 
 The default `FitExportDataView.StructuredMachine` package emits View B only:
 
@@ -118,6 +119,9 @@ For the current Edge 840 reference activity, this applies to:
 These are inferred aliases from preserved unknown session fields.
 Do not describe them as officially named Garmin FIT profile fields unless `Profile.xlsx` or another official Garmin source publishes those names.
 
+These are inferred aliases from preserved unknown session fields.
+Do not describe them as officially named Garmin FIT profile fields unless `Profile.xlsx` or another official Garmin source publishes those names.
+
 Direct tree fields and direct ancillary fields are exported with source message and field metadata.
 Developer fields retain their developer-field identity and any Garmin SDK metadata that was available during decode.
 Unknown and vendor-specific data is preserved rather than dropped; when the SDK cannot provide a semantic name, the export keeps the raw `unknown_*` field naming plus source metadata in the manifest.
@@ -176,9 +180,9 @@ Mapped unknown fields use:
 - PDF/report equivalence is intentionally honest rather than speculative.
   - When a Garmin Connect value is not directly present in the FIT file and is not reliably derivable from FIT data, the manifest should classify it as `GarminConnectOnlyOrUnconfirmed` instead of fabricating it as source-native FIT data.
 
-## Deferred presentation export
+## Separate presentation export
 
-The future presentation export target is expected to handle concerns such as:
+View C presentation export handles concerns such as:
 
 - human-facing date and time formatting,
 - readable duration formatting such as `hh:mm:ss`,
@@ -186,4 +190,5 @@ The future presentation export target is expected to handle concerns such as:
 - summary blocks,
 - charts or workbook-style presentation.
 
-Those policies must stay outside the decoded source model and outside the structured CSV rules implemented in this step.
+Those policies stay outside the decoded source model and outside the structured CSV rules.
+See [View C Report Export](view-c-report-export.md) for the HTML/PDF report boundary.

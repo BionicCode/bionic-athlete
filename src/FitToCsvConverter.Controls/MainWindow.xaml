@@ -358,8 +358,7 @@
                                          DragEnter="PrepareFitFileDropTargetFeedBack"
                                          DragOver="ProvideFitFileDropTargetFeedBack"
                                          DragLeave="ClearFitFileDropTargetFeedBack"
-                                         ContextMenu="{StaticResource FitFileListContextMenu}"
-                                         SelectionChanged="ExportDataMasterView_SelectionChanged" />
+                                         ContextMenu="{StaticResource FitFileListContextMenu}" />
                             </Border>
                         </Grid>
                     </Grid>
@@ -649,18 +648,32 @@
                     </Grid>
                 </StackPanel>
                 
-                <Button Grid.Row="3"
-                        Margin="10,12,0,0"
-                        VerticalAlignment="Top"
-                        Height="{Binding ElementName=DestinationFolderTextBox, Path=ActualHeight}"
-                        Width="80"
-                        Content="{StaticResource SendIcon}"
-                        Opacity="1"
-                        HorizontalAlignment="Left"
-                        HorizontalContentAlignment="Center"
-                        VerticalContentAlignment="Center"
-                        Command="{Binding ExportCommand}">
-                </Button>
+                <StackPanel Grid.Row="3"
+                            Margin="10,12,0,0"
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Left">
+                    <Button VerticalAlignment="Top"
+                            Height="{Binding ElementName=DestinationFolderTextBox, Path=ActualHeight}"
+                            Width="80"
+                            Content="{StaticResource SendIcon}"
+                            Opacity="1"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            Command="{Binding ExportCommand}"
+                            ToolTip="Export structured machine CSV ZIP" />
+                    <Button Margin="10,0,0,0"
+                            VerticalAlignment="Top"
+                            Height="{Binding ElementName=DestinationFolderTextBox, Path=ActualHeight}"
+                            MinWidth="125"
+                            Content="Export HTML Report"
+                            Command="{x:Static local:MainWindow.ExportHtmlReportCommand}" />
+                    <Button Margin="10,0,0,0"
+                            VerticalAlignment="Top"
+                            Height="{Binding ElementName=DestinationFolderTextBox, Path=ActualHeight}"
+                            MinWidth="125"
+                            Content="Export PDF Report"
+                            Command="{x:Static local:MainWindow.ExportPdfReportCommand}" />
+                </StackPanel>
 
                 <StackPanel Grid.Row="4"
                             Margin="10,20,10,0"
