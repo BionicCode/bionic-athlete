@@ -1,11 +1,8 @@
 ﻿namespace FitToCsvConverter.Controls;
 
-using System.IO;
 using System.Windows;
 using System.Windows.Input;
 using BionicCode.Utilities.Net;
-using FitToCsvConverter.Controls.Reporting;
-using FitToCsvConverter.Reporting;
 using FitToCsvConverter.ViewModel;
 using Microsoft.Win32;
 
@@ -15,7 +12,6 @@ using Microsoft.Win32;
 public partial class MainWindow : Window, IDisposableAdvanced
 {
     private readonly MainViewModel _viewModel;
-    private readonly IActivityReportPdfExporter _activityReportPdfExporter;
     private readonly OpenFolderDialog _openFolderDialog;
     private readonly List<CancellationTokenSource> _addFitFilesCancellationTokenSources;
     private readonly object _cancellationTokenSourceQueueSyncLock;
@@ -39,15 +35,12 @@ public partial class MainWindow : Window, IDisposableAdvanced
     public static readonly RoutedCommand OpenFitFileCommand = new(nameof(OpenFitFileCommand), typeof(MainWindow));
     public static readonly RoutedCommand RemoveFitFileCommand = new(nameof(RemoveFitFileCommand), typeof(MainWindow));
     public static readonly RoutedCommand RemoveAllFitFilesCommand = new(nameof(RemoveAllFitFilesCommand), typeof(MainWindow));
-    public static readonly RoutedCommand ExportHtmlReportCommand = new(nameof(ExportHtmlReportCommand), typeof(MainWindow));
-    public static readonly RoutedCommand ExportPdfReportCommand = new(nameof(ExportPdfReportCommand), typeof(MainWindow));
 
-    public MainWindow(MainViewModel viewModel, IActivityReportPdfExporter activityReportPdfExporter)
+    public MainWindow(MainViewModel viewModel)
     {
         InitializeComponent();
 
         _viewModel = viewModel;
-        _activityReportPdfExporter = activityReportPdfExporter;
         DataContext = _viewModel;
         _openFolderDialog = new OpenFolderDialog
         {
@@ -159,19 +152,8 @@ public partial class MainWindow : Window, IDisposableAdvanced
             executed: (s, e) => _viewModel.RemoveAllFitFilePaths(),
             canExecute: (s, e) => e.CanExecute = _viewModel.FitFilePaths?.Any() ?? false);
         _ = CommandBindings.Add(removeAllFitFilesCommandBinding);
-
-        var exportHtmlReportCommandBinding = new CommandBinding(
-            ExportHtmlReportCommand,
-            executed: async (s, e) => await OnExecutedExportHtmlReportCommandAsync(),
-            canExecute: (s, e) => e.CanExecute = CanExecuteHumanReadableReportExport());
-        _ = CommandBindings.Add(exportHtmlReportCommandBinding);
-
-        var exportPdfReportCommandBinding = new CommandBinding(
-            ExportPdfReportCommand,
-            executed: async (s, e) => await OnExecutedExportPdfReportCommandAsync(),
-            canExecute: (s, e) => e.CanExecute = CanExecuteHumanReadableReportExport());
-        _ = CommandBindings.Add(exportPdfReportCommandBinding);
     }
+
     private async Task OnExecutedOpenFitFileCommandAsync(object sender, ExecutedRoutedEventArgs e)
     {
         var openFileDialog = new OpenFileDialog
@@ -187,44 +169,6 @@ public partial class MainWindow : Window, IDisposableAdvanced
             await AddFitFilePathsAsync(openFileDialog.FileNames);
         }
     }
-
-    private async Task OnExecutedExportHtmlReportCommandAsync()
-    {
-        if (_viewModel.SelectedExportData is null)
-        {
-            return;
-        }
-
-        _ = await _viewModel.PrepareHumanReadableReportAsync(
-            _viewModel.SelectedExportData,
-            ActivityReportOutputTarget.HtmlOnly,
-            CancellationToken.None);
-    }
-
-    private async Task OnExecutedExportPdfReportCommandAsync()
-    {
-        if (_viewModel.SelectedExportData is null)
-        {
-            return;
-        }
-
-        HtmlReportPackage reportPackage = await _viewModel.PrepareHumanReadableReportAsync(
-            _viewModel.SelectedExportData,
-            ActivityReportOutputTarget.PdfFromGeneratedHtml,
-            CancellationToken.None);
-        string pdfFilePath = reportPackage.PdfFilePath ?? Path.Combine(reportPackage.ReportDirectoryPath, "activity-report.pdf");
-        var request = new ActivityReportPdfExportRequest(
-            reportPackage,
-            pdfFilePath,
-            reportPackage.PageSettings,
-            TimeSpan.FromSeconds(60));
-
-        _ = await _activityReportPdfExporter.ExportPdfAsync(request, CancellationToken.None);
-    }
-
-    private bool CanExecuteHumanReadableReportExport()
-        => _viewModel.SelectedExportData is not null
-        && !string.IsNullOrWhiteSpace(_viewModel.DestinationFolder);
 
     private async void OnFitFilesDropped(object sender, DragEventArgs e)
     {

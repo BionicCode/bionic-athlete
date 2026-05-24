@@ -410,7 +410,7 @@ public sealed class CsvActivityExporterTests
         FitField field = GetRecordField(activity, "timestamp");
         CsvActivityExporter exporter = new();
         string outputDirectoryPath = CreateTemporaryDirectory();
-        var localTimeZone = TimeZoneInfo.CreateCustomTimeZone("UTC+02", TimeSpan.FromHours(2), "UTC+02", "UTC+02");
+        TimeZoneInfo localTimeZone = TimeZoneInfo.CreateCustomTimeZone("UTC+02", TimeSpan.FromHours(2), "UTC+02", "UTC+02");
 
         try
         {
@@ -844,7 +844,7 @@ public sealed class CsvActivityExporterTests
             ZipArchiveEntry sessionEntry = GetSingleZipEntry(zipArchive, "core/", "_session.csv");
             string[] sessionHeaderCells = SplitCsvLine(ReadZipEntryLines(sessionEntry)[0]);
             ZipArchiveEntry manifestEntry = GetSingleZipEntry(zipArchive, string.Empty, "_manifest.json");
-            using var manifest = JsonDocument.Parse(ReadZipEntryText(manifestEntry));
+            using JsonDocument manifest = JsonDocument.Parse(ReadZipEntryText(manifestEntry));
             JsonElement fieldDictionary = manifest.RootElement.GetProperty("fieldDictionary");
             JsonElement respirationEntry = FindFieldDictionaryEntryByCanonicalName(
                 fieldDictionary,
@@ -1383,9 +1383,6 @@ public sealed class CsvActivityExporterTests
 
         public string CreateTemporaryFilePath(string fileName)
             => Path.Combine(TemporaryDirectoryPath, Path.GetFileName(fileName));
-
-        public string CreateTemporaryFilePath(string subFolder, string fileName)
-            => Path.Combine(TemporaryDirectoryPath, subFolder, Path.GetFileName(fileName));
 
         public string MakeFileNameUnique(string fileName)
             => fileName;

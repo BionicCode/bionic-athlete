@@ -11,13 +11,11 @@ using System.Windows;
 using System.Windows.Markup;
 using System.Windows.Threading;
 using FitToCsvConverter.Controls;
-using FitToCsvConverter.Controls.Reporting;
 using FitToCsvConverter.Data;
 using FitToCsvConverter.Data.Caching;
 using FitToCsvConverter.Data.Decoding;
 using FitToCsvConverter.Data.Decoding.Garmin;
 using FitToCsvConverter.Data.Exporting;
-using FitToCsvConverter.Reporting;
 using FitToCsvConverter.Shared.Logging;
 using FitToCsvConverter.ViewModel;
 using Microsoft.Extensions.DependencyInjection;
@@ -158,11 +156,6 @@ public partial class App : Application
             .AddSingleton<ITemporaryFileManager, TemporaryFileManager>()
             .AddSingleton<IZipArchiveManager, ZipArchiveManager>()
             .AddSingleton<ICsvActivityExporter, CsvActivityExporter>()
-            .AddSingleton<IReportChartRenderer, InlineSvgReportChartRenderer>()
-            .AddSingleton<IActivityReportProjector, ActivityReportProjector>()
-            .AddSingleton<IActivityReportHtmlRenderer, ActivityReportHtmlRenderer>()
-            .AddSingleton<IActivityReportManifestUpdater, ActivityReportManifestUpdater>()
-            .AddSingleton<IActivityReportPdfExporter, WebView2ActivityReportPdfExporter>()
             .AddKeyedSingleton<IFitActivityDecoder, GarminFitActivityDecoder>(CoreDecoderServiceKey)
             .AddSingleton<IFitActivityCache, InMemoryFitActivityCache>()
             .AddSingleton<IFitActivityDecoder>(serviceProvider =>
