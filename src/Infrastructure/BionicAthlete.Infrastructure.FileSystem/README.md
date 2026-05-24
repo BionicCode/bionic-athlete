@@ -1,1 +1,0 @@
-﻿Shared archive/temp-file implementations

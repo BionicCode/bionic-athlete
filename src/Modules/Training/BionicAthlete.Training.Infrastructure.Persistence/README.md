@@ -1,1 +1,0 @@
-﻿Concrete local persistence adapter

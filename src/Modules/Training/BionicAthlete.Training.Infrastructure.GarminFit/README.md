@@ -1,1 +1,0 @@
-﻿FIT decoder/cache adapter implementations

@@ -1,0 +1,108 @@
+name: Sync managed files
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+  schedule:
+    - cron: "17 3 * * *"
+
+concurrency:
+  group: caller-sync-managed-files-${{ github.repository }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  reject-non-default-manual-run:
+    if: >
+      github.event_name == 'workflow_dispatch' &&
+      github.ref_name != github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    permissions: {}
+
+    steps:
+      - name: Report invalid manual branch
+        shell: bash
+        run: |
+          echo "::error::Manifest initialization must be run from the repository default branch."
+          exit 1
+
+  inspect-manifest:
+    if: >
+      github.event_name == 'schedule' ||
+      (github.event_name == 'push' && github.ref_name == github.event.repository.default_branch) ||
+      (github.event_name == 'pull_request' && github.base_ref == github.event.repository.default_branch) ||
+      (github.event_name == 'workflow_dispatch' && github.ref_name == github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      manifest_exists: ${{ steps.inspect.outputs.manifest_exists }}
+      manifest_json: ${{ steps.inspect.outputs.manifest_json }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - name: Inspect caller manifest
+        id: inspect
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest_path=".github/sync-config/sync-manifest.json"
+
+          if [ ! -f "$manifest_path" ]; then
+            echo "manifest_exists=false" >> "$GITHUB_OUTPUT"
+            echo "Manifest not found at $manifest_path."
+            exit 0
+          fi
+
+          echo "manifest_exists=true" >> "$GITHUB_OUTPUT"
+          {
+            echo "manifest_json<<__SYNC_MANIFEST_JSON__"
+            cat "$manifest_path"
+            echo "__SYNC_MANIFEST_JSON__"
+          } >> "$GITHUB_OUTPUT"
+          echo "Manifest found at $manifest_path."
+
+  fail-missing-manifest-on-pr:
+    needs: inspect-manifest
+    if: >
+      github.event_name == 'pull_request' &&
+      needs.inspect-manifest.outputs.manifest_exists != 'true'
+    runs-on: ubuntu-latest
+    permissions: {}
+
+    steps:
+      - name: Report missing PR manifest
+        shell: bash
+        run: |
+          echo "::error::.github/sync-config/sync-manifest.json is missing. Run workflow_dispatch from the repository default branch or let a default-branch push/schedule initialize it."
+          exit 1
+
+  init-managed-file-sync:
+    needs: inspect-manifest
+    if: >
+      needs.inspect-manifest.outputs.manifest_exists != 'true' &&
+      github.event_name != 'pull_request' &&
+      (github.event_name == 'schedule' || github.ref_name == github.event.repository.default_branch)
+    permissions:
+      contents: write
+      pull-requests: write
+    uses: BionicCode/workflows/.github/workflows/sync-files-from-manifest.yml@main
+    with:
+      command: init
+
+  sync-managed-files:
+    needs: inspect-manifest
+    if: needs.inspect-manifest.outputs.manifest_exists == 'true'
+    permissions:
+      contents: write
+      pull-requests: write
+    uses: BionicCode/workflows/.github/workflows/sync-files-from-manifest.yml@main
+    with:
+      command: sync
+      manifest_json: ${{ needs.inspect-manifest.outputs.manifest_json }}
+    secrets:
+      source_token: ${{ secrets.SOURCE_REPO_READ_TOKEN }}
