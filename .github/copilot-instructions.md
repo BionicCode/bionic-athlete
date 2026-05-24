@@ -1,6 +1,6 @@
 # copilot-instructions.md
 
-Follow the repository-wide engineering and validation standards defined in the root [AGENTS.md](../AGENTS.md) and any more specific AGENTS.md files that apply to the current path. The current file is based on that AGENTS.md at repository root and may get outdated. Any AGENTS.md along the working path is the source of truth.
+Follow the repository-wide engineering and validation standards defined in the root [AGENTS.md](../AGENTS.md) and any more specific AGENTS.md files that apply to the current path. The current file is based on that AGENTS.md at repository root and may get outdated. Any AGENTS.md along the working path is the source of truth. If a referenced AGENTS.md file cannot be located or read, state that it was not found and fall back to the rules in this file. Do not infer or assume its contents.
 
 <!--
 Shared baseline instructions for repositories using coding agents.
@@ -10,6 +10,12 @@ Recommended CI approach: protect all content above the repository-specific marke
 -->
 
 ## Scope and Precedence
+
+1. User prompt instructions (highest). 
+2. AGENTS.md or AGENTS.override.md in the deepest applicable directory. 
+3. Root AGENTS.md.
+4. This file (lowest). 
+
 - This file defines repository-wide agent guidance.
 - User instructions override this file.
 - More specific `AGENTS.md` or `AGENTS.override.md` files in deeper directories may refine or override repository-level guidance.
@@ -30,6 +36,7 @@ Recommended CI approach: protect all content above the repository-specific marke
 - Do not hide problems by weakening rules, disabling analyzers, changing style configuration, or lowering warning severities unless the user explicitly asks for that.
 - Follow existing repository conventions unless they conflict with the user prompt or this file.
 - Treat documentation as part of engineering quality, not optional polish.
+- Remove branches and accept cheap no-op operations when that simplifies control flow and avoids unnecessary cyclomatic complexity.
 
 ## Scope Discovery and Routing
 - If the user names entry points, files, types, methods, projects, tests, or directories, treat those as the starting scope.
@@ -134,6 +141,10 @@ Prioritize findings in this order:
   - you hit a boundary caused by missing files, generated code, dynamic dispatch you cannot resolve, external dependencies, or insufficient context.
 - Prefer evidence-based findings over speculative concerns.
 - Distinguish clearly between confirmed defects, likely risks, and unverified suspicions.
+- When a finding depends on branch-sensitive behavior or framework/library helper behavior, verify it with at least one concrete witness input and trace that input through the relevant branches before labeling the finding as `[BUG]`.
+- If the concern is based on a plausible pattern but no concrete witness input has been traced successfully, report it as `[RISK]` or stop with uncertainty instead of escalating it to a confirmed defect.
+- For edge-case claims, include the minimal witness input in the finding explanation.
+- If a finding depends on framework or library API semantics that are not proven by the local code alone, verify that behavior from trusted documentation, runtime evidence, or other repository-local proof before labeling the finding as `[BUG]`; otherwise report it as `[RISK]` or stop with uncertainty.
 
 ### Review Output Format
 Organize the review by file.
@@ -200,7 +211,9 @@ If execution was blocked, report the exact blocker instead of pretending verific
 - Put detailed workflow instructions for recurring specialized tasks in separate repository files, nested `AGENTS.md` files, or skills, and reference them from this file when needed.
 - Keep repository-specific commands, framework choices, and detailed local processes in the `Repository Specifics` section or a more specific instructions file.
 
-<!-- BEGIN REPOSITORY SPECIFICS: repository owners may edit only this section -->
+<!-- BEGIN REPOSITORY SPECIFICS -->
+<!-- Repository owners may edit only this section -->
+
 # Repository Specifics
 
 Fill in or edit this section per repository. Everything above this section is intended to remain stable across repositories.

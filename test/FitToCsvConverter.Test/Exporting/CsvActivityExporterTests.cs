@@ -2,7 +2,11 @@ namespace FitToCsvConverter.Test.Exporting;
 
 using System.Collections.Immutable;
 using System.Globalization;
+using System.IO.Compression;
+using System.Text;
 using System.Text.Json;
+using BionicCode.Utilities.Net;
+using FitToCsvConverter.Data;
 using FitToCsvConverter.Data.Activities;
 using FitToCsvConverter.Data.Decoding;
 using FitToCsvConverter.Data.Decoding.Garmin;
@@ -43,6 +47,8 @@ public sealed class CsvActivityExporterTests
                     Assert.Equal(FitNodeType.Activity, artifact.NodeType);
                     Assert.EndsWith("_activity.csv", artifact.FilePath, StringComparison.OrdinalIgnoreCase);
                     Assert.Contains($"{Path.DirectorySeparatorChar}core{Path.DirectorySeparatorChar}", artifact.FilePath, StringComparison.OrdinalIgnoreCase);
+                    Assert.EndsWith("_activity.csv", artifact.BundlePath, StringComparison.OrdinalIgnoreCase);
+                    Assert.StartsWith("core/", artifact.BundlePath, StringComparison.OrdinalIgnoreCase);
                     Assert.Equal(1, artifact.RowCount);
                 },
                 artifact =>
@@ -51,6 +57,7 @@ public sealed class CsvActivityExporterTests
                     Assert.Equal(FitNodeType.Session, artifact.NodeType);
                     Assert.EndsWith("_session.csv", artifact.FilePath, StringComparison.OrdinalIgnoreCase);
                     Assert.Contains($"{Path.DirectorySeparatorChar}core{Path.DirectorySeparatorChar}", artifact.FilePath, StringComparison.OrdinalIgnoreCase);
+                    Assert.StartsWith("core/", artifact.BundlePath, StringComparison.OrdinalIgnoreCase);
                     Assert.Equal(1, artifact.RowCount);
                 },
                 artifact =>
@@ -59,6 +66,7 @@ public sealed class CsvActivityExporterTests
                     Assert.Equal(FitNodeType.Lap, artifact.NodeType);
                     Assert.EndsWith("_lap.csv", artifact.FilePath, StringComparison.OrdinalIgnoreCase);
                     Assert.Contains($"{Path.DirectorySeparatorChar}core{Path.DirectorySeparatorChar}", artifact.FilePath, StringComparison.OrdinalIgnoreCase);
+                    Assert.StartsWith("core/", artifact.BundlePath, StringComparison.OrdinalIgnoreCase);
                     Assert.Equal(1, artifact.RowCount);
                 },
                 artifact =>
@@ -67,6 +75,7 @@ public sealed class CsvActivityExporterTests
                     Assert.Equal(FitNodeType.Record, artifact.NodeType);
                     Assert.EndsWith("_record.csv", artifact.FilePath, StringComparison.OrdinalIgnoreCase);
                     Assert.Contains($"{Path.DirectorySeparatorChar}core{Path.DirectorySeparatorChar}", artifact.FilePath, StringComparison.OrdinalIgnoreCase);
+                    Assert.StartsWith("core/", artifact.BundlePath, StringComparison.OrdinalIgnoreCase);
                     Assert.Equal(2, artifact.RowCount);
                 },
                 artifact =>
@@ -74,6 +83,7 @@ public sealed class CsvActivityExporterTests
                     Assert.Equal(ExportedArtifactKind.Manifest, artifact.Kind);
                     Assert.Equal("manifest", artifact.ArtifactName);
                     Assert.EndsWith("_manifest.json", artifact.FilePath, StringComparison.OrdinalIgnoreCase);
+                    Assert.EndsWith("_manifest.json", artifact.BundlePath, StringComparison.OrdinalIgnoreCase);
                     Assert.Equal(1, artifact.RowCount);
                 });
         }
@@ -493,7 +503,7 @@ public sealed class CsvActivityExporterTests
     }
 
     [Fact]
-    public async Task ShouldExportAncillaryArtifactsWhenUnknownAncillaryMessagesArePresent()
+    public async Task ShouldExportRawCanonicalAncillaryArtifactsWhenRawCanonicalViewIsRequested()
     {
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
         FitActivity activity = FitActivityModelFactory.CreateActivityWithUnknownAncillaryDataForExport();
@@ -506,7 +516,8 @@ public sealed class CsvActivityExporterTests
                 activity,
                 "ancillary",
                 outputDirectoryPath,
-                [CreateColumnRequest(activity.Fields.Single(), order: 0)]);
+                [CreateColumnRequest(activity.Fields.Single(), order: 0)],
+                options: new FitExportOptions(dataView: FitExportDataView.RawCanonical));
 
             CsvExportResult result = await exporter.ExportAsync(request, cancellationToken);
 
@@ -520,8 +531,48 @@ public sealed class CsvActivityExporterTests
                 artifact.Kind == ExportedArtifactKind.AncillaryCsv
                 && artifact.ArtifactName.Contains("file_id_0", StringComparison.OrdinalIgnoreCase));
             Assert.Contains($"{Path.DirectorySeparatorChar}raw_lossless{Path.DirectorySeparatorChar}", unknownArtifact.FilePath, StringComparison.OrdinalIgnoreCase);
+            Assert.StartsWith("raw_lossless/", unknownArtifact.BundlePath, StringComparison.OrdinalIgnoreCase);
             Assert.Equal("message_name,message_number,sequence_number,message_index,local_message_number,message_timestamp [UTC],unknown_0", unknownLines[0]);
             Assert.Equal("unknown,250,1,,0,2024-07-14T08:30:01.0000000+00:00,98", unknownLines[1]);
+        }
+        finally
+        {
+            DeleteTemporaryDirectory(outputDirectoryPath);
+        }
+    }
+
+    [Fact]
+    public async Task ShouldDefaultToStructuredMachineViewAndConsolidateUnknownAncillaryData()
+    {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        FitActivity activity = FitActivityModelFactory.CreateActivityWithUnknownAncillaryDataForExport();
+        CsvActivityExporter exporter = new();
+        string outputDirectoryPath = CreateTemporaryDirectory();
+
+        try
+        {
+            CsvExportRequest request = CsvExportRequestFactory.Create(
+                activity,
+                "ancillary-default",
+                outputDirectoryPath,
+                [CreateColumnRequest(activity.Fields.Single(), order: 0)]);
+
+            CsvExportResult result = await exporter.ExportAsync(request, cancellationToken);
+
+            Assert.DoesNotContain(result.ExportedArtifacts, artifact => artifact.Kind == ExportedArtifactKind.AncillaryCsv);
+            Assert.DoesNotContain(result.ExportedArtifacts, artifact => artifact.BundlePath.StartsWith("raw_lossless/", StringComparison.OrdinalIgnoreCase));
+
+            ExportedArtifact metadataArtifact = Assert.Single(result.ExportedArtifacts.Where(artifact =>
+                artifact.Kind == ExportedArtifactKind.ConsolidatedCsv
+                && artifact.BundlePath.StartsWith("metadata/", StringComparison.OrdinalIgnoreCase)));
+            ExportedArtifact rawUnmappedArtifact = Assert.Single(result.ExportedArtifacts.Where(artifact =>
+                artifact.Kind == ExportedArtifactKind.ConsolidatedCsv
+                && artifact.BundlePath.StartsWith("raw_unmapped/", StringComparison.OrdinalIgnoreCase)));
+            string[] metadataLines = await File.ReadAllLinesAsync(metadataArtifact.FilePath, cancellationToken);
+            string[] rawUnmappedLines = await File.ReadAllLinesAsync(rawUnmappedArtifact.FilePath, cancellationToken);
+
+            Assert.Contains(metadataLines, line => line.Contains("file_id", StringComparison.OrdinalIgnoreCase));
+            Assert.Contains(rawUnmappedLines, line => line.Contains("unknown_0", StringComparison.OrdinalIgnoreCase));
         }
         finally
         {
@@ -652,7 +703,10 @@ public sealed class CsvActivityExporterTests
             JsonElement root = manifest.RootElement;
 
             Assert.NotEmpty(activity.AncillaryData.Messages);
-            Assert.NotEmpty(result.ExportedArtifacts.Where(artifact => artifact.Kind == ExportedArtifactKind.AncillaryCsv));
+            Assert.DoesNotContain(result.ExportedArtifacts, artifact => artifact.Kind == ExportedArtifactKind.AncillaryCsv);
+            Assert.Contains(result.ExportedArtifacts, artifact =>
+                artifact.Kind == ExportedArtifactKind.ConsolidatedCsv
+                && artifact.BundlePath.StartsWith("metadata/", StringComparison.OrdinalIgnoreCase));
             Assert.Empty(root.GetProperty("omittedMessageFamilies").EnumerateArray());
         }
         finally
@@ -683,16 +737,18 @@ public sealed class CsvActivityExporterTests
 
             CsvExportResult result = await exporter.ExportAsync(request, cancellationToken);
 
+            Assert.DoesNotContain(result.ExportedArtifacts, artifact => artifact.Kind == ExportedArtifactKind.AncillaryCsv);
+            Assert.DoesNotContain(result.ExportedArtifacts, artifact => artifact.BundlePath.StartsWith("raw_lossless/", StringComparison.OrdinalIgnoreCase));
             Assert.Contains(result.ExportedArtifacts, artifact =>
                 artifact.Kind == ExportedArtifactKind.ConsolidatedCsv
-                && artifact.FilePath.Contains($"{Path.DirectorySeparatorChar}metadata{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase));
+                && artifact.BundlePath.StartsWith("metadata/", StringComparison.OrdinalIgnoreCase));
             Assert.Contains(result.ExportedArtifacts, artifact =>
                 artifact.Kind == ExportedArtifactKind.ConsolidatedCsv
-                && artifact.FilePath.Contains($"{Path.DirectorySeparatorChar}analytics{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase));
+                && artifact.BundlePath.StartsWith("analytics/", StringComparison.OrdinalIgnoreCase));
 
             ExportedArtifact rawUnmappedArtifact = Assert.Single(result.ExportedArtifacts.Where(artifact =>
                 artifact.Kind == ExportedArtifactKind.ConsolidatedCsv
-                && artifact.FilePath.Contains($"{Path.DirectorySeparatorChar}raw_unmapped{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase)));
+                && artifact.BundlePath.StartsWith("raw_unmapped/", StringComparison.OrdinalIgnoreCase)));
             string[] rawUnmappedLines = await File.ReadAllLinesAsync(rawUnmappedArtifact.FilePath, cancellationToken);
 
             Assert.Contains(rawUnmappedLines, line => line.Contains(",unknown_178,", StringComparison.OrdinalIgnoreCase));
@@ -703,6 +759,122 @@ public sealed class CsvActivityExporterTests
         finally
         {
             DeleteTemporaryDirectory(outputDirectoryPath);
+        }
+    }
+
+    [Fact]
+    public async Task ShouldRouteUnresolvedUnmappedRowsOnlyToRawUnmappedArtifact()
+    {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        GarminFitActivityDecoder decoder = new();
+        CsvActivityExporter exporter = new();
+        string outputDirectoryPath = CreateTemporaryDirectory();
+
+        try
+        {
+            FitActivityDecodeResult decodeResult = await decoder.DecodeFileAsync(FitTestFileFactory.GetReferenceArtifactFitFilePath(), cancellationToken);
+            Assert.True(decodeResult.IsSuccess);
+            FitActivity activity = Assert.IsType<FitActivity>(decodeResult.Activity);
+
+            CsvExportRequest request = CsvExportRequestFactory.Create(
+                activity,
+                "reference",
+                outputDirectoryPath,
+                CreateAllColumnRequests(activity));
+
+            CsvExportResult result = await exporter.ExportAsync(request, cancellationToken);
+            ExportedArtifact metadataArtifact = GetSingleArtifactByBundlePathPrefix(result, "metadata/");
+            ExportedArtifact analyticsArtifact = GetSingleArtifactByBundlePathPrefix(result, "analytics/");
+            ExportedArtifact rawUnmappedArtifact = GetSingleArtifactByBundlePathPrefix(result, "raw_unmapped/");
+
+            string[] metadataLines = await File.ReadAllLinesAsync(metadataArtifact.FilePath, cancellationToken);
+            string[] analyticsLines = await File.ReadAllLinesAsync(analyticsArtifact.FilePath, cancellationToken);
+            string[] rawUnmappedLines = await File.ReadAllLinesAsync(rawUnmappedArtifact.FilePath, cancellationToken);
+
+            Assert.Equal(0, CountRowsByClassification(metadataLines, "UnmappedField"));
+            Assert.Equal(0, CountRowsByClassification(analyticsLines, "UnmappedField"));
+            Assert.True(CountRowsByClassification(rawUnmappedLines, "UnmappedField") > 0);
+        }
+        finally
+        {
+            DeleteTemporaryDirectory(outputDirectoryPath);
+        }
+    }
+
+    [Fact]
+    public async Task ShouldArchiveReferenceExportWithConsistentManifestAndCsvArtifacts()
+    {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        GarminFitActivityDecoder decoder = new();
+        CsvActivityExporter exporter = new();
+        string outputDirectoryPath = CreateTemporaryDirectory();
+        string archiveDirectoryPath = CreateTemporaryDirectory();
+        string archiveTemporaryDirectoryPath = CreateTemporaryDirectory();
+
+        try
+        {
+            FitActivityDecodeResult decodeResult = await decoder.DecodeFileAsync(FitTestFileFactory.GetReferenceArtifactFitFilePath(), cancellationToken);
+            Assert.True(decodeResult.IsSuccess);
+            FitActivity activity = Assert.IsType<FitActivity>(decodeResult.Activity);
+
+            CsvExportRequest request = CsvExportRequestFactory.Create(
+                activity,
+                "reference",
+                outputDirectoryPath,
+                CreateAllColumnRequests(activity));
+
+            CsvExportResult result = await exporter.ExportAsync(request, cancellationToken);
+            FileDescriptor[] fileDescriptors = result.ExportedArtifacts
+                .Select(static artifact => new FileDescriptor(artifact.FilePath, isRenamingRequired: false, artifact.BundlePath))
+                .ToArray();
+            FileBatch fileBatch = new(
+                fileDescriptors,
+                fileDescriptors.Length,
+                archiveDirectoryPath,
+                "reference",
+                Encoding.UTF8,
+                CompressionLevel.Fastest);
+            FileBatches fileBatches = new([fileBatch], batchesCount: 1);
+            ZipArchiveManager archiveManager = new(new TestTemporaryFileManager(archiveTemporaryDirectoryPath));
+
+            await archiveManager.CreateArchivesAsync(fileBatches, new Progress<ProgressData>(), cancellationToken);
+
+            string zipFilePath = Path.Combine(archiveDirectoryPath, "reference.zip");
+            using ZipArchive zipArchive = ZipFile.OpenRead(zipFilePath);
+            ZipArchiveEntry sessionEntry = GetSingleZipEntry(zipArchive, "core/", "_session.csv");
+            string[] sessionHeaderCells = SplitCsvLine(ReadZipEntryLines(sessionEntry)[0]);
+            ZipArchiveEntry manifestEntry = GetSingleZipEntry(zipArchive, string.Empty, "_manifest.json");
+            using JsonDocument manifest = JsonDocument.Parse(ReadZipEntryText(manifestEntry));
+            JsonElement fieldDictionary = manifest.RootElement.GetProperty("fieldDictionary");
+            JsonElement respirationEntry = FindFieldDictionaryEntryByCanonicalName(
+                fieldDictionary,
+                "session.enhanced_min_respiration_rate");
+            JsonElement[] mappedUnknownEntries = fieldDictionary
+                .EnumerateArray()
+                .Where(static entry => entry.GetProperty("classification").GetString() == "MappedFromUnmappedFitField")
+                .ToArray();
+
+            Assert.Contains("enhanced_min_respiration_rate [Breaths/min]", sessionHeaderCells);
+            Assert.Equal("Breaths/min", respirationEntry.GetProperty("unit").GetString());
+            Assert.Equal(0, CountZipRowsByClassification(zipArchive, "metadata/", "UnmappedField"));
+            Assert.Equal(0, CountZipRowsByClassification(zipArchive, "analytics/", "UnmappedField"));
+            Assert.True(CountZipRowsByClassification(zipArchive, "raw_unmapped/", "UnmappedField") > 0);
+            Assert.Equal(4, mappedUnknownEntries.Length);
+            Assert.All(
+                mappedUnknownEntries,
+                entry =>
+                {
+                    JsonElement provenance = entry.GetProperty("provenance");
+                    Assert.Equal("MappedFromUnmappedFitField", provenance.GetProperty("kind").GetString());
+                    Assert.NotEmpty(GetStringArray(provenance, "sourceFields"));
+                    Assert.False(entry.TryGetProperty("derivationFormula", out _));
+                });
+        }
+        finally
+        {
+            DeleteTemporaryDirectory(outputDirectoryPath);
+            DeleteTemporaryDirectory(archiveDirectoryPath);
+            DeleteTemporaryDirectory(archiveTemporaryDirectoryPath);
         }
     }
 
@@ -733,6 +905,7 @@ public sealed class CsvActivityExporterTests
 
             Assert.Equal("INDOOR", GetColumnValue(headerCells, valueCells, "sport_profile_name"));
             Assert.DoesNotContain('|', GetColumnValue(headerCells, valueCells, "sport_profile_name"));
+            Assert.Contains("enhanced_min_respiration_rate [Breaths/min]", headerCells);
             Assert.Equal("77", GetColumnValue(headerCells, valueCells, "est_sweat_loss [ml]"));
             Assert.Equal("100", GetColumnValue(headerCells, valueCells, "beginning_potential [%]"));
             Assert.Equal("92", GetColumnValue(headerCells, valueCells, "ending_potential [%]"));
@@ -775,9 +948,17 @@ public sealed class CsvActivityExporterTests
             JsonElement root = manifest.RootElement;
             JsonElement fieldDictionary = root.GetProperty("fieldDictionary");
             JsonElement artifacts = root.GetProperty("artifacts");
+            JsonElement profileCoverageEntries = root.GetProperty("profileCoverage").GetProperty("entries");
 
             JsonElement totalWorkEntry = FindFieldDictionaryEntryByCanonicalName(fieldDictionary, "session.total_work");
-            JsonElement restoredSweatLossEntry = FindFieldDictionaryEntryByCanonicalName(fieldDictionary, "session.est_sweat_loss");
+            JsonElement activeCaloriesEntry = FindFieldDictionaryEntryByCanonicalName(fieldDictionary, "session.active_calories");
+            JsonElement mappedSweatLossEntry = FindFieldDictionaryEntryByCanonicalName(fieldDictionary, "session.est_sweat_loss");
+            JsonElement mappedBeginningPotentialEntry = FindFieldDictionaryEntryByCanonicalName(fieldDictionary, "session.beginning_potential");
+            JsonElement mappedEndingPotentialEntry = FindFieldDictionaryEntryByCanonicalName(fieldDictionary, "session.ending_potential");
+            JsonElement mappedMinimumStaminaEntry = FindFieldDictionaryEntryByCanonicalName(fieldDictionary, "session.min_stamina");
+            JsonElement averageMovingSpeedEntry = FindFieldDictionaryEntryByCanonicalName(fieldDictionary, "session.avg_moving_speed");
+            JsonElement minimumRespirationEntry = FindFieldDictionaryEntryByCanonicalName(fieldDictionary, "session.enhanced_min_respiration_rate");
+            JsonElement maxAveragePowerEntry = FindFieldDictionaryEntryByCanonicalName(fieldDictionary, "record.max_avg_power_20_min");
 
             Assert.Contains(artifacts.EnumerateArray(), artifact =>
                 artifact.GetProperty("artifactGroup").GetString() == "Metadata");
@@ -785,12 +966,183 @@ public sealed class CsvActivityExporterTests
                 artifact.GetProperty("artifactGroup").GetString() == "Analytics");
             Assert.Contains(artifacts.EnumerateArray(), artifact =>
                 artifact.GetProperty("artifactGroup").GetString() == "RawUnmapped");
+            Assert.All(artifacts.EnumerateArray(), artifact =>
+                Assert.True(
+                    artifact.GetProperty("dataView").GetString() is "StructuredMachineView" or "Manifest",
+                    "Default structured exports should describe only View B artifacts plus the manifest."));
 
             Assert.Equal("kJ", totalWorkEntry.GetProperty("unit").GetString());
             Assert.Equal("Work", totalWorkEntry.GetProperty("aliasMetadata").GetProperty("displayAliasDefault").GetString());
             Assert.Equal("GarminConnectPdf", totalWorkEntry.GetProperty("aliasMetadata").GetProperty("displayAliasSource").GetString());
             Assert.Equal("DirectFieldAlias", totalWorkEntry.GetProperty("aliasMetadata").GetProperty("aliasKind").GetString());
-            Assert.Equal("DerivedFromRestoredFitMessages", restoredSweatLossEntry.GetProperty("classification").GetString());
+            Assert.Equal("Breaths/min", minimumRespirationEntry.GetProperty("unit").GetString());
+            AssertMappedUnknownFieldEntry(profileCoverageEntries, mappedSweatLossEntry, "session.est_sweat_loss", "session.unknown_178");
+            AssertMappedUnknownFieldEntry(profileCoverageEntries, mappedBeginningPotentialEntry, "session.beginning_potential", "session.unknown_205");
+            AssertMappedUnknownFieldEntry(profileCoverageEntries, mappedEndingPotentialEntry, "session.ending_potential", "session.unknown_206");
+            AssertMappedUnknownFieldEntry(profileCoverageEntries, mappedMinimumStaminaEntry, "session.min_stamina", "session.unknown_207");
+
+            Assert.Equal("FormulaDerived", activeCaloriesEntry.GetProperty("provenance").GetProperty("kind").GetString());
+            Assert.Contains("session.total_calories", GetStringArray(activeCaloriesEntry.GetProperty("provenance"), "sourceFields"));
+            Assert.Contains("session.metabolic_calories", GetStringArray(activeCaloriesEntry.GetProperty("provenance"), "sourceFields"));
+            Assert.Equal("total_calories - metabolic_calories", activeCaloriesEntry.GetProperty("provenance").GetProperty("formula").GetString());
+            Assert.Equal("FormulaDerived", averageMovingSpeedEntry.GetProperty("provenance").GetProperty("kind").GetString());
+            Assert.Contains("session.total_distance", GetStringArray(averageMovingSpeedEntry.GetProperty("provenance"), "sourceFields"));
+            Assert.Contains("record", GetStringArray(averageMovingSpeedEntry.GetProperty("provenance"), "sourceMessageFamilies"));
+            Assert.Equal("FormulaDerived", maxAveragePowerEntry.GetProperty("provenance").GetProperty("kind").GetString());
+            Assert.Contains("record.power", GetStringArray(maxAveragePowerEntry.GetProperty("provenance"), "sourceFields"));
+            Assert.Contains("record", GetStringArray(maxAveragePowerEntry.GetProperty("provenance"), "sourceMessageFamilies"));
+        }
+        finally
+        {
+            DeleteTemporaryDirectory(outputDirectoryPath);
+        }
+    }
+
+    [Fact]
+    public async Task ShouldWriteManifestArtifactPathsThatMatchGeneratedBundlePaths()
+    {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        GarminFitActivityDecoder decoder = new();
+        CsvActivityExporter exporter = new();
+        string outputDirectoryPath = CreateTemporaryDirectory();
+
+        try
+        {
+            FitActivityDecodeResult decodeResult = await decoder.DecodeFileAsync(FitTestFileFactory.GetReferenceArtifactFitFilePath(), cancellationToken);
+            Assert.True(decodeResult.IsSuccess);
+            FitActivity activity = Assert.IsType<FitActivity>(decodeResult.Activity);
+
+            CsvExportRequest request = CsvExportRequestFactory.Create(
+                activity,
+                "reference",
+                outputDirectoryPath,
+                CreateAllColumnRequests(activity));
+
+            CsvExportResult result = await exporter.ExportAsync(request, cancellationToken);
+            using JsonDocument manifest = await ReadManifestAsync(result, cancellationToken);
+
+            string[] generatedBundlePaths = result.ExportedArtifacts
+                .Select(static artifact => artifact.BundlePath)
+                .OrderBy(static bundlePath => bundlePath, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            string[] manifestArtifactPaths = manifest.RootElement
+                .GetProperty("artifacts")
+                .EnumerateArray()
+                .Select(static artifact => artifact.GetProperty("artifactFileName").GetString() ?? string.Empty)
+                .OrderBy(static artifactFileName => artifactFileName, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            Assert.Equal(generatedBundlePaths, manifestArtifactPaths);
+        }
+        finally
+        {
+            DeleteTemporaryDirectory(outputDirectoryPath);
+        }
+    }
+
+    [Fact]
+    public async Task ShouldUseArchiveEntryNamesWhenCreatingZipBundles()
+    {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        string outputDirectoryPath = CreateTemporaryDirectory();
+
+        try
+        {
+            string coreFilePath = Path.Combine(outputDirectoryPath, "activity.csv");
+            string metadataFilePath = Path.Combine(outputDirectoryPath, "metadata.csv");
+            await File.WriteAllTextAsync(coreFilePath, "activity", cancellationToken);
+            await File.WriteAllTextAsync(metadataFilePath, "metadata", cancellationToken);
+
+            FileDescriptor[] fileDescriptors =
+            [
+                new(coreFilePath, isRenamingRequired: false, "core/activity.csv"),
+                new(metadataFilePath, isRenamingRequired: false, "metadata/metadata.csv")
+            ];
+            FileBatch fileBatch = new(fileDescriptors, fileDescriptors.Length, outputDirectoryPath, "bundle", Encoding.UTF8, CompressionLevel.Fastest);
+            FileBatches fileBatches = new([fileBatch], batchesCount: 1);
+            ZipArchiveManager archiveManager = new(new TestTemporaryFileManager(outputDirectoryPath));
+
+            await archiveManager.CreateArchivesAsync(fileBatches, new Progress<ProgressData>(), cancellationToken);
+
+            using ZipArchive zipArchive = ZipFile.OpenRead(Path.Combine(outputDirectoryPath, "bundle.zip"));
+            string[] entryNames = zipArchive.Entries.Select(static entry => entry.FullName).Order(StringComparer.OrdinalIgnoreCase).ToArray();
+
+            Assert.Equal(["core/activity.csv", "metadata/metadata.csv"], entryNames);
+        }
+        finally
+        {
+            DeleteTemporaryDirectory(outputDirectoryPath);
+        }
+    }
+
+    [Fact]
+    public async Task ShouldReportProfileCoverageForDocumentedStandardAndDeveloperFields()
+    {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        GarminFitActivityDecoder decoder = new();
+        CsvActivityExporter exporter = new();
+        string outputDirectoryPath = CreateTemporaryDirectory();
+
+        try
+        {
+            await using MemoryStream fitStream = new(FitTestFileFactory.CreateSingleSessionActivityWithDeveloperFields());
+            FitActivityDecodeResult decodeResult = await decoder.DecodeAsync(fitStream, "developer-fields.fit", cancellationToken);
+            Assert.True(decodeResult.IsSuccess);
+            FitActivity activity = Assert.IsType<FitActivity>(decodeResult.Activity);
+
+            CsvExportRequest request = CsvExportRequestFactory.Create(
+                activity,
+                "developer-fields",
+                outputDirectoryPath,
+                CreateAllColumnRequests(activity));
+
+            CsvExportResult result = await exporter.ExportAsync(request, cancellationToken);
+            using JsonDocument manifest = await ReadManifestAsync(result, cancellationToken);
+            JsonElement profileCoverage = manifest.RootElement.GetProperty("profileCoverage");
+            JsonElement entries = profileCoverage.GetProperty("entries");
+
+            Assert.True(profileCoverage.GetProperty("matchedPublicStandardProfileFieldCount").GetInt32() > 0);
+            Assert.True(profileCoverage.GetProperty("developerFieldCount").GetInt32() > 0);
+            Assert.Contains(entries.EnumerateArray(), entry =>
+                entry.GetProperty("classification").GetString() == "MatchedPublicStandardProfile"
+                && entry.GetProperty("sourceMessageFamily").GetString() == "record"
+                && entry.GetProperty("sourceFieldName").GetString() == "timestamp");
+            Assert.Contains(entries.EnumerateArray(), entry =>
+                entry.GetProperty("classification").GetString() == "DeveloperField"
+                && entry.GetProperty("sourceFieldName").GetString() == "session_score");
+        }
+        finally
+        {
+            DeleteTemporaryDirectory(outputDirectoryPath);
+        }
+    }
+
+    [Fact]
+    public async Task ShouldReportProfileCoverageForUnknownPreservedFields()
+    {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        FitActivity activity = FitActivityModelFactory.CreateActivityWithUnknownAncillaryDataForExport();
+        CsvActivityExporter exporter = new();
+        string outputDirectoryPath = CreateTemporaryDirectory();
+
+        try
+        {
+            CsvExportRequest request = CsvExportRequestFactory.Create(
+                activity,
+                "unknown-coverage",
+                outputDirectoryPath,
+                [CreateColumnRequest(activity.Fields.Single(), order: 0)]);
+
+            CsvExportResult result = await exporter.ExportAsync(request, cancellationToken);
+            using JsonDocument manifest = await ReadManifestAsync(result, cancellationToken);
+            JsonElement profileCoverage = manifest.RootElement.GetProperty("profileCoverage");
+            JsonElement entries = profileCoverage.GetProperty("entries");
+
+            Assert.True(profileCoverage.GetProperty("unknownOrUnmappedPreservedFieldCount").GetInt32() > 0);
+            Assert.Contains(entries.EnumerateArray(), entry =>
+                entry.GetProperty("classification").GetString() == "UnknownOrUnmappedPreservedField"
+                && entry.GetProperty("sourceMessageFamily").GetString() == "unknown"
+                && entry.GetProperty("sourceFieldName").GetString() == "unknown_0");
         }
         finally
         {
@@ -881,10 +1233,99 @@ public sealed class CsvActivityExporterTests
         => fieldDictionary.EnumerateArray().Single(entry => entry.GetProperty("exportName").GetString() == exportName);
 
     private static JsonElement FindFieldDictionaryEntryByCanonicalName(JsonElement fieldDictionary, string canonicalName)
-        => fieldDictionary.EnumerateArray().Single(entry => entry.GetProperty("canonicalName").GetString() == canonicalName);
+    {
+        JsonElement[] entries = fieldDictionary.EnumerateArray().ToArray();
+        foreach (JsonElement entry in entries)
+        {
+            if (entry.GetProperty("canonicalName").GetString() == canonicalName)
+            {
+                return entry;
+            }
+        }
+
+        string availableCanonicalNames = string.Join(
+            ", ",
+            entries.Select(static entry => entry.GetProperty("canonicalName").GetString()));
+        throw new InvalidOperationException(
+            string.Create(
+                CultureInfo.InvariantCulture,
+                $"No field dictionary entry named '{canonicalName}'. Available canonical names: {availableCanonicalNames}"));
+    }
+
+    private static string[] GetStringArray(JsonElement containingElement, string propertyName)
+        => containingElement
+            .GetProperty(propertyName)
+            .EnumerateArray()
+            .Select(static value => value.GetString() ?? string.Empty)
+            .ToArray();
+
+    private static void AssertMappedUnknownFieldEntry(
+        JsonElement profileCoverageEntries,
+        JsonElement fieldDictionaryEntry,
+        string canonicalName,
+        string sourceFieldName)
+    {
+        Assert.Equal("MappedFromUnmappedFitField", fieldDictionaryEntry.GetProperty("classification").GetString());
+        Assert.Equal("MappedFromUnmappedFitField", fieldDictionaryEntry.GetProperty("provenance").GetProperty("kind").GetString());
+        Assert.Equal(sourceFieldName, Assert.Single(GetStringArray(fieldDictionaryEntry.GetProperty("provenance"), "sourceFields")));
+        Assert.Equal("GarminConnectPdf", fieldDictionaryEntry.GetProperty("aliasMetadata").GetProperty("displayAliasSource").GetString());
+        Assert.False(fieldDictionaryEntry.TryGetProperty("derivationFormula", out _));
+        Assert.Contains(
+            "not a public standard FIT profile field",
+            fieldDictionaryEntry.GetProperty("provenance").GetProperty("notes").GetString(),
+            StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(profileCoverageEntries.EnumerateArray(), entry =>
+            entry.GetProperty("canonicalName").GetString() == canonicalName
+            && entry.GetProperty("classification").GetString() == "UnknownOrUnmappedPreservedField");
+        Assert.DoesNotContain(profileCoverageEntries.EnumerateArray(), entry =>
+            entry.GetProperty("canonicalName").GetString() == canonicalName
+            && entry.GetProperty("classification").GetString() == "MatchedPublicStandardProfile");
+    }
 
     private static string GetColumnValue(string[] headerCells, string[] valueCells, string columnName)
         => valueCells[Array.IndexOf(headerCells, columnName)];
+
+    private static ExportedArtifact GetSingleArtifactByBundlePathPrefix(CsvExportResult result, string bundlePathPrefix)
+        => Assert.Single(result.ExportedArtifacts.Where(artifact =>
+            artifact.Kind == ExportedArtifactKind.ConsolidatedCsv
+            && artifact.BundlePath.StartsWith(bundlePathPrefix, StringComparison.OrdinalIgnoreCase)));
+
+    private static int CountRowsByClassification(string[] lines, string classification)
+    {
+        if (lines.Length <= 1)
+        {
+            return 0;
+        }
+
+        string[] headerCells = SplitCsvLine(lines[0]);
+        int classificationColumnIndex = Array.IndexOf(headerCells, "classification");
+        Assert.True(classificationColumnIndex >= 0);
+        return lines
+            .Skip(1)
+            .Where(static line => !string.IsNullOrWhiteSpace(line))
+            .Count(line => SplitCsvLine(line)[classificationColumnIndex].Equals(classification, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static int CountZipRowsByClassification(ZipArchive zipArchive, string entryPrefix, string classification)
+    {
+        ZipArchiveEntry artifactEntry = GetSingleZipEntry(zipArchive, entryPrefix, ".csv");
+        return CountRowsByClassification(ReadZipEntryLines(artifactEntry), classification);
+    }
+
+    private static ZipArchiveEntry GetSingleZipEntry(ZipArchive zipArchive, string entryPrefix, string entrySuffix)
+        => Assert.Single(zipArchive.Entries, entry =>
+            entry.FullName.StartsWith(entryPrefix, StringComparison.OrdinalIgnoreCase)
+            && entry.FullName.EndsWith(entrySuffix, StringComparison.OrdinalIgnoreCase));
+
+    private static string[] ReadZipEntryLines(ZipArchiveEntry zipArchiveEntry)
+        => ReadZipEntryText(zipArchiveEntry).Split(["\r\n", "\n"], StringSplitOptions.None);
+
+    private static string ReadZipEntryText(ZipArchiveEntry zipArchiveEntry)
+    {
+        using Stream stream = zipArchiveEntry.Open();
+        using StreamReader reader = new(stream, Encoding.UTF8);
+        return reader.ReadToEnd();
+    }
 
     private static async Task<string[]> ReadAllLinesAsync(
         CsvExportResult result,
@@ -935,4 +1376,23 @@ public sealed class CsvActivityExporterTests
 
     private static FitField GetSessionField(FitActivity activity, string originalName)
         => activity.Sessions[0].Fields.Single(field => field.Original.OriginalName == originalName);
+
+    private sealed class TestTemporaryFileManager(string temporaryDirectoryPath) : ITemporaryFileManager
+    {
+        public string TemporaryDirectoryPath { get; } = temporaryDirectoryPath;
+
+        public string CreateTemporaryFilePath(string fileName)
+            => Path.Combine(TemporaryDirectoryPath, Path.GetFileName(fileName));
+
+        public string MakeFileNameUnique(string fileName)
+            => fileName;
+
+        public void RegisterTemporaryFilePath(string filePath)
+        {
+        }
+
+        public void CleanUpTemporaryFiles()
+        {
+        }
+    }
 }

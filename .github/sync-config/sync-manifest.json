@@ -1,0 +1,110 @@
+{
+  "$schema": "./sync-manifest.schema.json",
+  "schema_version": 1,
+  "entries": [
+    {
+      "source_repo": "BionicCode/template-visual-studio-repository",
+      "source_ref": "main",
+      "source_path": "AGENTS.md",
+      "target_path": "AGENTS.md",
+      "direction": "source_to_target",
+      "lifecycle_policy": "enforce",
+      "uniqueness_policy": "none",
+      "managed_scope": "outside_markers",
+        "markers": {
+          "start": "<!-- BEGIN REPOSITORY SPECIFICS -->",
+        "end": "<!-- END REPOSITORY SPECIFICS -->"
+      }
+    },
+    {
+      "source_repo": "BionicCode/template-visual-studio-repository",
+      "source_ref": "main",
+      "source_path": ".github/copilot-instructions.md",
+      "target_path": ".github/copilot-instructions.md",
+      "direction": "source_to_target",
+      "lifecycle_policy": "enforce",
+      "uniqueness_policy": "none",
+      "managed_scope": "outside_markers",
+      "markers": {
+        "start": "<!-- BEGIN REPOSITORY SPECIFICS -->",
+        "end": "<!-- END REPOSITORY SPECIFICS -->"
+      }
+    },
+    {
+      "source_repo": "BionicCode/template-visual-studio-repository",
+      "source_ref": "main",
+      "source_path": "DOCUMENTATION.md",
+      "target_path": "DOCUMENTATION.md",
+      "direction": "source_to_target",
+      "lifecycle_policy": "enforce",
+      "uniqueness_policy": "none",
+      "managed_scope": "outside_markers",
+      "markers": {
+        "start": "<!-- BEGIN REPOSITORY SPECIFICS -->",
+        "end": "<!-- END REPOSITORY SPECIFICS -->"
+      }
+    },
+    {
+      "source_repo": "BionicCode/template-visual-studio-repository",
+      "source_ref": "main",
+      "source_path": "src/AGENTS.md",
+      "target_path": "src/AGENTS.md",
+      "direction": "source_to_target",
+      "lifecycle_policy": "enforce",
+      "uniqueness_policy": "none",
+      "managed_scope": "outside_markers",
+      "markers": {
+        "start": "<!-- BEGIN REPOSITORY SPECIFICS -->",
+        "end": "<!-- END REPOSITORY SPECIFICS -->"
+      }
+    },
+    {
+      "source_repo": "BionicCode/template-visual-studio-repository",
+      "source_ref": "main",
+      "source_path": ".github/instructions/dotnet.instructions.md",
+      "target_path": ".github/instructions/dotnet.instructions.md",
+      "direction": "source_to_target",
+      "lifecycle_policy": "enforce",
+      "uniqueness_policy": "none",
+      "managed_scope": "outside_markers",
+      "markers": {
+        "start": "<!-- BEGIN REPOSITORY SPECIFICS -->",
+        "end": "<!-- END REPOSITORY SPECIFICS -->"
+      }
+    },
+    {
+      "source_repo": "BionicCode/template-visual-studio-repository",
+      "source_ref": "main",
+      "source_path": ".github/instructions/test.instructions.md",
+      "target_path": ".github/instructions/test.instructions.md",
+      "direction": "source_to_target",
+      "lifecycle_policy": "enforce",
+      "uniqueness_policy": "none",
+      "managed_scope": "outside_markers",
+      "markers": {
+        "start": "<!-- BEGIN REPOSITORY SPECIFICS -->",
+        "end": "<!-- END REPOSITORY SPECIFICS -->"
+      }
+    },
+    {
+      "source_repo": "BionicCode/bioniccode-code-style",
+      "source_ref": "main",
+      "source_path": ".editorconfig",
+      "target_path": ".editorconfig",
+      "direction": "source_to_target",
+      "lifecycle_policy": "enforce",
+      "uniqueness_policy": "none",
+      "managed_scope": "whole_file"
+    },
+    {
+      "source_repo": "BionicCode/bioniccode-code-style",
+      "source_ref": "main",
+      "source_path": "Directory.Build.props",
+      "target_path": "Directory.Build.props",
+      "direction": "source_to_target",
+      "lifecycle_policy": "enforce",
+      "uniqueness_policy": "none",
+      "managed_scope": "whole_file"
+    }
+  ]
+}

@@ -203,6 +203,28 @@ public partial class ObservableHashSet<TItem> :
 
     public int Count => Items.Count;
 
+    /// <summary>
+    /// Explicitly enables the index based hybrid mode to support data binding in UI frameworks like WPF or WinUI.
+    /// </summary>
+    /// <remarks>The <see cref="ObservableHashSet{TItem}"/> combines the uniqueness guarantees and performance characteristics of a
+    /// hash set with the ability to raise collection and property change notifications compatible with data-binding
+    /// frameworks such as WPF and WinUI. 
+    /// <para/>By default, it operates as a natural hash set, raising index-agnostic notifications. When
+    /// list-based APIs (such as the explicitly implemented <see cref="IList"/> or <see cref="IList{T}"/> interfaces) are accessed, the collection implicitly transitions into hybrid mode, maintaining
+    /// an internal list projection to provide index-based <see cref="CollectionChanged"/> notifications required by many UI frameworks. This hybrid mode
+    /// enables advanced UI features like virtualization but may incur additional performance costs for certain operations,
+    /// particularly removals. The collection always raises both <see cref="SetChanged"> (only bulk, index-agnostic) and <see cref="CollectionChanged"> (granular per item,
+    /// index-aware) events as appropriate. Thread safety is not guaranteed; callers must synchronize access if used from
+    /// multiple threads.
+    /// <br/>Calling <see cref="EnableDataBindingSupport"/> forces hybrid mode without prior access of the explicitly implemented <see cref="IList"/> or <see cref="IList{T}"/> API members.</remarks>
+    /// <returns><see langword="true"/> if the collection now operates in hybrid mode and therefore supports data binding; otherwise <see langword="false"/>.</returns>
+    public bool EnableDataBindingSupport()
+    {
+        InitializeListSurface();
+
+        return _isInHybridMode;
+    }
+
     /// <summary>Adds an item to the <see cref="ObservableHashSet{T}"/> if it is not already present.</summary>
     /// <param name="item">The item to add to the set. The removedItem can be <see langword="null"/> for reference types.</param>
     /// <remarks>Use this method to add an item to the set. If the item is already present, the set remains unchanged and the method returns <see langword="false"/>; otherwise, the item is added and the method returns <see langword="true"/>.

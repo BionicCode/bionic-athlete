@@ -14,21 +14,54 @@ The current exporter does not implement the future human-readable presentation e
 - [`FitExportOptions`](../src/FitToCsvConverter.Data/Exporting/FitExportOptions.cs)
 - [`CsvActivityExporter`](../src/FitToCsvConverter.Data/Exporting/CsvActivityExporter.cs)
 
+For shared terminology, see [FIT Export Glossary](fit-export-glossary.md).
+
 ## Bundle contents
 
-One structured export request can currently produce three artifact kinds:
+The exporter treats export output as data views over the same decoded FIT source:
 
-- Node CSVs for the selected activity-tree levels (`activity`, `session`, `lap`, `record`)
-- Ancillary message-family CSVs for preserved non-tree FIT messages such as `file_id`, `event`, `device_info`, `time_in_zone`, `hrv`, or unknown/vendor-specific message families
-- Grouped consolidated ancillary CSVs under `metadata/`, `analytics/`, and `raw_unmapped/` so machine consumers do not have to ingest the raw-lossless pile first
-- One manifest JSON file that describes schema version, timezone semantics, included and omitted message families, and the bundle field dictionary
+- View A: raw canonical FIT view. This is the exhaustive, lossless source view used for debugging, auditability, and later persistence ingestion.
+- View B: structured machine view. This is the default user-facing CSV projection and is optimized for stable machine parsing.
+- View C: human-readable presentation view. This is intentionally deferred.
+
+The default `FitExportDataView.StructuredMachine` package emits View B only:
+
+- `core/` node CSVs for selected activity-tree levels (`activity`, `session`, `lap`, `record`)
+- grouped metadata CSVs under `metadata/`
+- grouped analytics CSVs under `analytics/`
+- one consolidated unknown/unmapped table under `raw_unmapped/`
+- one manifest JSON file at the bundle root
+
+The default package does not include the raw-lossless View A artifact pile.
+Use `FitExportDataView.RawCanonical` when a diagnostic or persistence-ingestion workflow needs one raw CSV per ancillary FIT message family under `raw_lossless/`.
 
 Ancillary message families are exported automatically when they are present on `FitActivity.AncillaryData`.
 They are not filtered through the UI field-selection layer because their purpose is completeness and auditability.
 
+## View B consolidation algorithm
+
+View B is projected from View A and avoids dumping the raw-lossless artifact pile into the default ZIP.
+The routing rules are:
+
+- `core/`: selected activity-tree node outputs for `activity`, `session`, `lap`, and `record`.
+- `metadata/`: consolidated long-format output for ancillary metadata families such as `file_id`, `file_creator`, `device_info`, `device_settings`, `user_profile`, `sport`, `training_settings`, `timestamp_correlation`, and `zones_target`.
+- `analytics/`: consolidated long-format output for ancillary analytic/event families such as `event`, `time_in_zone`, `split_summary`, and `hrv`.
+- `raw_unmapped/`: consolidated long-format output for unknown message families and unmapped/vendor/future fields that are preserved but not confidently modeled.
+- `raw_lossless/`: View A diagnostic/raw mode only. It emits one raw CSV per ancillary message family when `FitExportDataView.RawCanonical` is explicitly requested.
+
+Unknown/unmapped data is excluded from `metadata/` and `analytics/` when the exporter lacks enough semantic confidence to place it in those grouped views.
+It remains available in `raw_unmapped/`.
+A raw field may be promoted into a structured View B convenience column only when there is documented source evidence and manifest provenance.
+Otherwise it remains raw-only.
+
+Duplicate emission is avoided by making View B the default bundle and keeping View A raw-family CSVs out of that bundle.
+Every `ExportedArtifact.BundlePath` must match both the ZIP entry path and the manifest `artifactFileName`.
+
 ## Structured CSV rules
 
 - `FitExportTarget.StructuredCsv` is the only supported export target in the current pass.
+- `FitExportDataView.StructuredMachine` is the default CSV data view.
+- `FitExportDataView.RawCanonical` is an explicit debug/raw export view, not the default normal export.
 - Column normalization policy lives on `FitExportOptions`, not on `FitField` or other decoded-model types.
 - Garmin SDK message and standard-field identifiers are normalized to canonical `snake_case` at the decoder boundary so the machine schema matches FitCSVTool-style profile naming instead of CLR-style SDK casing.
 - Selected FIT fields are exported from effective decoded values, so edited values still override the original decoded values.
@@ -66,8 +99,24 @@ The field dictionary currently classifies entries with these values:
 - `DirectDeveloperField`
 - `DerivedFromFit`
 - `DerivedFromRestoredFitMessages`
+- `MappedFromUnmappedFitField`
 - `GarminConnectOnlyOrUnconfirmed`
 - `Unavailable`
+- `RawPreservedField`
+- `UnmappedField`
+- `UnknownMessageFamily`
+- `VendorOrFutureField`
+
+Use `MappedFromUnmappedFitField` for values that are sourced from preserved unknown FIT fields and mapped to Garmin Connect reference labels, but are not public standard FIT fields and are not formula-derived.
+For the current Edge 840 reference activity, this applies to:
+
+- `session.est_sweat_loss [ml]` from `session.unknown_178`
+- `session.beginning_potential [%]` from `session.unknown_205`
+- `session.ending_potential [%]` from `session.unknown_206`
+- `session.min_stamina [%]` from `session.unknown_207`
+
+These are inferred aliases from preserved unknown session fields.
+Do not describe them as officially named Garmin FIT profile fields unless `Profile.xlsx` or another official Garmin source publishes those names.
 
 Direct tree fields and direct ancillary fields are exported with source message and field metadata.
 Developer fields retain their developer-field identity and any Garmin SDK metadata that was available during decode.
@@ -75,10 +124,55 @@ Unknown and vendor-specific data is preserved rather than dropped; when the SDK 
 `exportName` reflects the actual column name written to one artifact, while `canonicalName` is the stable cross-artifact identifier.
 This distinction matters because names like `total_work` can legitimately appear in more than one node family (`session.total_work`, `lap.total_work`).
 
+Manifest artifact paths are the physical paths used inside the ZIP bundle.
+For example, a manifest artifact path of `core/example_session.csv` must correspond to the actual ZIP entry path `core/example_session.csv`.
+
+The manifest also includes a `profileCoverage` section generated from `docs/reference/garmin-fit/Profile.xlsx`.
+This catalog is used only to validate public standard FIT metadata.
+It is not used to decide whether developer fields or unknown/vendor fields from a specific source file should be dropped.
+Profile coverage classifies exported fields as:
+
+- `MatchedPublicStandardProfile`
+- `DeveloperField`
+- `UnknownOrUnmappedPreservedField`
+
+Mapped unknown fields are intentionally reported as `UnknownOrUnmappedPreservedField` in profile coverage.
+They must not be counted as `MatchedPublicStandardProfile` simply because View B provides a Garmin Connect alias.
+
+## Provenance metadata
+
+Every formula-derived or mapped View B field carries a `provenance` object in the field dictionary.
+
+Formula-derived fields use:
+
+- `provenance.kind = FormulaDerived`
+- `provenance.formula`
+- `provenance.sourceFields`
+- `provenance.sourceMessageFamilies`
+- `provenance.unit`
+- `provenance.roundingOrTolerance`
+- optional notes describing algorithm caveats
+
+Current formula-derived fields include:
+
+- `session.active_calories = session.total_calories - session.metabolic_calories`
+- `session.avg_moving_speed = session.total_distance / moving_time`
+- `record.max_avg_power_20min` from `record.power` and `record.timestamp`
+
+Mapped unknown fields use:
+
+- `provenance.kind = MappedFromUnmappedFitField`
+- `provenance.sourceFields`, such as `session.unknown_178`
+- `provenance.sourceEvidence`
+- `provenance.mappingReason`
+- Garmin Connect alias metadata and confidence
+- notes stating that the source is not publicly named in `Profile.xlsx`
+
 ## Current limitations
 
 - Presentation-oriented scaling, report layouts, charting, and Garmin-Connect-style readable formatting are intentionally deferred.
 - Structured CSV currently keeps arrays in a single cell rather than expanding them into separate columns.
+- View B intentionally consolidates ancillary data instead of exposing every raw ancillary CSV by default.
 - PDF/report equivalence is intentionally honest rather than speculative.
   - When a Garmin Connect value is not directly present in the FIT file and is not reliably derivable from FIT data, the manifest should classify it as `GarminConnectOnlyOrUnconfirmed` instead of fabricating it as source-native FIT data.
 

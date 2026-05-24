@@ -1,5 +1,6 @@
 namespace FitToCsvConverter.Test.Decoding;
 
+using System.Globalization;
 using System.IO;
 using Dynastream.Fit;
 using FitToCsvConverter.Data.Activities;
@@ -107,5 +108,49 @@ public sealed class GarminFitActivityDecoderTests
 
         Assert.True(result.IsSuccess);
         Assert.True(hasUnknownNodeField);
+    }
+
+    [Fact]
+    public async Task DecodeFileAsyncPreservesUnknownKnownFamilyFieldMetadataFromReferenceFile()
+    {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        GarminFitActivityDecoder decoder = new();
+
+        FitActivityDecodeResult result = await decoder.DecodeFileAsync(FitTestFileFactory.GetReferenceArtifactFitFilePath(), cancellationToken);
+
+        FitActivity activity = Assert.IsType<FitActivity>(result.Activity);
+        FitField unknownSessionField = Assert.Single(
+            activity.Sessions.SelectMany(static session => session.Fields),
+            static field => field.Original.OriginalName == "unknown_178");
+        FitFieldValue value = Assert.Single(unknownSessionField.Original.OriginalValues);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(FitFieldKind.Unknown, unknownSessionField.Original.Kind);
+        Assert.Equal("session", unknownSessionField.Original.MessageName);
+        Assert.Equal((ushort)178, unknownSessionField.Original.Key.FieldNumber);
+        Assert.NotNull(value.RawValue);
+        Assert.NotNull(value.DecodedValue);
+    }
+
+    [Fact]
+    public async Task DecodeAsyncPreservesUnitsAndDecodedValuesForScaledStandardFields()
+    {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        GarminFitActivityDecoder decoder = new();
+        await using MemoryStream fitStream = new(FitTestFileFactory.CreateSingleSessionActivityWithDeveloperFields());
+
+        FitActivityDecodeResult result = await decoder.DecodeAsync(fitStream, "single-session.fit", cancellationToken);
+
+        FitActivity activity = Assert.IsType<FitActivity>(result.Activity);
+        FitField distanceField = Assert.Single(
+            activity.Sessions[0].Records[0].Fields,
+            static field => field.Original.OriginalName == "distance");
+        FitFieldValue distanceValue = Assert.Single(distanceField.Original.OriginalValues);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(FitFieldKind.Standard, distanceField.Original.Kind);
+        Assert.Equal("m", distanceField.Original.Units);
+        Assert.Equal(100d, Convert.ToDouble(distanceValue.DecodedValue, CultureInfo.InvariantCulture));
+        Assert.NotNull(distanceValue.RawValue);
     }
 }
