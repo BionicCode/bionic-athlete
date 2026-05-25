@@ -1,4 +1,4 @@
-# AGENTS.md (Version 2)
+# AGENTS.md (Version 3.1)
 
 <!--
 Shared baseline instructions for repositories using coding agents.
@@ -9,9 +9,10 @@ Recommended CI approach: protect all content above the repository-specific marke
 
 ## Scope and Precedence
 - This file defines repository-wide agent guidance.
-- User instructions override this file.
-- More specific `AGENTS.md` or `AGENTS.override.md` files in deeper directories may refine or override repository-level guidance.
+- Follow higher-priority system, tool, safety, and platform instructions first. Within the repository task context, user instructions override this file.
+- More specific `AGENTS.md` or `AGENTS.override.md` files in deeper directories may refine or override repository-level guidance for files under their directory.
 - Keep this file concise, practical, and repository-agnostic. Repository-specific conventions belong only in the `Repository Specifics` section.
+- If repository-specific instructions conflict with the stable baseline above `Repository Specifics`, follow the more specific instruction only when it is safe and does not weaken validation, review, or correctness requirements.
 - If the user prompt is exactly `<review>`, treat it as a placeholder that expands to the task defined in the `Default Review Mission` section below.
 
 ## Core Engineering Standards
@@ -65,10 +66,11 @@ In implementation mode:
 ## File System and Project Structure
 - Respect the existing repository layout before introducing new folders.
 - Keep production code in the repository's established source locations.
-- Place Markdown documentation files under a top-level `docs/` directory in the repository root.
-- Place automated test projects under a top-level `test/` directory in the repository root.
-- If `test/` does not exist and tests are needed, create it at the repository root.
-- Name a generated unit test project `<SolutionName>.Tests`.
+- If the repository already has a documentation or test layout, follow that layout before applying the defaults below.
+- Default Markdown documentation location: top-level `docs/` directory in the repository root.
+- Default automated test location: top-level `test/` directory in the repository root.
+- If no test location exists and tests are needed, create the repository's default test location unless a more specific repository instruction says otherwise.
+- For .NET repositories, default a generated unit test project name to `<SolutionName>.Tests` unless the repository already uses a different convention.
 - If the repository contains multiple solution files, use the solution that owns the code being changed. If that ownership is still ambiguous, state the assumption you used.
 - Keep test fixtures, sample inputs, and test-only helpers with or below the owning test project unless the repository already uses a shared test-assets location.
 
@@ -76,14 +78,75 @@ In implementation mode:
 For implementation tasks, validation is part of the deliverable.
 
 That means:
-- a change is not done when the code only looks correct in theory; it is done when relevant validation passes in practice,
+- a change is not done when the code only looks correct in theory,
+- a change is not done merely because the edited tests pass,
+- relevant validation must pass in practice,
 - failing tests are a signal to iterate, not a signal to stop,
 - analyzer and style compliance are part of repository quality, not optional cleanup,
-- and required documentation updates are part of done when behavior or public surface changed.
+- required documentation updates are part of done when behavior or public surface changed,
+- and the implementation must satisfy the external contract, task goal, and acceptance criteria, not only the current test suite.
+
+## Completion and Self-Review Requirements
+Before finalizing any implementation task, perform a separate self-review of the complete diff against the task goal, repository contracts, and acceptance criteria.
+
+A task is complete only when:
+- relevant validation has been run or an exact blocker has been reported,
+- tests and checks pass or remaining failures are clearly unrelated and evidenced,
+- the implementation has been reviewed against the intended behavior,
+- tests cover the external contract rather than merely mirroring the implementation,
+- documentation is updated when behavior, public surface, workflows, invariants, caveats, or usage patterns changed,
+- and remaining risks, limitations, assumptions, or follow-up work are reported.
+
+During the self-review, explicitly check for subtle correctness issues involving:
+- one-based human display numbers vs zero-based machine indexes,
+- JSONPath array indexes and other machine-addressed paths,
+- byte offsets vs decoded-text character offsets,
+- UTF-8 boundary handling and invalid-byte diagnostics,
+- CRLF vs LF line counting,
+- culture, casing, normalization, or path-comparison assumptions,
+- source-owned vs target-owned content boundaries,
+- path normalization, symlink handling, and path traversal safety,
+- partial writes, rollback, idempotence, and all-or-nothing guarantees,
+- concurrency, retries, and duplicate work,
+- cache/state invalidation,
+- public API compatibility and migration risk,
+- and tests that accidentally encode the implementation's current behavior instead of the external contract.
+
+When reporting completion, include a short self-review summary:
+- the main invariants checked,
+- the validation commands run and their results,
+- any unverified paths or assumptions,
+- and any known limitations or follow-up risks.
+
+Do not claim completion if the implementation only passes tests but has not been reviewed against the task goal and external contract.
+
+## Documentation Is Part of Done
+
+For implementation tasks, documentation must be treated as part of the deliverable when the change affects any public or user-visible behavior.
+
+Update relevant documentation in the same change when any of these change:
+- public API, CLI, workflow, manifest, schema, configuration, or file format contract;
+- supported or unsupported feature status;
+- validation rules, error behavior, diagnostics, caveats, limits, or failure modes;
+- setup, usage, examples, recipes, migration guidance, or generated/copyable templates;
+- security, permission, token, path-safety, or deployment assumptions.
+
+Do not postpone documentation as a separate cleanup task unless the user explicitly scopes the task as code-only.
+
+Before finalizing, verify that:
+- public docs match implemented behavior;
+- examples use the current supported contract;
+- feature matrices and roadmaps are updated when feature status changed;
+- copied or generated documentation is refreshed when the repository owns those copies;
+- no stale docs describe removed, deferred, or unsupported behavior as current.
+
+If documentation was not updated, explicitly state why it was not needed.
 
 ## Testing Standards
 - Add or update tests for bug fixes, behavior changes, and public API changes when feasible.
 - Prefer focused unit tests for logic and invariants; use integration or end-to-end tests when behavior crosses boundaries that unit tests cannot validate.
+- Write tests against the external contract, specification, public behavior, or documented invariant; do not write tests that merely mirror the current implementation.
+- For conversions and diagnostics, include explicit boundary tests such as first item, second item, empty input, missing value, invalid value, and non-ASCII or newline variants when relevant.
 - Do not rewrite tests merely to fit a broken implementation without explicitly calling that out.
 - When a bug is fixed, prefer adding a regression test when practical.
 - If a failing test is unrelated to the requested change, identify the evidence clearly and continue validating the remaining relevant scope where possible.
@@ -177,7 +240,9 @@ When you changed code, report:
 - whether tests passed,
 - whether style or analyzer verification passed,
 - whether documentation was updated and at what level,
-- and any remaining warnings, errors, assumptions, or blockers.
+- the self-review result and the main invariants checked,
+- and any remaining warnings, errors, assumptions, risks, or blockers.
+- whether documentation was updated, which files changed, and why documentation was or was not required;
 
 If execution was blocked, report the exact blocker instead of pretending verification happened.
 
