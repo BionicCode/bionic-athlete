@@ -43,6 +43,12 @@ public readonly record struct PathSegment
         ArgumentExceptionAdvanced.ThrowIfTrue(
             IsSpecial && kind is not PathSegmentKind.CurrentDirectory and not PathSegmentKind.ParentDirectory,
             message: $"Invalid argument '{nameof(kind)}'. If the argument '{nameof(name)}' is a special directory symbol like '.' or '..', the argument '{nameof(kind)}' must be either '{nameof(PathSegmentKind.CurrentDirectory)}' or '{nameof(PathSegmentKind.ParentDirectory)}'.");
+        ArgumentExceptionAdvanced.ThrowIfTrue(
+            IsSpecial && Name.Equals(DirectoryDescriptor.CurrentDirectorySymbol, StringComparison.Ordinal) && kind is not PathSegmentKind.CurrentDirectory,
+            message: $"Invalid argument '{nameof(kind)}'. If the argument '{nameof(name)}' is the current directory symbol '.', the argument '{nameof(kind)}' must be '{nameof(PathSegmentKind.CurrentDirectory)}'.");
+        ArgumentExceptionAdvanced.ThrowIfTrue(
+            IsSpecial && Name.Equals(DirectoryDescriptor.ParentDirectorySymbol, StringComparison.Ordinal) && kind is not PathSegmentKind.ParentDirectory,
+            message: $"Invalid argument '{nameof(kind)}'. If the argument '{nameof(name)}' is the parent directory symbol '..', the argument '{nameof(kind)}' must be '{nameof(PathSegmentKind.ParentDirectory)}'.");
 
         Kind = kind;
     }

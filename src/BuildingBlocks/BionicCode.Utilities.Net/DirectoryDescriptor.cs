@@ -108,37 +108,6 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         _pathDepth = new WriteOnce<int>();
 
         _rawPath = fullPath;
-
-        if (IsSpecialDirectorySymbol(normalizedFullPath)
-            && SpecialRelativeUnrootedDirectorySymbolNormalizationTable.TryGetValue(normalizedFullPath, out string? canonicalSymbol))
-        {
-            // Special directory symbols like "." and ".." are treated as relative paths with the symbol as the full path and the location
-            // both returning "." or ".." respectively, while the name is empty
-            // since they do not represent a specific directory name but rather a relative reference to the current or parent directory.
-            Name = string.Empty;
-            _rawPath = canonicalSymbol;
-            Location = canonicalSymbol;
-            IsRelative = true;
-            IsRoot = false;
-
-            return;
-        }
-
-        // If GetDirectoryName returns null, it means the path consists of only a drive name e.g. C: or C:\ or C:/ without any directory segments.
-        // In this case, we define the directory as nameless and set the name to string.Empty.
-        if (SystemIoPath.IsPathRooted(normalizedFullPath)
-            && s_pathEqualityComparer.Equals(SystemIoPath.GetPathRoot(normalizedFullPath), normalizedFullPath))
-        {
-            Name = string.Empty;
-            Location = normalizedFullPath;
-            IsRoot = SystemIoPath.EndsInDirectorySeparator(normalizedFullPath);
-
-            return;
-        }
-
-        Name = SystemIoPath.GetFileName(normalizedFullPath);
-        Location = SystemIoPath.GetDirectoryName(normalizedFullPath) ?? string.Empty;
-        IsRoot = false;
     }
 
     /// <summary>
