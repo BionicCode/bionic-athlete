@@ -10,7 +10,8 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
 {
     private static readonly FileSystemPathEqualityComparer s_pathEqualityComparer = FileSystemPathEqualityComparer.Instance;
     private readonly WriteOnce<int> _hashCodeCache;
-    private readonly WriteOnce<string> _toStringCache;
+
+    public static PathDescriptor Empty { get; } = new PathDescriptor() with { Segments = new PathSegmentList(ImmutableList<PathSegment>.Empty, true) };
 
     public PathDescriptor(string path, bool isDirectory)
     {
@@ -25,16 +26,18 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
         }
 
         _hashCodeCache = new WriteOnce<int>();
-        _toStringCache = new WriteOnce<string>();
 
         var segments = new List<PathSegment>();
         int startIndex = 0;
 
-        string pathRoot = Path.GetPathRoot(path) ?? string.Empty;
+        string normalizedPath = FileHelpers.NormalizeDirectorySeparators(path);
+        string pathRoot = Path.GetPathRoot(normalizedPath) ?? string.Empty;
         if (!string.IsNullOrWhiteSpace(pathRoot))
         {
             bool isRootRelative = !Path.IsPathFullyQualified(pathRoot);
-            PathSegment rootSegment = CreateRootSegment(pathRoot, isRootRelative);
+            bool isDriveRoot = pathRoot.EndsWith(Path.VolumeSeparatorChar)
+                || pathRoot.EndsWith(Path.DirectorySeparatorChar);
+            PathSegment rootSegment = CreateRootSegment(pathRoot, isRootRelative, isDriveRoot);
             segments.Add(rootSegment);
 
             // Adjust startIndex to ignore any leading directory separator characters after the root.
@@ -42,18 +45,18 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
             // So we have to look-ahead to check if there is a directory separator character after the root
             // to determine the correct starting index for the first path segment after the root.
             int nextCharacterIndex = pathRoot.Length;
-            startIndex = path.Length > nextCharacterIndex && DirectoryDescriptor.DirectorySeparatorChars.Contains(path[nextCharacterIndex])
+            startIndex = normalizedPath.Length > nextCharacterIndex && DirectoryDescriptor.DirectorySeparatorChars.Contains(normalizedPath[nextCharacterIndex])
                 ? nextCharacterIndex + 1
                 : nextCharacterIndex;
         }
 
-        for (int endIndex = startIndex; endIndex < path.Length; endIndex++)
+        for (int endIndex = startIndex; endIndex < normalizedPath.Length; endIndex++)
         {
-            if (DirectoryDescriptor.DirectorySeparatorChars.Contains(path[endIndex]))
+            if (DirectoryDescriptor.DirectorySeparatorChars.Contains(normalizedPath[endIndex]))
             {
                 // Index notation is exclusive for the end index,
                 // so it will give us the correct segment name without including the separator character.
-                string segmentName = path[startIndex..endIndex];
+                string segmentName = normalizedPath[startIndex..endIndex];
                 PathSegment segment = CreateDirectorySegment(segmentName);
                 startIndex = endIndex + 1;
 
@@ -61,9 +64,9 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
             }
         }
 
-        if (startIndex < path.Length)
+        if (startIndex < normalizedPath.Length)
         {
-            string segmentName = path[startIndex..];
+            string segmentName = normalizedPath[startIndex..];
             string segmentNameWithoutTrailingSeparator = Path.TrimEndingDirectorySeparator(segmentName);
             PathSegment segment = isDirectory
                 ? CreateDirectorySegment(segmentNameWithoutTrailingSeparator)
@@ -71,14 +74,16 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
             segments.Add(segment);
         }
 
-        Segments = [.. segments];
+        Segments = new PathSegmentList(segments, isDirectory);
         IsRelative = Segments[0].Kind is not PathSegmentKind.FullyQualifiedRoot;
     }
 
-    private static PathSegment CreateRootSegment(string pathRoot, bool isRootRelative)
+    private static PathSegment CreateRootSegment(string pathRoot, bool isRootRelative, bool isDriveRoot)
     {
         PathSegmentKind segmentKind = isRootRelative
-            ? PathSegmentKind.RelativeRoot
+            ? (isDriveRoot
+                ? PathSegmentKind.RelativeDriveRoot
+                : PathSegmentKind.RelativeRoot)
             : PathSegmentKind.FullyQualifiedRoot;
         var rootSegment = new PathSegment(pathRoot, segmentKind);
         return rootSegment;
@@ -135,7 +140,7 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
     /// </list>
     /// <para/>
     /// See <see cref="PathSegment.Name"/> for more information about possible path segment names.</remarks>
-    public ImmutableList<PathSegment> Segments { get; }
+    public PathSegmentList Segments { get; private init; }
 
     /// <summary>
     /// Gets a value indicating whether the represented path is fully qualified or not.
@@ -183,70 +188,7 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
         && Segments.Count > 0
         && Segments[0].IsRoot;
 
-    public override string ToString()
-    {
-        string toStringValue = string.Empty;
-
-        if (_toStringCache is null
-            || Segments is null
-            || Segments.Count == 0)
-        {
-            // This instance is a default(T) instance or was created using the implicit default constructor, which means it is uninitialized and therefore invalid.
-            // Under normal construction, a valid instance will always have at least one segment.
-            return string.Empty;
-        }
-        else if (_toStringCache.IsSet)
-        {
-            return _toStringCache;
-        }
-        else if (Segments.Count == 1)
-        {
-            toStringValue = Segments[0].Name;
-        }
-        else
-        {
-            using var pathBuilder = PooledStringBuilder.GetOrCreate();
-            int index = 0;
-            PathSegment segment = Segments[index];
-            index++;
-            _ = pathBuilder.Append(segment.Name);
-
-            // We append a directory separator only if the first segment is
-            // * a root segment that is fully qualified and without a trailing separator (e.g., "\\server\share") and at least one more segment is following.
-            // * not root segment (normal segment name or special directory name like "." and "..") and at least one more segment is following.
-            //
-            // We never append a directory separator if the first segment is
-            // * the only/last segment.
-            // * a root segment that is fully qualified (e.g., "C:\" on Windows or "/" on Unix-based systems) and has a trailing separator when followed by at last one more segment.
-            // * a root segment that is not fully qualified (e.g., "C:" or "\" on Windows) 
-            // * a file name segment (e.g., "file.txt"), since it would always be the last or only segment.
-            if (Segments.Count > 1
-                && ((segment.Kind is PathSegmentKind.FullyQualifiedRoot
-                && !Path.EndsInDirectorySeparator(segment.Name))
-                || segment.IsSpecial
-                || segment.Kind is PathSegmentKind.DirectoryName))
-            {
-                _ = pathBuilder.Append(Path.DirectorySeparatorChar);
-            }
-
-            for (; index < Segments.Count; index++)
-            {
-                segment = Segments[index];
-                _ = pathBuilder.Append(segment.Name);
-
-                // We append a directory separator character after each segment except for the last one to ensure a correct path representation.
-                if (index < Segments.Count - 1)
-                {
-                    _ = pathBuilder.Append(Path.DirectorySeparatorChar);
-                }
-            }
-
-            toStringValue = pathBuilder.ToString();
-        }
-
-        _toStringCache.SetValue(toStringValue);
-        return _toStringCache;
-    }
+    public override string ToString() => Segments?.ToString() ?? string.Empty;
 
     public bool Equals(PathDescriptor other) => s_pathEqualityComparer.Equals(this, other);
 

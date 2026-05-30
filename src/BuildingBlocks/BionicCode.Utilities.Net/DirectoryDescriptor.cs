@@ -4,6 +4,7 @@ using System.Collections.Frozen;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using Microsoft.AspNetCore.Http;
 using SystemIoPath = System.IO.Path;
 
 /// <summary>
@@ -44,8 +45,8 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// and does not have an explicit drive root.
     /// <para/>The set contains:
     /// <list type="bullet">
-    /// <item><c>.</c>. This symbol has the same meaning as completely omitting any symbol and only provide the directory name: <c>./temp</c> and <c>temp</c> are equivalent.</item>
-    /// <item><c>..</c>. This symbol represents the parent directory in a relative, unrooted context.</item>
+    /// <item><c>.</c> - This symbol has the same meaning as completely omitting any symbol and only provide the directory name: <c>./temp</c> and <c>temp</c> are equivalent.</item>
+    /// <item><c>..</c> - This symbol represents the parent directory in a relative, unrooted context.</item>
     /// </list>
     /// </remarks>
     public static readonly FrozenDictionary<string, string> SpecialRelativeUnrootedDirectorySymbolNormalizationTable = FrozenDictionary.Create(
@@ -57,8 +58,15 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     private static readonly FileSystemPathEqualityComparer s_pathEqualityComparer = FileSystemPathEqualityComparer.Instance;
 
     private readonly WriteOnce<PathDescriptor> _path;
+    private readonly WriteOnce<PathDescriptor> _location;
+    private readonly WriteOnce<string> _name;
     private readonly WriteOnce<int> _pathDepth;
+
+    // The seed for the PathDescriptor that is used to lazily initialize the Path property. 
     private readonly string _rawPath;
+
+    // The seed for the PathDescriptor that is used to lazily initialize the Location property. 
+    private readonly string _rawLocation;
 
     // Create a synthetic absolute path by combining the relative base path with a fixed synthetic root.
     // This allows us to resolve the relative path against the base path using Path.GetFullPath() (which only works with absolute paths).
@@ -81,12 +89,11 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
 
         _path = new WriteOnce<PathDescriptor>();
         _pathDepth = new WriteOnce<int>();
+        _location = new WriteOnce<PathDescriptor>();
 
-        Name = name;
-        Location = FileHelpers.NormalizeFileSystemPath(location);
-        _rawPath = SystemIoPath.Join(Location, Name);
-        IsRelative = !SystemIoPath.IsPathFullyQualified(PathString);
-        IsRoot = SystemIoPath.GetDirectoryName(PathString) is null;
+        _name = name;
+        _rawLocation = location;
+        _rawPath = SystemIoPath.Join(_rawLocation, Name);
     }
 
     /// <summary>
@@ -100,10 +107,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         _path = new WriteOnce<PathDescriptor>();
         _pathDepth = new WriteOnce<int>();
 
-        string normalizedFullPath = FileHelpers.NormalizeFileSystemPath(fullPath);
-
-        IsRelative = !SystemIoPath.IsPathFullyQualified(normalizedFullPath);
-        _rawPath = normalizedFullPath;
+        _rawPath = fullPath;
 
         if (IsSpecialDirectorySymbol(normalizedFullPath)
             && SpecialRelativeUnrootedDirectorySymbolNormalizationTable.TryGetValue(normalizedFullPath, out string? canonicalSymbol))
@@ -625,7 +629,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
             // Since string.Empty is not considered valid under normal construction returning string.Empty is fine to communicate an uninitialized compiler default state and least disturbing.
             if (_path is null)
             {
-                return default;
+                return PathDescriptor.Empty;
             }
 
             if (!_path.IsSet)
@@ -637,19 +641,85 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         }
     }
 
-    public string Name { get; }
+    public string Name
+    {
+        get
+        {
+            if (_name is null
+                || _path is null
+                || Path.Segments.IsEmpty)
+            {
+                return string.Empty;
+            }
+
+            if (!_name.IsSet)
+            {
+                string name;
+                if (Path.Segments.Count == 1)
+                {
+                    PathSegment pathSegment = Path.Segments[0];
+                    name = pathSegment.Kind is PathSegmentKind.DirectoryName
+                        ? pathSegment.Name
+                        : string.Empty;
+                }
+                else
+                {
+                    name = Path.Segments[^1].Name;
+                }
+
+                _name.SetValue(name);
+            }
+
+            return _name;
+        }
+    }
 
     // The parent directory path without the name. Can be absolute or relative.
-    public string Location { get; }
-    public string PathString => ToString();
-    public string PathRoot => SystemIoPath.GetPathRoot(PathString) ?? string.Empty;
+    public PathDescriptor Location
+    {
+        get
+        {
+            if (_path is null
+                || Path.Segments is null
+                || Path.Segments.Count == 0)
+            {
+                return PathDescriptor.Empty;
+            }
+
+            if (!_location.IsSet)
+            {
+                PathDescriptor parentPath;
+                var parentPathSegments = Path.Segments
+                    .Take(Path.Segments.Count - 1)
+                    .ToPathSegmentList(isDirectory: true);
+
+                if (parentPathSegments.Count == 1)
+                {
+                    parentPath = parentPathSegments[0].Kind is PathSegmentKind.DirectoryName
+                         ? PathDescriptor.Empty
+                         : parentPathSegments;
+                }
+                else
+                {
+                    parentPath = parentPathSegments;
+                }
+
+                _location.SetValue(parentPath);
+            }
+
+            return _location;
+        }
+    }
+
+    public string PathString => Path.PathString;
+    public PathSegment PathRoot => Path.HasRoot ? Path.Segments[0] : PathSegment.Empty;
 
     /// <summary>
     /// Gets a value indicating whether the current path is relative rather than absolute.
     /// </summary>
     /// <remarks>In general, relative paths are interpreted as relative to a current working directory (e.g. <c>/subdir</c>) or relative to the current drive (e.g. <c>c:subdir</c>) or truly relative to an arbitrary base directory (e.g. <c>subdir</c> or <c>./subdir</c> or <c>../subdir</c>). Absolute paths specify a complete path from the root of the file system and are not dependent on the current working directory or current drive.</remarks>
     /// <value><see langword="true"/> if the path is relative (rooted or unrooted) or <see langword="false"/> if the path is absolute.</value>
-    public bool IsRelative { get; }
+    public bool IsRelative => Path.IsRelative;
 
     /// <summary>
     /// Gets a value indicating whether the directory has an explicit drive root.
@@ -657,14 +727,14 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// <remarks>A directory has an explicit drive root if it is an absolute path or a relative path with an explicit root like "C:Temp".
     /// <br/>The property will treat paths like "/Temp" as implicitly drive rooted.</remarks>
     /// <value><see langword="true"/> if the directory has an explicit drive root like "C:Temp" or is an absolute path like "C:\User\Temp"; otherwise, <see langword="false"/>.</value>
-    public bool HasExplicitDriveRoot => SystemIoPath.IsPathRooted(PathString) && (SystemIoPath.GetPathRoot(PathString)?.Length ?? 0) > 1;
+    public bool HasExplicitDriveRoot => Path.HasRoot && PathRoot.Kind is PathSegmentKind.FullyQualifiedRoot or PathSegmentKind.RelativeDriveRoot;
 
     /// <summary>
     /// Gets a value indicating whether the path has an implicit drive root (for example, <c>/subdir</c>).
     /// </summary>
     /// <remarks>An implicit drive root is present when the path is rooted and its root consists of a single
     /// character, typically representing a directory separator, for example <c>/subdir</c>.</remarks>
-    public bool HasImplicitDriveRoot => SystemIoPath.IsPathRooted(PathString) && (SystemIoPath.GetPathRoot(PathString)?.Length ?? 0) == 1;
+    public bool HasImplicitDriveRoot => Path.HasRoot && PathRoot.Kind is PathSegmentKind.RelativeRoot;
 
     /// <summary>
     /// Gets a value indicating whether the directory at the specified path currently exists.
@@ -672,7 +742,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// <value><see langword="true"/> if the directory exists or <see langword="false"/> an error occurred during the check or the directory does not exist at the time of the check.</value>
     public bool IsExisting => Directory.Exists(PathString);
 
-    public bool IsRoot { get; }
+    public bool IsRoot => Path.HasRoot && Path.Segments.Count == 1;
 
     public static bool operator ==(DirectoryDescriptor left, DirectoryDescriptor right) => left.Equals(right);
     public static bool operator !=(DirectoryDescriptor left, DirectoryDescriptor right) => !(left == right);

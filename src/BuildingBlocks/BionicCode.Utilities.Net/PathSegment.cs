@@ -1,10 +1,11 @@
 ﻿namespace BionicCode.Utilities.Net;
-
 /// <summary>
 /// Represents a segment of a file system path represented by <see cref="PathDescriptor"/>. 
 /// </summary>
 public readonly record struct PathSegment
 {
+    public static readonly PathSegment Empty = new PathSegment() with { Name = string.Empty };
+
     /// <summary>
     /// Creates a new instance of the <see cref="PathSegment"/> struct with the specified name and root status. 
     /// </summary>
@@ -39,6 +40,10 @@ public readonly record struct PathSegment
 
         Name = normalizedName;
         IsSpecial = DirectoryDescriptor.SpecialDirectorySymbols.Contains(Name);
+        ArgumentExceptionAdvanced.ThrowIfTrue(
+            IsSpecial && kind is not PathSegmentKind.CurrentDirectory and not PathSegmentKind.ParentDirectory,
+            message: $"Invalid argument '{nameof(kind)}'. If the argument '{nameof(name)}' is a special directory symbol like '.' or '..', the argument '{nameof(kind)}' must be either '{nameof(PathSegmentKind.CurrentDirectory)}' or '{nameof(PathSegmentKind.ParentDirectory)}'.");
+
         Kind = kind;
     }
 
@@ -62,7 +67,7 @@ public readonly record struct PathSegment
     /// </list>
     /// </remarks>
     /// <value>The name of the path segment.</value>
-    public string Name { get; }
+    public string Name { get; private init; }
 
     /// <summary>
     /// Gets a value indicating whether the segment is a special directory symbol like "." or "..".
@@ -89,4 +94,5 @@ public readonly record struct PathSegment
     public bool IsRoot => Kind is PathSegmentKind.FullyQualifiedRoot or PathSegmentKind.RelativeRoot;
 
     public bool IsRelative => Kind is not PathSegmentKind.FullyQualifiedRoot;
+    public bool IsSegmentName => Kind is PathSegmentKind.DirectoryName or PathSegmentKind.FileName;
 }
