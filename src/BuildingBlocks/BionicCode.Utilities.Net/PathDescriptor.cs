@@ -10,8 +10,23 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
 {
     private static readonly FileSystemPathEqualityComparer s_pathEqualityComparer = FileSystemPathEqualityComparer.Instance;
     private readonly WriteOnce<int> _hashCodeCache;
+    private readonly WriteOnce<int> _depth;
+    private readonly WriteOnce<PathDescriptor> _normalizedPath;
+    private readonly WriteOnce<int> _resolvedDepth;
 
     public static PathDescriptor Empty { get; } = new PathDescriptor() with { Segments = new PathSegmentList(ImmutableList<PathSegment>.Empty, true) };
+
+    private PathDescriptor(PathSegmentList segments)
+    {
+        _hashCodeCache = new WriteOnce<int>();
+        _depth = new WriteOnce<int>();
+        _resolvedDepth = new WriteOnce<int>();
+        _normalizedPath = new WriteOnce<PathDescriptor>();
+
+        Segments = segments;
+        IsRelative = Segments[0].Kind is not PathSegmentKind.FullyQualifiedRoot;
+        IsDirectoryPath = segments.IsDirectory;
+    }
 
     public PathDescriptor(string path, bool isDirectory)
     {
@@ -26,6 +41,9 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
         }
 
         _hashCodeCache = new WriteOnce<int>();
+        _depth = new WriteOnce<int>();
+        _resolvedDepth = new WriteOnce<int>();
+        _normalizedPath = new WriteOnce<PathDescriptor>();
 
         var segments = new List<PathSegment>();
         int startIndex = 0;
@@ -76,6 +94,7 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
 
         Segments = new PathSegmentList(segments, isDirectory);
         IsRelative = Segments[0].Kind is not PathSegmentKind.FullyQualifiedRoot;
+        IsDirectoryPath = isDirectory;
     }
 
     private static PathSegment CreateRootSegment(string pathRoot, bool isRootRelative, bool isDriveRoot)
@@ -143,7 +162,218 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
     public PathSegmentList Segments { get; private init; }
 
     /// <summary>
-    /// Gets a value indicating whether the represented path is fully qualified or not.
+    /// Gets the clamped depth of the path, which is defined as the number of segments in the path excluding the root segment if it exists.
+    /// </summary>
+    /// <remarks>The normalized/resolved depth of the path is calculated by counting the number of segments in the <see cref="Segments"/> collection 
+    /// excluding the first segment if it is a root segment. A depth of 0 means a root-only path. 
+    /// <br/>The depth is clamped to a minimum of 0, meaning that if there are more ".." segments than actual directory segments, the depth will not go below the root (0).
+    /// <para/>
+    /// "." is the current directory symbol and does not affect the depth, while ".." is the parent directory symbol and decreases the depth by one but never below 0.
+    /// <para/>
+    /// Examples: 
+    /// <list type="bullet">
+    /// <item>
+    /// <term>"C:\"</term>
+    /// <description>"C:\" has a depth of 0 because the root segment is ignored. </description></item>
+    /// <item>
+    /// <term>"C:\folder\subfolder\..\file.txt"</term>
+    /// <description>"C:\folder\subfolder\..\file.txt" is normalized: its original depth of 4 is reduced to a depth of 2 after resolving special directory symbols like "." and ".." 
+    /// (ignored root segment: "C:\". Relevant segments: "folder", "file.txt").</description>
+    /// </item>
+    /// <item>
+    /// <term>"C:\folder\subfolder\..\..\..\..\..\"</term>
+    /// <description>"C:\folder\subfolder\..\..\..\..\..\file.txt" is normalized: its original depth of 7 is clamped to "C:\" with a depth of 0 after resolving special directory symbols like "." and ".." 
+    /// (ignored root segment: "C:\". Relevant segments: none).</description>
+    /// </item>
+    /// <item>
+    /// <term>"C:\folder\subfolder\..\..\..\..\..\file.txt"</term>
+    /// <description>"C:\folder\subfolder\..\..\..\..\..\file.txt" is normalized: its original depth of 8 is clamped to "C:\file.txt" with a depth of 1 after resolving special directory symbols like "." and ".." 
+    /// (ignored root segment: "C:\". Relevant segments: "file.txt").</description>
+    /// </item>
+    /// <term>"C:\folder\subfolder\.\file.txt"</term>
+    /// <description>"C:\folder\subfolder\.\file.txt" is normalized: its original depth of 4 is reduced to "C:\folder\subfolder\file.txt" with a depth of 3 after resolving special directory symbols like "." and ".." 
+    /// (ignored root segment: "C:\". Relevant segments: "file.txt").</description>
+    /// </item>
+    /// </list>
+    /// 
+    /// </remarks>
+    /// <value>The positive depth of the normalized path which is the resolved number of segments excluding the root segment if it exists.</value>
+    public int Depth
+    {
+        get
+        {
+            if (Segments is null
+                || Segments.Count == 0
+                || _depth is null)
+            {
+                return 0;
+            }
+
+            if (!_depth.IsSet)
+            {
+                int clampedDepth = CalculateClampedPathDepth();
+                _depth.SetValue(clampedDepth);
+            }
+
+            return _depth;
+        }
+    }
+
+    /// <summary>
+    /// Gets a normalized version of the path, which is defined as a path with all special directory symbols like "." and ".." resolved and removed from the path segments.
+    /// </summary>
+    /// <remarks>The normalized/resolved path is calculated by counting the number of segments in the <see cref="Segments"/> collection 
+    /// excluding the first segment if it is a root segment. A depth of 0 means a root-only path. 
+    /// <br/>The depth is clamped to a minimum of 0, meaning that if there are more ".." segments than actual directory segments, the depth will not go below the root (0).
+    /// <para/>
+    /// "." is the current directory symbol and does not affect the depth, while ".." is the parent directory symbol and decreases the depth by one but never below 0.
+    /// <para/>
+    /// Examples: 
+    /// <list type="bullet">
+    /// <item>
+    /// <term>"C:\"</term>
+    /// <description>Normalized result: "C:\"</description></item>
+    /// <item>
+    /// <term>"C:\folder\subfolder\..\file.txt"</term>
+    /// <description>Normalized result: "C:\folder\file.txt"</description>
+    /// </item>
+    /// <item>
+    /// <term>"C:\folder\subfolder\..\..\..\..\..\"</term>
+    /// <description>Normalized result: "C:\". The resulting path was clamped to the root due to excessive ".." segments.</description>
+    /// </item>
+    /// <item>
+    /// <term>"C:\folder\subfolder\..\..\..\..\..\file.txt"</term>
+    /// <description>Normalized result: "C:\file.txt". The resulting path was clamped to the root due to excessive ".." segments.</description>
+    /// </item>
+    /// <term>"C:\folder\subfolder\.\file.txt"</term>
+    /// <description>Normalized result: "C:\folder\subfolder\file.txt"</description>
+    /// </item>
+    /// </list>
+    /// 
+    /// </remarks>
+    public PathDescriptor NormilizedPath
+    {
+        get
+        {
+            if (_normalizedPath is null)
+            {
+                return PathSegmentList.Empty;
+            }
+
+            if (!_normalizedPath.IsSet)
+            {
+                PathSegmentList normalizedSegments = GetNormalizedPath();
+                var normalizedPathDescriptor = new PathDescriptor(normalizedSegments);
+                _normalizedPath.SetValue(normalizedPathDescriptor);
+            }
+
+            return _normalizedPath;
+        }
+    }
+
+    private int CalculateClampedPathDepth()
+    {
+        if (Segments is null
+            || Segments.Count == 0)
+        {
+            return 0;
+        }
+
+        PathSegmentList normalizedSegments = GetNormalizedPath();
+        return normalizedSegments.Count;
+    }
+
+    private PathSegmentList GetNormalizedPath()
+    {
+        if (Segments is null
+            || Segments.Count == 0)
+        {
+            return PathSegmentList.Empty;
+        }
+
+        PathSegment firstSegment = Segments[0];
+
+        // We isolate and protect the first segment if it is:
+        // - a fully qualified root segment like "C:\" on Windows or "/" on Unix-based systems to maintains a valid rooted shape like e.g., "C:\Directory"
+        // - a relative root segment like "\" to maintains a valid rooted shape like e.g., "\Directory"
+        // - a relative drive rooted segment like "C:" to maintains a valid rooted shape like e.g., "C:Directory"
+        // - a special segment representing the parent directory ("..") to maintain a valid relative path shape like "../Directory"
+        int protectedSegmentCount = (HasRoot && firstSegment.IsRoot)
+            ? 1
+            : 0;
+        List<PathSegment> normalizedSegments = [.. Segments.Take(protectedSegmentCount)];
+        foreach (PathSegment pathSegment in Segments.Skip(protectedSegmentCount))
+        {
+            if (pathSegment.IsSpecial)
+            {
+                if (pathSegment.Name.Equals(DirectoryDescriptor.ParentDirectorySymbol, StringComparison.Ordinal))
+                {
+                    // If there are no root segments (normalizedSegments.Count can become 0)
+                    // and normalizedSegments is empty OR the last element is a ".." segment (and not a directory name segment),
+                    // we have to add the following consecutive ".." segments to the normalized path
+                    // to maintain a valid relative path shape like "../../Directory"
+                    if (normalizedSegments.Count == 0
+                        || normalizedSegments.Last().Name.Equals(DirectoryDescriptor.ParentDirectorySymbol, StringComparison.Ordinal))
+                    {
+                        normalizedSegments.Add(pathSegment);
+                    }
+                    // Ensure we never remove a protected leading segment (if any) to maintain a valid path shape like e.g., "C:\Directory" or "../Directory"
+                    else if (normalizedSegments.Count > protectedSegmentCount)
+                    {
+                        // Remove last segment
+                        normalizedSegments.RemoveAt(normalizedSegments.Count - 1);
+                    }
+                }
+                else if (pathSegment.Name.Equals(DirectoryDescriptor.CurrentDirectorySymbol, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+            }
+            else
+            {
+                normalizedSegments.Add(pathSegment);
+            }
+        }
+
+        return normalizedSegments.ToPathSegmentList(IsDirectoryPath);
+    }
+
+    private int CalculateCurrentPathDepthDelta()
+    {
+        if (Segments is null
+            || Segments.Count == 0)
+        {
+            return 0;
+        }
+
+        int depth = 0;
+        int skipCount = HasRoot && Segments[0].IsRoot
+            ? 1
+            : 0;
+        foreach (PathSegment pathSegment in Segments.Skip(skipCount))
+        {
+            if (pathSegment.IsSpecial)
+            {
+                if (pathSegment.Name.Equals(DirectoryDescriptor.ParentDirectorySymbol, StringComparison.Ordinal))
+                {
+                    depth--;
+                }
+                else if (pathSegment.Name.Equals(DirectoryDescriptor.CurrentDirectorySymbol, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+            }
+            else
+            {
+                depth++;
+            }
+        }
+
+        return depth;
+    }
+
+    /// <summary>
+    /// Gets a depthDelta indicating whether the represented path is fully qualified or not.
     /// </summary>
     /// <remarks>The root segment is the first segment of a path that represents the root directory and defines whether the path is fully qualified. 
     /// The following examples show valid file system path roots:
@@ -160,11 +390,12 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
     /// <br/>Example: "\folder\file.txt"</description></item>
     /// </list>
     /// </remarks>
-    /// <value><see langword="true"/> if the path is relative i.e. not fully qualified; otherwise, <see langword="false"/>.</value>
+    /// <depthDelta><see langword="true"/> if the path is relative i.e. not fully qualified; otherwise, <see langword="false"/>.</depthDelta>
     public bool IsRelative { get; }
+    public bool IsDirectoryPath { get; }
 
     /// <summary>
-    /// Gets a value indicating whether the represented path starts with a root segment.
+    /// Gets a depthDelta indicating whether the represented path starts with a root segment.
     /// </summary>
     /// <remarks>The root segment is the first segment of a path that represents the root directory. 
     /// The following examples show valid file system path roots:
@@ -183,7 +414,7 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
     /// <para/>
     /// If <see cref="HasRoot"/> is <see langword="true"/>, the path can still be relative if the root is not fully qualified (see above list for fully qualified path roots).
     /// </remarks>
-    /// <value><see langword="true"/> if the segment is the root of a path; otherwise, <see langword="false"/>.</value>
+    /// <depthDelta><see langword="true"/> if the segment is the root of a path; otherwise, <see langword="false"/>.</depthDelta>
     public bool HasRoot => Segments is not null
         && Segments.Count > 0
         && Segments[0].IsRoot;

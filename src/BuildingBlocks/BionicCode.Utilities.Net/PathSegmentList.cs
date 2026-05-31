@@ -8,6 +8,8 @@ public sealed class PathSegmentList : IImmutableList<PathSegment>
     private readonly ImmutableList<PathSegment> _segments;
     private readonly WriteOnce<string> _toStringCache;
 
+    public static readonly PathSegmentList Empty = new PathSegmentList(ImmutableList<PathSegment>.Empty, isDirectory: false);
+
     public PathSegmentList(IEnumerable<PathSegment> segments, bool isDirectory)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(segments);

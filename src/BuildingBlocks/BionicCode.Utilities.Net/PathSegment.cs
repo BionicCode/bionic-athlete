@@ -97,7 +97,7 @@ public readonly record struct PathSegment
     /// </list>
     /// </remarks>
     /// <value><see langword="true"/> if the segment is the root of a path; otherwise, <see langword="false"/>.</value>
-    public bool IsRoot => Kind is PathSegmentKind.FullyQualifiedRoot or PathSegmentKind.RelativeRoot;
+    public bool IsRoot => Kind is PathSegmentKind.FullyQualifiedRoot or PathSegmentKind.RelativeRoot or PathSegmentKind.RelativeDriveRoot;
 
     public bool IsRelative => Kind is not PathSegmentKind.FullyQualifiedRoot;
     public bool IsSegmentName => Kind is PathSegmentKind.DirectoryName or PathSegmentKind.FileName;

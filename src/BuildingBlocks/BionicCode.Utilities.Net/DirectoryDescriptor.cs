@@ -4,6 +4,7 @@ using System.Collections.Frozen;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Xml.Linq;
 using Microsoft.AspNetCore.Http;
 using SystemIoPath = System.IO.Path;
 
@@ -60,13 +61,6 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     private readonly WriteOnce<PathDescriptor> _path;
     private readonly WriteOnce<PathDescriptor> _location;
     private readonly WriteOnce<string> _name;
-    private readonly WriteOnce<int> _pathDepth;
-
-    // The seed for the PathDescriptor that is used to lazily initialize the Path property. 
-    private readonly string _rawPath;
-
-    // The seed for the PathDescriptor that is used to lazily initialize the Location property. 
-    private readonly string _rawLocation;
 
     // Create a synthetic absolute path by combining the relative base path with a fixed synthetic root.
     // This allows us to resolve the relative path against the base path using Path.GetFullPath() (which only works with absolute paths).
@@ -82,18 +76,8 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// </summary>
     /// <param name="name">The directory name.</param>
     /// <param name="location">The parent directory path without the name. Can be absolute or relative.</param>
-    public DirectoryDescriptor(string name, string location)
+    public DirectoryDescriptor(string name, string location) : this(SystemIoPath.Join(location, name))
     {
-        FileSystemPathValidator.ThrowIfInvalidDirectoryName(name);
-        FileSystemPathValidator.ThrowIfInvalidDirectoryPath(location);
-
-        _path = new WriteOnce<PathDescriptor>();
-        _pathDepth = new WriteOnce<int>();
-        _location = new WriteOnce<PathDescriptor>();
-
-        _name = name;
-        _rawLocation = location;
-        _rawPath = SystemIoPath.Join(_rawLocation, Name);
     }
 
     /// <summary>
@@ -104,10 +88,10 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     {
         FileSystemPathValidator.ThrowIfInvalidDirectoryPath(fullPath);
 
-        _path = new WriteOnce<PathDescriptor>();
-        _pathDepth = new WriteOnce<int>();
+        _name = new WriteOnce<string>();
+        _location = new WriteOnce<PathDescriptor>();
 
-        _rawPath = fullPath;
+        _path = new PathDescriptor(fullPath, isDirectory: true);
     }
 
     /// <summary>
@@ -267,7 +251,8 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// </summary>
     /// <remarks>The base directory <paramref name="absoluteBaseDirectory"/> must be absolute. If the current path is already absolute, the base
     /// directory is ignored. This method does not support resolving relative paths with explicit drive roots, as the
-    /// current drive context is required. And it replaces implicit drive roots with the provided base directory. For example, if the current path is "\Temp" and the base directory is "C:\Base", the resulting absolute path will be "C:\Base\Temp".</remarks>
+    /// current drive context is required. And it replaces implicit drive roots with the provided base directory.
+    /// For example, if the current path is "\Temp" and the base directory is "C:\Base", the resulting absolute path will be "C:\Base\Temp" with the <paramref name="relativeFilePath"/> being appended.</remarks>
     /// <param name="absoluteBaseDirectory">An absolute directory path that serves as the base for resolving the current relative directory path.</param>
     /// <param name="isImplicitRootAllowed"><see langword="true"/> to allow the current directory to be implicitly drive rooted. In that case <c>/subdir</c> will be treated as <c>./subdir</c> (aka <c>subdir</c>); otherwise, <see langword="false"/> to disallow conversion of implicit rooted paths. 
     /// If <see langword="false"/>, any segment with an implicit drive root will cause an exception.</param>
@@ -471,105 +456,69 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         return relativeResult;
     }
 
-    public IEnumerable<PathSegment> EnumeratePathSegments() => EnumeratePathSegments(PathString);
-
-    private static IEnumerable<PathSegment> EnumeratePathSegments(string path)
+    public static IEnumerable<PathSegment> EnumerateDirectoryPathSegments(string path)
     {
-        if (_pathSegments.IsSet)
-        {
-            foreach (PathSegment segment in _pathSegments.GetValueOrDefault())
-            {
-                yield return segment;
-            }
-
-            yield break;
-        }
-
-        int startIndex = 0;
-        string pathRoot = SystemIoPath.GetPathRoot(path) ?? string.Empty;
-        if (!string.IsNullOrWhiteSpace(pathRoot))
-        {
-            var rootSegment = new PathSegment
-            {
-                Name = pathRoot,
-                IsSpecial = SpecialDirectorySymbols.Contains(pathRoot),
-                IsRoot = true
-            };
-
-            yield return rootSegment;
-
-            // Adjust startIndex to ignore any leading directory separator characters after the root.
-            // For example, Path.GetPathRoot returns "\\server\share" for UNC paths like "\\server\share\dir\a" - without the trailing directory separator.
-            // So we have to look-ahead to check if there is a directory separator character after the root
-            // to determine the correct starting index for the first path segment after the root.
-            startIndex = DirectorySeparatorChars.Contains(path[pathRoot.Length + 1])
-                ? pathRoot.Length + 2
-                : pathRoot.Length + 1;
-        }
-
-        for (int endIndex = startIndex; endIndex < path.Length; endIndex++)
-        {
-            if (DirectorySeparatorChars.Contains(path[endIndex]))
-            {
-                // Index notation is exclusive for the end index,
-                // so it will give us the correct segment name without including the separator character.
-                string segmentName = path[startIndex..endIndex];
-                var segment = new PathSegment
-                {
-                    Name = segmentName,
-                    IsSpecial = SpecialDirectorySymbols.Contains(segmentName),
-                    IsRoot = false
-                };
-                startIndex = endIndex + 1;
-
-                yield return segment;
-            }
-        }
-    }
-
-    private int CalculatePathDepthDelta()
-    {
-        int depth = 0;
-        foreach (PathSegment pathSegment in EnumeratePathSegments())
-        {
-            if (pathSegment.IsRoot)
-            {
-                continue;
-            }
-            else if (pathSegment.IsSpecial)
-            {
-                if (pathSegment.Name.Equals(ParentDirectorySymbol, StringComparison.Ordinal))
-                {
-                    depth--;
-                }
-
-                if (pathSegment.Name.Equals(CurrentDirectorySymbol, StringComparison.Ordinal))
-                {
-                    continue;
-                }
-            }
-            else
-            {
-                depth++;
-            }
-        }
-
-        return depth;
+        var descriptor = new DirectoryDescriptor(path);
+        return descriptor.EnumeratePathSegments();
     }
     #endregion Helpers
+
+    public bool IsDefaultInstance => _path is null && _rawLocation is null && _location is null;
 
     public override string ToString() => Path.ToString();
     public bool Equals(DirectoryDescriptor other) => s_pathEqualityComparer.Equals(this, other);
     public override int GetHashCode() => s_pathEqualityComparer.GetHashCode(this);
 
     /// <summary>
-    /// Gets the depth of the current <see cref="DirectoryDescriptor"/> path.
+    /// Gets the depth delta of the current <see cref="DirectoryDescriptor"/> path relative to another <see cref="DirectoryDescriptor"/>.
     /// </summary>
-    /// <remarks>The depth is calculated based on the number of path segments in the <see cref="PathString"/> excluding the root.
+    /// <remarks>Either current or the other <see cref="DirectoryDescriptor"/> can be relative to each other or both can be absolute. 
+    /// <br/>The depth delta is calculated by counting the number of directory segments in the current path and the other path, 
+    /// while treating special directory symbols like "." and ".." according to their semantics. 
+    /// The resulting depth delta indicates how many levels deeper (positive value) or higher (negative value) the current path is relative to the other path. 
+    /// <br/>A depth delta of 0 indicates that both paths are at the same level in the directory hierarchy or are absolute.
     /// <para/>
-    /// For example, the path <c>C:\Users\Public</c> has a depth of 2. The path <c>C:\</c> has a depth of 0. On Unix the path <c>/usr/local/bin</c> has a depth of 3.</remarks>
+    /// If a relative rooted path (e.g. <c>c:subdir</c>) is compared to an absolute path, the depth delta is calculated based on the number of segments in the relative path without considering the drive root as a segment, since it does not contribute to the depth relative to the absolute path.
+    /// <para/>
+    /// The formula for calculating the depth delta is: <c>Depth Delta = Current Path Depth - Other Path Depth</c> 
+    /// <br/>where relative paths symbols like "." and ".." are taken into account and two absolute paths are considered to have a depth delta of 0 regardless of their actual segment count.
+    /// <para/>
+    /// Examples:
+    /// <list type="bullet">
+    /// <item>
+    /// <term>Depth delta: 0</term>
+    /// <description>The current path <c>C:\Users\Public</c> has a depth of 2 and the <paramref name="other"/> path <c>C:\Temp</c> has a depth of 1. Since both are absolute the result is 0.</description>
+    /// </item>
+    /// <item>
+    /// <term>Resulting path: <c>"C:\Users\Public\Temp"</c> ==> Depth delta: 1</term>
+    /// <description>The current path <c>"C:\Users\Public"</c> has a depth of 2 and the <paramref name="other"/> path <c>"Temp"</c> has a depth of 1. Delta = 2 - 1 = 1</description>
+    /// </item>
+    /// <item>
+    /// <term>Resulting path: <c>"C:\Users\Public\..\Temp"</c> --> <c>"C:\Users\Temp"</c> ==> Depth delta: 0</term>
+    /// <description>The current path <c>"C:\Users\Public"</c> has a depth of 2 and the <paramref name="other"/> path <c>"..\Temp"</c> has a depth of 2. Delta = 2 - 2 = 0</description>
+    /// </item>
+    /// <item>
+    /// <term>Resulting path: <c>"C:\Users\Public\..\..\..\..\Temp"</c> --> <c>"..\..\Temp\C:\"</c> ==> Depth delta: -3</term>
+    /// <description>The current path <c>"C:\Users\Public"</c> has a depth of 2 and the <paramref name="other"/> path <c>"..\..\..\..\Temp"</c> has a depth of 5. Delta = 2 - 5 = -3</description>
+    /// </item>
+    /// <item>
+    /// <term>Resulting path: <c>"C:\Users\Public\..\Application\..\..\..\..\Temp"</c> --> <c>"..\..\Temp\C:\"</c> ==> Depth delta: -3</term>
+    /// <description>The current path <c>"C:\Users\Public\..\Application"</c> has a depth of 2 and the <paramref name="other"/> path <c>"..\..\..\..\Temp"</c> has a depth of 5. Delta = 2 - 5 = -3</description>
+    /// </item>
+    /// <item>
+    /// <description>On Unix, the path <c>/usr/local/bin</c> has a depth of 3.</description>
+    /// </item>
+    /// </list>
+    /// </remarks>
     public int GetRelativePathDepthDelta(DirectoryDescriptor other)
     {
+        if (Path.Segments.IsEmpty || other.Path.Segments.IsEmpty)
+        {
+            return 0;
+        }
+
+        int currentPathDepthDelta = Path.DepthDelta;
+        int otherPathDepthDelta = other.Path.Depth;
         get
         {
             // Can only be NULL when instance is default or the implicit default constructor was used to create this instance.
@@ -582,10 +531,19 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
 
             if (!_pathDepth.IsSet)
             {
-                _pathDepth.SetValue(CalculatePathDepthDelta());
+                _pathDepth.SetValue(CalculateCurrentPathDepthDelta());
             }
 
             return _pathDepth;
+        }
+    }
+
+    public IEnumerable<PathSegment> EnumeratePathSegments()
+    {
+
+        foreach (PathSegment pathSegment in Path.Segments)
+        {
+            yield return pathSegment;
         }
     }
 
@@ -599,11 +557,6 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
             if (_path is null)
             {
                 return PathDescriptor.Empty;
-            }
-
-            if (!_path.IsSet)
-            {
-                _path.SetValue(new PathDescriptor(_rawPath, isDirectory: true));
             }
 
             return _path;
@@ -681,7 +634,23 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     }
 
     public string PathString => Path.PathString;
-    public PathSegment PathRoot => Path.HasRoot ? Path.Segments[0] : PathSegment.Empty;
+    public bool TryGetPathRoot(out PathSegment pathRoot)
+    {
+        if (IsDefaultInstance)
+        {
+            pathRoot = PathSegment.Empty;
+            return false;
+        }
+
+        if (Path.HasRoot)
+        {
+            pathRoot = Path.Segments[0];
+            return pathRoot.IsRoot;
+        }
+
+        pathRoot = PathSegment.Empty;
+        return false;
+    }
 
     /// <summary>
     /// Gets a value indicating whether the current path is relative rather than absolute.
@@ -696,14 +665,14 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// <remarks>A directory has an explicit drive root if it is an absolute path or a relative path with an explicit root like "C:Temp".
     /// <br/>The property will treat paths like "/Temp" as implicitly drive rooted.</remarks>
     /// <value><see langword="true"/> if the directory has an explicit drive root like "C:Temp" or is an absolute path like "C:\User\Temp"; otherwise, <see langword="false"/>.</value>
-    public bool HasExplicitDriveRoot => Path.HasRoot && PathRoot.Kind is PathSegmentKind.FullyQualifiedRoot or PathSegmentKind.RelativeDriveRoot;
+    public bool HasExplicitDriveRoot => TryGetPathRoot(out PathSegment pathRoot) && pathRoot.Kind is PathSegmentKind.FullyQualifiedRoot or PathSegmentKind.RelativeDriveRoot;
 
     /// <summary>
     /// Gets a value indicating whether the path has an implicit drive root (for example, <c>/subdir</c>).
     /// </summary>
     /// <remarks>An implicit drive root is present when the path is rooted and its root consists of a single
     /// character, typically representing a directory separator, for example <c>/subdir</c>.</remarks>
-    public bool HasImplicitDriveRoot => Path.HasRoot && PathRoot.Kind is PathSegmentKind.RelativeRoot;
+    public bool HasImplicitDriveRoot => TryGetPathRoot(out PathSegment pathRoot) && pathRoot.Kind is PathSegmentKind.RelativeRoot;
 
     /// <summary>
     /// Gets a value indicating whether the directory at the specified path currently exists.
