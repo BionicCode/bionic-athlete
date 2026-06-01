@@ -13,10 +13,11 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
     private readonly WriteOnce<int> _depth;
     private readonly WriteOnce<PathDescriptor> _normalizedPath;
     private readonly WriteOnce<int> _resolvedDepth;
+    private readonly bool _isNormalized;
 
     public static PathDescriptor Empty { get; } = new PathDescriptor() with { Segments = new PathSegmentList(ImmutableList<PathSegment>.Empty, true) };
 
-    private PathDescriptor(PathSegmentList segments)
+    private PathDescriptor(PathSegmentList segments, bool isNormalized)
     {
         _hashCodeCache = new WriteOnce<int>();
         _depth = new WriteOnce<int>();
@@ -24,6 +25,7 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
         _normalizedPath = new WriteOnce<PathDescriptor>();
 
         Segments = segments;
+        _isNormalized = isNormalized;
         IsRelative = Segments[0].Kind is not PathSegmentKind.FullyQualifiedRoot;
         IsDirectoryPath = segments.IsDirectory;
     }
@@ -251,7 +253,7 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
     /// </list>
     /// 
     /// </remarks>
-    public PathDescriptor NormilizedPath
+    public PathDescriptor NormalizedPath
     {
         get
         {
@@ -260,10 +262,15 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
                 return PathSegmentList.Empty;
             }
 
+            if (_isNormalized)
+            {
+                return this;
+            }
+
             if (!_normalizedPath.IsSet)
             {
                 PathSegmentList normalizedSegments = GetNormalizedPath();
-                var normalizedPathDescriptor = new PathDescriptor(normalizedSegments);
+                var normalizedPathDescriptor = new PathDescriptor(normalizedSegments, isNormalized: true);
                 _normalizedPath.SetValue(normalizedPathDescriptor);
             }
 
@@ -445,4 +452,6 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
 
     public static bool operator ==(PathDescriptor left, PathDescriptor right) => left.Equals(right);
     public static bool operator !=(PathDescriptor left, PathDescriptor right) => !(left == right);
+
+    public static implicit operator string(PathDescriptor path) => path.ToString();
 }

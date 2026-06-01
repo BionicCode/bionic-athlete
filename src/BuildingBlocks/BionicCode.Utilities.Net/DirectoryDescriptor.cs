@@ -1,11 +1,8 @@
 ﻿namespace BionicCode.Utilities.Net;
 
 using System.Collections.Frozen;
-using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using System.Xml.Linq;
-using Microsoft.AspNetCore.Http;
 using SystemIoPath = System.IO.Path;
 
 /// <summary>
@@ -155,14 +152,14 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         // Combine the current directory path with each of the provided relative directory segments in order. Each segment is validated to ensure it is a relative path
         // without an explicit drive root, and if implicit roots are not allowed, it must not be implicitly drive rooted.
         // Provided relative paths are resolved against the current base path (the current DirectoryDescriptor) to produce a final combined path
-        // that correctly resolves special path symbols like ".." and ".". If the current DirectoryDescriptor is a relative path, the resulting apth will be realtive to.
-        string basePath = PathString;
+        // that correctly resolves special path symbols like ".." and ".". If the current DirectoryDescriptor is a relative path, the resulting path will be relative too.
+        PathDescriptor combinedPath = Path;
         foreach (DirectoryDescriptor segment in appendingLocationSegments)
         {
             ArgumentExceptionAdvanced.ThrowIfFalse(segment.IsRelative, $"All '{nameof(appendingLocationSegments)}' must be relative directory paths. The segment '{segment.PathString}' is not relative.");
             ArgumentExceptionAdvanced.ThrowIfTrue(segment.HasExplicitDriveRoot, $"All '{nameof(appendingLocationSegments)}' must not have an explicit drive root. The segment '{segment.PathString}' has an explicit drive root.");
 
-            string segmentPath = segment.PathString;
+            PathSegmentList segmentPath = segment.Path.NormalizedPath.Segments;
             if (segment.HasImplicitDriveRoot)
             {
                 ArgumentExceptionAdvanced.ThrowIfFalse(isImplicitRootAllowed, $"The segment '{segment.PathString}' is implicitly drive rooted. The argument '{nameof(isImplicitRootAllowed)}' must be set to TRUE to allow implicit drive rooted segments.");
@@ -173,7 +170,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
 
             try
             {
-                basePath = ResolveRelativePathStrict(basePath, segmentPath);
+                combinedPath = ResolveRelativePathStrict(combinedPath.NormalizedPath.Segments, segmentPath);
             }
             catch (ArgumentException ex)
             {
@@ -183,20 +180,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
             }
         }
 
-        string combinedPath = basePath;
-        if (relativeFilePath != default)
-        {
-            try
-            {
-                combinedPath = ResolveRelativePathStrict(basePath, relativeFilePath.FullPath);
-            }
-            catch (ArgumentException ex)
-            {
-                throw new ArgumentException(
-                    $"Invalid argument '{relativeFilePath}'. The provided relative file path is invalid and exceeded the path depth of the current combined directory path by traversing too many parent directories.",
-                    ex);
-            }
-        }
+        combinedPath = ResolveRelativePathStrict(combinedPath, relativeFilePath.Path.Segments);
 
         return combinedPath;
     }
@@ -234,7 +218,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
             throw new InvalidOperationException($"Cannot convert to an absolute path because the current path '{PathString}' has an explicit drive root but is relative. An absolute base directory cannot be used to resolve this path.");
         }
 
-        string currentRelativePath = PathString;
+        PathSegmentList currentRelativePath = Path.NormalizedPath.Segments;
         if (HasImplicitDriveRoot)
         {
             ArgumentExceptionAdvanced.ThrowIfFalse(isImplicitRootAllowed, $"The current path '{PathString}' is implicitly drive rooted. The argument '{nameof(isImplicitRootAllowed)}' must be set to TRUE to allow implicit drive rooted paths.");
@@ -243,7 +227,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
             currentRelativePath = currentRelativePath[1..];
         }
 
-        return new(ResolveRelativePathStrict(absoluteBaseDirectory.PathString, currentRelativePath));
+        return new(ResolveRelativePathStrict(absoluteBaseDirectory.Path.NormalizedPath.Segments, currentRelativePath));
     }
 
     /// <summary>
@@ -386,6 +370,19 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         return new(pathBuilder.ToString());
     }
 
+    /// <summary>
+    /// Resolves a relative path against a base path, ensuring that the resulting path does not escape above the base path by clamping to the path root.
+    /// </summary>
+    /// <remarks>The method resolves the provided relative file path against the provided base directory path, ensuring that the resulting path does not escape above the base path by clamping to the path root.
+    /// For example, if the base path is <c>"C:\Base"</c> and the relative file path is <c>"..\..\..\file.txt"</c>, the resulting resolved path will be <c>"C:\file.txt"</c> instead of escaping above the base path.
+    /// </remarks>
+    /// <param name="basePath">The <see cref="DirectoryDescriptor"/> for the base path against which to resolve the relative path. Can be relative or absolute.</param>
+    /// <param name="relativeDirectoryPath">The <see cref="DirectoryDescriptor"/> for the relative directory path to resolve against the relative or absolute base path <paramref name="basePath"/>.</param>
+    /// <param name="baseDirectoryPathParameterName">Optional. The name of the parameter representing the base path. If not provided, the method will capture the caller argument expression to resolve the caller's original argument name.</param>
+    /// <param name="relativeDirectoryPathParameterName">Optional. The name of the parameter representing the relative directory path. If not provided, the method will capture the caller argument expression to resolve the caller's original argument name.</param>
+    /// <returns>The resolved directory path.</returns>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="basePath"/> or <paramref name="relativeDirectoryPath"/> is <see langword="default"/>.</exception>
+    /// <exception cref="ArgumentException">Thrown if <paramref name="relativeDirectoryPath"/> is not a relative directory path.</exception>
     public static DirectoryDescriptor ResolveRelativePathStrict(
         DirectoryDescriptor basePath,
         DirectoryDescriptor relativeDirectoryPath,
@@ -394,11 +391,25 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     {
         ArgumentNullExceptionAdvanced.ThrowIfDefault(basePath);
         ArgumentNullExceptionAdvanced.ThrowIfDefault(relativeDirectoryPath);
+        ArgumentExceptionAdvanced.ThrowIfFalse(relativeDirectoryPath.IsRelative, $"The argument '{nameof(relativeDirectoryPath)}' must be a relative directory path.");
 
-        string resolvedPath = ResolveRelativePathStrict(basePath.PathString, relativeDirectoryPath.PathString, basePathParameterName, relativePathParameterName);
+        string resolvedPath = ResolveRelativePathStrict(basePath.Path.NormalizedPath.Segments, relativeDirectoryPath.Path.NormalizedPath.Segments, basePathParameterName, relativePathParameterName);
         return new(resolvedPath);
     }
 
+    /// <summary>
+    /// Resolves a relative path against a base path, ensuring that the resulting path does not escape above the base path by clamping to the path root.
+    /// </summary>
+    /// <remarks>The method resolves the provided relative file path against the provided base directory path, ensuring that the resulting path does not escape above the base path by clamping to the path root.
+    /// For example, if the base path is <c>"C:\Base"</c> and the relative file path is <c>"..\..\..\file.txt"</c>, the resulting resolved path will be <c>"C:\file.txt"</c> instead of escaping above the base path.
+    /// </remarks>
+    /// <param name="basePath">The <see cref="DirectoryDescriptor"/> for the base path against which to resolve the relative path. Can be relative or absolute.</param>
+    /// <param name="relativeFilePath">The <see cref="FileDescriptor"/> for the relative file path to resolve against the relative or absolute base path <paramref name="basePath"/>.</param>
+    /// <param name="baseDirectoryPathParameterName">Optional. The name of the parameter representing the base path. If not provided, the method will capture the caller argument expression to resolve the caller's original argument name.</param>
+    /// <param name="relativeFilePathParameterName">Optional. The name of the parameter representing the relative file path. If not provided, the method will capture the caller argument expression to resolve the caller's original argument name.</param>
+    /// <returns>The resolved file path.</returns>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="basePath"/> or <paramref name="relativeFilePath"/> is <see langword="default"/>.</exception>
+    /// <exception cref="ArgumentException">Thrown if <paramref name="relativeFilePath"/> is not a relative file path.</exception>
     public static FileDescriptor ResolveRelativePathStrict(
         DirectoryDescriptor basePath,
         FileDescriptor relativeFilePath,
@@ -407,53 +418,33 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     {
         ArgumentNullExceptionAdvanced.ThrowIfDefault(basePath);
         ArgumentNullExceptionAdvanced.ThrowIfDefault(relativeFilePath);
+        ArgumentExceptionAdvanced.ThrowIfFalse(relativeFilePath.IsRelative, $"The argument '{nameof(relativeFilePath)}' must be a relative file path.");
 
-        string resolvedPath = ResolveRelativePathStrict(basePath.PathString, relativeFilePath.FullPath, baseDirectoryPathParameterName, relativeFilePathParameterName);
+        string resolvedPath = ResolveRelativePathStrict(basePath.Path.NormalizedPath.Segments, relativeFilePath.Path.NormalizedPath.Segments, baseDirectoryPathParameterName, relativeFilePathParameterName);
         return new(resolvedPath);
     }
 
     /// <summary>
-    /// Resolves a relative path against a base path, ensuring that the resulting path does not escape above the base path in the directory hierarchy.
+    /// Resolves a relative path against a base path, ensuring that the resulting path does not escape above the base path by clamping to the path root.
     /// </summary>
-    /// <param name="basePath">The base path against which to resolve the relative path. Can be relative or absolute.</param>
-    /// <param name="relativePath">The relative path to resolve against the relative or absolute base path <paramref name="basePath"/>.</param>
+    /// <param name="normalizedBasePath">The base path against which to resolve the relative path. Can be relative or absolute.</param>
+    /// <param name="normalizedRelativePath">The relative path to resolve against the relative or absolute base path <paramref name="normalizedBasePath"/>.</param>
     /// <param name="basePathParameterName">Optional. The name of the parameter representing the base path. If not provided, the method will capture the caller argument expression to resolve the caller's original argument name.</param>
     /// <param name="relativePathParameterName">Optional. The name of the parameter representing the relative path. If not provided, the method will capture the caller argument expression to resolve the caller's original argument name.</param>
     /// <returns>The resolved path.</returns>
     /// <exception cref="ArgumentException">Thrown if the relative path escapes above the base path.</exception>
-    private static string ResolveRelativePathStrict(
-        string basePath,
-        string relativePath,
-        [CallerArgumentExpression(nameof(basePath))] string? basePathParameterName = null,
-        [CallerArgumentExpression(nameof(relativePath))] string? relativePathParameterName = null)
+    private static PathDescriptor ResolveRelativePathStrict(
+        PathSegmentList normalizedBasePath,
+        PathSegmentList normalizedRelativePath,
+        [CallerArgumentExpression(nameof(normalizedBasePath))] string? basePathParameterName = null,
+        [CallerArgumentExpression(nameof(normalizedRelativePath))] string? relativePathParameterName = null)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(basePath);
-        ArgumentException.ThrowIfNullOrWhiteSpace(relativePath);
+        PathSegmentList resolvedPathSegments = normalizedBasePath.AddRange(normalizedRelativePath);
+        string temporaryResolvedPath = resolvedPathSegments!;
+        var temporaryResolvedPathDescriptor = new PathDescriptor(temporaryResolvedPath, normalizedRelativePath.IsDirectory);
+        PathDescriptor resolvedPath = temporaryResolvedPathDescriptor.NormalizedPath;
 
-        if (SystemIoPath.IsPathFullyQualified(basePath))
-        {
-            int pathSegmentCount = GetPathSegments(basePath, isSpecialSegementsOnly: false).Count;
-            int relativePathSegmentCount = GetPathSegments(relativePath, isSpecialSegementsOnly: true).Count;
-            ArgumentExceptionAdvanced.ThrowIfTrue(
-                relativePathSegmentCount > pathSegmentCount,
-                $"The relative path argument '{relativePathParameterName}' has more path segments than the base path argument '{basePathParameterName}', which indicates that it escapes above the base path in the directory hierarchy. Resolved path: '{SystemIoPath.GetFullPath(relativePath, basePath)}'.");
-            return SystemIoPath.GetFullPath(relativePath, basePath);
-        }
-
-        string syntheticAbsoluteBase = SystemIoPath.GetFullPath(basePath, s_syntheticRoot);
-        string absoluteResult = SystemIoPath.GetFullPath(relativePath, syntheticAbsoluteBase);
-
-        string relativeResult = SystemIoPath.GetRelativePath(s_syntheticRoot, absoluteResult);
-
-        if (relativeResult.Equals(ParentDirectorySymbol, StringComparison.Ordinal)
-            || relativeResult.StartsWith($@"{ParentDirectorySymbol}{SystemIoPath.DirectorySeparatorChar}", StringComparison.Ordinal)
-            || relativeResult.StartsWith($"{ParentDirectorySymbol}{SystemIoPath.AltDirectorySeparatorChar}", StringComparison.Ordinal))
-        {
-            throw new ArgumentException(
-                $"Invalid arguments. The relative path argument '{relativePathParameterName}' escapes above the logical base argument '{basePathParameterName}'.");
-        }
-
-        return relativeResult;
+        return resolvedPath;
     }
 
     public static IEnumerable<PathSegment> EnumerateDirectoryPathSegments(string path)
@@ -463,80 +454,11 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     }
     #endregion Helpers
 
-    public bool IsDefaultInstance => _path is null && _rawLocation is null && _location is null;
+    public bool IsDefaultInstance => _path is null && _name is null && _location is null;
 
     public override string ToString() => Path.ToString();
     public bool Equals(DirectoryDescriptor other) => s_pathEqualityComparer.Equals(this, other);
     public override int GetHashCode() => s_pathEqualityComparer.GetHashCode(this);
-
-    /// <summary>
-    /// Gets the depth delta of the current <see cref="DirectoryDescriptor"/> path relative to another <see cref="DirectoryDescriptor"/>.
-    /// </summary>
-    /// <remarks>Either current or the other <see cref="DirectoryDescriptor"/> can be relative to each other or both can be absolute. 
-    /// <br/>The depth delta is calculated by counting the number of directory segments in the current path and the other path, 
-    /// while treating special directory symbols like "." and ".." according to their semantics. 
-    /// The resulting depth delta indicates how many levels deeper (positive value) or higher (negative value) the current path is relative to the other path. 
-    /// <br/>A depth delta of 0 indicates that both paths are at the same level in the directory hierarchy or are absolute.
-    /// <para/>
-    /// If a relative rooted path (e.g. <c>c:subdir</c>) is compared to an absolute path, the depth delta is calculated based on the number of segments in the relative path without considering the drive root as a segment, since it does not contribute to the depth relative to the absolute path.
-    /// <para/>
-    /// The formula for calculating the depth delta is: <c>Depth Delta = Current Path Depth - Other Path Depth</c> 
-    /// <br/>where relative paths symbols like "." and ".." are taken into account and two absolute paths are considered to have a depth delta of 0 regardless of their actual segment count.
-    /// <para/>
-    /// Examples:
-    /// <list type="bullet">
-    /// <item>
-    /// <term>Depth delta: 0</term>
-    /// <description>The current path <c>C:\Users\Public</c> has a depth of 2 and the <paramref name="other"/> path <c>C:\Temp</c> has a depth of 1. Since both are absolute the result is 0.</description>
-    /// </item>
-    /// <item>
-    /// <term>Resulting path: <c>"C:\Users\Public\Temp"</c> ==> Depth delta: 1</term>
-    /// <description>The current path <c>"C:\Users\Public"</c> has a depth of 2 and the <paramref name="other"/> path <c>"Temp"</c> has a depth of 1. Delta = 2 - 1 = 1</description>
-    /// </item>
-    /// <item>
-    /// <term>Resulting path: <c>"C:\Users\Public\..\Temp"</c> --> <c>"C:\Users\Temp"</c> ==> Depth delta: 0</term>
-    /// <description>The current path <c>"C:\Users\Public"</c> has a depth of 2 and the <paramref name="other"/> path <c>"..\Temp"</c> has a depth of 2. Delta = 2 - 2 = 0</description>
-    /// </item>
-    /// <item>
-    /// <term>Resulting path: <c>"C:\Users\Public\..\..\..\..\Temp"</c> --> <c>"..\..\Temp\C:\"</c> ==> Depth delta: -3</term>
-    /// <description>The current path <c>"C:\Users\Public"</c> has a depth of 2 and the <paramref name="other"/> path <c>"..\..\..\..\Temp"</c> has a depth of 5. Delta = 2 - 5 = -3</description>
-    /// </item>
-    /// <item>
-    /// <term>Resulting path: <c>"C:\Users\Public\..\Application\..\..\..\..\Temp"</c> --> <c>"..\..\Temp\C:\"</c> ==> Depth delta: -3</term>
-    /// <description>The current path <c>"C:\Users\Public\..\Application"</c> has a depth of 2 and the <paramref name="other"/> path <c>"..\..\..\..\Temp"</c> has a depth of 5. Delta = 2 - 5 = -3</description>
-    /// </item>
-    /// <item>
-    /// <description>On Unix, the path <c>/usr/local/bin</c> has a depth of 3.</description>
-    /// </item>
-    /// </list>
-    /// </remarks>
-    public int GetRelativePathDepthDelta(DirectoryDescriptor other)
-    {
-        if (Path.Segments.IsEmpty || other.Path.Segments.IsEmpty)
-        {
-            return 0;
-        }
-
-        int currentPathDepthDelta = Path.DepthDelta;
-        int otherPathDepthDelta = other.Path.Depth;
-        get
-        {
-            // Can only be NULL when instance is default or the implicit default constructor was used to create this instance.
-            // In both cases the instance is considered invalid.
-            // Since string.Empty is not considered valid under normal construction returning string.Empty is fine to communicate an uninitialized compiler default state and least disturbing.
-            if (_pathDepth is null)
-            {
-                return 0;
-            }
-
-            if (!_pathDepth.IsSet)
-            {
-                _pathDepth.SetValue(CalculateCurrentPathDepthDelta());
-            }
-
-            return _pathDepth;
-        }
-    }
 
     public IEnumerable<PathSegment> EnumeratePathSegments()
     {
