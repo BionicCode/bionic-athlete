@@ -99,6 +99,16 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
         IsDirectoryPath = isDirectory;
     }
 
+    public static PathDescriptor CreateEmbeddedAssemblyPath(string fileName, DirectoryDescriptor relativeAssemblyLocation)
+    {
+        FileSystemPathValidator.ThrowIfInvalidFileName(fileName);
+        ArgumentNullExceptionAdvanced.ThrowIfDefault(relativeAssemblyLocation);
+        ArgumentExceptionAdvanced.ThrowIfFalse(
+            relativeAssemblyLocation.IsRelative,
+            $"The provided {nameof(relativeAssemblyLocation)} must be a relative path.");
+
+    }
+
     private static PathSegment CreateRootSegment(string pathRoot, bool isRootRelative, bool isDriveRoot)
     {
         PathSegmentKind segmentKind = isRootRelative
@@ -343,40 +353,6 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
         }
 
         return normalizedSegments.ToPathSegmentList(IsDirectoryPath);
-    }
-
-    private int CalculateCurrentPathDepthDelta()
-    {
-        if (Segments is null
-            || Segments.Count == 0)
-        {
-            return 0;
-        }
-
-        int depth = 0;
-        int skipCount = HasRoot && Segments[0].IsRoot
-            ? 1
-            : 0;
-        foreach (PathSegment pathSegment in Segments.Skip(skipCount))
-        {
-            if (pathSegment.IsSpecial)
-            {
-                if (pathSegment.Name.Equals(DirectoryDescriptor.ParentDirectorySymbol, StringComparison.Ordinal))
-                {
-                    depth--;
-                }
-                else if (pathSegment.Name.Equals(DirectoryDescriptor.CurrentDirectorySymbol, StringComparison.Ordinal))
-                {
-                    continue;
-                }
-            }
-            else
-            {
-                depth++;
-            }
-        }
-
-        return depth;
     }
 
     /// <summary>

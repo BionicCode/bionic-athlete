@@ -28,6 +28,12 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// <value>The string representing the parent directory symbol. Usually <c>..</c>.</value>
     public static readonly string ParentDirectorySymbol = "..";
 
+    /// <summary>
+    /// Represents the separator character used to separate embedded file names from their parent directory names in a path string.
+    /// </summary>
+    /// <value>The string representing the embedded file name separator. Usually <c>.</c> e.g., <c>/resourcesfile.txt</c>.</value>
+    public static readonly string EmbeddedFileNameSeparator = ".";
+
     public static readonly string UncRootDirectorySymbol = @"\\";
 
     public static readonly FrozenSet<string> SpecialDirectorySymbols = FrozenSet.Create(CurrentDirectorySymbol, ParentDirectorySymbol, ".", "..");
@@ -610,4 +616,6 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     public override bool Equals(object? obj) => obj is DirectoryDescriptor other && Equals(other);
 
     private static bool IsSpecialDirectorySymbol(string value) => SpecialRelativeUnrootedDirectorySymbolNormalizationTable.ContainsKey(value);
+
+    public static implicit operator string(DirectoryDescriptor path) => path.ToString();
 }

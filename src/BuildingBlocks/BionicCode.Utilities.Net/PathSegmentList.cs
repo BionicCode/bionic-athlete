@@ -6,7 +6,8 @@ using System.Collections.Immutable;
 public sealed class PathSegmentList : IImmutableList<PathSegment>
 {
     private readonly ImmutableList<PathSegment> _segments;
-    private readonly WriteOnce<string> _toStringCache;
+    private readonly WriteOnce<PathStringBuilder> _defaultPathStringBuilder;
+    private readonly Dictionary<Type, string> _pathStringCache;
 
     public static readonly PathSegmentList Empty = new(ImmutableList<PathSegment>.Empty, isDirectory: false);
 
@@ -15,81 +16,56 @@ public sealed class PathSegmentList : IImmutableList<PathSegment>
         ArgumentNullExceptionAdvanced.ThrowIfNull(segments);
 
         _segments = [.. segments];
-        _toStringCache = new WriteOnce<string>();
+        _pathStringCache = [];
+        _defaultPathStringBuilder = new WriteOnce<PathStringBuilder>();
         IsDirectory = isDirectory;
+    }
+
+    public static PathSegmentList CreateForEmbeddedFilePath(IEnumerable<PathSegment> segments)
+    {
+        ArgumentNullExceptionAdvanced.ThrowIfNull(segments);
+        return new PathSegmentList(segments, isDirectory: false)
+        {
+            IsEmbeddedAssemblyPath = true
+        };
     }
 
     public PathDescriptor ToPathDescriptor() => new(ToString(), IsDirectory);
 
     public override string ToString()
     {
-        string toStringValue = string.Empty;
-
-        if (_toStringCache is null
-            || _segments is null
-            || _segments.IsEmpty)
+        if (!_defaultPathStringBuilder.IsSet)
         {
-            // This instance is a default(T) instance or was created using the implicit default constructor, which means it is uninitialized and therefore invalid.
-            // Under normal construction, a valid instance will always have at least one segment.
-            return string.Empty;
-        }
-        else if (_toStringCache.IsSet)
-        {
-            return _toStringCache;
-        }
-        else if (_segments.Count == 1)
-        {
-            toStringValue = _segments.First().Name;
-        }
-        else
-        {
-            using var pathBuilder = PooledStringBuilder.GetOrCreate();
-            int index = 0;
-            PathSegment segment = _segments.ElementAt(index);
-            index++;
-            _ = pathBuilder.Append(segment.Name);
-
-            // We append a directory separator only if the first segment is
-            // * a root segment that is fully qualified and without a trailing separator (e.g., "\\server\share") and at least one more segment is following.
-            // * not root segment (normal segment name or special directory name like "." and "..") and at least one more segment is following.
-            //
-            // We never append a directory separator if the first segment is
-            // * the only/last segment.
-            // * a root segment that is fully qualified (e.g., "C:\" on Windows or "/" on Unix-based systems) and has a trailing separator when followed by at last one more segment.
-            // * a root segment that is not fully qualified (e.g., "C:" or "\" on Windows) 
-            // * a file name segment (e.g., "file.txt"), since it would always be the last or only segment.
-            if (_segments.Count > 1
-                && ((segment.Kind is PathSegmentKind.FullyQualifiedRoot
-                && !Path.EndsInDirectorySeparator(segment.Name))
-                || segment.IsSpecial
-                || segment.Kind is PathSegmentKind.DirectoryName))
-            {
-                _ = pathBuilder.Append(Path.DirectorySeparatorChar);
-            }
-
-            for (; index < _segments.Count; index++)
-            {
-                segment = _segments.ElementAt(index);
-                _ = pathBuilder.Append(segment.Name);
-
-                // We append a directory separator character after each segment except for the last one to ensure a correct path representation.
-                if (index < _segments.Count - 1)
-                {
-                    _ = pathBuilder.Append(Path.DirectorySeparatorChar);
-                }
-            }
-
-            toStringValue = pathBuilder.ToString();
+            _defaultPathStringBuilder.SetValue(new FileSystemPathStringBuilder());
         }
 
-        _toStringCache.SetValue(toStringValue);
-        return _toStringCache;
+        if (!_pathStringCache.TryGetValue(_defaultPathStringBuilder.GetType(), out string? cachedValue))
+        {
+            cachedValue = _defaultPathStringBuilder.GetValueOrDefault().BuildString(this);
+            _pathStringCache.Add(_defaultPathStringBuilder.GetType(), cachedValue);
+        }
+
+        return cachedValue;
+    }
+
+    public string ToString(PathStringBuilder pathStringBuilder)
+    {
+        ArgumentNullExceptionAdvanced.ThrowIfNull(pathStringBuilder);
+
+        if (!_pathStringCache.TryGetValue(pathStringBuilder.GetType(), out string? cachedValue))
+        {
+            cachedValue = pathStringBuilder.BuildString(this);
+            _pathStringCache.Add(pathStringBuilder.GetType(), cachedValue);
+        }
+
+        return cachedValue;
     }
 
     public int Count => _segments.Count;
     public bool IsEmpty => _segments.IsEmpty;
 
     public bool IsDirectory { get; }
+    public bool IsEmbeddedAssemblyPath { get; private init; }
 
     public PathSegment this[int index] => _segments[index];
 
@@ -144,4 +120,128 @@ public sealed class PathSegmentList : IImmutableList<PathSegment>
 public static class PathSegmentListHelpers
 {
     public static PathSegmentList ToPathSegmentList(this IEnumerable<PathSegment> segments, bool isDirectory) => new(segments, isDirectory);
+}
+
+public abstract class PathStringBuilder
+{
+    public abstract string BuildString(PathSegmentList pathSegments);
+}
+
+public class FileSystemPathStringBuilder : PathStringBuilder
+{
+    public override string BuildString(PathSegmentList pathSegments)
+    {
+        string toStringValue = string.Empty;
+
+        if (pathSegments is null
+            || pathSegments.IsEmpty)
+        {
+            // This instance is a default(T) instance or was created using the implicit default constructor, which means it is uninitialized and therefore invalid.
+            // Under normal construction, a valid instance will always have at least one segment.
+            return string.Empty;
+        }
+        else if (pathSegments.Count == 1)
+        {
+            toStringValue = pathSegments[0].Name;
+        }
+        else
+        {
+            using var pathBuilder = PooledStringBuilder.GetOrCreate();
+            int index = 0;
+            PathSegment segment = pathSegments[0];
+            index++;
+            _ = pathBuilder.Append(segment.Name);
+
+            // We append a directory separator only if the first segment is
+            // - a root segment that is fully qualified and without a trailing separator (e.g., "\\server\share") and at least one more segment is following.
+            // - not root segment (normal segment name or special directory name like "." and "..") and at least one more segment is following.
+            //
+            // We never append a directory separator if the first segment is
+            // - the only/last segment.
+            // - a root segment that is fully qualified (e.g., "C:\" on Windows or "/" on Unix-based systems) and has a trailing separator when followed by at last one more segment.
+            // - a root segment that is not fully qualified (e.g., "C:" or "\" on Windows) 
+            // - a file name segment (e.g., "file.txt"), since it would always be the last or only segment.
+            if (pathSegments.Count > 1
+                && ((segment.Kind is PathSegmentKind.FullyQualifiedRoot
+                && !Path.EndsInDirectorySeparator(segment.Name))
+                || segment.IsSpecial
+                || segment.Kind is PathSegmentKind.DirectoryName))
+            {
+                _ = pathBuilder.Append(Path.DirectorySeparatorChar);
+            }
+
+            for (; index < pathSegments.Count; index++)
+            {
+                segment = pathSegments.ElementAt(index);
+                _ = pathBuilder.Append(segment.Name);
+
+                // We append a directory separator character after each segment except for the last one to ensure a correct path representation.
+                if (index < pathSegments.Count - 1)
+                {
+                    _ = pathBuilder.Append(Path.DirectorySeparatorChar);
+                }
+            }
+
+            toStringValue = pathBuilder.ToString();
+        }
+
+        return toStringValue;
+    }
+}
+
+/// <summary>
+/// A <see cref="PathStringBuilder"/> implementation that builds a string representation of the path segments using the embedded resource path format, which uses a dot '.' as a separator between directory names and file name. 
+/// </summary>
+/// <remarks>For example, for a file named "file.txt" located in a directory "Resources" within the root namespace "MyProject", the resulting string would be "MyProject.Resources.file.txt".</remarks>
+public class EmbeddedResourcePathStringBuilder : PathStringBuilder
+{
+    public override string BuildString(PathSegmentList pathSegments)
+    {
+        string toStringValue = string.Empty;
+
+        if (pathSegments is null
+            || pathSegments.IsEmpty)
+        {
+            // This instance is a default(T) instance or was created using the implicit default constructor, which means it is uninitialized and therefore invalid.
+            // Under normal construction, a valid instance will always have at least one segment.
+            return string.Empty;
+        }
+        else if (pathSegments.Count == 1)
+        {
+            toStringValue = pathSegments[0].Name;
+        }
+        else
+        {
+            using var pathBuilder = PooledStringBuilder.GetOrCreate();
+            for (int index = 0; index < pathSegments.Count; index++)
+            {
+                PathSegment segment = pathSegments.ElementAt(index);
+                if (index < pathSegments.Count - 1)
+                {
+                    if (segment.Kind is not PathSegmentKind.DirectoryName)
+                    {
+                        throw new InvalidOperationException($"Invalid path segment at index '{index}'. All segments except for the last one must be of kind '{nameof(PathSegmentKind.DirectoryName)}' when building an embedded resource path string. Found segment: '{segment.Name}' with kind '{segment.Kind}'.");
+                    }
+
+                    _ = pathBuilder.Append(segment.Name)
+                        .Append(DirectoryDescriptor.EmbeddedFileNameSeparator);
+
+                    continue;
+                }
+                else if (index == pathSegments.Count - 1)
+                {
+                    if (segment.Kind is not PathSegmentKind.FileName)
+                    {
+                        throw new InvalidOperationException($"Invalid path segment at index '{index}'. The last one must be of kind '{nameof(PathSegmentKind.FileName)}' when building an embedded resource path string. Found segment: '{segment.Name}' with kind '{segment.Kind}'.");
+                    }
+
+                    _ = pathBuilder.Append(segment.Name);
+                }
+            }
+
+            toStringValue = pathBuilder.ToString();
+        }
+
+        return toStringValue;
+    }
 }

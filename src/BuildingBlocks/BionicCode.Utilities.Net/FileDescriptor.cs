@@ -2,6 +2,8 @@
 
 using System.Diagnostics;
 using System.Reflection;
+using System.Xml.Linq;
+using SystemIoPath = System.IO.Path;
 
 /// <summary>
 /// Describes a file that can be included in a conversion or archive batch.
@@ -9,53 +11,39 @@ using System.Reflection;
 [DebuggerDisplay("FileName = {Name}, Location = {Location}, OriginalFullPath = {OriginalFullPath}, OriginalName = {OriginalName}, IsRelative = {IsRelative}")]
 public readonly struct FileDescriptor : IEquatable<FileDescriptor>
 {
-    private readonly string _filePath;
     private static readonly FileSystemPathEqualityComparer s_pathEqualityComparer = FileSystemPathEqualityComparer.Instance;
+
+    private readonly WriteOnce<PathDescriptor> _path;
+    private readonly WriteOnce<PathDescriptor> _location;
+    private readonly WriteOnce<string> _name;
+    private readonly WriteOnce<string> _nameWithoutExtension;
+    private readonly WriteOnce<string> _extension;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="FileDescriptor"/> struct from a file name and directory.
     /// </summary>
     /// <param name="fileName">The file name including the file extension.</param>
     /// <param name="location">The directory (location) of the file. Can be absolute or relative.</param>
-    public FileDescriptor(string fileName, DirectoryDescriptor location)
+    public FileDescriptor(string fileName, DirectoryDescriptor location) : this(SystemIoPath.Join(location, fileName))
     {
-        ArgumentNullExceptionAdvanced.ThrowIfDefault(location);
-        FileSystemPathValidator.ThrowIfInvalidFileName(fileName);
-
-        EmbeddedResourceAssembly = null!;
-        IsEmbeddedResource = false;
-        Name = fileName;
-        NameWithoutExtension = Path.GetFileNameWithoutExtension(Name);
-        Extension = FileExtension.FromFileName(Name);
-        Location = location;
-        _filePath = Path.Combine(Location.PathString, Name);
-        OriginalName = Name;
-        OriginalFullPath = _filePath;
-        IsRelative = location.IsRelative;
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="FileDescriptor"/> struct from a full source sharedDirectoryPath.
+    /// Initializes a new instance of the <see cref="FileDescriptor"/> struct from a full source file path.
     /// </summary>
-    /// <param name="filePath">The full file sharedDirectoryPath. The sharedDirectoryPath can be absolute or relative.</param>
+    /// <param name="filePath">The full file path. The file path can be absolute or relative.</param>
     public FileDescriptor(string filePath)
     {
         FileSystemPathValidator.ThrowIfInvalidFilePath(filePath);
 
-        string normalizedFilePath = FileHelpers.NormalizeFileSystemPath(filePath);
+        _name = new WriteOnce<string>();
+        _location = new WriteOnce<PathDescriptor>();
+        _nameWithoutExtension = new WriteOnce<string>();
+        _extension = new WriteOnce<string>();
+
+        _path = new PathDescriptor(filePath, isDirectory: false);
         EmbeddedResourceAssembly = null!;
         IsEmbeddedResource = false;
-        Name = Path.GetFileName(normalizedFilePath);
-        NameWithoutExtension = Path.GetFileNameWithoutExtension(Name);
-        Extension = FileExtension.FromFilePath(Name);
-
-        // The exception should never happen at this point since the validation in FileSystemPathValidator.ThrowIfInvalidFilePath ensures that the filePath is valid and contains a valid directory part.
-        // However, we still need to handle the case where GetDirectoryName returns null instead silencing the analyzer warning using the null-forgiving operator       .
-        Location = new DirectoryDescriptor(Path.GetDirectoryName(normalizedFilePath) ?? throw new ArgumentException($"The provided argument '{nameof(filePath)}' does not contain a valid directory. Found: '{filePath}'", nameof(filePath)));
-        _filePath = normalizedFilePath;
-        OriginalName = Name;
-        OriginalFullPath = _filePath;
-        IsRelative = !Path.IsPathFullyQualified(FullPath);
     }
 
     /// <summary>
@@ -70,7 +58,7 @@ public readonly struct FileDescriptor : IEquatable<FileDescriptor>
         ArgumentNullExceptionAdvanced.ThrowIfDefault(relativeLocation);
         ArgumentExceptionAdvanced.ThrowIfFalse(
             relativeLocation.IsRelative,
-            "The provided location must be a relative sharedDirectoryPath.", nameof(relativeLocation));
+            "The provided location must be directory path relative to the assembly.", nameof(relativeLocation));
         ArgumentNullExceptionAdvanced.ThrowIfNull(embeddedResourceAssembly);
 
         IsEmbeddedResource = true;
@@ -90,18 +78,15 @@ public readonly struct FileDescriptor : IEquatable<FileDescriptor>
         IsRelative = relativeLocation.IsRelative;
     }
 
-    public static FileDescriptor CreateWithOriginalPath(string newFilePath, string originalFilePath)
+    public FileDescriptor Rename(string newFileName)
     {
-        FileSystemPathValidator.ThrowIfInvalidFilePath(newFilePath);
-        FileSystemPathValidator.ThrowIfInvalidFilePath(originalFilePath);
+        FileSystemPathValidator.ThrowIfInvalidFileName(newFileName);
 
-        string normalizedFilePath = FileHelpers.NormalizeFileSystemPath(newFilePath);
-        string normalizedOriginalFullPath = FileHelpers.NormalizeFileSystemPath(originalFilePath);
-
-        return new FileDescriptor(normalizedFilePath)
-        {
-            OriginalFullPath = normalizedOriginalFullPath,
-            OriginalName = Path.GetFileName(normalizedOriginalFullPath)
+        return this with 
+        { 
+            Name = newFileName, 
+            Extension = FileExtension.FromFileName(newFileName) 
+            Path = 
         };
     }
 
@@ -124,9 +109,9 @@ public readonly struct FileDescriptor : IEquatable<FileDescriptor>
         FileSystemPathValidator.ThrowIfInvalidFileName(originalName);
 
         // GetDirectoryName returns NULL for root directories. In this case we just use 'newFilePath'.
-        string sharedDirectoryPath = Path.GetDirectoryName(newFilePath) ?? newFilePath;
+        string directory path = Path.GetDirectoryName(newFilePath) ?? newFilePath;
 
-        string normalizedFileLocation = FileHelpers.NormalizeFileSystemPath(sharedDirectoryPath);
+        string normalizedFileLocation = FileHelpers.NormalizeFileSystemPath(directory path);
         string originalFilePath = Path.Combine(normalizedFileLocation, originalName);
         return new FileDescriptor(newFilePath)
         {
@@ -141,9 +126,9 @@ public readonly struct FileDescriptor : IEquatable<FileDescriptor>
         FileSystemPathValidator.ThrowIfInvalidFileName(originalName);
 
         // FileDescriptor.Location is already valid and normalized due to the validation in the constructor, so we can directly use it.
-        string sharedDirectoryPath = newFilePath.Location.PathString;
+        string directory path = newFilePath.Location.PathString;
 
-        string originalFilePath = Path.Combine(sharedDirectoryPath, originalName);
+        string originalFilePath = Path.Combine(directory path, originalName);
 
         return newFilePath with
         {
@@ -155,7 +140,7 @@ public readonly struct FileDescriptor : IEquatable<FileDescriptor>
     public FileDescriptor GetPathRelativeTo(DirectoryDescriptor baseDirectory)
     {
         ArgumentNullExceptionAdvanced.ThrowIfDefault(baseDirectory);
-        ArgumentExceptionAdvanced.ThrowIfTrue(baseDirectory.IsRelative, "Base directory must be an absolute sharedDirectoryPath.", nameof(baseDirectory));
+        ArgumentExceptionAdvanced.ThrowIfTrue(baseDirectory.IsRelative, "Base directory must be an absolute directory path.", nameof(baseDirectory));
 
         if (IsRelative)
         {
@@ -195,6 +180,25 @@ public readonly struct FileDescriptor : IEquatable<FileDescriptor>
 
     public override string ToString() => FullPath;
 
+    public string PathString => Path.PathString;
+    public bool TryGetPathRoot(out PathSegment pathRoot)
+    {
+        if (IsDefaultInstance)
+        {
+            pathRoot = PathSegment.Empty;
+            return false;
+        }
+
+        if (Path.HasRoot)
+        {
+            pathRoot = Path.Segments[0];
+            return pathRoot.IsRoot;
+        }
+
+        pathRoot = PathSegment.Empty;
+        return false;
+    }
+
     /// <summary>
     /// Compares a <see cref="FileDescriptor"/> to this instance using the <see cref="FileSystemPathEqualityComparer"/> to compare two <see cref="FileDescriptor"/> instances based on platform specific file system naming rules.
     /// </summary>
@@ -210,49 +214,139 @@ public readonly struct FileDescriptor : IEquatable<FileDescriptor>
     public Assembly EmbeddedResourceAssembly { get; }
     public bool IsEmbeddedResource { get; }
 
+    public bool IsDefaultInstance => _path is null && _name is null && _location is null;
+
     public bool IsExisting => IsEmbeddedResource
         ? EmbeddedResourceAssembly.GetManifestResourceNames().Contains(FullPath)
         : File.Exists(FullPath);
+    public string NameWithoutExtension { get; private init; }
 
     /// <summary>
     /// Gets the file name.
     /// </summary>
     /// <remarks>Set <see cref="OriginalName"/> to preserve the original file name and use <see cref="Name"/> for the current file name. 
     /// This can be useful if you need to provide renaming related information where <see cref="OriginalName"/> is the old name and <see cref="Name"/> is the new name.</remarks>
-    public string Name { get; }
-    public string NameWithoutExtension { get; }
+    public string Name
+    {
+        get
+        {
+            if (_name is null
+                || _path is null
+                || Path.Segments.IsEmpty)
+            {
+                return string.Empty;
+            }
+
+            if (!_name.IsSet)
+            {
+                string name;
+                if (Path.Segments.Count == 1)
+                {
+                    PathSegment pathSegment = Path.Segments[0];
+                    name = pathSegment.Kind is PathSegmentKind.DirectoryName
+                        ? pathSegment.Name
+                        : string.Empty;
+                }
+                else
+                {
+                    name = Path.Segments[^1].Name;
+                }
+
+                _name.SetValue(name);
+            }
+
+            return _name;
+        }
+        private init
+        {
+
+            _name = value;
+        }
+    }
 
     /// <summary>
     /// Gets the <see cref="DirectoryDescriptor"/> that specifies the location associated with the file described by this <see cref="FileDescriptor"/>.
     /// </summary>
-    public DirectoryDescriptor Location { get; }
+    public PathDescriptor Location
+    {
+        get
+        {
+            if (_path is null
+                || Path.Segments is null
+                || Path.Segments.Count == 0)
+            {
+                return PathDescriptor.Empty;
+            }
+
+            if (!_location.IsSet)
+            {
+                PathDescriptor parentPath;
+                var parentPathSegments = Path.Segments
+                    .Take(Path.Segments.Count - 1)
+                    .ToPathSegmentList(isDirectory: true);
+
+                if (parentPathSegments.Count == 1)
+                {
+                    parentPath = parentPathSegments[0].Kind is PathSegmentKind.DirectoryName
+                         ? PathDescriptor.Empty
+                         : parentPathSegments;
+                }
+                else
+                {
+                    parentPath = parentPathSegments;
+                }
+
+                _location.SetValue(parentPath);
+            }
+
+            return _location;
+        }
+        private init
+        {
+
+            _location = value;
+        }
+    }
+
+    public IEnumerable<PathSegment> EnumeratePathSegments()
+    {
+
+        foreach (PathSegment pathSegment in Path.Segments)
+        {
+            yield return pathSegment;
+        }
+    }
 
     /// <summary>
-    /// Gets the full file system sharedDirectoryPath represented by this instance.
+    /// Gets a <see cref="PathDescriptor"/> representing the full file system path of the file represented by this instance.
     /// </summary>
     /// <remarks>This value is derived from the <see cref="Location"/> and <see cref="Name"/> properties.
-    /// <para/>Use this to allow the <see cref="FileDescriptor"/> to carry the original file sharedDirectoryPath in <see cref="OriginalFullPath"/>.
-    /// This can be useful if you need to provide renaming or moving related file information where <see cref="OriginalFullPath"/> is the old sharedDirectoryPath and <see cref="FullPath"/> is the new sharedDirectoryPath.
     /// </remarks>
-    public string FullPath { get; }
+    public PathDescriptor Path
+    {
+        get
+        {
+            // Can only be NULL when instance is default or the implicit default constructor was used to create this instance.
+            // In both cases the instance is considered invalid.
+            // Since string.Empty is not considered valid under normal construction returning string.Empty is fine to communicate an uninitialized compiler default state and least disturbing.
+            if (_path is null)
+            {
+                return PathDescriptor.Empty;
+            }
+
+            return _path;
+        }
+        private init
+        {
+
+            _path = value;
+        }
+    }
 
     /// <summary>
     /// Gets the file extension associated with the file.
     /// </summary>
-    public FileExtension Extension { get; }
-
-    /// <summary>
-    /// The original full sharedDirectoryPath of the file before any moving, renaming or copying operations. For embedded resources, 
-    /// this is typically in the format "Namespace.Folder.FileName".
-    /// </summary>
-    /// <remarks>
-    /// This value is set during the initialization of the <see cref="FileDescriptor"/> and remains unchanged 
-    /// even if the file is renamed or copied. If not explicitly set via initializer the property returns <see cref="FullPath"/>.
-    /// <para/>Use this to allow the <see cref="FileDescriptor"/> to carry the original file sharedDirectoryPath in <see cref="OriginalFullPath"/>.
-    /// This can be useful if you need to provide renaming or moving related file information where <see cref="OriginalFullPath"/> is the old sharedDirectoryPath and <see cref="FullPath"/> is the new sharedDirectoryPath.
-    /// </remarks>
-    /// <value>The original full sharedDirectoryPath of the file. The default value is the same as <see cref="FullPath"/>.</value>
-    public string OriginalFullPath { get; private init; }
+    public FileExtension Extension { get; private init; }
 
     /// <summary>
     /// Gets a value indicating whether the current path is relative rather than absolute.
@@ -276,20 +370,10 @@ public readonly struct FileDescriptor : IEquatable<FileDescriptor>
     /// <para/>In contrast to <see cref="HasExplicitDriveRoot"/> this property will also return <see langword="true"/> for paths with an implicit drive root.</remarks>
     public bool IsRooted => Path.IsPathRooted(FullPath);
 
-    /// <summary>
-    /// Gets the original file name before any renaming operations.
-    /// </summary>
-    /// <remarks>
-    /// This value is set during the initialization of the <see cref="FileDescriptor"/> and remains unchanged 
-    /// even if the file is renamed. If not explicitly set via initializer the property returns <see cref="Name"/>.
-    /// <para/>Use this to allow the <see cref="FileDescriptor"/> to carry the original file or old name in <see cref="OriginalName"/>. 
-    /// This can be useful if you need to provide renaming related information where <see cref="OriginalName"/> is the old name and <see cref="Name"/> is the new name.
-    /// </remarks>
-    /// <value>The original file name. The default value is the same as <see cref="Name"/>.</value>
-    public string OriginalName { get; private init; }
-
     public static bool operator ==(FileDescriptor left, FileDescriptor right) => left.Equals(right);
     public static bool operator !=(FileDescriptor left, FileDescriptor right) => !(left == right);
 
     public override bool Equals(object? obj) => obj is FileDescriptor other && Equals(other);
+
+    public static implicit operator string(FileDescriptor path) => path.ToString();
 }

@@ -67,7 +67,7 @@ public class ObservableFitActivityExportData : ViewModel
         string resourceFolder = $"StaticArtifacts";
         _selectedExtraFilePaths = new()
         {
-            new ObservableFileDescriptor("README.md", resourceFolder, staticArtifactsAssembly)
+            new   ObservableFileDescriptor("README.md", resourceFolder, staticArtifactsAssembly)
         };
         SelectedExtraFilePaths = new(_selectedExtraFilePaths);
         SelectedExtraFilePaths.CollectionChanged += OnSelectedExtraFilePathsCollectionChanged;
