@@ -16,8 +16,9 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
     private readonly bool _isNormalized;
     private readonly WriteOnce<PathStringBuilder> _defaultPathStringBuilder;
     private readonly Dictionary<Type, string> _pathStringCache;
+    private readonly string _embeddedResourceName;
 
-    public static PathDescriptor Empty { get; } = new PathDescriptor() with { Segments = new PathSegmentList(ImmutableList<PathSegment>.Empty, true) };
+    public static PathDescriptor Empty { get; } = new PathDescriptor() with { Segments = new PathSegmentList(ImmutableList<PathSegment>.Empty, PathKind.Undefined) };
 
     private PathDescriptor(PathSegmentList segments, bool isNormalized)
     {
@@ -27,37 +28,53 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
         _normalizedPath = new WriteOnce<PathDescriptor>();
         _pathStringCache = [];
         _defaultPathStringBuilder = new WriteOnce<PathStringBuilder>();
+        _embeddedResourceName = string.Empty;
 
         Segments = segments;
         _isNormalized = isNormalized;
         IsRelative = Segments[0].Kind is not PathSegmentKind.FullyQualifiedRoot;
-        IsDirectoryPath = segments.IsDirectory;
+        PathKind = segments.PathKind;
     }
 
-    public PathDescriptor(string path, bool isDirectory)
+    public PathDescriptor(string path, PathKind pathKind)
     {
         ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(path);
-        if (isDirectory)
+        ArgumentExceptionAdvanced.ThrowIfEnumIsNotDefined<PathKind>(pathKind);
+        ArgumentExceptionAdvanced.ThrowIfEnumEqualsAny(pathKind, [PathKind.Undefined]);
+
+        PathKind = pathKind;
+        _hashCodeCache = new WriteOnce<int>();
+        _defaultPathStringBuilder = new WriteOnce<PathStringBuilder>();
+        _pathStringCache = [];
+
+        switch (pathKind)
         {
-            FileSystemPathValidator.ThrowIfInvalidDirectoryPath(path);
-        }
-        else
-        {
-            FileSystemPathValidator.ThrowIfInvalidFilePath(path);
+            case PathKind.File:
+                FileSystemPathValidator.ThrowIfInvalidFilePath(path);
+                break;
+            case PathKind.Directory:
+                FileSystemPathValidator.ThrowIfInvalidDirectoryPath(path);
+                break;
+            case PathKind.EmbeddedResource:
+                _embeddedResourceName = path;
+                Segments = PathSegmentList.Empty;
+                _depth = 0;
+                _resolvedDepth = 0;
+                _normalizedPath = this;
+                return;
+            default:
+                throw new NotImplementedException("Currently unsupported path kind.");
         }
 
-        _hashCodeCache = new WriteOnce<int>();
+        _embeddedResourceName = string.Empty;
         _depth = new WriteOnce<int>();
         _resolvedDepth = new WriteOnce<int>();
         _normalizedPath = new WriteOnce<PathDescriptor>();
-        _pathStringCache = [];
-        _defaultPathStringBuilder = new WriteOnce<PathStringBuilder>();
-
-        var segments = new List<PathSegment>();
-        int startIndex = 0;
 
         string normalizedPath = FileHelpers.NormalizeDirectorySeparators(path);
         string pathRoot = Path.GetPathRoot(normalizedPath) ?? string.Empty;
+        int startIndex = 0;
+        var segments = new List<PathSegment>();
         if (!string.IsNullOrWhiteSpace(pathRoot))
         {
             bool isRootRelative = !Path.IsPathFullyQualified(pathRoot);
@@ -94,26 +111,20 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
         {
             string segmentName = normalizedPath[startIndex..];
             string segmentNameWithoutTrailingSeparator = Path.TrimEndingDirectorySeparator(segmentName);
-            PathSegment segment = isDirectory
-                ? CreateDirectorySegment(segmentNameWithoutTrailingSeparator)
-                : CreateFileSegment(segmentNameWithoutTrailingSeparator);
+            PathSegment segment = PathKind switch
+            {
+                PathKind.Directory => CreateDirectorySegment(segmentNameWithoutTrailingSeparator),
+                PathKind.File => CreateFileSegment(segmentNameWithoutTrailingSeparator),
+                _ => throw new NotImplementedException("Currently unsupported path kind.")
+            };
             segments.Add(segment);
         }
 
-        Segments = new PathSegmentList(segments, isDirectory);
+        Segments = new PathSegmentList(segments, PathKind);
         IsRelative = Segments[0].Kind is not PathSegmentKind.FullyQualifiedRoot;
-        IsDirectoryPath = isDirectory;
     }
 
-    public static PathDescriptor CreateEmbeddedAssemblyPath(string fileName, DirectoryDescriptor relativeAssemblyLocation)
-    {
-        FileSystemPathValidator.ThrowIfInvalidFileName(fileName);
-        ArgumentNullExceptionAdvanced.ThrowIfDefault(relativeAssemblyLocation);
-        ArgumentExceptionAdvanced.ThrowIfFalse(
-            relativeAssemblyLocation.IsRelative,
-            $"The provided {nameof(relativeAssemblyLocation)} must be a relative path.");
-
-    }
+    public static PathDescriptor CreateEmbeddedAssemblyPath(string resourceName) => new(resourceName, PathKind.EmbeddedResource);
 
     private static PathSegment CreateRootSegment(string pathRoot, bool isRootRelative, bool isDriveRoot)
     {
@@ -215,7 +226,7 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
     /// </list>
     /// 
     /// </remarks>
-    /// <value>The positive depth of the normalized path which is the resolved number of segments excluding the root segment if it exists.</value>
+    /// <hashCode>The positive depth of the normalized path which is the resolved number of segments excluding the root segment if it exists.</hashCode>
     public int Depth
     {
         get
@@ -358,7 +369,7 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
             }
         }
 
-        return normalizedSegments.ToPathSegmentList(IsDirectoryPath);
+        return normalizedSegments.ToPathSegmentList(PathKind);
     }
 
     /// <summary>
@@ -381,7 +392,6 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
     /// </remarks>
     /// <depthDelta><see langword="true"/> if the path is relative i.e. not fully qualified; otherwise, <see langword="false"/>.</depthDelta>
     public bool IsRelative { get; }
-    public bool IsDirectoryPath { get; }
 
     /// <summary>
     /// Gets a depthDelta indicating whether the represented path starts with a root segment.
@@ -404,12 +414,20 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
     /// If <see cref="HasRoot"/> is <see langword="true"/>, the path can still be relative if the root is not fully qualified (see above list for fully qualified path roots).
     /// </remarks>
     /// <depthDelta><see langword="true"/> if the segment is the root of a path; otherwise, <see langword="false"/>.</depthDelta>
-    public bool HasRoot => Segments is not null
+    public bool HasRoot => PathKind is not PathKind.EmbeddedResource
+        && Segments is not null
         && Segments.Count > 0
         && Segments[0].IsRoot;
 
+    public PathKind PathKind { get; }
+
     public override string ToString()
     {
+        if (!string.IsNullOrWhiteSpace(_embeddedResourceName))
+        {
+            return _embeddedResourceName;
+        }
+
         if (Segments is null)
         {
             return string.Empty;
@@ -433,6 +451,11 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(pathStringBuilder);
 
+        if (!string.IsNullOrWhiteSpace(_embeddedResourceName))
+        {
+            return _embeddedResourceName;
+        }
+
         if (Segments is null)
         {
             return string.Empty;
@@ -447,7 +470,9 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
         return cachedValue;
     }
 
-    public bool Equals(PathDescriptor other) => s_pathEqualityComparer.Equals(this, other);
+    public bool Equals(PathDescriptor other) => PathKind is PathKind.EmbeddedResource
+        ? _embeddedResourceName.Equals(other._embeddedResourceName, StringComparison.Ordinal)
+        : s_pathEqualityComparer.Equals(this, other);
 
     public override int GetHashCode()
     {
@@ -461,7 +486,10 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
 
         if (!_hashCodeCache.IsSet)
         {
-            _hashCodeCache.SetValue(s_pathEqualityComparer.GetHashCode(this));
+            int hashCode = PathKind is PathKind.EmbeddedResource
+                ? _embeddedResourceName.GetHashCode(StringComparison.Ordinal)
+                : s_pathEqualityComparer.GetHashCode(this);
+            _hashCodeCache.SetValue(hashCode);
         }
 
         return _hashCodeCache;
@@ -542,59 +570,10 @@ public class FileSystemPathStringBuilder : PathStringBuilder
     }
 }
 
-/// <summary>
-/// A <see cref="PathStringBuilder"/> implementation that builds a string representation of the path segments using the embedded resource path format, which uses a dot '.' as a separator between directory names and file name. 
-/// </summary>
-/// <remarks>For example, for a file named "file.txt" located in a directory "Resources" within the root namespace "MyProject", the resulting string would be "MyProject.Resources.file.txt".</remarks>
-public class EmbeddedResourcePathStringBuilder : PathStringBuilder
+public enum PathKind
 {
-    public override string BuildString(PathSegmentList pathSegments)
-    {
-        string toStringValue = string.Empty;
-
-        if (pathSegments is null
-            || pathSegments.IsEmpty)
-        {
-            // This instance is a default(T) instance or was created using the implicit default constructor, which means it is uninitialized and therefore invalid.
-            // Under normal construction, a valid instance will always have at least one segment.
-            return string.Empty;
-        }
-        else if (pathSegments.Count == 1)
-        {
-            toStringValue = pathSegments[0].Name;
-        }
-        else
-        {
-            using var pathBuilder = PooledStringBuilder.GetOrCreate();
-            for (int index = 0; index < pathSegments.Count; index++)
-            {
-                PathSegment segment = pathSegments.ElementAt(index);
-                if (index < pathSegments.Count - 1)
-                {
-                    if (segment.Kind is not PathSegmentKind.DirectoryName)
-                    {
-                        throw new InvalidOperationException($"Invalid path segment at index '{index}'. All segments except for the last one must be of kind '{nameof(PathSegmentKind.DirectoryName)}' when building an embedded resource path string. Found segment: '{segment.Name}' with kind '{segment.Kind}'.");
-                    }
-
-                    _ = pathBuilder.Append(segment.Name)
-                        .Append(DirectoryDescriptor.EmbeddedFileNameSeparator);
-
-                    continue;
-                }
-                else if (index == pathSegments.Count - 1)
-                {
-                    if (segment.Kind is not PathSegmentKind.FileName)
-                    {
-                        throw new InvalidOperationException($"Invalid path segment at index '{index}'. The last one must be of kind '{nameof(PathSegmentKind.FileName)}' when building an embedded resource path string. Found segment: '{segment.Name}' with kind '{segment.Kind}'.");
-                    }
-
-                    _ = pathBuilder.Append(segment.Name);
-                }
-            }
-
-            toStringValue = pathBuilder.ToString();
-        }
-
-        return toStringValue;
-    }
+    Undefined = 0,
+    File,
+    Directory,
+    EmbeddedResource
 }

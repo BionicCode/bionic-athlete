@@ -7,33 +7,24 @@ public sealed class PathSegmentList : IImmutableList<PathSegment>
 {
     private readonly ImmutableList<PathSegment> _segments;
 
-    public static readonly PathSegmentList Empty = new(ImmutableList<PathSegment>.Empty, isDirectory: false);
+    public static readonly PathSegmentList Empty = new(ImmutableList<PathSegment>.Empty, PathKind.Undefined);
 
-    public PathSegmentList(IEnumerable<PathSegment> segments, bool isDirectory)
+    public PathSegmentList(IEnumerable<PathSegment> segments, PathKind pathKind)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(segments);
 
         _segments = [.. segments];
-        IsDirectory = isDirectory;
+        PathKind = pathKind;
     }
 
-    public static PathSegmentList CreateForEmbeddedFilePath(IEnumerable<PathSegment> segments)
-    {
-        ArgumentNullExceptionAdvanced.ThrowIfNull(segments);
-        return new PathSegmentList(segments, isDirectory: false)
-        {
-            IsEmbeddedAssemblyPath = true
-        };
-    }
-
-    public PathDescriptor ToPathDescriptor() => new(ToString(), IsDirectory);
+    public PathDescriptor ToPathDescriptor() => new(ToString(), PathKind);
 
     public override string ToString() => ToPathDescriptor().ToString();
 
     public int Count => _segments.Count;
     public bool IsEmpty => _segments.IsEmpty;
 
-    public bool IsDirectory { get; }
+    public PathKind PathKind { get; }
     public bool IsEmbeddedAssemblyPath { get; private init; }
 
     public PathSegment this[int index] => _segments[index];
@@ -43,27 +34,27 @@ public sealed class PathSegmentList : IImmutableList<PathSegment>
         get
         {
             (int offset, int length) = range.GetOffsetAndLength(_segments.Count);
-            return new(_segments.Skip(offset).Take(length), IsDirectory);
+            return new(_segments.Skip(offset).Take(length), PathKind);
         }
     }
 
     public IEnumerator<PathSegment> GetEnumerator() => _segments.GetEnumerator();
     IEnumerator IEnumerable.GetEnumerator() => _segments.GetEnumerator();
-    public PathSegmentList Add(PathSegment item) => new(_segments.Add(item), IsDirectory);
-    public PathSegmentList AddRange(IEnumerable<PathSegment> items) => new(_segments.AddRange(items), IsDirectory);
-    public PathSegmentList Clear() => new(_segments.Clear(), IsDirectory);
+    public PathSegmentList Add(PathSegment item) => new(_segments.Add(item), PathKind);
+    public PathSegmentList AddRange(IEnumerable<PathSegment> items) => new(_segments.AddRange(items), PathKind);
+    public PathSegmentList Clear() => new(_segments.Clear(), PathKind);
     public bool Contains(PathSegment item) => _segments.Contains(item);
     public void CopyTo(PathSegment[] array, int arrayIndex) => _segments.CopyTo(array, arrayIndex);
-    public PathSegmentList Remove(PathSegment item, IEqualityComparer<PathSegment>? equalityComparer) => new(_segments.Remove(item, equalityComparer), IsDirectory);
-    public PathSegmentList RemoveAll(Predicate<PathSegment> match) => new(_segments.RemoveAll(match), IsDirectory);
+    public PathSegmentList Remove(PathSegment item, IEqualityComparer<PathSegment>? equalityComparer) => new(_segments.Remove(item, equalityComparer), PathKind);
+    public PathSegmentList RemoveAll(Predicate<PathSegment> match) => new(_segments.RemoveAll(match), PathKind);
     public int IndexOf(PathSegment item) => _segments.IndexOf(item);
-    public PathSegmentList Insert(int index, PathSegment item) => new(_segments.Insert(index, item), IsDirectory);
-    public PathSegmentList InsertRange(int index, IEnumerable<PathSegment> items) => new(_segments.InsertRange(index, items), IsDirectory);
-    public PathSegmentList RemoveAt(int index) => new(_segments.RemoveAt(index), IsDirectory);
-    public PathSegmentList RemoveRange(IEnumerable<PathSegment> items, IEqualityComparer<PathSegment>? equalityComparer) => new(_segments.RemoveRange(items, equalityComparer), IsDirectory);
-    public PathSegmentList RemoveRange(int index, int count) => new(_segments.RemoveRange(index, count), IsDirectory);
-    public PathSegmentList Replace(PathSegment oldValue, PathSegment newValue, IEqualityComparer<PathSegment>? equalityComparer) => new(_segments.Replace(oldValue, newValue, equalityComparer), IsDirectory);
-    public PathSegmentList SetItem(int index, PathSegment value) => new(_segments.SetItem(index, value), IsDirectory);
+    public PathSegmentList Insert(int index, PathSegment item) => new(_segments.Insert(index, item), PathKind);
+    public PathSegmentList InsertRange(int index, IEnumerable<PathSegment> items) => new(_segments.InsertRange(index, items), PathKind);
+    public PathSegmentList RemoveAt(int index) => new(_segments.RemoveAt(index), PathKind);
+    public PathSegmentList RemoveRange(IEnumerable<PathSegment> items, IEqualityComparer<PathSegment>? equalityComparer) => new(_segments.RemoveRange(items, equalityComparer), PathKind);
+    public PathSegmentList RemoveRange(int index, int count) => new(_segments.RemoveRange(index, count), PathKind);
+    public PathSegmentList Replace(PathSegment oldValue, PathSegment newValue, IEqualityComparer<PathSegment>? equalityComparer) => new(_segments.Replace(oldValue, newValue, equalityComparer), PathKind);
+    public PathSegmentList SetItem(int index, PathSegment value) => new(_segments.SetItem(index, value), PathKind);
 
     #region Explicit IImmutableList Implementation
     IImmutableList<PathSegment> IImmutableList<PathSegment>.Add(PathSegment value) => Add(value);
@@ -88,5 +79,5 @@ public sealed class PathSegmentList : IImmutableList<PathSegment>
 
 public static class PathSegmentListHelpers
 {
-    public static PathSegmentList ToPathSegmentList(this IEnumerable<PathSegment> segments, bool isDirectory) => new(segments, isDirectory);
+    public static PathSegmentList ToPathSegmentList(this IEnumerable<PathSegment> segments, PathKind pathKind) => new(segments, pathKind);
 }
