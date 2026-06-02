@@ -16,7 +16,6 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
     private readonly bool _isNormalized;
     private readonly WriteOnce<PathStringBuilder> _defaultPathStringBuilder;
     private readonly Dictionary<Type, string> _pathStringCache;
-    private readonly string _embeddedResourceName;
 
     public static PathDescriptor Empty { get; } = new PathDescriptor() with { Segments = new PathSegmentList(ImmutableList<PathSegment>.Empty, PathKind.Undefined) };
 
@@ -28,7 +27,6 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
         _normalizedPath = new WriteOnce<PathDescriptor>();
         _pathStringCache = [];
         _defaultPathStringBuilder = new WriteOnce<PathStringBuilder>();
-        _embeddedResourceName = string.Empty;
 
         Segments = segments;
         _isNormalized = isNormalized;
@@ -55,18 +53,10 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
             case PathKind.Directory:
                 FileSystemPathValidator.ThrowIfInvalidDirectoryPath(path);
                 break;
-            case PathKind.EmbeddedResource:
-                _embeddedResourceName = path;
-                Segments = PathSegmentList.Empty;
-                _depth = 0;
-                _resolvedDepth = 0;
-                _normalizedPath = this;
-                return;
             default:
                 throw new NotImplementedException("Currently unsupported path kind.");
         }
 
-        _embeddedResourceName = string.Empty;
         _depth = new WriteOnce<int>();
         _resolvedDepth = new WriteOnce<int>();
         _normalizedPath = new WriteOnce<PathDescriptor>();
@@ -423,11 +413,6 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
 
     public override string ToString()
     {
-        if (!string.IsNullOrWhiteSpace(_embeddedResourceName))
-        {
-            return _embeddedResourceName;
-        }
-
         if (Segments is null)
         {
             return string.Empty;
@@ -451,11 +436,6 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(pathStringBuilder);
 
-        if (!string.IsNullOrWhiteSpace(_embeddedResourceName))
-        {
-            return _embeddedResourceName;
-        }
-
         if (Segments is null)
         {
             return string.Empty;
@@ -470,9 +450,7 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
         return cachedValue;
     }
 
-    public bool Equals(PathDescriptor other) => PathKind is PathKind.EmbeddedResource
-        ? _embeddedResourceName.Equals(other._embeddedResourceName, StringComparison.Ordinal)
-        : s_pathEqualityComparer.Equals(this, other);
+    public bool Equals(PathDescriptor other) => s_pathEqualityComparer.Equals(this, other);
 
     public override int GetHashCode()
     {
@@ -486,9 +464,7 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
 
         if (!_hashCodeCache.IsSet)
         {
-            int hashCode = PathKind is PathKind.EmbeddedResource
-                ? _embeddedResourceName.GetHashCode(StringComparison.Ordinal)
-                : s_pathEqualityComparer.GetHashCode(this);
+            int hashCode = s_pathEqualityComparer.GetHashCode(this);
             _hashCodeCache.SetValue(hashCode);
         }
 

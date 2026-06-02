@@ -94,7 +94,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         _name = new WriteOnce<string>();
         _location = new WriteOnce<PathDescriptor>();
 
-        _path = new PathDescriptor(fullPath, isDirectory: true);
+        _path = new PathDescriptor(fullPath, PathKind.Directory);
     }
 
     /// <summary>

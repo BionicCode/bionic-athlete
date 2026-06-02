@@ -6,6 +6,7 @@ using BionicCode.Utilities.Net;
 public readonly record struct FileExtension
 {
     private readonly string? _value;
+    public static FileExtension Empty { get; } = new(string.Empty);
 
     public string Value => _value
         ?? throw new InvalidOperationException("The default FileExtension value is not valid.");
@@ -75,9 +76,11 @@ public readonly record struct FileExtension
             throw new ArgumentException("File name must not include directory information.", nameof(fileName));
         }
 
+        // Treat leading-dot file names without additional dots (LastIndex() returns 0, e.g., ".gitignore")
+        // and files without a dot (LastIndex() returns -1, e.g., "README") as extensionless.
         if (fileName.LastIndexOf('.') <= 0)
         {
-            throw new ArgumentException($"The argument '{nameof(fileName)}' looks like a file without an extension.", nameof(fileName));
+            return FileExtension.Empty;
         }
 
         return FromResolvedExtensionCandidate(Path.GetExtension(fileName), nameof(fileName));
@@ -129,6 +132,8 @@ public readonly record struct FileExtension
     }
 
     public override string ToString() => Value;
+
+    public static implicit operator string(FileExtension fileExtension) => fileExtension.ToString();
 
     public bool Equals(string fileExtension) => FromExtensionToken(fileExtension).Equals(this);
 
