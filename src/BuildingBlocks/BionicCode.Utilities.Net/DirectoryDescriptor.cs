@@ -61,6 +61,11 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
 
     private static readonly FileSystemPathEqualityComparer s_pathEqualityComparer = FileSystemPathEqualityComparer.Instance;
 
+    public static readonly DirectoryDescriptor Empty = new DirectoryDescriptor(string.Empty) with
+    {
+        Path = PathDescriptor.Empty
+    };
+
     private readonly WriteOnce<PathDescriptor> _path;
     private readonly WriteOnce<PathDescriptor> _location;
     private readonly WriteOnce<string> _name;
@@ -114,7 +119,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// The method resolves special path symbols such as ".." and "." when combining paths.</remarks>
     /// <param name="isImplicitRootAllowed"><see langword="true"/> to allow directory segments that are implicitly drive rooted; otherwise, <see langword="false"/>. If <see langword="false"/>, any segment with
     /// an implicit drive root will cause an exception.</param>
-    /// <param name="appendingLocationSegments">An array of relative directory segments to append to the current directory path. Each segment must be a relative
+    /// <param name="appendingLocationSegments">An array of relative <see cref="DirectoryDescriptor"/> directory segments to append to the current directory path. Each segment must be a relative
     /// directory path without an explicit drive root.</param>
     /// <returns>A new <see cref="DirectoryDescriptor"/> representing the combined path.</returns>
     /// <exception cref="ArgumentException">Thrown if any of the following conditions are met: 
@@ -122,6 +127,24 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// a segment has an explicit drive root, 
     /// or a segment is implicitly drive rooted when <paramref name="isImplicitRootAllowed"/> is <see langword="false"/>.</exception>
     public DirectoryDescriptor Combine(bool isImplicitRootAllowed = false, params DirectoryDescriptor[] appendingLocationSegments) => new(CombineInternal(default, appendingLocationSegments.OrEmpty(), isImplicitRootAllowed));
+
+    /// <summary>
+    /// Combines the current directory path with one or more relative directory segments, 
+    /// returning a new <see cref="DirectoryDescriptor"/> representing the resulting path.
+    /// </summary>
+    /// <remarks>All directory segments in <paramref name="appendingLocationSegments"/> must be relative and must not have an
+    /// explicit drive root. If <paramref name="isImplicitRootAllowed"/> is <see langword="false"/>, segments with an implicit drive root (e.g. <c>/subdir</c>) are not permitted.
+    /// The method resolves special path symbols such as ".." and "." when combining paths.</remarks>
+    /// <param name="isImplicitRootAllowed"><see langword="true"/> to allow directory segments that are implicitly drive rooted; otherwise, <see langword="false"/>. If <see langword="false"/>, any segment with
+    /// an implicit drive root will cause an exception.</param>
+    /// <param name="appendingLocationSegments">An <see cref="IEnumerable"/>&lt;<see cref="DirectoryDescriptor"/>&gt; of relative directory segments to append to the current directory path. Each segment must be a relative
+    /// directory path without an explicit drive root.</param>
+    /// <returns>A new <see cref="DirectoryDescriptor"/> representing the combined path.</returns>
+    /// <exception cref="ArgumentException">Thrown if any of the following conditions are met: 
+    /// a segment is not relative, 
+    /// a segment has an explicit drive root, 
+    /// or a segment is implicitly drive rooted when <paramref name="isImplicitRootAllowed"/> is <see langword="false"/>.</exception>
+    public DirectoryDescriptor Combine(IEnumerable<DirectoryDescriptor> appendingLocationSegments, bool isImplicitRootAllowed = false) => new(CombineInternal(default, appendingLocationSegments.OrEmpty(), isImplicitRootAllowed));
 
     /// <summary>
     /// Combines the current directory path with one or more relative directory segments and a relative file
@@ -142,7 +165,28 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// a segment has an explicit drive root, 
     /// a segment is implicitly drive rooted when <paramref name="isImplicitRootAllowed"/> is <see langword="false"/>
     /// or <paramref name="relativeFilePath"/> is not relative.</exception>
-    public FileDescriptor Combine(FileDescriptor relativeFilePath, bool isImplicitRootAllowed = false, params DirectoryDescriptor[] appendingLocationSegments)
+    public FileDescriptor Combine(FileDescriptor relativeFilePath, bool isImplicitRootAllowed = false, params DirectoryDescriptor[] appendingLocationSegments) => Combine(relativeFilePath, appendingLocationSegments, isImplicitRootAllowed);
+
+    /// <summary>
+    /// Combines the current directory path with one or more relative directory segments and a relative file
+    /// path, returning a new <see cref="FileDescriptor"/> representing the resulting file path.
+    /// </summary>
+    /// <remarks>All directory segments in <paramref name="appendingLocationSegments"/> must be relative and must not have an
+    /// explicit drive root. If <paramref name="isImplicitRootAllowed"/> is <see langword="false"/>, segments with an implicit drive root (e.g. <c>/subdir</c>) are not permitted.
+    /// The method resolves special path symbols such as ".." and "." when combining paths.</remarks>
+    /// <param name="relativeFilePath">A relative file path to append to the combined directory path. Must be relative or set to the default value to
+    /// omit.</param>
+    /// <param name="isImplicitRootAllowed"><see langword="true"/> to allow directory segments that are implicitly drive rooted. In that case <c>/subdir</c> will be treated as <c>./subdir</c> (aka <c>subdir</c>); otherwise, <see langword="false"/> to disallow conversion of implicit rooted paths. 
+    /// If <see langword="false"/>, any segment with an implicit drive root will cause an exception.</param>
+    /// <param name="appendingLocationSegments">An <see cref="IEnumerable"/>&lt;<see cref="DirectoryDescriptor"/>&gt; of relative directory segments to append to the current directory path. Each segment must be a relative
+    /// directory path without an explicit drive root.</param>
+    /// <returns>A new <see cref="DirectoryDescriptor"/> representing the combined path.</returns>
+    /// <exception cref="ArgumentException">Thrown if any of the following conditions are met: 
+    /// a segment is not relative, 
+    /// a segment has an explicit drive root, 
+    /// a segment is implicitly drive rooted when <paramref name="isImplicitRootAllowed"/> is <see langword="false"/>
+    /// or <paramref name="relativeFilePath"/> is not relative.</exception>
+    public FileDescriptor Combine(FileDescriptor relativeFilePath, IEnumerable<DirectoryDescriptor> appendingLocationSegments, bool isImplicitRootAllowed = false)
     {
         ArgumentNullExceptionAdvanced.ThrowIfDefault(relativeFilePath);
         ArgumentExceptionAdvanced.ThrowIfFalse(relativeFilePath.IsRelative, $"The argument '{nameof(relativeFilePath)}' must be a relative file path.");
@@ -150,10 +194,10 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
 
         string path = CombineInternal(relativeFilePath, appendingLocationSegments.OrEmpty(), isImplicitRootAllowed);
 
-        return new FileDescriptor(path);
+        return new FileDescriptor(path, relativeFilePath.IsEmbeddedResource);
     }
 
-    private string CombineInternal(FileDescriptor relativeFilePath, DirectoryDescriptor[] appendingLocationSegments, bool isImplicitRootAllowed = false)
+    private string CombineInternal(FileDescriptor relativeFilePath, IEnumerable<DirectoryDescriptor> appendingLocationSegments, bool isImplicitRootAllowed = false)
     {
         // Combine the current directory path with each of the provided relative directory segments in order. Each segment is validated to ensure it is a relative path
         // without an explicit drive root, and if implicit roots are not allowed, it must not be implicitly drive rooted.
@@ -186,9 +230,8 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
             }
         }
 
-        combinedPath = ResolveRelativePathStrict(combinedPath, relativeFilePath.Path.Segments);
-
-        return combinedPath;
+        PathDescriptor combinedFilePath = ResolveRelativePathStrict(combinedPath.Segments, relativeFilePath.Path.Segments);
+        return combinedFilePath;
     }
 
     /// <summary>
@@ -207,16 +250,21 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="absoluteBaseDirectory"/> is <see langword="default"/>.</exception>
     public DirectoryDescriptor ToAbsolutePath(DirectoryDescriptor absoluteBaseDirectory, bool isImplicitRootAllowed = false)
     {
+        ArgumentNullExceptionAdvanced.ThrowIfDefault(absoluteBaseDirectory);
+        ArgumentExceptionAdvanced.ThrowIfTrue(
+            absoluteBaseDirectory.IsRelative,
+            $"The argument '{nameof(absoluteBaseDirectory)}' must be an absolute directory path.");
+
+        if (IsDefaultInstance)
+        {
+            return DirectoryDescriptor.Empty;
+        }
+
         // If the current path is already absolute we can return it as is without combining with the base directory.
         if (!IsRelative)
         {
             return this;
         }
-
-        ArgumentNullExceptionAdvanced.ThrowIfDefault(absoluteBaseDirectory);
-        ArgumentExceptionAdvanced.ThrowIfTrue(
-            absoluteBaseDirectory.IsRelative,
-            $"The argument '{nameof(absoluteBaseDirectory)}' must be an absolute directory path.");
 
         if (HasExplicitDriveRoot)
         {
@@ -257,6 +305,11 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     {
         ArgumentNullExceptionAdvanced.ThrowIfDefault(relativeFilePath);
         ArgumentExceptionAdvanced.ThrowIfFalse(relativeFilePath.IsRelative, $"The argument '{nameof(relativeFilePath)}' must be a relative file path.");
+
+        if (IsDefaultInstance)
+        {
+            return FileDescriptor.Empty;
+        }
 
         // If the current path is already absolute we can return it as is without combining with the base directory.
         if (!IsRelative)
@@ -427,7 +480,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         ArgumentExceptionAdvanced.ThrowIfFalse(relativeFilePath.IsRelative, $"The argument '{nameof(relativeFilePath)}' must be a relative file path.");
 
         string resolvedPath = ResolveRelativePathStrict(basePath.Path.NormalizedPath.Segments, relativeFilePath.Path.NormalizedPath.Segments, baseDirectoryPathParameterName, relativeFilePathParameterName);
-        return new(resolvedPath);
+        return new(resolvedPath, relativeFilePath.IsEmbeddedResource);
     }
 
     /// <summary>
@@ -447,7 +500,12 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     {
         PathSegmentList resolvedPathSegments = normalizedBasePath.AddRange(normalizedRelativePath);
         string temporaryResolvedPath = resolvedPathSegments!;
-        var temporaryResolvedPathDescriptor = new PathDescriptor(temporaryResolvedPath, normalizedRelativePath.IsDirectory);
+
+        // Create a new PathDescriptor to validate and normalize the combined path segments.
+        // This will resolve any special path symbols like ".." and "."
+        // and also ensure that the resulting path does not escape above the base path
+        // by clamping to the path root.
+        var temporaryResolvedPathDescriptor = new PathDescriptor(temporaryResolvedPath, normalizedRelativePath.PathKind);
         PathDescriptor resolvedPath = temporaryResolvedPathDescriptor.NormalizedPath;
 
         return resolvedPath;
@@ -455,12 +513,13 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
 
     public static IEnumerable<PathSegment> EnumerateDirectoryPathSegments(string path)
     {
+        // Use DirectoryDescriptor to leverage the existing path parsing and validation logic
         var descriptor = new DirectoryDescriptor(path);
         return descriptor.EnumeratePathSegments();
     }
     #endregion Helpers
 
-    public bool IsDefaultInstance => _path is null && _name is null && _location is null;
+    private bool IsDefaultInstance => _path is null && _name is null && _location is null;
 
     public override string ToString() => Path.ToString();
     public bool Equals(DirectoryDescriptor other) => s_pathEqualityComparer.Equals(this, other);
@@ -468,6 +527,10 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
 
     public IEnumerable<PathSegment> EnumeratePathSegments()
     {
+        if (IsDefaultInstance)
+        {
+            yield break;
+        }
 
         foreach (PathSegment pathSegment in Path.Segments)
         {
@@ -482,22 +545,21 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
             // Can only be NULL when instance is default or the implicit default constructor was used to create this instance.
             // In both cases the instance is considered invalid.
             // Since string.Empty is not considered valid under normal construction returning string.Empty is fine to communicate an uninitialized compiler default state and least disturbing.
-            if (_path is null)
+            if (IsDefaultInstance)
             {
                 return PathDescriptor.Empty;
             }
 
             return _path;
         }
+        private init => _path = value;
     }
 
     public string Name
     {
         get
         {
-            if (_name is null
-                || _path is null
-                || Path.Segments.IsEmpty)
+            if (IsDefaultInstance)
             {
                 return string.Empty;
             }
@@ -529,9 +591,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     {
         get
         {
-            if (_path is null
-                || Path.Segments is null
-                || Path.Segments.Count == 0)
+            if (IsDefaultInstance)
             {
                 return PathDescriptor.Empty;
             }
@@ -541,7 +601,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
                 PathDescriptor parentPath;
                 var parentPathSegments = Path.Segments
                     .Take(Path.Segments.Count - 1)
-                    .ToPathSegmentList(isDirectory: true);
+                    .ToPathSegmentList(PathKind.Directory);
 
                 if (parentPathSegments.Count == 1)
                 {
@@ -561,7 +621,8 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         }
     }
 
-    public string PathString => Path.PathString;
+    public string PathString => Path;
+
     public bool TryGetPathRoot(out PathSegment pathRoot)
     {
         if (IsDefaultInstance)
@@ -587,6 +648,8 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// <value><see langword="true"/> if the path is relative (rooted or unrooted) or <see langword="false"/> if the path is absolute.</value>
     public bool IsRelative => Path.IsRelative;
 
+    public PathKind PathKind => Path.PathKind;
+
     /// <summary>
     /// Gets a value indicating whether the directory has an explicit drive root.
     /// </summary>
@@ -606,7 +669,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// Gets a value indicating whether the directory at the specified path currently exists.
     /// </summary>
     /// <value><see langword="true"/> if the directory exists or <see langword="false"/> an error occurred during the check or the directory does not exist at the time of the check.</value>
-    public bool IsExisting => Directory.Exists(PathString);
+    public bool IsExisting => Directory.Exists(Path);
 
     public bool IsRoot => Path.HasRoot && Path.Segments.Count == 1;
 

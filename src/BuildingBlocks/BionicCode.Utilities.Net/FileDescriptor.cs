@@ -9,6 +9,8 @@ using SystemIoPath = System.IO.Path;
 [DebuggerDisplay("FileName = {Name}, Location = {Location}, OriginalFullPath = {OriginalFullPath}, OriginalName = {OriginalName}, IsRelative = {IsRelative}")]
 public readonly struct FileDescriptor : IEquatable<FileDescriptor>
 {
+    public static FileDescriptor Empty { get; } = new FileDescriptor(string.Empty, isEmbeddedResource: false);
+
     private static readonly FileSystemPathEqualityComparer s_pathEqualityComparer = FileSystemPathEqualityComparer.Instance;
 
     private readonly WriteOnce<PathDescriptor> _path;
@@ -16,61 +18,63 @@ public readonly struct FileDescriptor : IEquatable<FileDescriptor>
     private readonly WriteOnce<string> _name;
     private readonly WriteOnce<string> _nameWithoutExtension;
     private readonly WriteOnce<FileExtension> _extension;
-    private readonly string _embeddedResourceName;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="FileDescriptor"/> struct from a file name and directory.
     /// </summary>
     /// <param name="fileName">The file name including the file extension.</param>
     /// <param name="location">The directory (location) of the file. Can be absolute or relative.</param>
-    public FileDescriptor(string fileName, DirectoryDescriptor location) : this(SystemIoPath.Join(location, fileName), PathKind.File)
+    public FileDescriptor(string fileName, DirectoryDescriptor location)
+        : this(SystemIoPath.Join(location, fileName), isEmbeddedResource: false)
     {
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="FileDescriptor"/> struct from a full source file newPath.
+    /// Initializes a new instance of the <see cref="FileDescriptor"/> struct from a full source file path.
     /// </summary>
-    /// <param name="filePath">The full file newPath. The file newPath can be absolute or relative.</param>
-    public FileDescriptor(string filePath, PathKind pathKind)
+    /// <param name="filePath">The full file path. The file path can be absolute or relative.</param>
+    /// <param name="isEmbeddedResource">Indicates whether the file is an embedded resource.</param>
+    public FileDescriptor(string filePath, bool isEmbeddedResource)
     {
-        ArgumentExceptionAdvanced.ThrowIfEnumIsNotDefined<PathKind>(pathKind);
-        ArgumentExceptionAdvanced.ThrowIfEnumEqualsAny(
-            pathKind,
-            [PathKind.Undefined],
-            message: $"Invalid argument '{nameof(pathKind)}'. The value '{nameof(PathKind.Undefined)}' is not allowed.");
-        ArgumentExceptionAdvanced.ThrowIfEnumNotEqualsAny(
-            pathKind,
-            [PathKind.File, PathKind.EmbeddedResource],
-            message: $"Invalid argument '{nameof(pathKind)}'. The value of the argument '{nameof(pathKind)}' must be either '{nameof(PathKind.File)}' or '{nameof(PathKind.EmbeddedResource)}'.");
-
         _nameWithoutExtension = new WriteOnce<string>();
         _extension = new WriteOnce<FileExtension>();
-        PathKind = pathKind;
 
-        switch (PathKind)
+        if (isEmbeddedResource)
         {
-            case PathKind.File:
-                FileSystemPathValidator.ThrowIfInvalidFilePath(filePath);
-                break;
-            case PathKind.EmbeddedResource:
-                _embeddedResourceName = filePath;
-                _name = string.Empty;
-                _location = PathDescriptor.Empty;
-                _path = PathDescriptor.Empty;
-                return;
-            default:
-                throw new NotImplementedException("Currently unsupported path kind.");
-        }
+            IsEmbeddedResource = true;
 
-        _name = new WriteOnce<string>();
-        _location = new WriteOnce<PathDescriptor>();
-        _path = new PathDescriptor(filePath, PathKind.File);
-        IsRelative = Path.IsRelative;
+            _name = filePath;
+            _location = PathDescriptor.Empty;
+            _path = PathDescriptor.Empty;
+            IsRelative = false;
+        }
+        else
+        {
+            FileSystemPathValidator.ThrowIfInvalidFilePath(filePath);
+
+            _name = new WriteOnce<string>();
+            _location = new WriteOnce<PathDescriptor>();
+            _path = new PathDescriptor(filePath, PathKind);
+            IsRelative = Path.IsRelative;
+        }
     }
 
     public FileDescriptor Rename(string newFileName)
     {
         FileSystemPathValidator.ThrowIfInvalidFileName(newFileName);
+
+        if (IsDefaultInstance)
+        {
+            return FileDescriptor.Empty;
+        }
+
+        if (IsEmbeddedResource)
+        {
+            return this with
+            {
+                Name = newFileName
+            };
+        }
 
         string newPath = SystemIoPath.Join(Location.PathString, newFileName);
         return this with
@@ -86,6 +90,16 @@ public readonly struct FileDescriptor : IEquatable<FileDescriptor>
         // Do not allow ending with file name
         FileSystemPathValidator.ThrowIfInvalidDirectoryPath(newLocation);
 
+        if (IsEmbeddedResource)
+        {
+            throw new InvalidOperationException($"Cannot copy or move a file descriptor where the '{nameof(IsEmbeddedResource)}' property is true because it does not represent a file system path.");
+        }
+
+        if (IsDefaultInstance)
+        {
+            return FileDescriptor.Empty;
+        }
+
         string newPath = SystemIoPath.Join(newLocation, Name);
         return this with
         {
@@ -94,60 +108,103 @@ public readonly struct FileDescriptor : IEquatable<FileDescriptor>
         };
     }
 
-    public FileDescriptor GetPathRelativeTo(DirectoryDescriptor baseDirectory, bool isImpicitRootAllowed)
+    public FileDescriptor GetPathRelativeTo(DirectoryDescriptor baseDirectory, bool isImplicitRootAllowed)
     {
         ArgumentNullExceptionAdvanced.ThrowIfDefault(baseDirectory);
-        ArgumentExceptionAdvanced.ThrowIfTrue(baseDirectory.IsRelative, "Base directory must be an absolute directory newPath.", nameof(baseDirectory));
+        ArgumentExceptionAdvanced.ThrowIfTrue(baseDirectory.IsRelative, "Base directory must be an absolute directory path.", nameof(baseDirectory));
+
+        if (IsDefaultInstance
+            || IsEmbeddedResource)
+        {
+            return FileDescriptor.Empty;
+        }
 
         if (!IsRelative)
         {
             return this;
         }
 
-        if (!isImpicitRootAllowed && Path.HasRoot && !HasExplicitDriveRoot)
+        if (!isImplicitRootAllowed && Path.HasRoot && !HasExplicitDriveRoot)
         {
-            throw new InvalidOperationException($"The file path '{FullPath}' has an implicit drive root, which is not allowed when the argument '{nameof(isImpicitRootAllowed)}' is set to false. An implicit drive root is a rooted path that does not have an explicit drive root like 'C:'. An example of an implicit drive rooted path is '/Temp' or '/example.txt', where the root drive resolves to the current working directory's drive.");
+            throw new InvalidOperationException($"The file path '{Path}' has an implicit drive root, which is not allowed when the argument '{nameof(isImplicitRootAllowed)}' is set to false. An implicit drive root is a rooted path that does not have an explicit drive root like 'C:'. An example of an implicit drive rooted path is '/Temp' or '/example.txt', where the root drive resolves to the current working directory's drive.");
         }
 
-        string relativePath = baseDirectory.Combine(this, isImpicitRootAllowed);
-        return new FileDescriptor(relativePath);
+        string relativePath = baseDirectory.Combine(this, isImplicitRootAllowed);
+        return new FileDescriptor(relativePath, isEmbeddedResource: false);
     }
 
-    public FileDescriptor Combine(params DirectoryDescriptor[] precedingLocationSegments)
+    public FileDescriptor Combine(bool isImplicitRootAllowed, params DirectoryDescriptor[] precedingLocationSegments)
     {
+        ArgumentNullExceptionAdvanced.ThrowIfNull(precedingLocationSegments);
         ArgumentExceptionAdvanced.ThrowIfAny(precedingLocationSegments, item => item == default);
 
-        IEnumerable<string> pathSegments = precedingLocationSegments
-            .Select(segment => segment.PathString)
-            .Concat([Name]);
-        string combinedPath = pathSegments.JoinToString(Path.DirectorySeparatorChar.ToString());
-        FileSystemPathValidator.ThrowIfInvalidFilePath(combinedPath);
-
-        return new FileDescriptor(combinedPath);
-    }
-
-    public FileDescriptor ToAbsolutePath(DirectoryDescriptor absoluteBaseDirectory)
-    {
-        ArgumentNullExceptionAdvanced.ThrowIfDefault(absoluteBaseDirectory);
-        ArgumentExceptionAdvanced.ThrowIfTrue(absoluteBaseDirectory.IsRelative, $"The argument '{nameof(absoluteBaseDirectory)}' must be an absolute directory newPath.");
-
-        if (HasExplicitDriveRoot && IsRelative)
+        if (IsDefaultInstance
+            || IsEmbeddedResource)
         {
-            // If the current newPath has an explicit drive root but is relative, we cannot resolve it to an absolute newPath without knowing the current drive. Therefore, we throw an exception in this case.
-            throw new InvalidOperationException($"Cannot convert to an absolute newPath because the current newPath '{FullPath}' has an explicit drive root but is relative. An absolute base directory cannot be used to resolve this newPath.");
+            return FileDescriptor.Empty;
         }
 
-        return Combine(absoluteBaseDirectory);
+        if (precedingLocationSegments.Length == 0)
+        {
+            return this;
+        }
+
+        DirectoryDescriptor combinedBasePath = precedingLocationSegments[0];
+        FileDescriptor combinedFilePath = combinedBasePath.Combine(this, precedingLocationSegments.Skip(1), isImplicitRootAllowed);
+
+        return combinedFilePath;
     }
 
-    public override string ToString() => Path.PathKind is PathKind.EmbeddedResource
-        ? _embeddedResourceName
+    public FileDescriptor ToAbsolutePath(DirectoryDescriptor baseDirectory, bool isImplicitRootAllowed)
+    {
+        ArgumentNullExceptionAdvanced.ThrowIfDefault(baseDirectory);
+
+        if (IsDefaultInstance
+            || IsEmbeddedResource
+            || (!isImplicitRootAllowed && Path.HasRoot && Path.IsRelative))
+        {
+            return FileDescriptor.Empty;
+        }
+
+        if (!IsRelative)
+        {
+            return this;
+        }
+
+        // File path could have the shape of "C:Temp" where it is relative but has an explicit drive root.
+        // If the 'baseDirectory' is relative we can use it to resolve the file path to an absolute path because the file path is relative. 
+        if (HasExplicitDriveRoot)
+        {
+            // If the current file path has an explicit drive root but 'baseDirectory' is absolute,
+            // we cannot resolve it to an absolute path without. Therefore, we throw an exception in this case.
+            if (!baseDirectory.IsRelative)
+            {
+                throw new InvalidOperationException($"Cannot convert to an absolute file path because the current file path '{Path}' has an explicit drive root but is relative. An absolute base directory cannot be used to resolve this file path.");
+            }
+
+            IEnumerable<PathSegment> baseDirectoryWithoutLeadingSpecialSymbols = baseDirectory.Path.NormalizedPath.Segments.SkipWhile(segment => segment.IsSpecial);
+
+            // Move the drive root from the file path to the base directory and combine the paths.
+            // For example, if the file path is "C:Temp?test.txt" and the base directory is "\BaseDirectory", we move the drive root "C:" to the base directory and combine it with the remaining file path "Temp" to get "C:\BaseDirectory\Temp".
+            PathSegmentList filePathSegmentsWithoutDriveRoot = Path.NormalizedPath.Segments[1..];
+            filePathSegmentsWithoutDriveRoot = filePathSegmentsWithoutDriveRoot.InsertRange(0, baseDirectoryWithoutLeadingSpecialSymbols);
+            PathSegmentList rootedPathSegments = filePathSegmentsWithoutDriveRoot.Insert(0, Path.NormalizedPath.Segments[0]);
+
+            return new FileDescriptor(rootedPathSegments, isEmbeddedResource: false);
+        }
+
+        ArgumentExceptionAdvanced.ThrowIfTrue(baseDirectory.IsRelative, $"The argument '{nameof(baseDirectory)}' must be an absolute directory path.");
+        return Combine(isImplicitRootAllowed, baseDirectory);
+    }
+
+    public override string ToString() => IsEmbeddedResource
+        ? Name
         : Path;
 
     public string PathString => ToString();
     public bool TryGetPathRoot(out PathSegment pathRoot)
     {
-        if (PathKind is PathKind.EmbeddedResource || IsDefaultInstance)
+        if (IsEmbeddedResource || IsDefaultInstance)
         {
             pathRoot = PathSegment.Empty;
             return false;
@@ -168,12 +225,12 @@ public readonly struct FileDescriptor : IEquatable<FileDescriptor>
     /// </summary>
     /// <param name="other">The other <see cref="FileDescriptor"/> too compare to.</param>
     /// <returns><see langword="true"/> if <paramref name="other"/> is equal to this instance; otherwise, <see langword="false"/>.</returns>
-    public bool Equals(FileDescriptor other) => PathKind is PathKind.EmbeddedResource
-        ? _embeddedResourceName.Equals(other._embeddedResourceName, StringComparison.Ordinal)
+    public bool Equals(FileDescriptor other) => IsEmbeddedResource
+        ? Name.Equals(other.Name, StringComparison.Ordinal)
         : s_pathEqualityComparer.Equals(this, other);
 
-    public override int GetHashCode() => PathKind is PathKind.EmbeddedResource
-        ? _embeddedResourceName.GetHashCode(StringComparison.Ordinal)
+    public override int GetHashCode() => IsEmbeddedResource
+        ? Name.GetHashCode(StringComparison.Ordinal)
         : s_pathEqualityComparer.GetHashCode(this);
 
     public bool IsDefaultInstance => _path is null
@@ -182,7 +239,7 @@ public readonly struct FileDescriptor : IEquatable<FileDescriptor>
         && _extension is null
         && _nameWithoutExtension is null;
 
-    public bool IsExisting => PathKind is PathKind.EmbeddedResource
+    public bool IsExisting => IsEmbeddedResource
         ? throw new InvalidOperationException("Cannot determine existence of a file descriptor with the path kind 'EmbeddedResource' because it does not represent a file system path. Existence can only be determined for file descriptors with the path kind 'File'.")
         : File.Exists(Path);
 
@@ -190,8 +247,8 @@ public readonly struct FileDescriptor : IEquatable<FileDescriptor>
     {
         get
         {
-            if (_nameWithoutExtension is null
-                || _name is null)
+            if (IsDefaultInstance
+                || IsEmbeddedResource)
             {
                 return string.Empty;
             }
@@ -215,9 +272,7 @@ public readonly struct FileDescriptor : IEquatable<FileDescriptor>
     {
         get
         {
-            if (_name is null
-                || _path is null
-                || Path.Segments.IsEmpty)
+            if (IsDefaultInstance)
             {
                 return string.Empty;
             }
@@ -253,9 +308,8 @@ public readonly struct FileDescriptor : IEquatable<FileDescriptor>
     {
         get
         {
-            if (_path is null
-                || Path.Segments is null
-                || Path.Segments.Count == 0)
+            if (IsDefaultInstance
+                || IsEmbeddedResource)
             {
                 return PathDescriptor.Empty;
             }
@@ -289,6 +343,11 @@ public readonly struct FileDescriptor : IEquatable<FileDescriptor>
 
     public IEnumerable<PathSegment> EnumeratePathSegments()
     {
+        if (IsDefaultInstance
+            || IsEmbeddedResource)
+        {
+            yield break;
+        }
 
         foreach (PathSegment pathSegment in Path.Segments)
         {
@@ -297,7 +356,7 @@ public readonly struct FileDescriptor : IEquatable<FileDescriptor>
     }
 
     /// <summary>
-    /// Gets a <see cref="PathDescriptor"/> representing the full file system newPath of the file represented by this instance.
+    /// Gets a <see cref="PathDescriptor"/> representing the full file system path of the file represented by this instance.
     /// </summary>
     /// <remarks>This value is derived from the <see cref="Location"/> and <see cref="Name"/> properties.
     /// </remarks>
@@ -308,7 +367,8 @@ public readonly struct FileDescriptor : IEquatable<FileDescriptor>
             // Can only be NULL when instance is default or the implicit default constructor was used to create this instance.
             // In both cases the instance is considered invalid.
             // Since string.Empty is not considered valid under normal construction returning string.Empty is fine to communicate an uninitialized compiler default state and least disturbing.
-            if (_path is null)
+            if (IsDefaultInstance
+                || IsEmbeddedResource)
             {
                 return PathDescriptor.Empty;
             }
@@ -326,8 +386,8 @@ public readonly struct FileDescriptor : IEquatable<FileDescriptor>
     {
         get
         {
-            if (_extension is null
-                || _name is null)
+            if (IsDefaultInstance
+                || IsEmbeddedResource)
             {
                 return FileExtension.Empty;
             }
@@ -341,32 +401,40 @@ public readonly struct FileDescriptor : IEquatable<FileDescriptor>
             return _extension;
 
         }
-        private init;
+        private init => _extension = value;
     }
 
     /// <summary>
-    /// Gets a value indicating whether the current newPath is relative rather than absolute.
+    /// Gets a value indicating whether the current file path is relative rather than absolute.
     /// </summary>
-    /// <remarks>In general, relative paths are interpreted as relative to a current working directory or relative to the current drive. Absolute paths specify a complete newPath from the root of the file system and are not dependent on the current working directory or current drive.</remarks>
-    /// <value><see langword="true"/> if the newPath is relative or <see langword="false"/> if the newPath is absolute.</value>
+    /// <remarks>In general, relative paths are interpreted as relative to a current working directory or relative to the current drive. Absolute paths specify a complete path from the root of the file system and are not dependent on the current working directory or current drive.</remarks>
+    /// <value><see langword="true"/> if the path is relative or <see langword="false"/> if the path is absolute.</value>
     public bool IsRelative { get; }
 
     /// <summary>
     /// Gets a value indicating whether the directory has an explicit drive root.
     /// </summary>
-    /// <remarks>A directory has an explicit drive root if it is an absolute newPath or a relative newPath with an explicit root like "C:Temp".
+    /// <remarks>A directory has an explicit drive root if it is an absolute path or a relative path with an explicit root like "C:Temp".
     /// <br/>The property will treat paths like "/Temp" as implicitly drive rooted.</remarks>
-    /// <value><see langword="true"/> if the directory has an explicit drive root like "C:Temp" or is an absolute newPath like "C:\User\Temp"; otherwise, <see langword="false"/>.</value>
-    public bool HasExplicitDriveRoot => IsRooted && Path.Segments[0].Kind is PathSegmentKind.FullyQualifiedRoot or PathSegmentKind.RelativeDriveRoot;
+    /// <value><see langword="true"/> if the directory has an explicit drive root like "C:Temp" or is an absolute path like "C:\User\Temp"; otherwise, <see langword="false"/>.</value>
+    public bool HasExplicitDriveRoot => !IsDefaultInstance
+        && !IsEmbeddedResource
+        && IsRooted
+        && Path.Segments[0].Kind is PathSegmentKind.FullyQualifiedRoot or PathSegmentKind.RelativeDriveRoot;
 
     /// <summary>
-    /// Gets a value indicating whether the file newPath is rooted. A rooted file path starts with a root directory, such as "C:\" on Windows or "/" on Unix-based systems. 
+    /// Gets a value indicating whether the file path is rooted. A rooted file path starts with a root directory, such as "C:\" on Windows or "/" on Unix-based systems. 
     /// </summary>
     /// <remarks> Rooted paths can be either absolute or relative with an explicit drive root like "C:Temp" and "C:/User/Temp" or with an implicit drive root like "/Temp" or "/example.txt" where the root drive resolves to the current working directory's drive. 
     /// <para/>In contrast to <see cref="HasExplicitDriveRoot"/> this property will also return <see langword="true"/> for paths with an implicit drive root.</remarks>
-    public bool IsRooted => Path.HasRoot;
+    public bool IsRooted => !IsDefaultInstance
+        && !IsEmbeddedResource
+        && Path.HasRoot;
 
-    public PathKind PathKind { get; }
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Is instance scope member.")]
+    public PathKind PathKind => PathKind.File;
+
+    public bool IsEmbeddedResource { get; }
 
     public static bool operator ==(FileDescriptor left, FileDescriptor right) => left.Equals(right);
     public static bool operator !=(FileDescriptor left, FileDescriptor right) => !(left == right);

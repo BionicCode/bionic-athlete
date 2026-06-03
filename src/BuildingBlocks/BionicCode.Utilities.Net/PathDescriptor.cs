@@ -1,6 +1,5 @@
 ﻿namespace BionicCode.Utilities.Net;
 
-using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 
 /// <summary>
@@ -9,28 +8,27 @@ using System.Diagnostics.CodeAnalysis;
 public readonly struct PathDescriptor : IEquatable<PathDescriptor>
 {
     private static readonly FileSystemPathEqualityComparer s_pathEqualityComparer = FileSystemPathEqualityComparer.Instance;
-    private readonly WriteOnce<int> _hashCodeCache;
-    private readonly WriteOnce<int> _depth;
-    private readonly WriteOnce<PathDescriptor> _normalizedPath;
-    private readonly WriteOnce<int> _resolvedDepth;
+    private readonly WriteOnce<int>? _hashCodeCache;
+    private readonly WriteOnce<int>? _depth;
+    private readonly WriteOnce<PathDescriptor>? _normalizedPath;
     private readonly bool _isNormalized;
-    private readonly WriteOnce<PathStringBuilder> _defaultPathStringBuilder;
-    private readonly Dictionary<Type, string> _pathStringCache;
+    private readonly WriteOnce<PathStringBuilder>? _defaultPathStringBuilder;
+    private readonly Dictionary<Type, string>? _pathStringCache;
+    private readonly PathSegmentList? _segments;
 
-    public static PathDescriptor Empty { get; } = new PathDescriptor() with { Segments = new PathSegmentList(ImmutableList<PathSegment>.Empty, PathKind.Undefined) };
+    public static PathDescriptor Empty { get; } = new PathDescriptor() with { Segments = PathSegmentList.Empty };
 
     private PathDescriptor(PathSegmentList segments, bool isNormalized)
     {
         _hashCodeCache = new WriteOnce<int>();
         _depth = new WriteOnce<int>();
-        _resolvedDepth = new WriteOnce<int>();
         _normalizedPath = new WriteOnce<PathDescriptor>();
         _pathStringCache = [];
         _defaultPathStringBuilder = new WriteOnce<PathStringBuilder>();
 
-        Segments = segments;
+        _segments = segments;
         _isNormalized = isNormalized;
-        IsRelative = Segments[0].Kind is not PathSegmentKind.FullyQualifiedRoot;
+        IsRelative = !Segments.IsEmpty && Segments[0].Kind is not PathSegmentKind.FullyQualifiedRoot;
         PathKind = segments.PathKind;
     }
 
@@ -58,7 +56,6 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
         }
 
         _depth = new WriteOnce<int>();
-        _resolvedDepth = new WriteOnce<int>();
         _normalizedPath = new WriteOnce<PathDescriptor>();
 
         string normalizedPath = FileHelpers.NormalizeDirectorySeparators(path);
@@ -110,11 +107,14 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
             segments.Add(segment);
         }
 
-        Segments = new PathSegmentList(segments, PathKind);
-        IsRelative = Segments[0].Kind is not PathSegmentKind.FullyQualifiedRoot;
-    }
+        ArgumentExceptionAdvanced.ThrowIfNullOrEmpty(
+            segments,
+            $"The provided path '{path}' does not contain any valid segments after normalization.",
+            nameof(path));
 
-    public static PathDescriptor CreateEmbeddedAssemblyPath(string resourceName) => new(resourceName, PathKind.EmbeddedResource);
+        _segments = new PathSegmentList(segments, PathKind);
+        IsRelative = !Segments.IsEmpty && Segments[0].Kind is not PathSegmentKind.FullyQualifiedRoot;
+    }
 
     private static PathSegment CreateRootSegment(string pathRoot, bool isRootRelative, bool isDriveRoot)
     {
@@ -178,7 +178,11 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
     /// </list>
     /// <para/>
     /// See <see cref="PathSegment.Name"/> for more information about possible path segment names.</remarks>
-    public PathSegmentList Segments { get; private init; }
+    public PathSegmentList Segments
+    {
+        get => IsDefaultInstance ? PathSegmentList.Empty : _segments!;
+        private init => _segments = value;
+    }
 
     /// <summary>
     /// Gets the clamped depth of the path, which is defined as the number of segments in the path excluding the root segment if it exists.
@@ -221,14 +225,12 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
     {
         get
         {
-            if (Segments is null
-                || Segments.Count == 0
-                || _depth is null)
+            if (IsDefaultInstance)
             {
                 return 0;
             }
 
-            if (!_depth.IsSet)
+            if (!_depth!.IsSet)
             {
                 int clampedDepth = CalculateClampedPathDepth();
                 _depth.SetValue(clampedDepth);
@@ -274,9 +276,9 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
     {
         get
         {
-            if (_normalizedPath is null)
+            if (IsDefaultInstance)
             {
-                return PathSegmentList.Empty;
+                return PathDescriptor.Empty;
             }
 
             if (_isNormalized)
@@ -284,10 +286,12 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
                 return this;
             }
 
-            if (!_normalizedPath.IsSet)
+            if (!_normalizedPath!.IsSet)
             {
                 PathSegmentList normalizedSegments = GetNormalizedPath();
-                var normalizedPathDescriptor = new PathDescriptor(normalizedSegments, isNormalized: true);
+                PathDescriptor normalizedPathDescriptor = normalizedSegments.IsEmpty
+                    ? PathDescriptor.Empty
+                    : new PathDescriptor(normalizedSegments, isNormalized: true);
                 _normalizedPath.SetValue(normalizedPathDescriptor);
             }
 
@@ -297,8 +301,7 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
 
     private int CalculateClampedPathDepth()
     {
-        if (Segments is null
-            || Segments.Count == 0)
+        if (IsDefaultInstance)
         {
             return 0;
         }
@@ -309,8 +312,7 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
 
     private PathSegmentList GetNormalizedPath()
     {
-        if (Segments is null
-            || Segments.Count == 0)
+        if (IsDefaultInstance)
         {
             return PathSegmentList.Empty;
         }
@@ -404,8 +406,7 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
     /// If <see cref="HasRoot"/> is <see langword="true"/>, the path can still be relative if the root is not fully qualified (see above list for fully qualified path roots).
     /// </remarks>
     /// <depthDelta><see langword="true"/> if the segment is the root of a path; otherwise, <see langword="false"/>.</depthDelta>
-    public bool HasRoot => PathKind is not PathKind.EmbeddedResource
-        && Segments is not null
+    public bool HasRoot => !IsDefaultInstance
         && Segments.Count > 0
         && Segments[0].IsRoot;
 
@@ -413,17 +414,17 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
 
     public override string ToString()
     {
-        if (Segments is null)
+        if (IsDefaultInstance)
         {
             return string.Empty;
         }
 
-        if (!_defaultPathStringBuilder.IsSet)
+        if (!_defaultPathStringBuilder!.IsSet)
         {
             _defaultPathStringBuilder.SetValue(new FileSystemPathStringBuilder());
         }
 
-        if (!_pathStringCache.TryGetValue(_defaultPathStringBuilder.GetType(), out string? cachedValue))
+        if (!_pathStringCache!.TryGetValue(_defaultPathStringBuilder.GetType(), out string? cachedValue))
         {
             cachedValue = _defaultPathStringBuilder.GetValueOrDefault().BuildString(Segments);
             _pathStringCache.Add(_defaultPathStringBuilder.GetType(), cachedValue);
@@ -436,12 +437,12 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(pathStringBuilder);
 
-        if (Segments is null)
+        if (IsDefaultInstance)
         {
             return string.Empty;
         }
 
-        if (!_pathStringCache.TryGetValue(pathStringBuilder.GetType(), out string? cachedValue))
+        if (!_pathStringCache!.TryGetValue(pathStringBuilder.GetType(), out string? cachedValue))
         {
             cachedValue = pathStringBuilder.BuildString(Segments);
             _pathStringCache.Add(pathStringBuilder.GetType(), cachedValue);
@@ -457,12 +458,12 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
         // Can only be NULL when instance is default or the implicit default constructor was used to create this instance.
         // In both cases the instance is considered invalid.
         // Since string.Empty is not considered valid under normal construction returning string.Empty is fine to communicate an uninitialized compiler default state and least disturbing.
-        if (_hashCodeCache is null)
+        if (IsDefaultInstance)
         {
             return 0;
         }
 
-        if (!_hashCodeCache.IsSet)
+        if (!_hashCodeCache!.IsSet)
         {
             int hashCode = s_pathEqualityComparer.GetHashCode(this);
             _hashCodeCache.SetValue(hashCode);
@@ -470,6 +471,12 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
 
         return _hashCodeCache;
     }
+    private bool IsDefaultInstance => _segments is null
+        && _depth is null
+        && _hashCodeCache is null
+        && _normalizedPath is null
+        && _defaultPathStringBuilder is null
+        && _pathStringCache is null;
 
     public override bool Equals([NotNullWhen(true)] object? obj) => obj is PathDescriptor other && Equals(other);
 
@@ -550,6 +557,5 @@ public enum PathKind
 {
     Undefined = 0,
     File,
-    Directory,
-    EmbeddedResource
+    Directory
 }
