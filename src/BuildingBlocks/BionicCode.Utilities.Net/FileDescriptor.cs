@@ -9,12 +9,19 @@ using SystemIoPath = System.IO.Path;
 [DebuggerDisplay("FileName = {Name}, Location = {Location}, OriginalFullPath = {OriginalFullPath}, OriginalName = {OriginalName}, IsRelative = {IsRelative}")]
 public readonly struct FileDescriptor : IEquatable<FileDescriptor>
 {
-    public static FileDescriptor Empty { get; } = new FileDescriptor(string.Empty, isEmbeddedResource: false);
+    public static FileDescriptor Empty { get; } = default(FileDescriptor) with
+    {
+        Name = string.Empty,
+        Path = PathDescriptor.Empty,
+        Location = DirectoryDescriptor.Empty,
+        NameWithoutExtension = string.Empty,
+        Extension = FileExtension.Empty,
+    };
 
     private static readonly FileSystemPathEqualityComparer s_pathEqualityComparer = FileSystemPathEqualityComparer.Instance;
 
     private readonly WriteOnce<PathDescriptor> _path;
-    private readonly WriteOnce<PathDescriptor> _location;
+    private readonly WriteOnce<DirectoryDescriptor> _location;
     private readonly WriteOnce<string> _name;
     private readonly WriteOnce<string> _nameWithoutExtension;
     private readonly WriteOnce<FileExtension> _extension;
@@ -25,7 +32,7 @@ public readonly struct FileDescriptor : IEquatable<FileDescriptor>
     /// <param name="fileName">The file name including the file extension.</param>
     /// <param name="location">The directory (location) of the file. Can be absolute or relative.</param>
     public FileDescriptor(string fileName, DirectoryDescriptor location)
-        : this(SystemIoPath.Join(location, fileName), isEmbeddedResource: false)
+        : this(SystemIoPath.Join(location, fileName))
     {
     }
 
@@ -34,29 +41,16 @@ public readonly struct FileDescriptor : IEquatable<FileDescriptor>
     /// </summary>
     /// <param name="filePath">The full file path. The file path can be absolute or relative.</param>
     /// <param name="isEmbeddedResource">Indicates whether the file is an embedded resource.</param>
-    public FileDescriptor(string filePath, bool isEmbeddedResource)
+    public FileDescriptor(string filePath)
     {
+        FileSystemPathValidator.ThrowIfInvalidFilePath(filePath);
+
         _nameWithoutExtension = new WriteOnce<string>();
         _extension = new WriteOnce<FileExtension>();
-
-        if (isEmbeddedResource)
-        {
-            IsEmbeddedResource = true;
-
-            _name = filePath;
-            _location = PathDescriptor.Empty;
-            _path = PathDescriptor.Empty;
-            IsRelative = false;
-        }
-        else
-        {
-            FileSystemPathValidator.ThrowIfInvalidFilePath(filePath);
-
-            _name = new WriteOnce<string>();
-            _location = new WriteOnce<PathDescriptor>();
-            _path = new PathDescriptor(filePath, PathKind);
-            IsRelative = Path.IsRelative;
-        }
+        _name = new WriteOnce<string>();
+        _location = new WriteOnce<DirectoryDescriptor>();
+        _path = new PathDescriptor(filePath, PathKind.File);
+        IsRelative = Path.IsRelative;
     }
 
     public FileDescriptor Rename(string newFileName)
@@ -261,6 +255,7 @@ public readonly struct FileDescriptor : IEquatable<FileDescriptor>
 
             return _nameWithoutExtension;
         }
+        private init => _nameWithoutExtension = value;
     }
 
     /// <summary>
@@ -304,14 +299,14 @@ public readonly struct FileDescriptor : IEquatable<FileDescriptor>
     /// <summary>
     /// Gets the <see cref="DirectoryDescriptor"/> that specifies the location associated with the file described by this <see cref="FileDescriptor"/>.
     /// </summary>
-    public PathDescriptor Location
+    public DirectoryDescriptor Location
     {
         get
         {
             if (IsDefaultInstance
                 || IsEmbeddedResource)
             {
-                return PathDescriptor.Empty;
+                return DirectoryDescriptor.Empty;
             }
 
             if (!_location.IsSet)
@@ -332,7 +327,8 @@ public readonly struct FileDescriptor : IEquatable<FileDescriptor>
                     parentPath = parentPathSegments;
                 }
 
-                _location.SetValue(parentPath);
+                var parentDirectory = new DirectoryDescriptor(parentPath);
+                _location.SetValue(parentDirectory);
             }
 
             return _location;
@@ -433,8 +429,6 @@ public readonly struct FileDescriptor : IEquatable<FileDescriptor>
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Is instance scope member.")]
     public PathKind PathKind => PathKind.File;
-
-    public bool IsEmbeddedResource { get; }
 
     public static bool operator ==(FileDescriptor left, FileDescriptor right) => left.Equals(right);
     public static bool operator !=(FileDescriptor left, FileDescriptor right) => !(left == right);

@@ -7,7 +7,10 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <EmbeddedResource Include="StaticArtifacts\README.md">
+        <EmbeddedResource Include="StaticArtifacts\HumanReadableArtifacts\README.md">
+          <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </EmbeddedResource>
+        <EmbeddedResource Include="StaticArtifacts\MachineReadableArtifacts\README.md">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </EmbeddedResource>
     </ItemGroup>
@@ -16,9 +19,7 @@
         <ProjectReference Include="..\BionicAthlete.Training.Domain\BionicAthlete.Training.Domain.csproj" />
     </ItemGroup>
     <ItemGroup>
-        <EmbeddedResource Include="..\..\..\..\docs\reference\garmin-fit\Profile.catalog.json"
-                          Link="Reference\Profile.catalog.json"
-                          LogicalName="BionicAthlete.Training.Exporting.Reference.Profile.catalog.json" />
+        <EmbeddedResource Include="..\..\..\..\docs\reference\garmin-fit\Profile.catalog.json" Link="Reference\Profile.catalog.json" LogicalName="BionicAthlete.Training.Exporting.Reference.Profile.catalog.json" />
     </ItemGroup>
 
     <ItemGroup>

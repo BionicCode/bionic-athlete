@@ -61,14 +61,12 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
 
     private static readonly FileSystemPathEqualityComparer s_pathEqualityComparer = FileSystemPathEqualityComparer.Instance;
 
-    public static readonly DirectoryDescriptor Empty = new DirectoryDescriptor(string.Empty) with
-    {
-        Path = PathDescriptor.Empty
-    };
+    public static DirectoryDescriptor Empty { get; } = default(DirectoryDescriptor) with { IsEmpty = true };
 
     private readonly WriteOnce<PathDescriptor> _path;
-    private readonly WriteOnce<PathDescriptor> _location;
+    private readonly WriteOnce<DirectoryDescriptor> _location;
     private readonly WriteOnce<string> _name;
+    private readonly WriteOnce<bool> _isEmpty;
 
     // Create a synthetic absolute path by combining the relative base path with a fixed synthetic root.
     // This allows us to resolve the relative path against the base path using Path.GetFullPath() (which only works with absolute paths).
@@ -97,7 +95,8 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         FileSystemPathValidator.ThrowIfInvalidDirectoryPath(fullPath);
 
         _name = new WriteOnce<string>();
-        _location = new WriteOnce<PathDescriptor>();
+        _location = new WriteOnce<DirectoryDescriptor>();
+        _isEmpty = false;
 
         _path = new PathDescriptor(fullPath, PathKind.Directory);
     }
@@ -255,7 +254,8 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
             absoluteBaseDirectory.IsRelative,
             $"The argument '{nameof(absoluteBaseDirectory)}' must be an absolute directory path.");
 
-        if (IsDefaultInstance)
+        if (IsDefaultInstance
+            || IsEmpty)
         {
             return DirectoryDescriptor.Empty;
         }
@@ -306,7 +306,8 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         ArgumentNullExceptionAdvanced.ThrowIfDefault(relativeFilePath);
         ArgumentExceptionAdvanced.ThrowIfFalse(relativeFilePath.IsRelative, $"The argument '{nameof(relativeFilePath)}' must be a relative file path.");
 
-        if (IsDefaultInstance)
+        if (IsDefaultInstance
+            || IsEmpty)
         {
             return FileDescriptor.Empty;
         }
@@ -519,7 +520,14 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     }
     #endregion Helpers
 
-    private bool IsDefaultInstance => _path is null && _name is null && _location is null;
+    /// <summary>
+    /// Indicates whether the instance was created usinig 'default' or the implicit default constructor.
+    /// In that case, all fields will be null and the instance is considered invalid.
+    /// </summary>
+    private bool IsDefaultInstance => _path is null
+        && _name is null
+        && _location is null
+        && _isEmpty is null;
 
     public override string ToString() => Path.ToString();
     public bool Equals(DirectoryDescriptor other) => s_pathEqualityComparer.Equals(this, other);
@@ -527,7 +535,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
 
     public IEnumerable<PathSegment> EnumeratePathSegments()
     {
-        if (IsDefaultInstance)
+        if (IsDefaultInstance || IsEmpty)
         {
             yield break;
         }
@@ -545,7 +553,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
             // Can only be NULL when instance is default or the implicit default constructor was used to create this instance.
             // In both cases the instance is considered invalid.
             // Since string.Empty is not considered valid under normal construction returning string.Empty is fine to communicate an uninitialized compiler default state and least disturbing.
-            if (IsDefaultInstance)
+            if (IsDefaultInstance || IsEmpty)
             {
                 return PathDescriptor.Empty;
             }
@@ -559,7 +567,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     {
         get
         {
-            if (IsDefaultInstance)
+            if (IsDefaultInstance || IsEmpty)
             {
                 return string.Empty;
             }
@@ -587,13 +595,13 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     }
 
     // The parent directory path without the name. Can be absolute or relative.
-    public PathDescriptor Location
+    public DirectoryDescriptor Location
     {
         get
         {
-            if (IsDefaultInstance)
+            if (IsDefaultInstance || IsEmpty)
             {
-                return PathDescriptor.Empty;
+                return DirectoryDescriptor.Empty;
             }
 
             if (!_location.IsSet)
@@ -614,18 +622,21 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
                     parentPath = parentPathSegments;
                 }
 
-                _location.SetValue(parentPath);
+                var parentDirectoryDescriptor = new DirectoryDescriptor(parentPath);
+                _location.SetValue(parentDirectoryDescriptor);
             }
 
             return _location;
         }
+
+        private init => _location = value;
     }
 
     public string PathString => Path;
 
     public bool TryGetPathRoot(out PathSegment pathRoot)
     {
-        if (IsDefaultInstance)
+        if (IsDefaultInstance || IsEmpty)
         {
             pathRoot = PathSegment.Empty;
             return false;
@@ -672,6 +683,12 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     public bool IsExisting => Directory.Exists(Path);
 
     public bool IsRoot => Path.HasRoot && Path.Segments.Count == 1;
+
+    private bool IsEmpty
+    {
+        get => _isEmpty;
+        init => _isEmpty = value;
+    }
 
     public static bool operator ==(DirectoryDescriptor left, DirectoryDescriptor right) => left.Equals(right);
     public static bool operator !=(DirectoryDescriptor left, DirectoryDescriptor right) => !(left == right);

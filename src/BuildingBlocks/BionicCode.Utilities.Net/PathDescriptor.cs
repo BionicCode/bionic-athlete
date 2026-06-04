@@ -552,10 +552,3 @@ public class FileSystemPathStringBuilder : PathStringBuilder
         return toStringValue;
     }
 }
-
-public enum PathKind
-{
-    Undefined = 0,
-    File,
-    Directory
-}
