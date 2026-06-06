@@ -16,7 +16,7 @@ public sealed class TextFileManager : IFileManager<string>
         _temporaryFileManager = temporaryFileManager;
     }
 
-    public string Read(FileDescriptor filePath, Encoding encoding)
+    public string Read(FileSystemPathDescriptor filePath, Encoding encoding)
     {
         ArgumentNullExceptionAdvanced.ThrowIfDefault(filePath);
 
@@ -25,7 +25,7 @@ public sealed class TextFileManager : IFileManager<string>
         return File.ReadAllText(filePath.FullPath, encoding);
     }
 
-    public async Task<string> ReadAsync(FileDescriptor filePath, Encoding encoding, CancellationToken cancellationToken)
+    public async Task<string> ReadAsync(FileSystemPathDescriptor filePath, Encoding encoding, CancellationToken cancellationToken)
     {
         ArgumentNullExceptionAdvanced.ThrowIfDefault(filePath);
 
@@ -41,8 +41,8 @@ public sealed class TextFileManager : IFileManager<string>
     /// <param name="filePath">The path to the file to read.</param>
     /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
     /// <returns>A <see cref="Task{TResult}"/> that represents the asynchronous read operation. The task result contains the file content as a string.</returns>
-    public Task<string> ReadAsync(FileDescriptor filePath, CancellationToken cancellationToken) => ReadAsync(filePath, Encoding.UTF8, cancellationToken);
-    public void Write(string value, Encoding encoding, FileDescriptor filePath, bool isOverWriteAllowed)
+    public Task<string> ReadAsync(FileSystemPathDescriptor filePath, CancellationToken cancellationToken) => ReadAsync(filePath, Encoding.UTF8, cancellationToken);
+    public void Write(string value, Encoding encoding, FileSystemPathDescriptor filePath, bool isOverWriteAllowed)
     {
         ArgumentExceptionAdvanced.ThrowIfNullOrEmpty(value);
         ArgumentNullExceptionAdvanced.ThrowIfDefault(filePath);
@@ -57,7 +57,7 @@ public sealed class TextFileManager : IFileManager<string>
         File.WriteAllText(filePath.FullPath, value, encoding);
     }
 
-    public async Task WriteAsync(string value, Encoding encoding, FileDescriptor filePath, bool isOverWriteAllowed, CancellationToken cancellationToken)
+    public async Task WriteAsync(string value, Encoding encoding, FileSystemPathDescriptor filePath, bool isOverWriteAllowed, CancellationToken cancellationToken)
     {
         ArgumentExceptionAdvanced.ThrowIfNullOrEmpty(value);
         ArgumentNullExceptionAdvanced.ThrowIfDefault(filePath);
@@ -73,14 +73,14 @@ public sealed class TextFileManager : IFileManager<string>
             .ConfigureAwait(false);
     }
 
-    public Task WriteAsync(string value, FileDescriptor filePath, bool isOverWriteAllowed) => WriteAsync(value, Encoding.UTF8, filePath, isOverWriteAllowed, CancellationToken.None);
+    public Task WriteAsync(string value, FileSystemPathDescriptor filePath, bool isOverWriteAllowed) => WriteAsync(value, Encoding.UTF8, filePath, isOverWriteAllowed, CancellationToken.None);
 
     /// <inheritdoc/>>
-    public async Task<FileDescriptor> WriteTemporaryAsync(string value, Encoding encoding, bool isTemporaryFileManaged, CancellationToken cancellationToken)
+    public async Task<FileSystemPathDescriptor> WriteTemporaryAsync(string value, Encoding encoding, bool isTemporaryFileManaged, CancellationToken cancellationToken)
     {
         ArgumentExceptionAdvanced.ThrowIfNullOrEmpty(value);
 
-        FileDescriptor destination = _temporaryFileManager.CreateTemporaryFilePath();
+        FileSystemPathDescriptor destination = _temporaryFileManager.CreateTemporaryFilePath();
         await File.WriteAllTextAsync(destination.FullPath, value, encoding, cancellationToken)
             .ConfigureAwait(false);
 
@@ -93,11 +93,11 @@ public sealed class TextFileManager : IFileManager<string>
     }
 
     /// <inheritdoc/>>
-    public async Task<FileDescriptor> WriteTemporaryAsync(string value, Encoding encoding, string subdirectoryName, bool isTemporaryFileManaged, CancellationToken cancellationToken)
+    public async Task<FileSystemPathDescriptor> WriteTemporaryAsync(string value, Encoding encoding, string subdirectoryName, bool isTemporaryFileManaged, CancellationToken cancellationToken)
     {
         ArgumentExceptionAdvanced.ThrowIfNullOrEmpty(value);
 
-        FileDescriptor destination = _temporaryFileManager.CreateTemporaryFilePath(subdirectoryName, Path.GetTempFileName());
+        FileSystemPathDescriptor destination = _temporaryFileManager.CreateTemporaryFilePath(subdirectoryName, Path.GetTempFileName());
         await File.WriteAllTextAsync(destination.FullPath, value, encoding, cancellationToken)
             .ConfigureAwait(false);
 

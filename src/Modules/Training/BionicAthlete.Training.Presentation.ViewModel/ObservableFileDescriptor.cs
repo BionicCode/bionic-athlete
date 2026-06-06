@@ -15,7 +15,7 @@ public class ObservableFileDescriptor : ViewModel
     private readonly SetValueOptions _setValueOptions;
     private readonly Assembly _assemblyOfEmbeddedFile;
 
-    public ObservableFileDescriptor(FileDescriptor fileDescriptor)
+    public ObservableFileDescriptor(FileSystemPathDescriptor fileDescriptor)
     {
         _isRenamingEnabled = fileDescriptor.HasRenamingInformation;
         IsEmbeddedResource = false;
@@ -117,7 +117,7 @@ public class ObservableFileDescriptor : ViewModel
         }
     }
 
-    public FileDescriptor ToFileDescriptor() => IsEmbeddedResource
+    public FileSystemPathDescriptor ToFileDescriptor() => IsEmbeddedResource
             ? new(Name, Location, _assemblyOfEmbeddedFile)
             {
                 OriginalFullPath = OriginalFullPath,

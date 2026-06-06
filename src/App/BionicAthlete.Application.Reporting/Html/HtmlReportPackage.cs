@@ -16,7 +16,7 @@ using BionicCode.Utilities.Net;
 /// <param name="Diagnostics">Warnings emitted while generating the package.</param>
 public sealed record HtmlReportPackage(
     DirectoryDescriptor ReportDirectoryPath,
-    FileDescriptor HtmlFilePath,
+    FileSystemPathDescriptor HtmlFilePath,
     ReportDescriptor ReportDescriptor,
     IReportManifestBuilder? ManifestBuilder,
     ReportOutputTarget OutputTarget,

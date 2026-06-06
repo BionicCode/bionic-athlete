@@ -43,7 +43,7 @@ public class FitActivityReportCreator
             .ConfigureAwait(true);
         HtmlDocument htmlDocument = await RenderHtmlAsync(exportData, report, cancellationToken);
 
-        FileDescriptor htmlFilePath = default;
+        FileSystemPathDescriptor htmlFilePath = default;
         ReportManifestBuilder? manifestBuilder = null;
         var reportDescriptor = ReportDescriptor.Create(htmlDocument, report, outputTarget);
 
@@ -54,7 +54,7 @@ public class FitActivityReportCreator
         {
             string fileNameWithoutExtension = exportData.FitFileDescriptor.NameWithoutExtension;
             string fileName = $"{fileNameWithoutExtension}{FileExtensions.Html}";
-            htmlFilePath = new FileDescriptor(Path.Combine(exportData.OutputDirectoryPath.PathString, fileName));
+            htmlFilePath = new FileSystemPathDescriptor(Path.Combine(exportData.OutputDirectoryPath.PathString, fileName));
             var exportUri = new Uri(htmlFilePath.FullPath);
             HtmlExporterArgs htmlExporterArgs = _htmlExporterArgsFactory.Create(
                 htmlDocument,
@@ -64,7 +64,7 @@ public class FitActivityReportCreator
             await _htmlExporter.ExportAsync(htmlExporterArgs, cancellationToken);
 
             manifestBuilder = await ReportManifest.CreateBuilderAsync(reportDescriptor, exportData.OutputDirectoryPath, cancellationToken).ConfigureAwait(false);
-            FileDescriptor relativeFilePath = htmlFilePath.GetPathRelativeTo(exportData.OutputDirectoryPath);
+            FileSystemPathDescriptor relativeFilePath = htmlFilePath.GetPathRelativeTo(exportData.OutputDirectoryPath);
             manifestBuilder.AddArtifact(ArtifactKind.HtmlReport, relativeFilePath);
             _ = await manifestBuilder.BuildAsync(cancellationToken).ConfigureAwait(false);
         }
@@ -100,7 +100,7 @@ public class FitActivityReportCreator
             cancellationToken);
         string fileNameWithoutExtension = exportData.FitFileDescriptor.NameWithoutExtension;
         string fileName = $"{fileNameWithoutExtension}{FileExtensions.Pdf}";
-        var pdfFilePath = new FileDescriptor(Path.Combine(exportData.OutputDirectoryPath.PathString, fileName));
+        var pdfFilePath = new FileSystemPathDescriptor(Path.Combine(exportData.OutputDirectoryPath.PathString, fileName));
         var exportRequest = new UriExportRequest(
             pdfFilePath,
             exportData.OutputDirectoryPath,
@@ -132,7 +132,7 @@ public class FitActivityReportCreator
 
         IReportManifestBuilder manifestBuilder = exportRequest.ManifestBuilder ?? await ReportManifest.CreateBuilderAsync(exportRequest.ReportDescriptor, exportRequest.RootOutputDirectoryPath, CancellationToken.None)
             .ConfigureAwait(false);
-        FileDescriptor relativeFilePath = e.PdfExportResult.PdfFilePath.GetPathRelativeTo(exportRequest.RootOutputDirectoryPath);
+        FileSystemPathDescriptor relativeFilePath = e.PdfExportResult.PdfFilePath.GetPathRelativeTo(exportRequest.RootOutputDirectoryPath);
         manifestBuilder.AddArtifact(ArtifactKind.PdfReport, relativeFilePath);
         _ = await manifestBuilder.BuildAsync(CancellationToken.None)
             .ConfigureAwait(false);
@@ -151,7 +151,7 @@ public class FitActivityReportCreator
 
 public sealed class FitFileExportData
 {
-    public FitFileExportData(FileDescriptor fitFileDescriptor, FitActivity activity, DirectoryDescriptor outputDirectoryPath, ReportExportOptions exportOptions)
+    public FitFileExportData(FileSystemPathDescriptor fitFileDescriptor, FitActivity activity, DirectoryDescriptor outputDirectoryPath, ReportExportOptions exportOptions)
     {
         FitFileDescriptor = fitFileDescriptor;
         Activity = activity;
@@ -159,7 +159,7 @@ public sealed class FitFileExportData
         ExportOptions = exportOptions;
     }
 
-    public FileDescriptor FitFileDescriptor { get; init; }
+    public FileSystemPathDescriptor FitFileDescriptor { get; init; }
     public FitActivity Activity { get; init; }
     public DirectoryDescriptor OutputDirectoryPath { get; init; }
     public ReportExportOptions ExportOptions { get; init; }

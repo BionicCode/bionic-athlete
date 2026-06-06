@@ -37,13 +37,13 @@ public readonly struct ArchiveContentFileDescriptor : IEquatable<ArchiveContentF
     /// <summary>
     /// Initializes a new instance of the <see cref="ArchiveContentFileDescriptor"/> struct from a full source path and a relative archive entry location.
     /// </summary>
-    /// <param name="sourceFilePath">The <see cref="FileDescriptor"/> representing the relative or absolute source file path.</param>
+    /// <param name="sourceFilePath">The <see cref="FileSystemPathDescriptor"/> representing the relative or absolute source file path.</param>
     /// <param name="relativeArchiveEntryLocation">
     /// Optional: The <see cref="DirectoryDescriptor"/> representing the relative path to use inside an archive. 
     /// <br/>Provide an argument if the file must not be located at the archive's root. If not provided, the file is located at the root of the archive by default 
     /// and <see cref="RelativeArchiveEntryFilePath"/> will return the source file name.
     /// </param>
-    public ArchiveContentFileDescriptor(FileDescriptor sourceFilePath, DirectoryDescriptor relativeArchiveEntryLocation = default)
+    public ArchiveContentFileDescriptor(FileSystemPathDescriptor sourceFilePath, DirectoryDescriptor relativeArchiveEntryLocation = default)
     {
         ArgumentNullExceptionAdvanced.ThrowIfDefault(sourceFilePath);
         if (relativeArchiveEntryLocation != default)
@@ -58,7 +58,7 @@ public readonly struct ArchiveContentFileDescriptor : IEquatable<ArchiveContentF
 
         SourceFilePath = sourceFilePath;
 
-        FileDescriptor relativeFilePath = sourceFilePath.Combine(relativeArchiveEntryLocation);
+        FileSystemPathDescriptor relativeFilePath = sourceFilePath.Combine(relativeArchiveEntryLocation);
         RelativeArchiveEntryFilePath = NormalizeArchiveEntryName(relativeFilePath.FullPath);
     }
 
@@ -68,23 +68,23 @@ public readonly struct ArchiveContentFileDescriptor : IEquatable<ArchiveContentF
     /// Gets the full file system path represented by this instance.
     /// </summary>
     /// <remarks>This value is derived from the <see cref="Location"/> and <see cref="SourceFileName"/> properties.
-    /// <para/>Use this to allow the <see cref="FileDescriptor"/> to carry the original file path in <see cref="OriginalFullPath"/>.
+    /// <para/>Use this to allow the <see cref="FileSystemPathDescriptor"/> to carry the original file path in <see cref="OriginalFullPath"/>.
     /// This can be useful if you need to provide renaming or moving related file information where <see cref="OriginalFullPath"/> is the old path and <see cref="SourceFilePath"/> is the new path.
     /// </remarks>
-    public FileDescriptor SourceFilePath { get; }
-    public FileDescriptor RelativeArchiveEntryFilePath { get; }
+    public FileSystemPathDescriptor SourceFilePath { get; }
+    public FileSystemPathDescriptor RelativeArchiveEntryFilePath { get; }
 
-    private static FileDescriptor NormalizeArchiveEntryName(string archiveEntryName)
+    private static FileSystemPathDescriptor NormalizeArchiveEntryName(string archiveEntryName)
         => new(archiveEntryName.Replace('\\', '/').TrimStart('/'));
 
-    private static FileDescriptor NormalizeSourceFilePath(string sourceFilePath)
+    private static FileSystemPathDescriptor NormalizeSourceFilePath(string sourceFilePath)
     {
         string normalizedSourceFilePath = FileHelpers.NormalizeFileSystemPath(sourceFilePath);
-        return new FileDescriptor(normalizedSourceFilePath);
+        return new FileSystemPathDescriptor(normalizedSourceFilePath);
     }
 
     /// <summary>
-    /// Compares a <see cref="FileDescriptor"/> to this instance using the <see cref="FileSystemPathEqualityComparer"/> to compare two <see cref="ArchiveContentFileDescriptor"/> instances based on platform specific file system naming rules.
+    /// Compares a <see cref="FileSystemPathDescriptor"/> to this instance using the <see cref="FileSystemPathEqualityComparer"/> to compare two <see cref="ArchiveContentFileDescriptor"/> instances based on platform specific file system naming rules.
     /// </summary>
     /// <param name="other">The other <see cref="ArchiveContentFileDescriptor"/> too compare to.</param>
     /// <returns><see langword="true"/> if <paramref name="other"/> is equal to this instance; otherwise, <see langword="false"/>.</returns>

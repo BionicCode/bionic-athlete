@@ -825,8 +825,8 @@ public sealed class CsvActivityExporterTests
                 CreateAllColumnRequests(activity));
 
             CsvExportResult result = await exporter.ExportAsync(request, cancellationToken);
-            FileDescriptor[] fileDescriptors = result.ExportedArtifacts
-                .Select(static artifact => new FileDescriptor(artifact.FilePath, isRenamingRequired: false, artifact.BundlePath))
+            FileSystemPathDescriptor[] fileDescriptors = result.ExportedArtifacts
+                .Select(static artifact => new FileSystemPathDescriptor(artifact.FilePath, isRenamingRequired: false, artifact.BundlePath))
                 .ToArray();
             ArchiveContentBatch fileBatch = new(
                 fileDescriptors,
@@ -1054,7 +1054,7 @@ public sealed class CsvActivityExporterTests
             await File.WriteAllTextAsync(coreFilePath, "activity", cancellationToken);
             await File.WriteAllTextAsync(metadataFilePath, "metadata", cancellationToken);
 
-            FileDescriptor[] fileDescriptors =
+            FileSystemPathDescriptor[] fileDescriptors =
             [
                 new(coreFilePath, isRenamingRequired: false, "core/activity.csv"),
                 new(metadataFilePath, isRenamingRequired: false, "metadata/metadata.csv")

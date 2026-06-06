@@ -11,6 +11,6 @@ using BionicCode.Utilities.Net;
 /// <param name="Diagnostics">Non-fatal diagnostics from settings mapping or manifest updates.</param>
 public sealed record PdfExportResult(
     bool IsSuccessful,
-    FileDescriptor PdfFilePath,
+    FileSystemPathDescriptor PdfFilePath,
     long PdfFileLength,
     ImmutableArray<ReportDiagnostic> Diagnostics);

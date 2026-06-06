@@ -9,7 +9,7 @@ using BionicCode.Utilities.Net;
 public sealed partial class TemporaryFileManager : ITemporaryFileManager
 {
     public const string DefaultDestinationFolderName = "BionicAthlete";
-    private static readonly ObservableHashSet<FileDescriptor> s_temporaryFilePaths = [];
+    private static readonly ObservableHashSet<FileSystemPathDescriptor> s_temporaryFilePaths = [];
     private readonly DirectoryDescriptor _temporaryDirectoryPath;
     private readonly IApplicationLogger<TemporaryFileManager> _logger;
 
@@ -26,7 +26,7 @@ public sealed partial class TemporaryFileManager : ITemporaryFileManager
         _logger = logger;
     }
 
-    public void RegisterTemporaryFilePath(FileDescriptor filePath)
+    public void RegisterTemporaryFilePath(FileSystemPathDescriptor filePath)
     {
         ArgumentNullExceptionAdvanced.ThrowIfDefault(filePath);
 
@@ -35,7 +35,7 @@ public sealed partial class TemporaryFileManager : ITemporaryFileManager
 
     public void CleanUpTemporaryFiles()
     {
-        foreach (FileDescriptor filePath in s_temporaryFilePaths)
+        foreach (FileSystemPathDescriptor filePath in s_temporaryFilePaths)
         {
             try
             {
@@ -68,13 +68,13 @@ public sealed partial class TemporaryFileManager : ITemporaryFileManager
     }
 
     // Uses Path.GetFileName() to ensure that only the file name is combined with the temporary directory path, preventing any directory traversal issues.
-    public FileDescriptor CreateTemporaryFilePath() => new(Path.GetTempFileName(), TemporaryDirectoryPath);
+    public FileSystemPathDescriptor CreateTemporaryFilePath() => new(Path.GetTempFileName(), TemporaryDirectoryPath);
 
     // Uses Path.GetFileName() to ensure that only the file name is combined with the temporary directory path, preventing any directory traversal issues.
-    public FileDescriptor CreateTemporaryFilePath(string fileName) => new(Path.Combine(TemporaryDirectoryPath.PathString, Path.GetFileName(fileName)), TemporaryDirectoryPath);
+    public FileSystemPathDescriptor CreateTemporaryFilePath(string fileName) => new(Path.Combine(TemporaryDirectoryPath.PathString, Path.GetFileName(fileName)), TemporaryDirectoryPath);
 
     // Uses Path.GetFileName() to ensure that only the file name is combined with the temporary directory path, preventing any directory traversal issues.
-    public FileDescriptor CreateTemporaryFilePath(string subfolder, string fileName)
+    public FileSystemPathDescriptor CreateTemporaryFilePath(string subfolder, string fileName)
     {
         string directory = Path.Combine(TemporaryDirectoryPath.PathString, subfolder);
         if (!Directory.Exists(directory))
@@ -82,7 +82,7 @@ public sealed partial class TemporaryFileManager : ITemporaryFileManager
             _ = Directory.CreateDirectory(directory);
         }
 
-        return new FileDescriptor(Path.Combine(directory, Path.GetFileName(fileName)), new DirectoryDescriptor(directory));
+        return new FileSystemPathDescriptor(Path.Combine(directory, Path.GetFileName(fileName)), new DirectoryDescriptor(directory));
     }
 
     /// <summary>

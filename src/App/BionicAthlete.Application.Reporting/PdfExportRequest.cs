@@ -15,7 +15,7 @@ public abstract class PdfExportRequest
     /// <param name="pageSettings">Neutral page settings to map into WebView2 print settings.</param>
     /// <param name="timeout">Maximum time to wait for navigation, readiness, and PDF generation.</param>
     protected PdfExportRequest(
-        FileDescriptor outputPdfFilePath,
+        FileSystemPathDescriptor outputPdfFilePath,
         DirectoryDescriptor rootOutputDirectoryPath,
         PageSettings pageSettings,
         TimeSpan timeout,
@@ -51,7 +51,7 @@ public abstract class PdfExportRequest
     /// <summary>
     /// Gets the destination PDF file path.
     /// </summary>
-    public FileDescriptor OutputPdfFilePath { get; }
+    public FileSystemPathDescriptor OutputPdfFilePath { get; }
     public DirectoryDescriptor RootOutputDirectoryPath { get; }
 
     /// <summary>

@@ -18,7 +18,7 @@ public sealed class JsonFileManager<TValue> : IFileManager<TValue>
         _temporaryFileManager = temporaryFileManager;
     }
 
-    public TValue Read(FileDescriptor filePath, Encoding encoding)
+    public TValue Read(FileSystemPathDescriptor filePath, Encoding encoding)
     {
         ArgumentNullExceptionAdvanced.ThrowIfDefault(filePath);
 
@@ -28,7 +28,7 @@ public sealed class JsonFileManager<TValue> : IFileManager<TValue>
         return value ?? throw new InvalidOperationException($"Deserialization of file '{filePath}' resulted in a null value.");
     }
 
-    public async Task<TValue> ReadAsync(FileDescriptor filePath, Encoding encoding, CancellationToken cancellationToken)
+    public async Task<TValue> ReadAsync(FileSystemPathDescriptor filePath, Encoding encoding, CancellationToken cancellationToken)
     {
         ArgumentNullExceptionAdvanced.ThrowIfDefault(filePath);
 
@@ -45,9 +45,9 @@ public sealed class JsonFileManager<TValue> : IFileManager<TValue>
     /// <param name="filePath">The path to the file to read.</param>
     /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
     /// <returns>A <see cref="Task{TResult}"/> that represents the asynchronous read operation. The task result contains the file content as a string.</returns>
-    public Task<TValue> ReadAsync(FileDescriptor filePath, CancellationToken cancellationToken) => ReadAsync(filePath, Encoding.UTF8, cancellationToken);
+    public Task<TValue> ReadAsync(FileSystemPathDescriptor filePath, CancellationToken cancellationToken) => ReadAsync(filePath, Encoding.UTF8, cancellationToken);
 
-    public void Write(TValue value, Encoding encoding, FileDescriptor filePath, bool isOverWriteAllowed)
+    public void Write(TValue value, Encoding encoding, FileSystemPathDescriptor filePath, bool isOverWriteAllowed)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(value);
         ArgumentNullExceptionAdvanced.ThrowIfDefault(filePath);
@@ -64,7 +64,7 @@ public sealed class JsonFileManager<TValue> : IFileManager<TValue>
         JsonSerializer.Serialize(fileStream, value, JsonSerializerOptions);
     }
 
-    public async Task WriteAsync(TValue value, Encoding encoding, FileDescriptor filePath, bool isOverWriteAllowed, CancellationToken cancellationToken)
+    public async Task WriteAsync(TValue value, Encoding encoding, FileSystemPathDescriptor filePath, bool isOverWriteAllowed, CancellationToken cancellationToken)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(value);
         ArgumentNullExceptionAdvanced.ThrowIfDefault(filePath);
@@ -82,13 +82,13 @@ public sealed class JsonFileManager<TValue> : IFileManager<TValue>
             .ConfigureAwait(false);
     }
 
-    public Task WriteAsync(TValue value, FileDescriptor filePath, bool isOverWriteAllowed) => WriteAsync(value, Encoding.UTF8, filePath, isOverWriteAllowed, CancellationToken.None);
+    public Task WriteAsync(TValue value, FileSystemPathDescriptor filePath, bool isOverWriteAllowed) => WriteAsync(value, Encoding.UTF8, filePath, isOverWriteAllowed, CancellationToken.None);
 
-    public async Task<FileDescriptor> WriteTemporaryAsync(TValue value, Encoding encoding, bool isTemporaryFileManaged, CancellationToken cancellationToken)
+    public async Task<FileSystemPathDescriptor> WriteTemporaryAsync(TValue value, Encoding encoding, bool isTemporaryFileManaged, CancellationToken cancellationToken)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(value);
 
-        FileDescriptor destination = _temporaryFileManager.CreateTemporaryFilePath();
+        FileSystemPathDescriptor destination = _temporaryFileManager.CreateTemporaryFilePath();
         await using var fileStream = new FileStream(destination.FullPath, FileHelpers.WriteOnlyCreateOptions);
         await JsonSerializer.SerializeAsync(fileStream, value, JsonSerializerOptions, cancellationToken)
             .ConfigureAwait(false);
@@ -101,12 +101,12 @@ public sealed class JsonFileManager<TValue> : IFileManager<TValue>
         return destination;
     }
 
-    public async Task<FileDescriptor> WriteTemporaryAsync(TValue value, Encoding encoding, string subdirectoryName, bool isTemporaryFileManaged, CancellationToken cancellationToken)
+    public async Task<FileSystemPathDescriptor> WriteTemporaryAsync(TValue value, Encoding encoding, string subdirectoryName, bool isTemporaryFileManaged, CancellationToken cancellationToken)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(value);
         ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(subdirectoryName);
 
-        FileDescriptor destination = _temporaryFileManager.CreateTemporaryFilePath(subdirectoryName, Path.GetTempFileName());
+        FileSystemPathDescriptor destination = _temporaryFileManager.CreateTemporaryFilePath(subdirectoryName, Path.GetTempFileName());
         await using var fileStream = new FileStream(destination.FullPath, FileHelpers.WriteOnlyCreateOptions);
         await JsonSerializer.SerializeAsync(fileStream, value, JsonSerializerOptions, cancellationToken)
             .ConfigureAwait(false);

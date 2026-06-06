@@ -17,7 +17,7 @@ public sealed class HtmlContentExportRequest : PdfExportRequest
     /// <param name="timeout">Maximum time to wait for navigation, readiness, and PDF generation.</param>
     /// <param name="htmlDocument">The HTML content tto export to PDF.</param>
     public HtmlContentExportRequest(
-        FileDescriptor outputPdfFilePath,
+        FileSystemPathDescriptor outputPdfFilePath,
         DirectoryDescriptor rootOutputDirectoryPath,
         HtmlDocument htmlDocument,
         PageSettings pageSettings,

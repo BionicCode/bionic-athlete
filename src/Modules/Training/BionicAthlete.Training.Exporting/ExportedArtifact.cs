@@ -24,7 +24,7 @@ public sealed class ExportedArtifact
         ExportedArtifactKind kind,
         FitNodeType nodeType,
         string artifactName,
-        FileDescriptor filePath,
+        FileSystemPathDescriptor filePath,
         int rowCount,
         DirectoryDescriptor bundlePath = default)
     {
@@ -64,7 +64,7 @@ public sealed class ExportedArtifact
     /// <summary>
     /// Gets the generated file path.
     /// </summary>
-    public FileDescriptor FilePath { get; }
+    public FileSystemPathDescriptor FilePath { get; }
 
     /// <summary>
     /// Gets the relative directorypath that should be used when the artifact is packaged into an export bundle.

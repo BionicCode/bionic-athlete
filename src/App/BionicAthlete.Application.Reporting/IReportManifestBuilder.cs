@@ -7,6 +7,6 @@ public interface IReportManifestBuilder
 {
     bool IsDirty { get; }
 
-    void AddArtifact(ArtifactKind artifactKind, FileDescriptor relativeArtifactFilePath);
+    void AddArtifact(ArtifactKind artifactKind, FileSystemPathDescriptor relativeArtifactFilePath);
     Task<ReportManifest> BuildAsync(CancellationToken cancellationToken);
 }

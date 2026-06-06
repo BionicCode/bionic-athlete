@@ -147,7 +147,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
 
     /// <summary>
     /// Combines the current directory path with one or more relative directory segments and a relative file
-    /// path, returning a new <see cref="FileDescriptor"/> representing the resulting file path.
+    /// path, returning a new <see cref="FileSystemPathDescriptor"/> representing the resulting file path.
     /// </summary>
     /// <remarks>All directory segments in <paramref name="appendingLocationSegments"/> must be relative and must not have an
     /// explicit drive root. If <paramref name="isImplicitRootAllowed"/> is <see langword="false"/>, segments with an implicit drive root (e.g. <c>/subdir</c>) are not permitted.
@@ -164,11 +164,11 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// a segment has an explicit drive root, 
     /// a segment is implicitly drive rooted when <paramref name="isImplicitRootAllowed"/> is <see langword="false"/>
     /// or <paramref name="relativeFilePath"/> is not relative.</exception>
-    public FileDescriptor Combine(FileDescriptor relativeFilePath, bool isImplicitRootAllowed = false, params DirectoryDescriptor[] appendingLocationSegments) => Combine(relativeFilePath, appendingLocationSegments, isImplicitRootAllowed);
+    public FileSystemPathDescriptor Combine(FileSystemPathDescriptor relativeFilePath, bool isImplicitRootAllowed = false, params DirectoryDescriptor[] appendingLocationSegments) => Combine(relativeFilePath, appendingLocationSegments, isImplicitRootAllowed);
 
     /// <summary>
     /// Combines the current directory path with one or more relative directory segments and a relative file
-    /// path, returning a new <see cref="FileDescriptor"/> representing the resulting file path.
+    /// path, returning a new <see cref="FileSystemPathDescriptor"/> representing the resulting file path.
     /// </summary>
     /// <remarks>All directory segments in <paramref name="appendingLocationSegments"/> must be relative and must not have an
     /// explicit drive root. If <paramref name="isImplicitRootAllowed"/> is <see langword="false"/>, segments with an implicit drive root (e.g. <c>/subdir</c>) are not permitted.
@@ -185,7 +185,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// a segment has an explicit drive root, 
     /// a segment is implicitly drive rooted when <paramref name="isImplicitRootAllowed"/> is <see langword="false"/>
     /// or <paramref name="relativeFilePath"/> is not relative.</exception>
-    public FileDescriptor Combine(FileDescriptor relativeFilePath, IEnumerable<DirectoryDescriptor> appendingLocationSegments, bool isImplicitRootAllowed = false)
+    public FileSystemPathDescriptor Combine(FileSystemPathDescriptor relativeFilePath, IEnumerable<DirectoryDescriptor> appendingLocationSegments, bool isImplicitRootAllowed = false)
     {
         ArgumentNullExceptionAdvanced.ThrowIfDefault(relativeFilePath);
         ArgumentExceptionAdvanced.ThrowIfFalse(relativeFilePath.IsRelative, $"The argument '{nameof(relativeFilePath)}' must be a relative file path.");
@@ -193,10 +193,10 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
 
         string path = CombineInternal(relativeFilePath, appendingLocationSegments.OrEmpty(), isImplicitRootAllowed);
 
-        return new FileDescriptor(path, relativeFilePath.IsEmbeddedResource);
+        return new FileSystemPathDescriptor(path, relativeFilePath.IsEmbeddedResource);
     }
 
-    private string CombineInternal(FileDescriptor relativeFilePath, IEnumerable<DirectoryDescriptor> appendingLocationSegments, bool isImplicitRootAllowed = false)
+    private string CombineInternal(FileSystemPathDescriptor relativeFilePath, IEnumerable<DirectoryDescriptor> appendingLocationSegments, bool isImplicitRootAllowed = false)
     {
         // Combine the current directory path with each of the provided relative directory segments in order. Each segment is validated to ensure it is a relative path
         // without an explicit drive root, and if implicit roots are not allowed, it must not be implicitly drive rooted.
@@ -301,7 +301,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// <exception cref="ArgumentException">Thrown if <paramref name="absoluteBaseDirectory"/> represents a relative path or <paramref name="relativeFilePath"/> is not relative.</exception>
     /// <exception cref="InvalidOperationException">Thrown if the current path has an explicit drive root but is relative, making it impossible to resolve to an absolute path using the provided base directory.</exception>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="absoluteBaseDirectory"/> is <see langword="default"/>.</exception>
-    public FileDescriptor ToAbsolutePath(DirectoryDescriptor absoluteBaseDirectory, FileDescriptor relativeFilePath, bool isImplicitRootAllowed = false)
+    public FileSystemPathDescriptor ToAbsolutePath(DirectoryDescriptor absoluteBaseDirectory, FileSystemPathDescriptor relativeFilePath, bool isImplicitRootAllowed = false)
     {
         ArgumentNullExceptionAdvanced.ThrowIfDefault(relativeFilePath);
         ArgumentExceptionAdvanced.ThrowIfFalse(relativeFilePath.IsRelative, $"The argument '{nameof(relativeFilePath)}' must be a relative file path.");
@@ -309,7 +309,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         if (IsDefaultInstance
             || IsEmpty)
         {
-            return FileDescriptor.Empty;
+            return FileSystemPathDescriptor.Empty;
         }
 
         // If the current path is already absolute we can return it as is without combining with the base directory.
@@ -464,15 +464,15 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// For example, if the base path is <c>"C:\Base"</c> and the relative file path is <c>"..\..\..\file.txt"</c>, the resulting resolved path will be <c>"C:\file.txt"</c> instead of escaping above the base path.
     /// </remarks>
     /// <param name="basePath">The <see cref="DirectoryDescriptor"/> for the base path against which to resolve the relative path. Can be relative or absolute.</param>
-    /// <param name="relativeFilePath">The <see cref="FileDescriptor"/> for the relative file path to resolve against the relative or absolute base path <paramref name="basePath"/>.</param>
+    /// <param name="relativeFilePath">The <see cref="FileSystemPathDescriptor"/> for the relative file path to resolve against the relative or absolute base path <paramref name="basePath"/>.</param>
     /// <param name="baseDirectoryPathParameterName">Optional. The name of the parameter representing the base path. If not provided, the method will capture the caller argument expression to resolve the caller's original argument name.</param>
     /// <param name="relativeFilePathParameterName">Optional. The name of the parameter representing the relative file path. If not provided, the method will capture the caller argument expression to resolve the caller's original argument name.</param>
     /// <returns>The resolved file path.</returns>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="basePath"/> or <paramref name="relativeFilePath"/> is <see langword="default"/>.</exception>
     /// <exception cref="ArgumentException">Thrown if <paramref name="relativeFilePath"/> is not a relative file path.</exception>
-    public static FileDescriptor ResolveRelativePathStrict(
+    public static FileSystemPathDescriptor ResolveRelativePathStrict(
         DirectoryDescriptor basePath,
-        FileDescriptor relativeFilePath,
+        FileSystemPathDescriptor relativeFilePath,
         [CallerArgumentExpression(nameof(basePath))] string? baseDirectoryPathParameterName = null,
         [CallerArgumentExpression(nameof(relativeFilePath))] string? relativeFilePathParameterName = null)
     {

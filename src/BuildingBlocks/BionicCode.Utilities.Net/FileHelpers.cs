@@ -67,7 +67,7 @@ public static class FileHelpers
     /// </summary>
     /// <param name="path">The file system path to normalize.</param>
     /// <returns>The normalized file system path.</returns>
-    public static string NormalizeFileSystemPath(FileDescriptor path) => NormalizeFileSystemPath(path.FullPath);
+    public static string NormalizeFileSystemPath(FileSystemPathDescriptor path) => NormalizeFileSystemPath(path.FullPath);
 
     /// <summary>
     /// Normalizes a file system path by trimming any trailing directory separators and replacing alternate directory

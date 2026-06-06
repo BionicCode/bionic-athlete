@@ -33,7 +33,7 @@ public class ReportManifestBuilder : IReportManifestBuilder
         return new ReportManifestBuilder(manifest, outputFolder);
     }
 
-    public void AddArtifact(ArtifactKind artifactKind, FileDescriptor relativeArtifactFilePath)
+    public void AddArtifact(ArtifactKind artifactKind, FileSystemPathDescriptor relativeArtifactFilePath)
     {
         ArgumentExceptionAdvanced.ThrowIfFalse(
             relativeArtifactFilePath.IsRelative,

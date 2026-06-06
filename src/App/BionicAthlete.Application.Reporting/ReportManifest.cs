@@ -63,7 +63,7 @@ public sealed record ReportManifest
     public static ReportManifestBuilder Create(ReportManifest manifest, DirectoryDescriptor outputFolder) => ReportManifestBuilder.Create(manifest, outputFolder);
 
     /// <inheritdoc />
-    public void AddArtifact(ArtifactKind artifactKind, FileDescriptor relativeArtifactFilePath)
+    public void AddArtifact(ArtifactKind artifactKind, FileSystemPathDescriptor relativeArtifactFilePath)
     {
         ArgumentNullExceptionAdvanced.ThrowIfDefault(relativeArtifactFilePath);
         ArgumentExceptionAdvanced.ThrowIfFalse(

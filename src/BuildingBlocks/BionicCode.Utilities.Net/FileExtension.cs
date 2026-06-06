@@ -8,8 +8,12 @@ public readonly record struct FileExtension
     private readonly string? _value;
     public static FileExtension Empty { get; } = new(string.Empty);
 
+    /// <summary>
+    /// Gets the normalized file extension value, which always starts with a dot and is in lowercase.
+    /// </summary>
+    /// <value>A <see cref="string"/> representing the normalized file extension value starting with a dot and in lowercase.</value>
     public string Value => _value
-        ?? throw new InvalidOperationException("The default FileExtension value is not valid.");
+        ?? throw new InvalidOperationException($"The 'default({nameof(FileExtension)})' instance has no value and is not valid.");
 
     private FileExtension(string value) => _value = value;
 
@@ -133,7 +137,7 @@ public readonly record struct FileExtension
 
     public override string ToString() => Value;
 
-    public static implicit operator string(FileExtension fileExtension) => fileExtension.ToString();
+    public static implicit operator string(FileExtension fileExtension) => fileExtension.Value;
 
     public bool Equals(string fileExtension) => FromExtensionToken(fileExtension).Equals(this);
 

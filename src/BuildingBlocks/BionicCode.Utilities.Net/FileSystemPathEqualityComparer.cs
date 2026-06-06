@@ -13,7 +13,7 @@ using System.IO;
 public abstract class FileSystemPathEqualityComparer : StringComparer,
     IEqualityComparer<FileSystemInfo>,
     IEqualityComparer<string>,
-    IEqualityComparer<FileDescriptor>,
+    IEqualityComparer<FileSystemPathDescriptor>,
     IEqualityComparer<PathDescriptor>,
     IEqualityComparer<DirectoryDescriptor>
 {
@@ -60,7 +60,7 @@ public abstract class FileSystemPathEqualityComparer : StringComparer,
         return Comparer.Equals(xNormalized, yNormalized);
     }
 
-    public virtual bool Equals(FileDescriptor x, FileDescriptor y)
+    public virtual bool Equals(FileSystemPathDescriptor x, FileSystemPathDescriptor y)
     {
         string? xNormalized = x.FullPath is null
             ? null
@@ -120,7 +120,7 @@ public abstract class FileSystemPathEqualityComparer : StringComparer,
         ? Comparer.GetHashCode(FileHelpers.NormalizeFileSystemPath(fileSystemInfo.FullName))
         : 0;
 
-    public int GetHashCode([DisallowNull] FileDescriptor fileDescriptor) => string.IsNullOrWhiteSpace(fileDescriptor.FullPath)
+    public int GetHashCode([DisallowNull] FileSystemPathDescriptor fileDescriptor) => string.IsNullOrWhiteSpace(fileDescriptor.FullPath)
         ? 0
         : Comparer.GetHashCode(FileHelpers.NormalizeFileSystemPath(fileDescriptor.FullPath));
 

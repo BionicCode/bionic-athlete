@@ -16,7 +16,7 @@ public interface IFileManager<TValue>
     /// <param name="isTemporaryFileManaged">Indicates whether the temporary file should be automatically managed 
     /// and deleted by the system when the application closes or crashes.</param>
     /// <returns>The path to the created temporary file.</returns>
-    Task<FileDescriptor> WriteTemporaryAsync(TValue value, Encoding encoding, bool isTemporaryFileManaged, CancellationToken cancellationToken);
+    Task<FileSystemPathDescriptor> WriteTemporaryAsync(TValue value, Encoding encoding, bool isTemporaryFileManaged, CancellationToken cancellationToken);
 
     /// <summary>
     /// Writes the provided value to a temporary file with the specified name and returns the file path. 
@@ -32,17 +32,17 @@ public interface IFileManager<TValue>
     /// <param name="subdirectoryName">The name of the subdirectory within the temporary directory where the file should be created. 
     /// If the subdirectory does not exist, it will be created.</param>
     /// <returns>The path to the created temporary file.</returns>
-    Task<FileDescriptor> WriteTemporaryAsync(TValue value, Encoding encoding, string subdirectoryName, bool isTemporaryFileManaged, CancellationToken cancellationToken);
+    Task<FileSystemPathDescriptor> WriteTemporaryAsync(TValue value, Encoding encoding, string subdirectoryName, bool isTemporaryFileManaged, CancellationToken cancellationToken);
     /// <summary>
     /// Writes the provided value to a specified file path using UTF-8 encoding. 
     /// </summary>
     /// <param name="value">The value to write to the file.</param>
     /// <param name="filePath">The path to the file where the value should be written.</param>
     /// <param name="isOverWriteAllowed">Indicates whether the file should be overwritten if it already exists.</param>
-    Task WriteAsync(TValue value, FileDescriptor filePath, bool isOverWriteAllowed);
-    Task WriteAsync(TValue value, Encoding encoding, FileDescriptor filePath, bool isOverWriteAllowed, CancellationToken cancellationToken);
-    void Write(TValue value, Encoding encoding, FileDescriptor filePath, bool isOverWriteAllowed);
-    Task<TValue> ReadAsync(FileDescriptor filePath, Encoding encoding, CancellationToken cancellationToken);
-    TValue Read(FileDescriptor filePath, Encoding encoding);
-    Task<TValue> ReadAsync(FileDescriptor filePath, CancellationToken cancellationToken);
+    Task WriteAsync(TValue value, FileSystemPathDescriptor filePath, bool isOverWriteAllowed);
+    Task WriteAsync(TValue value, Encoding encoding, FileSystemPathDescriptor filePath, bool isOverWriteAllowed, CancellationToken cancellationToken);
+    void Write(TValue value, Encoding encoding, FileSystemPathDescriptor filePath, bool isOverWriteAllowed);
+    Task<TValue> ReadAsync(FileSystemPathDescriptor filePath, Encoding encoding, CancellationToken cancellationToken);
+    TValue Read(FileSystemPathDescriptor filePath, Encoding encoding);
+    Task<TValue> ReadAsync(FileSystemPathDescriptor filePath, CancellationToken cancellationToken);
 }

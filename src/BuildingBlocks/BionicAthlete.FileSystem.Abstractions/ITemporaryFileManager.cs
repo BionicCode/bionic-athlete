@@ -5,10 +5,10 @@ using BionicCode.Utilities.Net;
 public interface ITemporaryFileManager
 {
     DirectoryDescriptor TemporaryDirectoryPath { get; }
-    FileDescriptor CreateTemporaryFilePath();
-    FileDescriptor CreateTemporaryFilePath(string fileName);
-    FileDescriptor CreateTemporaryFilePath(string subfolder, string fileName);
+    FileSystemPathDescriptor CreateTemporaryFilePath();
+    FileSystemPathDescriptor CreateTemporaryFilePath(string fileName);
+    FileSystemPathDescriptor CreateTemporaryFilePath(string subfolder, string fileName);
     string MakeFileNameUnique(string fileName);
-    void RegisterTemporaryFilePath(FileDescriptor filePath);
+    void RegisterTemporaryFilePath(FileSystemPathDescriptor filePath);
     void CleanUpTemporaryFiles();
 }

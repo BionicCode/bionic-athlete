@@ -93,7 +93,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
         RemoveAllObservableProgressData();
     }
 
-    public PropertyValidationResult IsFitFilePathValid(FileDescriptor fitFilePath)
+    public PropertyValidationResult IsFitFilePathValid(FileSystemPathDescriptor fitFilePath)
     {
         PropertyValidationResult result = IsFilePathValid(fitFilePath);
         if (!result.IsValid)
@@ -110,7 +110,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
         return new PropertyValidationResult(true, Array.Empty<string>());
     }
 
-    public static PropertyValidationResult IsFilePathValid(FileDescriptor filePath)
+    public static PropertyValidationResult IsFilePathValid(FileSystemPathDescriptor filePath)
     {
         if (!filePath.IsExisting)
         {
@@ -120,7 +120,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
         return new PropertyValidationResult(true, Array.Empty<string>());
     }
 
-    public async Task AddFitFilePathsAsync(IList<FileDescriptor> fitFilePaths, CancellationToken cancellationToken)
+    public async Task AddFitFilePathsAsync(IList<FileSystemPathDescriptor> fitFilePaths, CancellationToken cancellationToken)
     {
         ArgumentExceptionAdvanced.ThrowIfNullOrEmpty(fitFilePaths);
 
@@ -139,13 +139,13 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
             IProgress<ProgressData> addFileProgressReporter = StartNewObservableProgressReporting(string.Empty, $"Adding .fit files...", isIndeterminate: false, maxValue: fitFilePaths.Count);
             for (int index = 0; index < fitFilePaths.Count; index++)
             {
-                FileDescriptor fitFilePath = fitFilePaths[index];
+                FileSystemPathDescriptor fitFilePath = fitFilePaths[index];
                 cancellationToken.ThrowIfCancellationRequested();
 
                 addFileProgressReporter.Report(new ProgressData(index + 1, fitFilePaths.Count, $"Adding '{fitFilePath}'..."));
                 if (_zipArchiveManager.IsFileTypeSupportedArchive(fitFilePath))
                 {
-                    await foreach (FileDescriptor extractedFilePath in _zipArchiveManager.ExtractArchiveAsync(fitFilePath, (int maxValue, string operationTitle) => StartNewObservableProgressReporting(string.Empty, operationTitle, isIndeterminate: false, maxValue: maxValue), cancellationToken).ConfigureAwait(true))
+                    await foreach (FileSystemPathDescriptor extractedFilePath in _zipArchiveManager.ExtractArchiveAsync(fitFilePath, (int maxValue, string operationTitle) => StartNewObservableProgressReporting(string.Empty, operationTitle, isIndeterminate: false, maxValue: maxValue), cancellationToken).ConfigureAwait(true))
                     {
                         wasAdded = await AddFitFilePathAsync(extractedFilePath, cancellationToken);
                         if (wasAdded)
@@ -307,7 +307,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
 
     public void UpdateManifestWithPdfEntry() => throw new NotImplementedException();
 
-    private async Task<bool> AddFitFilePathAsync(FileDescriptor fitFilePath, CancellationToken cancellationToken)
+    private async Task<bool> AddFitFilePathAsync(FileSystemPathDescriptor fitFilePath, CancellationToken cancellationToken)
     {
         PropertyValidationResult filePathValidationResult = IsFitFilePathValid(fitFilePath);
         if (FitFilePaths.Contains(fitFilePath)
@@ -434,7 +434,7 @@ public class MainViewModel : ViewModel, IDisposableAdvanced, IDisposable
                 await using var stream = new FileStream(destinationFilePath, s_createFileStreamOptions);
                 await using var writer = new StreamWriter(stream, Encoding.UTF8);
                 await writer.WriteAsync(exportData.ReportSummary).ConfigureAwait(true);
-                var reportSummaryFileDescriptor = new FileDescriptor(destinationFilePath, isRenamingRequired: false);
+                var reportSummaryFileDescriptor = new FileSystemPathDescriptor(destinationFilePath, isRenamingRequired: false);
                 fileDescriptors.Add(reportSummaryFileDescriptor);
             }
 

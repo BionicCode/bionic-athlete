@@ -15,7 +15,7 @@ public sealed class UriExportRequest : PdfExportRequest
     /// <param name="timeout">Maximum time to wait for navigation, readiness, and PDF generation.</param>
     /// <param name="sourceUri">The <see cref="Uri"/> that references the source which must be exported to PDF.</param>
     public UriExportRequest(
-        FileDescriptor outputPdfFilePath,
+        FileSystemPathDescriptor outputPdfFilePath,
         DirectoryDescriptor rootOutputDirectoryPath,
         Uri sourceUri,
         PageSettings pageSettings,
