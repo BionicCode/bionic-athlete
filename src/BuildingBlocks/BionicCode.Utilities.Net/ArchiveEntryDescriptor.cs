@@ -8,7 +8,11 @@ public class ArchiveEntryDescriptor : FileDescriptor, IEquatable<ArchiveEntryDes
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(sourceFile);
         ArgumentNullExceptionAdvanced.ThrowIfNull(entryName);
-        ArgumentExceptionAdvanced.ThrowIfFalse(entryName.IsRelative, $"The argument '{nameof(entryName)}' must be a relative path.");
+        ArgumentExceptionAdvanced.ThrowIfFalse(entryName.IsRelative, $"The argument '{nameof(entryName)}' must be a relative path and unrooted path like \"Directory/example.txt\".");
+        ArgumentExceptionAdvanced.ThrowIfTrue(entryName.IsRooted, $"The argument '{nameof(entryName)}' must be a relative path and cannot be rooted.");
+        ArgumentExceptionAdvanced.ThrowIfTrue(ReferenceEquals(entryName, FileSystemPathDescriptor.Empty) || entryName.Path.Segments.IsEmpty, $"The argument '{nameof(entryName)}' cannot be an empty path.");
+        PathSegment leadingPathSegment = entryName.Path.Segments[0];
+        ArgumentExceptionAdvanced.ThrowIfTrue(leadingPathSegment.IsSpecial && leadingPathSegment.Kind is PathSegmentKind.ParentDirectory, $"The argument '{nameof(entryName)}' cannot start with a parent directory symbol '..'.");
 
         SourceFile = sourceFile;
         EntryName = entryName;
@@ -49,9 +53,9 @@ public class ArchiveEntryDescriptor : FileDescriptor, IEquatable<ArchiveEntryDes
 
     public bool Equals(ArchiveEntryDescriptor? other) => Comparer.Equals(this, other);
     public override int GetHashCode() => Comparer.GetHashCode(this);
-    protected override FileExtension GetFileExtension() => SourceFile.Extension;
-    protected override string GetName() => SourceFile.Name;
-    protected override string GetNameWithoutExtension() => SourceFile.NameWithoutExtension;
+    protected override FileExtension GetFileExtension() => EntryName.Extension;
+    protected override string GetName() => EntryName.Name;
+    protected override string GetNameWithoutExtension() => EntryName.NameWithoutExtension;
     public override bool Equals(object? obj) => obj is ArchiveEntryDescriptor other && Equals(other);
 
     public static bool operator ==(ArchiveEntryDescriptor? left, ArchiveEntryDescriptor? right) => left?.Equals(right) ?? (right is null);

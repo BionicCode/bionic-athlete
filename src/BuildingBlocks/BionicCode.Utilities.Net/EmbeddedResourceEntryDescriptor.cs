@@ -5,13 +5,20 @@ using System.Reflection;
 public class EmbeddedResourceEntryDescriptor : FileDescriptor, IEquatable<EmbeddedResourceEntryDescriptor>
 {
     private readonly WriteOnce<EqualityComparer<FileDescriptor>> _comparer;
+    private readonly string _fileName;
+    private readonly string _fileNameWithoutExtension;
+    private readonly FileExtension _fileExtension;
 
-    public EmbeddedResourceEntryDescriptor(string resourceName, Assembly embeddedResourceAssembly) : base(FileDescriptorKind.EmbeddedResourceEntry)
+    public EmbeddedResourceEntryDescriptor(string resourceName, string fileName, Assembly embeddedResourceAssembly) : base(FileDescriptorKind.EmbeddedResourceEntry)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNullOrWhiteSpace(resourceName);
+        FileSystemPathValidator.ThrowIfInvalidFileName(fileName);
         ArgumentNullExceptionAdvanced.ThrowIfNull(embeddedResourceAssembly);
 
         ResourceName = resourceName;
+        _fileName = fileName;
+        _fileNameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
+        _fileExtension = FileExtension.FromFileName(fileName);
         EmbeddedResourceAssembly = embeddedResourceAssembly;
         _comparer = new WriteOnce<EqualityComparer<FileDescriptor>>();
     }
@@ -52,9 +59,9 @@ public class EmbeddedResourceEntryDescriptor : FileDescriptor, IEquatable<Embedd
 
     public bool Equals(EmbeddedResourceEntryDescriptor? other) => Comparer.Equals(this, other);
     public override int GetHashCode() => Comparer.GetHashCode(this);
-    protected override FileExtension GetFileExtension() => FileExtension.Empty;
-    protected override string GetName() => ResourceName;
-    protected override string GetNameWithoutExtension() => ResourceName;
+    protected override FileExtension GetFileExtension() => _fileExtension;
+    protected override string GetName() => _fileName;
+    protected override string GetNameWithoutExtension() => _fileNameWithoutExtension;
     public override bool Equals(object? obj) => obj is EmbeddedResourceEntryDescriptor other && Equals(other);
 
     public static bool operator ==(EmbeddedResourceEntryDescriptor? left, EmbeddedResourceEntryDescriptor? right) => left?.Equals(right) ?? (right is null);
