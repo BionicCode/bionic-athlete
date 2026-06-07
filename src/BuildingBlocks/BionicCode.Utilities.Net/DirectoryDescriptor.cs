@@ -187,13 +187,13 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// or <paramref name="relativeFilePath"/> is not relative.</exception>
     public FileSystemPathDescriptor Combine(FileSystemPathDescriptor relativeFilePath, IEnumerable<DirectoryDescriptor> appendingLocationSegments, bool isImplicitRootAllowed = false)
     {
-        ArgumentNullExceptionAdvanced.ThrowIfDefault(relativeFilePath);
+        ArgumentNullExceptionAdvanced.ThrowIfNull(relativeFilePath);
         ArgumentExceptionAdvanced.ThrowIfFalse(relativeFilePath.IsRelative, $"The argument '{nameof(relativeFilePath)}' must be a relative file path.");
         ArgumentNullExceptionAdvanced.ThrowIfNull(appendingLocationSegments);
 
         string path = CombineInternal(relativeFilePath, appendingLocationSegments.OrEmpty(), isImplicitRootAllowed);
 
-        return new FileSystemPathDescriptor(path, relativeFilePath.IsEmbeddedResource);
+        return new FileSystemPathDescriptor(path);
     }
 
     private string CombineInternal(FileSystemPathDescriptor relativeFilePath, IEnumerable<DirectoryDescriptor> appendingLocationSegments, bool isImplicitRootAllowed = false)
@@ -303,7 +303,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="absoluteBaseDirectory"/> is <see langword="default"/>.</exception>
     public FileSystemPathDescriptor ToAbsolutePath(DirectoryDescriptor absoluteBaseDirectory, FileSystemPathDescriptor relativeFilePath, bool isImplicitRootAllowed = false)
     {
-        ArgumentNullExceptionAdvanced.ThrowIfDefault(relativeFilePath);
+        ArgumentNullExceptionAdvanced.ThrowIfNull(relativeFilePath);
         ArgumentExceptionAdvanced.ThrowIfFalse(relativeFilePath.IsRelative, $"The argument '{nameof(relativeFilePath)}' must be a relative file path.");
 
         if (IsDefaultInstance
@@ -477,11 +477,11 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         [CallerArgumentExpression(nameof(relativeFilePath))] string? relativeFilePathParameterName = null)
     {
         ArgumentNullExceptionAdvanced.ThrowIfDefault(basePath);
-        ArgumentNullExceptionAdvanced.ThrowIfDefault(relativeFilePath);
+        ArgumentNullExceptionAdvanced.ThrowIfNull(relativeFilePath);
         ArgumentExceptionAdvanced.ThrowIfFalse(relativeFilePath.IsRelative, $"The argument '{nameof(relativeFilePath)}' must be a relative file path.");
 
         string resolvedPath = ResolveRelativePathStrict(basePath.Path.NormalizedPath.Segments, relativeFilePath.Path.NormalizedPath.Segments, baseDirectoryPathParameterName, relativeFilePathParameterName);
-        return new(resolvedPath, relativeFilePath.IsEmbeddedResource);
+        return new(resolvedPath);
     }
 
     /// <summary>

@@ -122,9 +122,3 @@ public abstract class FileDescriptor : IEquatable<FileDescriptor>
     public static bool operator !=(FileDescriptor? left, FileDescriptor? right) => !(left == right);
     public static implicit operator string(FileDescriptor fileDescriptor) => fileDescriptor?.ToString() ?? string.Empty;
 }
-
-public enum FileDescriptorKind
-{
-    FileSystemEntry,
-    EmbeddedResourceEntry
-}
