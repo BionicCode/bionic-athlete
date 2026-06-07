@@ -60,14 +60,14 @@ public abstract class FileSystemPathEqualityComparer : StringComparer,
         return Comparer.Equals(xNormalized, yNormalized);
     }
 
-    public virtual bool Equals(FileSystemPathDescriptor x, FileSystemPathDescriptor y)
+    public virtual bool Equals(FileSystemPathDescriptor? x, FileSystemPathDescriptor? y)
     {
-        string? xNormalized = x.FullPath is null
+        string? xNormalized = x?.Path is null
             ? null
-            : FileHelpers.NormalizeFileSystemPath(x.FullPath);
-        string? yNormalized = y.FullPath is null
+            : FileHelpers.NormalizeFileSystemPath(x.Path);
+        string? yNormalized = y?.Path is null
             ? null
-            : FileHelpers.NormalizeFileSystemPath(y.FullPath);
+            : FileHelpers.NormalizeFileSystemPath(y.Path);
 
         return Comparer.Equals(xNormalized, yNormalized);
     }
@@ -120,9 +120,9 @@ public abstract class FileSystemPathEqualityComparer : StringComparer,
         ? Comparer.GetHashCode(FileHelpers.NormalizeFileSystemPath(fileSystemInfo.FullName))
         : 0;
 
-    public int GetHashCode([DisallowNull] FileSystemPathDescriptor fileDescriptor) => string.IsNullOrWhiteSpace(fileDescriptor.FullPath)
+    public int GetHashCode([DisallowNull] FileSystemPathDescriptor fileDescriptor) => fileDescriptor is null || string.IsNullOrWhiteSpace(fileDescriptor.Path)
         ? 0
-        : Comparer.GetHashCode(FileHelpers.NormalizeFileSystemPath(fileDescriptor.FullPath));
+        : Comparer.GetHashCode(FileHelpers.NormalizeFileSystemPath(fileDescriptor.Path));
 
     public int GetHashCode([DisallowNull] DirectoryDescriptor directoryDescriptor) => string.IsNullOrWhiteSpace(directoryDescriptor.PathString)
         ? 0

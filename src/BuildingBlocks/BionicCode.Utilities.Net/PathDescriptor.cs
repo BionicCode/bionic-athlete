@@ -16,7 +16,7 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
     private readonly Dictionary<Type, string>? _pathStringCache;
     private readonly PathSegmentList? _segments;
 
-    public static PathDescriptor Empty { get; } = new PathDescriptor() with { Segments = PathSegmentList.Empty };
+    public static PathDescriptor Empty { get; } = new PathDescriptor(PathSegmentList.Empty, true);
 
     private PathDescriptor(PathSegmentList segments, bool isNormalized)
     {
@@ -471,6 +471,7 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
 
         return _hashCodeCache;
     }
+
     private bool IsDefaultInstance => _segments is null
         && _depth is null
         && _hashCodeCache is null

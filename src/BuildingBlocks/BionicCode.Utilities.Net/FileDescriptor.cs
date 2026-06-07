@@ -3,6 +3,13 @@
 using System.Diagnostics;
 using SystemIoPath = System.IO.Path;
 
+/// <summary>
+/// Represents a file descriptor that can be used to describe files in various contexts, 
+/// such as file system paths, embedded resources, or archive entries. 
+/// This abstract class provides a common interface for different types of file descriptors 
+/// and implements equality comparison based on the file descriptor's kind and specific properties defined in derived classes.
+/// </summary>
+/// <remarks>Derived classes should implement the type immutable.</remarks>
 [DebuggerDisplay("FileName = {Name}, Location = {Location}, OriginalFullPath = {OriginalFullPath}, OriginalName = {OriginalName}, IsRelative = {IsRelative}")]
 public abstract class FileDescriptor : IEquatable<FileDescriptor>
 {
@@ -19,6 +26,7 @@ public abstract class FileDescriptor : IEquatable<FileDescriptor>
         _extension = new WriteOnce<FileExtension>();
         _name = new WriteOnce<string>();
         _nameWithoutExtension = new WriteOnce<string>();
+        _hashCodeCache = new WriteOnce<int>();
 
         Kind = kind;
     }
@@ -26,6 +34,8 @@ public abstract class FileDescriptor : IEquatable<FileDescriptor>
     protected abstract FileExtension GetFileExtension();
     protected abstract string GetName();
     protected abstract string GetNameWithoutExtension();
+    protected abstract bool EqualsCore(FileDescriptor? x, FileDescriptor? y);
+    protected abstract int GetHashCodeCore(FileDescriptor? x);
 
     public bool Equals(FileDescriptor? other)
     {
@@ -39,14 +49,14 @@ public abstract class FileDescriptor : IEquatable<FileDescriptor>
             return true;
         }
 
-        return Kind == other.Kind && Comparer.Equals(this, other);
+        return Kind == other.Kind && EqualsCore(this, other);
     }
 
     public override int GetHashCode()
     {
         if (!_hashCodeCache.IsSet)
         {
-            int hashCode = HashCode.Combine(Kind, Comparer.GetHashCode(this));
+            int hashCode = HashCode.Combine(Kind, GetHashCodeCore(this));
             _hashCodeCache.SetValue(hashCode);
         }
 
@@ -59,7 +69,6 @@ public abstract class FileDescriptor : IEquatable<FileDescriptor>
 
     public override bool Equals(object? obj) => obj is FileDescriptor other && Equals(other);
 
-    protected abstract EqualityComparer<FileDescriptor> Comparer { get; }
     public FileDescriptorKind Kind { get; }
 
     /// <summary>

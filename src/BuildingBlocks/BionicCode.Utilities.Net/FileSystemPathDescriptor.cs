@@ -10,27 +10,38 @@ using SystemIoPath = System.IO.Path;
 public class FileSystemPathDescriptor : FileDescriptor, IEquatable<FileSystemPathDescriptor>
 {
     private readonly WriteOnce<DirectoryDescriptor> _location;
-    private readonly WriteOnce<EqualityComparer<FileDescriptor>> _comparer;
+    private readonly WriteOnce<int> _hashCode;
 
     public static FileSystemPathDescriptor Empty { get; } = new FileSystemPathDescriptor();
 
-    protected override EqualityComparer<FileDescriptor> Comparer
+    protected override bool EqualsCore(FileDescriptor? x, FileDescriptor? y)
     {
-        get
+        if (x is FileSystemPathDescriptor descriptorX
+            && y is FileSystemPathDescriptor descriptorY)
         {
-            if (!_comparer.IsSet)
-            {
-                _comparer.SetValue(EqualityComparer<FileDescriptor>.Create(
-                    (x, y) => x is FileSystemPathDescriptor pathX
-                        && y is FileSystemPathDescriptor pathY
-                        && FileSystemPathEqualityComparer.Instance.Equals(pathX.Path, pathY.Path),
-                    obj => obj is FileSystemPathDescriptor path
-                        ? FileSystemPathEqualityComparer.Instance.GetHashCode(path.Path)
-                        : 0));
-            }
-
-            return _comparer;
+            return FileSystemPathEqualityComparer.Instance.Equals(descriptorX.Path, descriptorY.Path);
         }
+
+        if (x is FileSystemPathDescriptor ^ y is FileSystemPathDescriptor)
+        {
+            return false;
+        }
+
+        return x?.Equals(y) ?? (y is null);
+    }
+
+    protected override int GetHashCodeCore(FileDescriptor? x)
+    {
+        if (!_hashCode.IsSet)
+        {
+            int hashCode = x is ArchiveEntryDescriptor descriptor
+                ? HashCode.Combine(descriptor.SourceFile.GetHashCode(), descriptor.EntryName.GetHashCode())
+                : x?.GetHashCode() ?? 0;
+
+            _hashCode.SetValue(hashCode);
+        }
+
+        return _hashCode;
     }
 
     /// <summary>
@@ -52,16 +63,16 @@ public class FileSystemPathDescriptor : FileDescriptor, IEquatable<FileSystemPat
     {
         FileSystemPathValidator.ThrowIfInvalidFilePath(filePath);
 
-        _comparer = new WriteOnce<EqualityComparer<FileDescriptor>>();
         _location = new WriteOnce<DirectoryDescriptor>();
+        _hashCode = new WriteOnce<int>();
         Path = new PathDescriptor(filePath, PathKind.File);
         IsRelative = Path.IsRelative;
     }
 
     private FileSystemPathDescriptor() : base(FileDescriptorKind.FileSystemEntry)
     {
-        _comparer = new WriteOnce<EqualityComparer<FileDescriptor>>();
         _location = DirectoryDescriptor.Empty;
+        _hashCode = new WriteOnce<int>();
         Path = PathDescriptor.Empty;
         IsRelative = false;
     }
@@ -184,9 +195,9 @@ public class FileSystemPathDescriptor : FileDescriptor, IEquatable<FileSystemPat
     /// </summary>
     /// <param name="other">The other <see cref="FileSystemPathDescriptor"/> too compare to.</param>
     /// <returns><see langword="true"/> if <paramref name="other"/> is equal to this instance; otherwise, <see langword="false"/>.</returns>
-    public bool Equals(FileSystemPathDescriptor? other) => Comparer.Equals(this, other);
+    public bool Equals(FileSystemPathDescriptor? other) => EqualsCore(this, other);
 
-    public override int GetHashCode() => Comparer.GetHashCode(this);
+    public override int GetHashCode() => GetHashCodeCore(this);
 
     public bool IsExisting => File.Exists(Path);
 

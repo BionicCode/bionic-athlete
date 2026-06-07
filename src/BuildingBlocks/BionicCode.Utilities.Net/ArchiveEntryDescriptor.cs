@@ -2,7 +2,7 @@
 
 public class ArchiveEntryDescriptor : FileDescriptor, IEquatable<ArchiveEntryDescriptor>
 {
-    private readonly WriteOnce<EqualityComparer<FileDescriptor>> _comparer;
+    private readonly WriteOnce<int> _hashCode;
 
     public ArchiveEntryDescriptor(FileDescriptor sourceFile, FileSystemPathDescriptor entryName) : base(FileDescriptorKind.ArchiveEntry)
     {
@@ -17,7 +17,7 @@ public class ArchiveEntryDescriptor : FileDescriptor, IEquatable<ArchiveEntryDes
         SourceFile = sourceFile;
         EntryName = entryName;
 
-        _comparer = new WriteOnce<EqualityComparer<FileDescriptor>>();
+        _hashCode = new WriteOnce<int>();
     }
 
     /// <summary>
@@ -31,28 +31,39 @@ public class ArchiveEntryDescriptor : FileDescriptor, IEquatable<ArchiveEntryDes
     /// <value>The <see cref="FileSystemPathDescriptor"/> representing the <b>relative path</b> to use inside an archive.</value>
     public FileSystemPathDescriptor EntryName { get; }
 
-    protected override EqualityComparer<FileDescriptor> Comparer
+    protected override bool EqualsCore(FileDescriptor? x, FileDescriptor? y)
     {
-        get
+        if (x is ArchiveEntryDescriptor descriptorX
+            && y is ArchiveEntryDescriptor descriptorY)
         {
-            if (!_comparer.IsSet)
-            {
-                _comparer.SetValue(EqualityComparer<FileDescriptor>.Create(
-                    (x, y) => x is ArchiveEntryDescriptor pathX
-                        && y is ArchiveEntryDescriptor pathY
-                        && FileSystemPathEqualityComparer.Instance.Equals(pathX.SourceFile, pathY.SourceFile)
-                        && FileSystemPathEqualityComparer.Instance.Equals(pathX.EntryName, pathY.EntryName),
-                    obj => obj is ArchiveEntryDescriptor path
-                        ? HashCode.Combine(FileSystemPathEqualityComparer.Instance.GetHashCode(path.SourceFile), FileSystemPathEqualityComparer.Instance.GetHashCode(path.EntryName))
-                        : 0));
-            }
-
-            return _comparer;
+            return descriptorX.SourceFile.Equals(descriptorY.SourceFile)
+                && descriptorX.EntryName.Equals(descriptorY.EntryName);
         }
+
+        if (x is ArchiveEntryDescriptor ^ y is ArchiveEntryDescriptor)
+        {
+            return false;
+        }
+
+        return x?.Equals(y) ?? (y is null);
     }
 
-    public bool Equals(ArchiveEntryDescriptor? other) => Comparer.Equals(this, other);
-    public override int GetHashCode() => Comparer.GetHashCode(this);
+    protected override int GetHashCodeCore(FileDescriptor? x)
+    {
+        if (!_hashCode.IsSet)
+        {
+            int hashCode = x is ArchiveEntryDescriptor descriptor
+                ? HashCode.Combine(descriptor.SourceFile.GetHashCode(), descriptor.EntryName.GetHashCode())
+                : x?.GetHashCode() ?? 0;
+
+            _hashCode.SetValue(hashCode);
+        }
+
+        return _hashCode;
+    }
+
+    public bool Equals(ArchiveEntryDescriptor? other) => EqualsCore(this, other);
+    public override int GetHashCode() => GetHashCodeCore(this);
     protected override FileExtension GetFileExtension() => EntryName.Extension;
     protected override string GetName() => EntryName.Name;
     protected override string GetNameWithoutExtension() => EntryName.NameWithoutExtension;

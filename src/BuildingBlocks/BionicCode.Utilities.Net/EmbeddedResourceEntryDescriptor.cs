@@ -4,10 +4,10 @@ using System.Reflection;
 
 public class EmbeddedResourceEntryDescriptor : FileDescriptor, IEquatable<EmbeddedResourceEntryDescriptor>
 {
-    private readonly WriteOnce<EqualityComparer<FileDescriptor>> _comparer;
     private readonly string _fileName;
     private readonly string _fileNameWithoutExtension;
     private readonly FileExtension _fileExtension;
+    private readonly WriteOnce<int> _hashCode;
 
     public EmbeddedResourceEntryDescriptor(string resourceName, string fileName, Assembly embeddedResourceAssembly) : base(FileDescriptorKind.EmbeddedResourceEntry)
     {
@@ -20,7 +20,7 @@ public class EmbeddedResourceEntryDescriptor : FileDescriptor, IEquatable<Embedd
         _fileNameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
         _fileExtension = FileExtension.FromFileName(fileName);
         EmbeddedResourceAssembly = embeddedResourceAssembly;
-        _comparer = new WriteOnce<EqualityComparer<FileDescriptor>>();
+        _hashCode = new WriteOnce<int>();
     }
 
     /// <summary>
@@ -29,24 +29,35 @@ public class EmbeddedResourceEntryDescriptor : FileDescriptor, IEquatable<Embedd
     public string ResourceName { get; }
     public Assembly EmbeddedResourceAssembly { get; }
 
-    protected override EqualityComparer<FileDescriptor> Comparer
+    protected override bool EqualsCore(FileDescriptor? x, FileDescriptor? y)
     {
-        get
+        if (x is EmbeddedResourceEntryDescriptor descriptorX
+            && y is EmbeddedResourceEntryDescriptor descriptorY)
         {
-            if (!_comparer.IsSet)
-            {
-                _comparer.SetValue(EqualityComparer<FileDescriptor>.Create(
-                    (x, y) => x is EmbeddedResourceEntryDescriptor descriptorX
-                        && y is EmbeddedResourceEntryDescriptor descriptorY
-                        && string.Equals(descriptorX.ResourceName, descriptorY.ResourceName, StringComparison.Ordinal)
-                        && descriptorX.EmbeddedResourceAssembly == descriptorY.EmbeddedResourceAssembly,
-                    obj => obj is EmbeddedResourceEntryDescriptor descriptor
-                        ? HashCode.Combine(descriptor.ResourceName.GetHashCode(StringComparison.Ordinal), descriptor.EmbeddedResourceAssembly.GetHashCode())
-                        : 0));
-            }
-
-            return _comparer;
+            return descriptorX.ResourceName.Equals(descriptorY.ResourceName, StringComparison.Ordinal)
+                && descriptorX.EmbeddedResourceAssembly == descriptorY.EmbeddedResourceAssembly;
         }
+
+        if (x is EmbeddedResourceEntryDescriptor ^ y is EmbeddedResourceEntryDescriptor)
+        {
+            return false;
+        }
+
+        return x?.Equals(y) ?? (y is null);
+    }
+
+    protected override int GetHashCodeCore(FileDescriptor? x)
+    {
+        if (!_hashCode.IsSet)
+        {
+            int hashCode = x is EmbeddedResourceEntryDescriptor descriptor
+                ? HashCode.Combine(descriptor.ResourceName.GetHashCode(StringComparison.Ordinal), descriptor.EmbeddedResourceAssembly.GetHashCode())
+                : x?.GetHashCode() ?? 0;
+
+            _hashCode.SetValue(hashCode);
+        }
+
+        return _hashCode;
     }
 
     public async Task<Stream> GetFileAsync() => EmbeddedResourceAssembly.GetManifestResourceStream(ResourceName) ?? throw new InvalidOperationException($"Failed to get manifest resource stream for embedded resource '{ResourceName}'");
@@ -57,8 +68,8 @@ public class EmbeddedResourceEntryDescriptor : FileDescriptor, IEquatable<Embedd
         await resourceStream.CopyToAsync(destination, cancellationToken).ConfigureAwait(false);
     }
 
-    public bool Equals(EmbeddedResourceEntryDescriptor? other) => Comparer.Equals(this, other);
-    public override int GetHashCode() => Comparer.GetHashCode(this);
+    public bool Equals(EmbeddedResourceEntryDescriptor? other) => EqualsCore(this, other);
+    public override int GetHashCode() => GetHashCodeCore(this);
     protected override FileExtension GetFileExtension() => _fileExtension;
     protected override string GetName() => _fileName;
     protected override string GetNameWithoutExtension() => _fileNameWithoutExtension;
