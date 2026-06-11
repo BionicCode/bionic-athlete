@@ -1,5 +1,6 @@
 ﻿namespace BionicCode.Utilities.Net;
 
+using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 
 /// <summary>
@@ -18,8 +19,10 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
 
     public static PathDescriptor Empty { get; } = new PathDescriptor(PathSegmentList.Empty, true);
 
-    private PathDescriptor(PathSegmentList segments, bool isNormalized)
+    internal PathDescriptor(PathSegmentList segments, bool isNormalized)
     {
+        ArgumentExceptionAdvanced.ThrowIfNullOrEmpty((IEnumerable)segments);
+
         _hashCodeCache = new WriteOnce<int>();
         _depth = new WriteOnce<int>();
         _normalizedPath = new WriteOnce<PathDescriptor>();
@@ -112,7 +115,7 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
             $"The provided path '{path}' does not contain any valid segments after normalization.",
             nameof(path));
 
-        _segments = new PathSegmentList(segments, PathKind);
+        _segments = new PathSegmentList(segments, PathKind, isNormalized: false);
         IsRelative = !Segments.IsEmpty && Segments[0].Kind is not PathSegmentKind.FullyQualifiedRoot;
     }
 
@@ -361,7 +364,7 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
             }
         }
 
-        return normalizedSegments.ToPathSegmentList(PathKind);
+        return normalizedSegments.ToPathSegmentList(PathKind, isNormalized: true);
     }
 
     /// <summary>

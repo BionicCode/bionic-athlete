@@ -196,7 +196,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         return new FileSystemPathDescriptor(path);
     }
 
-    private string CombineInternal(FileSystemPathDescriptor relativeFilePath, IEnumerable<DirectoryDescriptor> appendingLocationSegments, bool isImplicitRootAllowed = false)
+    private string CombineInternal(FileSystemPathDescriptor? relativeFilePath, IEnumerable<DirectoryDescriptor> appendingLocationSegments, bool isImplicitRootAllowed = false)
     {
         // Combine the current directory path with each of the provided relative directory segments in order. Each segment is validated to ensure it is a relative path
         // without an explicit drive root, and if implicit roots are not allowed, it must not be implicitly drive rooted.
@@ -609,7 +609,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
                 PathDescriptor parentPath;
                 var parentPathSegments = Path.Segments
                     .Take(Path.Segments.Count - 1)
-                    .ToPathSegmentList(PathKind.Directory);
+                    .ToPathSegmentList(PathKind.Directory, Path.Segments.IsNormalized);
 
                 if (parentPathSegments.Count == 1)
                 {

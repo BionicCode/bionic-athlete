@@ -213,7 +213,7 @@ public class FileSystemPathDescriptor : FileDescriptor, IEquatable<FileSystemPat
                 PathDescriptor parentPath;
                 var parentPathSegments = Path.Segments
                     .Take(Path.Segments.Count - 1)
-                    .ToPathSegmentList(PathKind.Directory);
+                    .ToPathSegmentList(PathKind.Directory, Path.Segments.IsNormalized);
 
                 if (parentPathSegments.Count == 1)
                 {
