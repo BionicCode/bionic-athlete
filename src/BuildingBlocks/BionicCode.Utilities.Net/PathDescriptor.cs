@@ -368,7 +368,7 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
     }
 
     /// <summary>
-    /// Gets a depthDelta indicating whether the represented path is fully qualified or not.
+    /// Gets a value indicating whether the represented path is fully qualified or not.
     /// </summary>
     /// <remarks>The root segment is the first segment of a path that represents the root directory and defines whether the path is fully qualified. 
     /// The following examples show valid file system path roots:
@@ -385,11 +385,11 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
     /// <br/>Example: "\folder\file.txt"</description></item>
     /// </list>
     /// </remarks>
-    /// <depthDelta><see langword="true"/> if the path is relative i.e. not fully qualified; otherwise, <see langword="false"/>.</depthDelta>
+    /// <value><see langword="true"/> if the path is relative i.e. not fully qualified; otherwise, <see langword="false"/>.</value>
     public bool IsRelative { get; }
 
     /// <summary>
-    /// Gets a depthDelta indicating whether the represented path starts with a root segment.
+    /// Gets a value indicating whether the represented path starts with a root segment.
     /// </summary>
     /// <remarks>The root segment is the first segment of a path that represents the root directory. 
     /// The following examples show valid file system path roots:
@@ -408,7 +408,7 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
     /// <para/>
     /// If <see cref="HasRoot"/> is <see langword="true"/>, the path can still be relative if the root is not fully qualified (see above list for fully qualified path roots).
     /// </remarks>
-    /// <depthDelta><see langword="true"/> if the segment is the root of a path; otherwise, <see langword="false"/>.</depthDelta>
+    /// <value><see langword="true"/> if the segment is the root of a path; otherwise, <see langword="false"/>.</value>
     public bool HasRoot => !IsDefaultInstance
         && Segments.Count > 0
         && Segments[0].IsRoot;

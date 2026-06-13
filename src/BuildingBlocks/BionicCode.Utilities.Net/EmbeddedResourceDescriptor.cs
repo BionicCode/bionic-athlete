@@ -2,14 +2,14 @@
 
 using System.Reflection;
 
-public class EmbeddedResourceEntryDescriptor : FileDescriptor, IEquatable<EmbeddedResourceEntryDescriptor>
+public class EmbeddedResourceDescriptor : FileDescriptor, IEquatable<EmbeddedResourceDescriptor>
 {
     private readonly string _fileName;
     private readonly string _fileNameWithoutExtension;
     private readonly FileExtension _fileExtension;
     private readonly WriteOnce<int> _hashCode;
 
-    public EmbeddedResourceEntryDescriptor(string resourceName, string fileName, Assembly embeddedResourceAssembly) : base(FileDescriptorKind.EmbeddedResourceEntry)
+    public EmbeddedResourceDescriptor(string resourceName, string fileName, Assembly embeddedResourceAssembly) : base(FileDescriptorKind.EmbeddedResource)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNullOrWhiteSpace(resourceName);
         FileSystemPathValidator.ThrowIfInvalidFileName(fileName);
@@ -31,14 +31,14 @@ public class EmbeddedResourceEntryDescriptor : FileDescriptor, IEquatable<Embedd
 
     protected override bool EqualsCore(FileDescriptor? x, FileDescriptor? y)
     {
-        if (x is EmbeddedResourceEntryDescriptor descriptorX
-            && y is EmbeddedResourceEntryDescriptor descriptorY)
+        if (x is EmbeddedResourceDescriptor descriptorX
+            && y is EmbeddedResourceDescriptor descriptorY)
         {
             return descriptorX.ResourceName.Equals(descriptorY.ResourceName, StringComparison.Ordinal)
                 && descriptorX.EmbeddedResourceAssembly == descriptorY.EmbeddedResourceAssembly;
         }
 
-        if (x is EmbeddedResourceEntryDescriptor ^ y is EmbeddedResourceEntryDescriptor)
+        if (x is EmbeddedResourceDescriptor ^ y is EmbeddedResourceDescriptor)
         {
             return false;
         }
@@ -50,7 +50,7 @@ public class EmbeddedResourceEntryDescriptor : FileDescriptor, IEquatable<Embedd
     {
         if (!_hashCode.IsSet)
         {
-            int hashCode = x is EmbeddedResourceEntryDescriptor descriptor
+            int hashCode = x is EmbeddedResourceDescriptor descriptor
                 ? HashCode.Combine(descriptor.ResourceName.GetHashCode(StringComparison.Ordinal), descriptor.EmbeddedResourceAssembly.GetHashCode())
                 : x?.GetHashCode() ?? 0;
 
@@ -68,13 +68,27 @@ public class EmbeddedResourceEntryDescriptor : FileDescriptor, IEquatable<Embedd
         await resourceStream.CopyToAsync(destination, cancellationToken).ConfigureAwait(false);
     }
 
-    public bool Equals(EmbeddedResourceEntryDescriptor? other) => EqualsCore(this, other);
-    public override int GetHashCode() => GetHashCodeCore(this);
+    public bool Equals(EmbeddedResourceDescriptor? other) => EqualsCore(this, other);
     protected override FileExtension GetFileExtension() => _fileExtension;
     protected override string GetName() => _fileName;
     protected override string GetNameWithoutExtension() => _fileNameWithoutExtension;
-    public override bool Equals(object? obj) => obj is EmbeddedResourceEntryDescriptor other && Equals(other);
 
-    public static bool operator ==(EmbeddedResourceEntryDescriptor? left, EmbeddedResourceEntryDescriptor? right) => left?.Equals(right) ?? (right is null);
-    public static bool operator !=(EmbeddedResourceEntryDescriptor? left, EmbeddedResourceEntryDescriptor? right) => !(left == right);
+    public static bool operator ==(EmbeddedResourceDescriptor? left, EmbeddedResourceDescriptor? right) => left?.Equals(right) ?? (right is null);
+    public static bool operator !=(EmbeddedResourceDescriptor? left, EmbeddedResourceDescriptor? right) => !(left == right);
+    public static implicit operator string(EmbeddedResourceDescriptor embeddedResourceDescriptor) => embeddedResourceDescriptor?.ResourceName ?? string.Empty;
+
+    public override bool Equals(object obj)
+    {
+        if (ReferenceEquals(this, obj))
+        {
+            return true;
+        }
+
+        if (ReferenceEquals(obj, null))
+        {
+            return false;
+        }
+
+        throw new NotImplementedException();
+    }
 }

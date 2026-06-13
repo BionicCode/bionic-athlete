@@ -2,7 +2,7 @@
 
 public enum FileDescriptorKind
 {
-    FileSystemEntry,
-    EmbeddedResourceEntry,
+    FileSystemPath,
+    EmbeddedResource,
     ArchiveEntry
 }

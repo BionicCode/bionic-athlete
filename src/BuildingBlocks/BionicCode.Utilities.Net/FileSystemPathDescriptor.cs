@@ -59,7 +59,7 @@ public class FileSystemPathDescriptor : FileDescriptor, IEquatable<FileSystemPat
     /// </summary>
     /// <param name="filePath">The full file path. The file path can be absolute or relative.</param>
     /// <param name="isEmbeddedResource">Indicates whether the file is an embedded resource.</param>
-    public FileSystemPathDescriptor(string filePath) : base(FileDescriptorKind.FileSystemEntry)
+    public FileSystemPathDescriptor(string filePath) : base(FileDescriptorKind.FileSystemPath)
     {
         FileSystemPathValidator.ThrowIfInvalidFilePath(filePath);
 
@@ -69,7 +69,7 @@ public class FileSystemPathDescriptor : FileDescriptor, IEquatable<FileSystemPat
         IsRelative = Path.IsRelative;
     }
 
-    private FileSystemPathDescriptor() : base(FileDescriptorKind.FileSystemEntry)
+    private FileSystemPathDescriptor() : base(FileDescriptorKind.FileSystemPath)
     {
         _location = DirectoryDescriptor.Empty;
         _hashCode = new WriteOnce<int>();
@@ -197,8 +197,6 @@ public class FileSystemPathDescriptor : FileDescriptor, IEquatable<FileSystemPat
     /// <returns><see langword="true"/> if <paramref name="other"/> is equal to this instance; otherwise, <see langword="false"/>.</returns>
     public bool Equals(FileSystemPathDescriptor? other) => EqualsCore(this, other);
 
-    public override int GetHashCode() => GetHashCodeCore(this);
-
     public bool IsExisting => File.Exists(Path);
 
     /// <summary>
@@ -279,8 +277,20 @@ public class FileSystemPathDescriptor : FileDescriptor, IEquatable<FileSystemPat
 
     public static bool operator ==(FileSystemPathDescriptor? left, FileSystemPathDescriptor? right) => left?.Equals(right) ?? (right is null);
     public static bool operator !=(FileSystemPathDescriptor? left, FileSystemPathDescriptor? right) => !(left == right);
-
-    public override bool Equals(object? obj) => obj is FileSystemPathDescriptor other && Equals(other);
-
     public static implicit operator string(FileSystemPathDescriptor path) => path?.Path ?? string.Empty;
+
+    public override bool Equals(object obj)
+    {
+        if (ReferenceEquals(this, obj))
+        {
+            return true;
+        }
+
+        if (ReferenceEquals(obj, null))
+        {
+            return false;
+        }
+
+        throw new NotImplementedException();
+    }
 }

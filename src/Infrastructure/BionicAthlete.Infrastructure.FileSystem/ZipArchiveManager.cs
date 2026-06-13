@@ -128,7 +128,7 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
                     Message = $"Packing file #{completedCount} of {totalFileCount} files to {zipFileName}: {archiveEntryDescriptor.EntryName}"
                 });
 
-                if (sourceFileDescriptor is EmbeddedResourceEntryDescriptor embeddedResourceFileDescriptor)
+                if (sourceFileDescriptor is EmbeddedResourceDescriptor embeddedResourceFileDescriptor)
                 {
                     ZipArchiveEntry entry = zipArchive.CreateEntry(archiveEntryDescriptor.EntryName, batch.CompressionLevel);
                     await using Stream entryStream = await entry.OpenAsync(cancellationToken);
@@ -140,7 +140,7 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
                 }
                 else
                 {
-                    throw new NotSupportedException($"Unsupported file descriptor type: {sourceFileDescriptor.GetType().FullName}. Only {typeof(EmbeddedResourceEntryDescriptor).FullName} and {typeof(FileSystemPathDescriptor).FullName} are supported.");
+                    throw new NotSupportedException($"Unsupported file descriptor type: {sourceFileDescriptor.GetType().FullName}. Only {typeof(EmbeddedResourceDescriptor).FullName} and {typeof(FileSystemPathDescriptor).FullName} are supported.");
                 }
 
                 cancellationToken.ThrowIfCancellationRequested();
