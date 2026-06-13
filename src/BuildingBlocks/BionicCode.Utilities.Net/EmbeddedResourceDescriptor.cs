@@ -60,7 +60,7 @@ public class EmbeddedResourceDescriptor : FileDescriptor, IEquatable<EmbeddedRes
         return _hashCode;
     }
 
-    public async Task<Stream> GetFileAsync() => EmbeddedResourceAssembly.GetManifestResourceStream(ResourceName) ?? throw new InvalidOperationException($"Failed to get manifest resource stream for embedded resource '{ResourceName}'");
+    public Stream GetFileStream() => EmbeddedResourceAssembly.GetManifestResourceStream(ResourceName) ?? throw new InvalidOperationException($"Failed to get manifest resource stream for embedded resource '{ResourceName}'");
 
     public async Task CopyToAsync(Stream destination, CancellationToken cancellationToken)
     {
@@ -77,18 +77,10 @@ public class EmbeddedResourceDescriptor : FileDescriptor, IEquatable<EmbeddedRes
     public static bool operator !=(EmbeddedResourceDescriptor? left, EmbeddedResourceDescriptor? right) => !(left == right);
     public static implicit operator string(EmbeddedResourceDescriptor embeddedResourceDescriptor) => embeddedResourceDescriptor?.ResourceName ?? string.Empty;
 
-    public override bool Equals(object obj)
-    {
-        if (ReferenceEquals(this, obj))
-        {
-            return true;
-        }
+    // Override to silence warnings about non-overridden equality members in derived classes.
+    // The actual equality comparison logic is implemented in the base class and relies on the type of the file descriptor,
+    // so we can safely delegate to the base implementation here.
+    public override bool Equals(object? obj) => base.Equals(obj);
 
-        if (ReferenceEquals(obj, null))
-        {
-            return false;
-        }
-
-        throw new NotImplementedException();
-    }
+    public override int GetHashCode() => base.GetHashCode();
 }

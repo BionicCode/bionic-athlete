@@ -279,18 +279,9 @@ public class FileSystemPathDescriptor : FileDescriptor, IEquatable<FileSystemPat
     public static bool operator !=(FileSystemPathDescriptor? left, FileSystemPathDescriptor? right) => !(left == right);
     public static implicit operator string(FileSystemPathDescriptor path) => path?.Path ?? string.Empty;
 
-    public override bool Equals(object obj)
-    {
-        if (ReferenceEquals(this, obj))
-        {
-            return true;
-        }
-
-        if (ReferenceEquals(obj, null))
-        {
-            return false;
-        }
-
-        throw new NotImplementedException();
-    }
+    // Override to silence warnings about non-overridden equality members in derived classes.
+    // The actual equality comparison logic is implemented in the base class and relies on the type of the file descriptor,
+    // so we can safely delegate to the base implementation here.
+    public override bool Equals(object? obj) => base.Equals(obj);
+    public override int GetHashCode() => base.GetHashCode();
 }
