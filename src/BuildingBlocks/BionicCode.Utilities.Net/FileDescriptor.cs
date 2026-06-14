@@ -1,7 +1,6 @@
 ﻿namespace BionicCode.Utilities.Net;
 
 using System.Diagnostics;
-using SystemIoPath = System.IO.Path;
 
 /// <summary>
 /// Represents a file descriptor that can be used to describe files in various contexts, 
@@ -119,7 +118,7 @@ public abstract class FileDescriptor : IEquatable<FileDescriptor>
         {
             if (!_nameWithoutExtension.IsSet)
             {
-                string nameWithoutExtension = SystemIoPath.GetFileNameWithoutExtension(Name) ?? string.Empty;
+                string nameWithoutExtension = GetNameWithoutExtension() ?? string.Empty;
                 _nameWithoutExtension.SetValue(nameWithoutExtension);
             }
 

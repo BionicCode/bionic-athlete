@@ -35,7 +35,7 @@ public class FileSystemPathDescriptor : FileDescriptor, IEquatable<FileSystemPat
         if (!_hashCode.IsSet)
         {
             int hashCode = x is ArchiveEntryDescriptor descriptor
-                ? HashCode.Combine(descriptor.SourceFile.GetHashCode(), descriptor.EntryName.GetHashCode())
+                ? HashCode.Combine(descriptor.SourceFile.GetHashCode(), descriptor.EntryPath.GetHashCode())
                 : x?.GetHashCode() ?? 0;
 
             _hashCode.SetValue(hashCode);

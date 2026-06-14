@@ -16,7 +16,7 @@ public class ArchiveEntryDescriptor : FileDescriptor, IEquatable<ArchiveEntryDes
         ArgumentExceptionAdvanced.ThrowIfTrue(leadingPathSegment.IsSpecial && leadingPathSegment.Kind is PathSegmentKind.ParentDirectory, $"The argument '{nameof(entryName)}' cannot start with a parent directory symbol '..'.");
 
         SourceFile = sourceFile;
-        EntryName = normalizedEntryPathDescriptor;
+        EntryPath = normalizedEntryPathDescriptor;
 
         _hashCode = new WriteOnce<int>();
     }
@@ -30,7 +30,7 @@ public class ArchiveEntryDescriptor : FileDescriptor, IEquatable<ArchiveEntryDes
     /// Gets the <see cref="PathDescriptor"/> representing the entry's relative path to use inside an archive including the file name.
     /// </summary>
     /// <value>The <see cref="PathDescriptor"/> representing the <b>relative path</b> to use inside an archive.</value>
-    public PathDescriptor EntryName { get; }
+    public PathDescriptor EntryPath { get; }
 
     protected override bool EqualsCore(FileDescriptor? x, FileDescriptor? y)
     {
@@ -38,7 +38,7 @@ public class ArchiveEntryDescriptor : FileDescriptor, IEquatable<ArchiveEntryDes
             && y is ArchiveEntryDescriptor descriptorY)
         {
             return descriptorX.SourceFile.Equals(descriptorY.SourceFile)
-                && descriptorX.EntryName.Equals(descriptorY.EntryName);
+                && descriptorX.EntryPath.Equals(descriptorY.EntryPath);
         }
 
         if (x is ArchiveEntryDescriptor ^ y is ArchiveEntryDescriptor)
@@ -54,7 +54,7 @@ public class ArchiveEntryDescriptor : FileDescriptor, IEquatable<ArchiveEntryDes
         if (!_hashCode.IsSet)
         {
             int hashCode = x is ArchiveEntryDescriptor descriptor
-                ? HashCode.Combine(descriptor.SourceFile.GetHashCode(), descriptor.EntryName.GetHashCode())
+                ? HashCode.Combine(descriptor.SourceFile.GetHashCode(), descriptor.EntryPath.GetHashCode())
                 : x?.GetHashCode() ?? 0;
 
             _hashCode.SetValue(hashCode);
@@ -64,13 +64,13 @@ public class ArchiveEntryDescriptor : FileDescriptor, IEquatable<ArchiveEntryDes
     }
 
     public bool Equals(ArchiveEntryDescriptor? other) => EqualsCore(this, other);
-    protected override FileExtension GetFileExtension() => FileExtension.FromFileName(EntryName.Segments[^1].Name);
-    protected override string GetName() => EntryName.Segments[^1].Name;
-    protected override string GetNameWithoutExtension() => Path.GetFileNameWithoutExtension(EntryName.Segments[^1].Name);
+    protected override FileExtension GetFileExtension() => FileExtension.FromFileName(EntryPath.Segments[^1].Name);
+    protected override string GetName() => EntryPath.Segments[^1].Name;
+    protected override string GetNameWithoutExtension() => Path.GetFileNameWithoutExtension(EntryPath.Segments[^1].Name);
 
     public static bool operator ==(ArchiveEntryDescriptor? left, ArchiveEntryDescriptor? right) => left?.Equals(right) ?? (right is null);
     public static bool operator !=(ArchiveEntryDescriptor? left, ArchiveEntryDescriptor? right) => !(left == right);
-    public static implicit operator string(ArchiveEntryDescriptor archiveEntryDescriptor) => archiveEntryDescriptor?.EntryName ?? string.Empty;
+    public static implicit operator string(ArchiveEntryDescriptor archiveEntryDescriptor) => archiveEntryDescriptor?.EntryPath ?? string.Empty;
 
     // Override to silence warnings about non-overridden equality members in derived classes.
     // The actual equality comparison logic is implemented in the base class and relies on the type of the file descriptor,

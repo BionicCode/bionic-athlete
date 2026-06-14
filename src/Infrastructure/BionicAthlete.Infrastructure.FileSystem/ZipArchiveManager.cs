@@ -125,18 +125,18 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
                 {
                     Progress = completedCount,
                     MaxValue = totalFileCount,
-                    Message = $"Packing file #{completedCount} of {totalFileCount} files to {zipFileName}: {archiveEntryDescriptor.EntryName}"
+                    Message = $"Packing file #{completedCount} of {totalFileCount} files to {zipFileName}: {archiveEntryDescriptor.EntryPath}"
                 });
 
                 if (sourceFileDescriptor is EmbeddedResourceDescriptor embeddedResourceFileDescriptor)
                 {
-                    ZipArchiveEntry entry = zipArchive.CreateEntry(archiveEntryDescriptor.EntryName, batch.CompressionLevel);
+                    ZipArchiveEntry entry = zipArchive.CreateEntry(archiveEntryDescriptor.EntryPath, batch.CompressionLevel);
                     await using Stream entryStream = await entry.OpenAsync(cancellationToken);
                     await embeddedResourceFileDescriptor.CopyToAsync(entryStream, cancellationToken).ConfigureAwait(true);
                 }
                 else if (sourceFileDescriptor is FileSystemPathDescriptor fileSystemPathDescriptor)
                 {
-                    _ = await zipArchive.CreateEntryFromFileAsync(sourceFileDescriptor, archiveEntryDescriptor.EntryName, batch.CompressionLevel, cancellationToken);
+                    _ = await zipArchive.CreateEntryFromFileAsync(sourceFileDescriptor, archiveEntryDescriptor.EntryPath, batch.CompressionLevel, cancellationToken);
                 }
                 else
                 {
