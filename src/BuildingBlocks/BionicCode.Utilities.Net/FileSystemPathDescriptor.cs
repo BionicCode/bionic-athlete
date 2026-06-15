@@ -14,30 +14,14 @@ public class FileSystemPathDescriptor : FileDescriptor, IEquatable<FileSystemPat
 
     public static FileSystemPathDescriptor Empty { get; } = new FileSystemPathDescriptor();
 
-    protected override bool EqualsCore(FileDescriptor? x, FileDescriptor? y)
-    {
-        if (x is FileSystemPathDescriptor descriptorX
-            && y is FileSystemPathDescriptor descriptorY)
-        {
-            return FileSystemPathEqualityComparer.Instance.Equals(descriptorX.Path, descriptorY.Path);
-        }
+    protected override bool EqualsCore(FileDescriptor? other) => other is FileSystemPathDescriptor descriptorOther
+        && FileSystemPathEqualityComparer.Instance.Equals(Path, descriptorOther.Path);
 
-        if (x is FileSystemPathDescriptor ^ y is FileSystemPathDescriptor)
-        {
-            return false;
-        }
-
-        return x?.Equals(y) ?? (y is null);
-    }
-
-    protected override int GetHashCodeCore(FileDescriptor? x)
+    protected override int GetHashCodeCore()
     {
         if (!_hashCode.IsSet)
         {
-            int hashCode = x is ArchiveEntryDescriptor descriptor
-                ? HashCode.Combine(descriptor.SourceFile.GetHashCode(), descriptor.EntryPath.GetHashCode())
-                : x?.GetHashCode() ?? 0;
-
+            int hashCode = Path.GetHashCode();
             _hashCode.SetValue(hashCode);
         }
 
@@ -195,7 +179,7 @@ public class FileSystemPathDescriptor : FileDescriptor, IEquatable<FileSystemPat
     /// </summary>
     /// <param name="other">The other <see cref="FileSystemPathDescriptor"/> too compare to.</param>
     /// <returns><see langword="true"/> if <paramref name="other"/> is equal to this instance; otherwise, <see langword="false"/>.</returns>
-    public bool Equals(FileSystemPathDescriptor? other) => EqualsCore(this, other);
+    public bool Equals(FileSystemPathDescriptor? other) => base.Equals(other);
 
     public bool IsExisting => File.Exists(Path);
 
@@ -282,6 +266,6 @@ public class FileSystemPathDescriptor : FileDescriptor, IEquatable<FileSystemPat
     // Override to silence warnings about non-overridden equality members in derived classes.
     // The actual equality comparison logic is implemented in the base class and relies on the type of the file descriptor,
     // so we can safely delegate to the base implementation here.
-    public override bool Equals(object? obj) => base.Equals(obj);
+    public override bool Equals(object? obj) => obj is FileSystemPathDescriptor other && Equals(other);
     public override int GetHashCode() => base.GetHashCode();
 }

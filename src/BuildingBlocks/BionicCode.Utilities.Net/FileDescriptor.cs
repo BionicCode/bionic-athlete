@@ -33,8 +33,8 @@ public abstract class FileDescriptor : IEquatable<FileDescriptor>
     protected abstract FileExtension GetFileExtension();
     protected abstract string GetName();
     protected abstract string GetNameWithoutExtension();
-    protected abstract bool EqualsCore(FileDescriptor? x, FileDescriptor? y);
-    protected abstract int GetHashCodeCore(FileDescriptor? x);
+    protected abstract bool EqualsCore(FileDescriptor? other);
+    protected abstract int GetHashCodeCore();
 
     public bool Equals(FileDescriptor? other)
     {
@@ -48,14 +48,14 @@ public abstract class FileDescriptor : IEquatable<FileDescriptor>
             return true;
         }
 
-        return Kind == other.Kind && EqualsCore(this, other);
+        return Kind == other.Kind && EqualsCore(other);
     }
 
     public override int GetHashCode()
     {
         if (!_hashCodeCache.IsSet)
         {
-            int hashCode = HashCode.Combine(Kind, GetHashCodeCore(this));
+            int hashCode = HashCode.Combine(Kind, GetHashCodeCore());
             _hashCodeCache.SetValue(hashCode);
         }
 

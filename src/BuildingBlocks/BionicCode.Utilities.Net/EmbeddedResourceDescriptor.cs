@@ -29,30 +29,15 @@ public class EmbeddedResourceDescriptor : FileDescriptor, IEquatable<EmbeddedRes
     public string ResourceName { get; }
     public Assembly EmbeddedResourceAssembly { get; }
 
-    protected override bool EqualsCore(FileDescriptor? x, FileDescriptor? y)
-    {
-        if (x is EmbeddedResourceDescriptor descriptorX
-            && y is EmbeddedResourceDescriptor descriptorY)
-        {
-            return descriptorX.ResourceName.Equals(descriptorY.ResourceName, StringComparison.Ordinal)
-                && descriptorX.EmbeddedResourceAssembly == descriptorY.EmbeddedResourceAssembly;
-        }
+    protected override bool EqualsCore(FileDescriptor? other) => other is EmbeddedResourceDescriptor descriptorOther
+        && ResourceName.Equals(descriptorOther.ResourceName, StringComparison.Ordinal)
+        && EmbeddedResourceAssembly == descriptorOther.EmbeddedResourceAssembly;
 
-        if (x is EmbeddedResourceDescriptor ^ y is EmbeddedResourceDescriptor)
-        {
-            return false;
-        }
-
-        return x?.Equals(y) ?? (y is null);
-    }
-
-    protected override int GetHashCodeCore(FileDescriptor? x)
+    protected override int GetHashCodeCore()
     {
         if (!_hashCode.IsSet)
         {
-            int hashCode = x is EmbeddedResourceDescriptor descriptor
-                ? HashCode.Combine(descriptor.ResourceName.GetHashCode(StringComparison.Ordinal), descriptor.EmbeddedResourceAssembly.GetHashCode())
-                : x?.GetHashCode() ?? 0;
+            int hashCode = HashCode.Combine(ResourceName, EmbeddedResourceAssembly);
 
             _hashCode.SetValue(hashCode);
         }
@@ -68,7 +53,7 @@ public class EmbeddedResourceDescriptor : FileDescriptor, IEquatable<EmbeddedRes
         await resourceStream.CopyToAsync(destination, cancellationToken).ConfigureAwait(false);
     }
 
-    public bool Equals(EmbeddedResourceDescriptor? other) => EqualsCore(this, other);
+    public bool Equals(EmbeddedResourceDescriptor? other) => base.Equals(other);
     protected override FileExtension GetFileExtension() => _fileExtension;
     protected override string GetName() => _fileName;
     protected override string GetNameWithoutExtension() => _fileNameWithoutExtension;
@@ -80,7 +65,7 @@ public class EmbeddedResourceDescriptor : FileDescriptor, IEquatable<EmbeddedRes
     // Override to silence warnings about non-overridden equality members in derived classes.
     // The actual equality comparison logic is implemented in the base class and relies on the type of the file descriptor,
     // so we can safely delegate to the base implementation here.
-    public override bool Equals(object? obj) => base.Equals(obj);
+    public override bool Equals(object? obj) => obj is EmbeddedResourceDescriptor other && Equals(other);
 
     public override int GetHashCode() => base.GetHashCode();
 }

@@ -32,38 +32,22 @@ public class ArchiveEntryDescriptor : FileDescriptor, IEquatable<ArchiveEntryDes
     /// <value>The <see cref="PathDescriptor"/> representing the <b>relative path</b> to use inside an archive.</value>
     public PathDescriptor EntryPath { get; }
 
-    protected override bool EqualsCore(FileDescriptor? x, FileDescriptor? y)
-    {
-        if (x is ArchiveEntryDescriptor descriptorX
-            && y is ArchiveEntryDescriptor descriptorY)
-        {
-            return descriptorX.SourceFile.Equals(descriptorY.SourceFile)
-                && descriptorX.EntryPath.Equals(descriptorY.EntryPath);
-        }
+    protected override bool EqualsCore(FileDescriptor? other) => other is ArchiveEntryDescriptor descriptorOther
+        && SourceFile.Equals(descriptorOther.SourceFile)
+        && EntryPath.Equals(descriptorOther.EntryPath);
 
-        if (x is ArchiveEntryDescriptor ^ y is ArchiveEntryDescriptor)
-        {
-            return false;
-        }
-
-        return x?.Equals(y) ?? (y is null);
-    }
-
-    protected override int GetHashCodeCore(FileDescriptor? x)
+    protected override int GetHashCodeCore()
     {
         if (!_hashCode.IsSet)
         {
-            int hashCode = x is ArchiveEntryDescriptor descriptor
-                ? HashCode.Combine(descriptor.SourceFile.GetHashCode(), descriptor.EntryPath.GetHashCode())
-                : x?.GetHashCode() ?? 0;
-
+            int hashCode = HashCode.Combine(SourceFile, EntryPath);
             _hashCode.SetValue(hashCode);
         }
 
         return _hashCode;
     }
 
-    public bool Equals(ArchiveEntryDescriptor? other) => EqualsCore(this, other);
+    public bool Equals(ArchiveEntryDescriptor? other) => base.Equals(other);
     protected override FileExtension GetFileExtension() => FileExtension.FromFileName(EntryPath.Segments[^1].Name);
     protected override string GetName() => EntryPath.Segments[^1].Name;
     protected override string GetNameWithoutExtension() => Path.GetFileNameWithoutExtension(EntryPath.Segments[^1].Name);
@@ -75,6 +59,6 @@ public class ArchiveEntryDescriptor : FileDescriptor, IEquatable<ArchiveEntryDes
     // Override to silence warnings about non-overridden equality members in derived classes.
     // The actual equality comparison logic is implemented in the base class and relies on the type of the file descriptor,
     // so we can safely delegate to the base implementation here.
-    public override bool Equals(object? obj) => base.Equals(obj);
+    public override bool Equals(object? obj) => obj is ArchiveEntryDescriptor other && Equals(other);
     public override int GetHashCode() => base.GetHashCode();
 }
