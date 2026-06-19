@@ -115,9 +115,15 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
                 FileHelpers.WriteOnlyCreateOrOverwriteOptions);
             await using ZipArchive zipArchive = await ZipArchive.CreateAsync(zipFile, ZipArchiveMode.Create, leaveOpen: false, batch.Encoding, cancellationToken);
 
+            HashSet<PathDescriptor> entryPaths = new();
             foreach (ArchiveEntryDescriptor archiveEntryDescriptor in batch.FileDescriptors)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+
+                if (!entryPaths.Add(archiveEntryDescriptor.EntryPath))
+                {
+                    throw new InvalidOperationException($"Duplicate archive entry path detected: '{archiveEntryDescriptor.EntryPath}'");
+                }
 
                 FileDescriptor sourceFileDescriptor = archiveEntryDescriptor.SourceFile;
 

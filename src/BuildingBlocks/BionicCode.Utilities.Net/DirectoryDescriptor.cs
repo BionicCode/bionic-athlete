@@ -227,7 +227,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
 
             try
             {
-                combinedPath = ResolveRelativePathStrict(combinedPath.NormalizedPath.Segments, segmentPath);
+                combinedPath = ResolveRelativePath(combinedPath.NormalizedPath.Segments, segmentPath);
             }
             catch (ArgumentException ex)
             {
@@ -242,7 +242,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
             return combinedPath;
         }
 
-        PathDescriptor combinedFilePath = ResolveRelativePathStrict(combinedPath.Segments, relativeFilePath.Path.Segments);
+        PathDescriptor combinedFilePath = ResolveRelativePath(combinedPath.Segments, relativeFilePath.Path.Segments);
         return combinedFilePath;
     }
 
@@ -294,7 +294,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
             currentRelativePath = currentRelativePath[1..];
         }
 
-        return new(ResolveRelativePathStrict(absoluteBaseDirectory.Path.NormalizedPath.Segments, currentRelativePath));
+        return new(ResolveRelativePath(absoluteBaseDirectory.Path.NormalizedPath.Segments, currentRelativePath));
     }
 
     /// <summary>
@@ -328,7 +328,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         // If the current path is already absolute we can return it as is without combining with the base directory.
         if (!IsRelative)
         {
-            return ResolveRelativePathStrict(this, relativeFilePath);
+            return ResolveRelativePath(this, relativeFilePath);
         }
 
         ArgumentNullExceptionAdvanced.ThrowIfDefault(absoluteBaseDirectory);
@@ -341,7 +341,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         }
 
         DirectoryDescriptor absolutePathDescriptor = ToAbsolutePath(absoluteBaseDirectory, isImplicitRootAllowed);
-        return ResolveRelativePathStrict(absolutePathDescriptor, relativeFilePath);
+        return ResolveRelativePath(absolutePathDescriptor, relativeFilePath);
     }
 
     #region Helpers
@@ -456,7 +456,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// <returns>The resolved directory path.</returns>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="basePath"/> or <paramref name="relativeDirectoryPath"/> is <see langword="default"/>.</exception>
     /// <exception cref="ArgumentException">Thrown if <paramref name="relativeDirectoryPath"/> is not a relative directory path.</exception>
-    public static DirectoryDescriptor ResolveRelativePathStrict(
+    public static DirectoryDescriptor ResolveRelativePath(
         DirectoryDescriptor basePath,
         DirectoryDescriptor relativeDirectoryPath,
         [CallerArgumentExpression(nameof(basePath))] string? basePathParameterName = null,
@@ -466,7 +466,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         ArgumentNullExceptionAdvanced.ThrowIfDefault(relativeDirectoryPath);
         ArgumentExceptionAdvanced.ThrowIfFalse(relativeDirectoryPath.IsRelative, $"The argument '{nameof(relativeDirectoryPath)}' must be a relative directory path.");
 
-        string resolvedPath = ResolveRelativePathStrict(basePath.Path.NormalizedPath.Segments, relativeDirectoryPath.Path.NormalizedPath.Segments, basePathParameterName, relativePathParameterName);
+        string resolvedPath = ResolveRelativePath(basePath.Path.NormalizedPath.Segments, relativeDirectoryPath.Path.NormalizedPath.Segments, basePathParameterName, relativePathParameterName);
         return new(resolvedPath);
     }
 
@@ -483,7 +483,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// <returns>The resolved file path.</returns>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="basePath"/> or <paramref name="relativeFilePath"/> is <see langword="default"/>.</exception>
     /// <exception cref="ArgumentException">Thrown if <paramref name="relativeFilePath"/> is not a relative file path.</exception>
-    public static FileSystemPathDescriptor ResolveRelativePathStrict(
+    public static FileSystemPathDescriptor ResolveRelativePath(
         DirectoryDescriptor basePath,
         FileSystemPathDescriptor relativeFilePath,
         [CallerArgumentExpression(nameof(basePath))] string? baseDirectoryPathParameterName = null,
@@ -493,7 +493,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         ArgumentNullExceptionAdvanced.ThrowIfNull(relativeFilePath);
         ArgumentExceptionAdvanced.ThrowIfFalse(relativeFilePath.IsRelative, $"The argument '{nameof(relativeFilePath)}' must be a relative file path.");
 
-        string resolvedPath = ResolveRelativePathStrict(basePath.Path.NormalizedPath.Segments, relativeFilePath.Path.NormalizedPath.Segments, baseDirectoryPathParameterName, relativeFilePathParameterName);
+        string resolvedPath = ResolveRelativePath(basePath.Path.NormalizedPath.Segments, relativeFilePath.Path.NormalizedPath.Segments, baseDirectoryPathParameterName, relativeFilePathParameterName);
         return new(resolvedPath);
     }
 
@@ -505,8 +505,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// <param name="basePathParameterName">Optional. The name of the parameter representing the base path. If not provided, the method will capture the caller argument expression to resolve the caller's original argument name.</param>
     /// <param name="relativePathParameterName">Optional. The name of the parameter representing the relative path. If not provided, the method will capture the caller argument expression to resolve the caller's original argument name.</param>
     /// <returns>The resolved path.</returns>
-    /// <exception cref="ArgumentException">Thrown if the relative path escapes above the base path.</exception>
-    private static PathDescriptor ResolveRelativePathStrict(
+    private static PathDescriptor ResolveRelativePath(
         PathSegmentList normalizedBasePath,
         PathSegmentList normalizedRelativePath,
         [CallerArgumentExpression(nameof(normalizedBasePath))] string? basePathParameterName = null,

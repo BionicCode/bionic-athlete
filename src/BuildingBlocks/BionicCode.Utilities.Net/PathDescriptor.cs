@@ -14,7 +14,8 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
     private readonly WriteOnce<PathDescriptor>? _normalizedPath;
     private readonly bool _isNormalized;
     private readonly WriteOnce<PathStringBuilder>? _defaultPathStringBuilder;
-    private readonly Dictionary<Type, string>? _pathStringCache;
+    private readonly PathStringBuilder? _pathStringBuilder;
+    private readonly Dictionary<PathStringBuilder, string>? _pathStringCache;
     private readonly PathSegmentList? _segments;
 
     public static PathDescriptor Empty { get; } = new PathDescriptor(isNormalized: true);
@@ -40,6 +41,12 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
         _segments = segments;
         IsRelative = !Segments.IsEmpty && Segments[0].Kind is not PathSegmentKind.FullyQualifiedRoot;
         PathKind = segments.PathKind;
+    }
+
+    public PathDescriptor(string path, PathKind pathKind, PathStringBuilder pathStringBuilder) : this(path, pathKind)
+    {
+        ArgumentNullExceptionAdvanced.ThrowIfNull(pathStringBuilder);
+        _pathStringBuilder = pathStringBuilder;
     }
 
     public PathDescriptor(string path, PathKind pathKind) : this(isNormalized: false)
@@ -422,15 +429,17 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
             return string.Empty;
         }
 
-        if (!_defaultPathStringBuilder!.IsSet)
+        PathStringBuilder? pathStringBuilder = _pathStringBuilder ?? _defaultPathStringBuilder;
+        if (pathStringBuilder is null)
         {
-            _defaultPathStringBuilder.SetValue(new FileSystemPathStringBuilder());
+            _defaultPathStringBuilder!.SetValue(new FileSystemPathStringBuilder());
+            pathStringBuilder = _defaultPathStringBuilder;
         }
 
-        if (!_pathStringCache!.TryGetValue(_defaultPathStringBuilder.GetType(), out string? cachedValue))
+        if (!_pathStringCache!.TryGetValue(pathStringBuilder, out string? cachedValue))
         {
-            cachedValue = _defaultPathStringBuilder.GetValueOrDefault().BuildString(Segments);
-            _pathStringCache.Add(_defaultPathStringBuilder.GetType(), cachedValue);
+            cachedValue = pathStringBuilder.BuildString(Segments);
+            _pathStringCache.Add(pathStringBuilder, cachedValue);
         }
 
         return cachedValue;
@@ -445,10 +454,10 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
             return string.Empty;
         }
 
-        if (!_pathStringCache!.TryGetValue(pathStringBuilder.GetType(), out string? cachedValue))
+        if (!_pathStringCache!.TryGetValue(pathStringBuilder, out string? cachedValue))
         {
             cachedValue = pathStringBuilder.BuildString(Segments);
-            _pathStringCache.Add(pathStringBuilder.GetType(), cachedValue);
+            _pathStringCache.Add(pathStringBuilder, cachedValue);
         }
 
         return cachedValue;
@@ -492,11 +501,18 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
 
 public abstract class PathStringBuilder
 {
+    protected char DirectorySeparatorChar { get; }
+
+    protected PathStringBuilder(char directorySeparatorChar) => DirectorySeparatorChar = directorySeparatorChar;
+
     public abstract string BuildString(PathSegmentList pathSegments);
 }
 
 public class FileSystemPathStringBuilder : PathStringBuilder
 {
+    protected FileSystemPathStringBuilder(char directorySeparatorChar) : base(directorySeparatorChar) { }
+    public FileSystemPathStringBuilder() : base(Path.DirectorySeparatorChar) { }
+
     public override string BuildString(PathSegmentList pathSegments)
     {
         string toStringValue = string.Empty;
@@ -535,7 +551,7 @@ public class FileSystemPathStringBuilder : PathStringBuilder
                 || segment.IsSpecial
                 || segment.Kind is PathSegmentKind.DirectoryName))
             {
-                _ = pathBuilder.Append(Path.DirectorySeparatorChar);
+                _ = pathBuilder.Append(DirectorySeparatorChar);
             }
 
             for (; index < pathSegments.Count; index++)
@@ -546,7 +562,7 @@ public class FileSystemPathStringBuilder : PathStringBuilder
                 // We append a directory separator character after each segment except for the last one to ensure a correct path representation.
                 if (index < pathSegments.Count - 1)
                 {
-                    _ = pathBuilder.Append(Path.DirectorySeparatorChar);
+                    _ = pathBuilder.Append(DirectorySeparatorChar);
                 }
             }
 

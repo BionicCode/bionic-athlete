@@ -2,13 +2,14 @@
 
 public sealed class ArchiveEntryDescriptor : FileDescriptor, IEquatable<ArchiveEntryDescriptor>
 {
+    private static readonly ArchivePathStringBuilder s_archivePathStringBuilder = new();
     private readonly WriteOnce<int> _hashCode;
 
     public ArchiveEntryDescriptor(FileDescriptor sourceFile, string entryName) : base(FileDescriptorKind.ArchiveEntry)
     {
         ArgumentNullExceptionAdvanced.ThrowIfNull(sourceFile);
 
-        var entryNameDescriptor = new PathDescriptor(entryName, PathKind.File);
+        var entryNameDescriptor = new PathDescriptor(entryName, PathKind.File, s_archivePathStringBuilder);
         PathDescriptor normalizedEntryPathDescriptor = entryNameDescriptor.NormalizedPath;
         ArgumentExceptionAdvanced.ThrowIfTrue(normalizedEntryPathDescriptor.HasRoot, $"The argument '{nameof(entryName)}' must be a relative path and cannot have a root.");
         ArgumentExceptionAdvanced.ThrowIfTrue(normalizedEntryPathDescriptor.Segments.IsEmpty, $"The argument '{nameof(entryName)}' cannot be an empty path.");
@@ -61,4 +62,9 @@ public sealed class ArchiveEntryDescriptor : FileDescriptor, IEquatable<ArchiveE
     // so we can safely delegate to the base implementation here.
     public override bool Equals(object? obj) => obj is ArchiveEntryDescriptor other && Equals(other);
     public override int GetHashCode() => base.GetHashCode();
+}
+
+public sealed class ArchivePathStringBuilder : FileSystemPathStringBuilder
+{
+    public ArchivePathStringBuilder() : base(Path.AltDirectorySeparatorChar) { }
 }
