@@ -1,6 +1,6 @@
 ﻿namespace BionicCode.Utilities.Net;
 
-public class ArchiveEntryDescriptor : FileDescriptor, IEquatable<ArchiveEntryDescriptor>
+public sealed class ArchiveEntryDescriptor : FileDescriptor, IEquatable<ArchiveEntryDescriptor>
 {
     private readonly WriteOnce<int> _hashCode;
 

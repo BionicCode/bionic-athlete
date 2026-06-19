@@ -17,35 +17,38 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
     private readonly Dictionary<Type, string>? _pathStringCache;
     private readonly PathSegmentList? _segments;
 
-    public static PathDescriptor Empty { get; } = new PathDescriptor(PathSegmentList.Empty, true);
+    public static PathDescriptor Empty { get; } = new PathDescriptor(isNormalized: true);
 
-    internal PathDescriptor(PathSegmentList segments, bool isNormalized)
+    private PathDescriptor(bool isNormalized)
     {
-        ArgumentExceptionAdvanced.ThrowIfNullOrEmpty((IEnumerable)segments);
-
         _hashCodeCache = new WriteOnce<int>();
         _depth = new WriteOnce<int>();
         _normalizedPath = new WriteOnce<PathDescriptor>();
         _pathStringCache = [];
         _defaultPathStringBuilder = new WriteOnce<PathStringBuilder>();
 
-        _segments = segments;
+        _segments = PathSegmentList.Empty;
         _isNormalized = isNormalized;
+        IsRelative = false;
+        PathKind = PathKind.Undefined;
+    }
+
+    internal PathDescriptor(PathSegmentList segments, bool isNormalized) : this(isNormalized)
+    {
+        ArgumentExceptionAdvanced.ThrowIfNullOrEmpty((IEnumerable)segments);
+
+        _segments = segments;
         IsRelative = !Segments.IsEmpty && Segments[0].Kind is not PathSegmentKind.FullyQualifiedRoot;
         PathKind = segments.PathKind;
     }
 
-    public PathDescriptor(string path, PathKind pathKind)
+    public PathDescriptor(string path, PathKind pathKind) : this(isNormalized: false)
     {
         ArgumentExceptionAdvanced.ThrowIfNullOrWhiteSpace(path);
         ArgumentExceptionAdvanced.ThrowIfEnumIsNotDefined<PathKind>(pathKind);
         ArgumentExceptionAdvanced.ThrowIfEnumEqualsAny(pathKind, [PathKind.Undefined]);
 
         PathKind = pathKind;
-        _hashCodeCache = new WriteOnce<int>();
-        _defaultPathStringBuilder = new WriteOnce<PathStringBuilder>();
-        _pathStringCache = [];
-
         switch (pathKind)
         {
             case PathKind.File:
@@ -57,9 +60,6 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
             default:
                 throw new NotImplementedException("Currently unsupported path kind.");
         }
-
-        _depth = new WriteOnce<int>();
-        _normalizedPath = new WriteOnce<PathDescriptor>();
 
         string normalizedPath = FileHelpers.NormalizeDirectorySeparators(path);
         string pathRoot = Path.GetPathRoot(normalizedPath) ?? string.Empty;

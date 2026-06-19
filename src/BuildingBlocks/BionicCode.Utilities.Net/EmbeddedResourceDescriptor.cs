@@ -2,7 +2,7 @@
 
 using System.Reflection;
 
-public class EmbeddedResourceDescriptor : FileDescriptor, IEquatable<EmbeddedResourceDescriptor>
+public sealed class EmbeddedResourceDescriptor : FileDescriptor, IEquatable<EmbeddedResourceDescriptor>
 {
     private readonly string _fileName;
     private readonly string _fileNameWithoutExtension;
@@ -45,11 +45,12 @@ public class EmbeddedResourceDescriptor : FileDescriptor, IEquatable<EmbeddedRes
         return _hashCode;
     }
 
-    public Stream GetFileStream() => EmbeddedResourceAssembly.GetManifestResourceStream(ResourceName) ?? throw new InvalidOperationException($"Failed to get manifest resource stream for embedded resource '{ResourceName}'");
+    public Stream OpenRead() => EmbeddedResourceAssembly.GetManifestResourceStream(ResourceName)
+        ?? throw new FileNotFoundException($"Failed to get manifest resource stream for embedded resource '{ResourceName}'");
 
     public async Task CopyToAsync(Stream destination, CancellationToken cancellationToken)
     {
-        await using Stream resourceStream = EmbeddedResourceAssembly.GetManifestResourceStream(ResourceName) ?? throw new InvalidOperationException($"Failed to get manifest resource stream for embedded resource '{ResourceName}'");
+        await using Stream resourceStream = OpenRead();
         await resourceStream.CopyToAsync(destination, cancellationToken).ConfigureAwait(false);
     }
 

@@ -1,6 +1,6 @@
 ﻿namespace BionicCode.Utilities.Net;
 /// <summary>
-/// Represents a segment of a file system path represented by <see cref="PathDescriptor"/>. 
+/// Represents a segment of a file path represented by <see cref="PathDescriptor"/>. 
 /// </summary>
 public readonly record struct PathSegment
 {

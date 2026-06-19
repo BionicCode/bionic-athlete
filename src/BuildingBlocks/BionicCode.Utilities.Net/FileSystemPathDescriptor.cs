@@ -7,7 +7,7 @@ using SystemIoPath = System.IO.Path;
 /// Describes a file that can be included in a conversion or archive batch.
 /// </summary>
 [DebuggerDisplay("FileName = {Name}, Location = {Location}, OriginalFullPath = {OriginalFullPath}, OriginalName = {OriginalName}, IsRelative = {IsRelative}")]
-public class FileSystemPathDescriptor : FileDescriptor, IEquatable<FileSystemPathDescriptor>
+public sealed class FileSystemPathDescriptor : FileDescriptor, IEquatable<FileSystemPathDescriptor>
 {
     private readonly WriteOnce<DirectoryDescriptor> _location;
     private readonly WriteOnce<int> _hashCode;

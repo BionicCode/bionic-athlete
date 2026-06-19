@@ -125,7 +125,11 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// a segment is not relative, 
     /// a segment has an explicit drive root, 
     /// or a segment is implicitly drive rooted when <paramref name="isImplicitRootAllowed"/> is <see langword="false"/>.</exception>
-    public DirectoryDescriptor Combine(bool isImplicitRootAllowed = false, params DirectoryDescriptor[] appendingLocationSegments) => new(CombineInternal(default, appendingLocationSegments.OrEmpty(), isImplicitRootAllowed));
+    public DirectoryDescriptor Combine(bool isImplicitRootAllowed = false, params DirectoryDescriptor[] appendingLocationSegments)
+    {
+        string fullPath = CombineInternal(null, appendingLocationSegments.OrEmpty(), isImplicitRootAllowed);
+        return new(fullPath);
+    }
 
     /// <summary>
     /// Combines the current directory path with one or more relative directory segments, 
@@ -143,7 +147,11 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
     /// a segment is not relative, 
     /// a segment has an explicit drive root, 
     /// or a segment is implicitly drive rooted when <paramref name="isImplicitRootAllowed"/> is <see langword="false"/>.</exception>
-    public DirectoryDescriptor Combine(IEnumerable<DirectoryDescriptor> appendingLocationSegments, bool isImplicitRootAllowed = false) => new(CombineInternal(default, appendingLocationSegments.OrEmpty(), isImplicitRootAllowed));
+    public DirectoryDescriptor Combine(IEnumerable<DirectoryDescriptor> appendingLocationSegments, bool isImplicitRootAllowed = false)
+    {
+        string fullPath = CombineInternal(null, appendingLocationSegments.OrEmpty(), isImplicitRootAllowed);
+        return new(fullPath);
+    }
 
     /// <summary>
     /// Combines the current directory path with one or more relative directory segments and a relative file
@@ -227,6 +235,11 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
                     $"Invalid argument '{appendingLocationSegments}'. The provided relative directory path is invalid and exceeded the path depth of the current '{nameof(DirectoryDescriptor)}.{nameof(PathString)}' value by traversing too many parent directories.",
                     ex);
             }
+        }
+
+        if (relativeFilePath is null)
+        {
+            return combinedPath;
         }
 
         PathDescriptor combinedFilePath = ResolveRelativePathStrict(combinedPath.Segments, relativeFilePath.Path.Segments);

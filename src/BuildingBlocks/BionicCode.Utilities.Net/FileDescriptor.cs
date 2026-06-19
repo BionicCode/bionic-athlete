@@ -25,7 +25,6 @@ public abstract class FileDescriptor : IEquatable<FileDescriptor>
         _extension = new WriteOnce<FileExtension>();
         _name = new WriteOnce<string>();
         _nameWithoutExtension = new WriteOnce<string>();
-        _hashCodeCache = new WriteOnce<int>();
 
         Kind = kind;
     }
