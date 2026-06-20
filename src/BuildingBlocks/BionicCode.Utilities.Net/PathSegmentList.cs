@@ -24,9 +24,13 @@ public sealed class PathSegmentList : IImmutableList<PathSegment>
         IsNormalized = isNormalized;
     }
 
-    public PathDescriptor ToPathDescriptor() => new(this, IsNormalized);
+    public PathDescriptor ToPathDescriptor() => IsEmpty 
+        ? PathDescriptor.Empty 
+        : new PathDescriptor(this, IsNormalized);
 
-    public override string ToString() => ToPathDescriptor().ToString();
+    public override string ToString() => IsEmpty 
+        ? string.Empty 
+        : ToPathDescriptor().ToString();
 
     public int Count => _segments.Count;
     public bool IsEmpty => _segments.IsEmpty;

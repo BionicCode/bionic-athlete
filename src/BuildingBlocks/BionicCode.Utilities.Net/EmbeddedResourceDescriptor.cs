@@ -61,7 +61,7 @@ public sealed class EmbeddedResourceDescriptor : FileDescriptor, IEquatable<Embe
 
     public static bool operator ==(EmbeddedResourceDescriptor? left, EmbeddedResourceDescriptor? right) => left?.Equals(right) ?? (right is null);
     public static bool operator !=(EmbeddedResourceDescriptor? left, EmbeddedResourceDescriptor? right) => !(left == right);
-    public static implicit operator string(EmbeddedResourceDescriptor embeddedResourceDescriptor) => embeddedResourceDescriptor?.ResourceName ?? string.Empty;
+    public static implicit operator string(EmbeddedResourceDescriptor embeddedResourceDescriptor) => embeddedResourceDescriptor?.ToString() ?? string.Empty;
 
     // Override to silence warnings about non-overridden equality members in derived classes.
     // The actual equality comparison logic is implemented in the base class and relies on the type of the file descriptor,
@@ -69,4 +69,5 @@ public sealed class EmbeddedResourceDescriptor : FileDescriptor, IEquatable<Embe
     public override bool Equals(object? obj) => obj is EmbeddedResourceDescriptor other && Equals(other);
 
     public override int GetHashCode() => base.GetHashCode();
+    public override string ToString() => ResourceName;
 }

@@ -10,6 +10,7 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
 {
     public FrozenSet<FileExtension> SupportedArchiveFileExtensions { get; }
 
+    private static readonly ArchiveEntryComparer s_entryComparer = new ArchiveEntryComparer();
     private readonly ITemporaryFileManager _temporaryFileManager;
 
     public ZipArchiveManager(ITemporaryFileManager temporaryFileManager)
@@ -115,7 +116,7 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
                 FileHelpers.WriteOnlyCreateOrOverwriteOptions);
             await using ZipArchive zipArchive = await ZipArchive.CreateAsync(zipFile, ZipArchiveMode.Create, leaveOpen: false, batch.Encoding, cancellationToken);
 
-            HashSet<PathDescriptor> entryPaths = new();
+            HashSet<PathDescriptor> entryPaths = new(s_entryComparer);
             foreach (ArchiveEntryDescriptor archiveEntryDescriptor in batch.FileDescriptors)
             {
                 cancellationToken.ThrowIfCancellationRequested();

@@ -11,6 +11,7 @@ public sealed class FileSystemPathDescriptor : FileDescriptor, IEquatable<FileSy
 {
     private readonly WriteOnce<DirectoryDescriptor> _location;
     private readonly WriteOnce<int> _hashCode;
+    private readonly bool _isEmptyInstance;
 
     public static FileSystemPathDescriptor Empty { get; } = new FileSystemPathDescriptor();
 
@@ -53,8 +54,15 @@ public sealed class FileSystemPathDescriptor : FileDescriptor, IEquatable<FileSy
         IsRelative = Path.IsRelative;
     }
 
+    /// <summary>
+    /// Constructor for creating an empty instance of the <see cref="FileSystemPathDescriptor"/> struct. 
+    /// </summary>
+    /// <remarks>
+    /// This constructor is used to create the singleton empty instance returned by the <see cref="Empty"/> property.
+    /// </remarks>
     private FileSystemPathDescriptor() : base(FileDescriptorKind.FileSystemPath)
     {
+        _isEmptyInstance = true;
         _location = DirectoryDescriptor.Empty;
         _hashCode = new WriteOnce<int>();
         Path = PathDescriptor.Empty;
@@ -63,6 +71,11 @@ public sealed class FileSystemPathDescriptor : FileDescriptor, IEquatable<FileSy
 
     protected override string GetName()
     {
+        if (_isEmptyInstance)
+        {
+            return string.Empty;
+        }
+
         string name;
         if (Path.Segments.Count == 1)
         {
@@ -81,12 +94,22 @@ public sealed class FileSystemPathDescriptor : FileDescriptor, IEquatable<FileSy
 
     protected override FileExtension GetFileExtension()
     {
+        if (_isEmptyInstance)
+        {
+            return FileExtension.Empty;
+        }
+
         var extension = FileExtension.FromFileName(Name);
         return extension;
     }
 
     protected override string GetNameWithoutExtension()
     {
+        if (_isEmptyInstance)
+        {
+            return string.Empty;
+        }
+
         string nameWithoutExtension = SystemIoPath.GetFileNameWithoutExtension(Name);
         return nameWithoutExtension;
     }
@@ -95,7 +118,7 @@ public sealed class FileSystemPathDescriptor : FileDescriptor, IEquatable<FileSy
     {
         FileSystemPathValidator.ThrowIfInvalidFileName(newFileName);
 
-        string newPath = SystemIoPath.Join(Location.PathString, newFileName);
+        string newPath = SystemIoPath.Join(Location, newFileName);
         return new FileSystemPathDescriptor(newPath);
     }
 
@@ -261,7 +284,7 @@ public sealed class FileSystemPathDescriptor : FileDescriptor, IEquatable<FileSy
 
     public static bool operator ==(FileSystemPathDescriptor? left, FileSystemPathDescriptor? right) => left?.Equals(right) ?? (right is null);
     public static bool operator !=(FileSystemPathDescriptor? left, FileSystemPathDescriptor? right) => !(left == right);
-    public static implicit operator string(FileSystemPathDescriptor path) => path?.Path ?? string.Empty;
+    public static implicit operator string(FileSystemPathDescriptor path) => path?.ToString() ?? string.Empty;
 
     // Override to silence warnings about non-overridden equality members in derived classes.
     // The actual equality comparison logic is implemented in the base class and relies on the type of the file descriptor,

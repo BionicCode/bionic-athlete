@@ -4,7 +4,7 @@ using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 
 /// <summary>
-/// Represents a canonical and validated file system path as an ordered collection of <see cref="PathSegment"/> instances.
+/// Represents a canonical and validated file path as an ordered collection of <see cref="PathSegment"/> instances.
 /// </summary>
 public readonly struct PathDescriptor : IEquatable<PathDescriptor>
 {

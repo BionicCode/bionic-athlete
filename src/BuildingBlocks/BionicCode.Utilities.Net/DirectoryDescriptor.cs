@@ -613,7 +613,7 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
         {
             if (IsDefaultInstance || IsEmpty)
             {
-                return DirectoryDescriptor.Empty;
+                return Empty;
             }
 
             if (!_location.IsSet)
