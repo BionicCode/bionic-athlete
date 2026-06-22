@@ -9,11 +9,11 @@ using System.Diagnostics.CodeAnalysis;
 public readonly struct PathDescriptor : IEquatable<PathDescriptor>
 {
     private static readonly FileSystemPathEqualityComparer s_pathEqualityComparer = FileSystemPathEqualityComparer.Instance;
+    private static readonly WriteOnce<PathStringBuilder> s_defaultPathStringBuilder = new();
     private readonly WriteOnce<int>? _hashCodeCache;
     private readonly WriteOnce<int>? _depth;
     private readonly WriteOnce<PathDescriptor>? _normalizedPath;
     private readonly bool _isNormalized;
-    private readonly WriteOnce<PathStringBuilder>? _defaultPathStringBuilder;
     private readonly PathStringBuilder? _pathStringBuilder;
     private readonly Dictionary<PathStringBuilder, string>? _pathStringCache;
     private readonly PathSegmentList? _segments;
@@ -26,7 +26,6 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
         _depth = new WriteOnce<int>();
         _normalizedPath = new WriteOnce<PathDescriptor>();
         _pathStringCache = [];
-        _defaultPathStringBuilder = new WriteOnce<PathStringBuilder>();
 
         _segments = PathSegmentList.Empty;
         _isNormalized = isNormalized;
@@ -34,11 +33,12 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
         PathKind = PathKind.Undefined;
     }
 
-    internal PathDescriptor(PathSegmentList segments, bool isNormalized) : this(isNormalized)
+    internal PathDescriptor(PathSegmentList segments, bool isNormalized, PathStringBuilder? pathStringBuilder) : this(isNormalized)
     {
         ArgumentExceptionAdvanced.ThrowIfNullOrEmpty((IEnumerable)segments);
 
         _segments = segments;
+        _pathStringBuilder = pathStringBuilder;
         IsRelative = !Segments.IsEmpty && Segments[0].Kind is not PathSegmentKind.FullyQualifiedRoot;
         PathKind = segments.PathKind;
     }
@@ -301,7 +301,7 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
                 PathSegmentList normalizedSegments = GetNormalizedPath();
                 PathDescriptor normalizedPathDescriptor = normalizedSegments.IsEmpty
                     ? PathDescriptor.Empty
-                    : new PathDescriptor(normalizedSegments, isNormalized: true);
+                    : new PathDescriptor(normalizedSegments, isNormalized: true, _pathStringBuilder);
                 _normalizedPath.SetValue(normalizedPathDescriptor);
             }
 
@@ -429,11 +429,11 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
             return string.Empty;
         }
 
-        PathStringBuilder? pathStringBuilder = _pathStringBuilder ?? _defaultPathStringBuilder;
+        PathStringBuilder? pathStringBuilder = _pathStringBuilder ?? s_defaultPathStringBuilder;
         if (pathStringBuilder is null)
         {
-            _defaultPathStringBuilder!.SetValue(new FileSystemPathStringBuilder());
-            pathStringBuilder = _defaultPathStringBuilder;
+            s_defaultPathStringBuilder.SetValue(new FileSystemPathStringBuilder());
+            pathStringBuilder = s_defaultPathStringBuilder;
         }
 
         if (!_pathStringCache!.TryGetValue(pathStringBuilder, out string? cachedValue))
@@ -488,7 +488,6 @@ public readonly struct PathDescriptor : IEquatable<PathDescriptor>
         && _depth is null
         && _hashCodeCache is null
         && _normalizedPath is null
-        && _defaultPathStringBuilder is null
         && _pathStringCache is null;
 
     public override bool Equals([NotNullWhen(true)] object? obj) => obj is PathDescriptor other && Equals(other);
