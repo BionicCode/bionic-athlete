@@ -618,23 +618,15 @@ public readonly struct DirectoryDescriptor : IEquatable<DirectoryDescriptor>
 
             if (!_location.IsSet)
             {
-                PathDescriptor parentPath;
+                // Collect all segments except the last one (the current directory's name)
+                // to form the parent directory path.
                 var parentPathSegments = Path.Segments
                     .Take(Path.Segments.Count - 1)
                     .ToPathSegmentList(PathKind.Directory, Path.Segments.IsNormalized);
 
-                if (parentPathSegments.Count == 1)
-                {
-                    parentPath = parentPathSegments[0].Kind is PathSegmentKind.DirectoryName
-                         ? PathDescriptor.Empty
-                         : parentPathSegments;
-                }
-                else
-                {
-                    parentPath = parentPathSegments;
-                }
-
-                var parentDirectoryDescriptor = new DirectoryDescriptor(parentPath);
+                DirectoryDescriptor parentDirectoryDescriptor = parentPathSegments.IsEmpty
+                    ? Empty
+                    : new DirectoryDescriptor(parentPathSegments.ToPathDescriptor());
                 _location.SetValue(parentDirectoryDescriptor);
             }
 

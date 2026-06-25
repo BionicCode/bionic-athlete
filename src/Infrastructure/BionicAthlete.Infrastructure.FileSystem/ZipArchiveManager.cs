@@ -8,10 +8,9 @@ using BionicCode.Utilities.Net;
 
 public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
 {
-    public FrozenSet<FileExtension> SupportedArchiveFileExtensions { get; }
-
-    private static readonly ArchiveEntryComparer s_entryComparer = new ArchiveEntryComparer();
     private readonly ITemporaryFileManager _temporaryFileManager;
+
+    public FrozenSet<FileExtension> SupportedArchiveFileExtensions { get; }
 
     public ZipArchiveManager(ITemporaryFileManager temporaryFileManager)
     {
@@ -48,7 +47,7 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
             throw new NotSupportedException($"Invalid file type: only .zip files are supported. Found: '{archivePath}'.");
         }
 
-        await using ZipArchive zip = await ZipFile.OpenAsync(archivePath.FullPath, ZipArchiveMode.Read, cancellationToken).ConfigureAwait(false);
+        await using ZipArchive zip = await ZipFile.OpenAsync(archivePath, ZipArchiveMode.Read, cancellationToken).ConfigureAwait(false);
 
         int count = 1;
         IProgress<ProgressData>? progressReporter = progressReporterFactory?.Invoke(zip.Entries.Count, $"Extracting archive: {archivePath}");
@@ -71,7 +70,7 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
             string subDirectoryName = archivePath.NameWithoutExtension;
             FileSystemPathDescriptor destinationFilePath = _temporaryFileManager.CreateTemporaryFilePath(subDirectoryName, entry.Name);
             _temporaryFileManager.RegisterTemporaryFilePath(destinationFilePath);
-            await entry.ExtractToFileAsync(destinationFilePath.FullPath, overwrite: true, cancellationToken).ConfigureAwait(false);
+            await entry.ExtractToFileAsync(destinationFilePath, overwrite: true, cancellationToken).ConfigureAwait(false);
 
             // Check if file is a nested ZIP and extract recursively
             if (FileExtension.FromFileName(entry.Name).Equals(FileExtensions.Zip))
@@ -116,7 +115,7 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
                 FileHelpers.WriteOnlyCreateOrOverwriteOptions);
             await using ZipArchive zipArchive = await ZipArchive.CreateAsync(zipFile, ZipArchiveMode.Create, leaveOpen: false, batch.Encoding, cancellationToken);
 
-            HashSet<PathDescriptor> entryPaths = new(s_entryComparer);
+            HashSet<PathDescriptor> entryPaths = new(ArchiveEntryComparer.Instance);
             foreach (ArchiveEntryDescriptor archiveEntryDescriptor in batch.FileDescriptors)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -143,7 +142,7 @@ public class ZipArchiveManager : IArchiveManager, IZipArchiveManager
                 }
                 else if (sourceFileDescriptor is FileSystemPathDescriptor fileSystemPathDescriptor)
                 {
-                    _ = await zipArchive.CreateEntryFromFileAsync(sourceFileDescriptor, archiveEntryDescriptor.EntryPath, batch.CompressionLevel, cancellationToken);
+                    _ = await zipArchive.CreateEntryFromFileAsync(fileSystemPathDescriptor, archiveEntryDescriptor.EntryPath, batch.CompressionLevel, cancellationToken);
                 }
                 else
                 {

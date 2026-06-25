@@ -69,28 +69,9 @@ public sealed class FileSystemPathDescriptor : FileDescriptor, IEquatable<FileSy
         IsRelative = false;
     }
 
-    protected override string GetName()
-    {
-        if (_isEmptyInstance)
-        {
-            return string.Empty;
-        }
-
-        string name;
-        if (Path.Segments.Count == 1)
-        {
-            PathSegment pathSegment = Path.Segments[0];
-            name = pathSegment.Kind is PathSegmentKind.DirectoryName
-                ? pathSegment.Name
-                : string.Empty;
-        }
-        else
-        {
-            name = Path.Segments[^1].Name;
-        }
-
-        return name;
-    }
+    protected override string GetName() => _isEmptyInstance || Path.Segments.Count == 0
+        ? string.Empty
+        : Path.Segments[^1].Name;
 
     protected override FileExtension GetFileExtension()
     {
@@ -215,23 +196,14 @@ public sealed class FileSystemPathDescriptor : FileDescriptor, IEquatable<FileSy
         {
             if (!_location.IsSet)
             {
-                PathDescriptor parentPath;
+                // Collect all path segments except the last one (file name) to get the parent directory path.
                 var parentPathSegments = Path.Segments
                     .Take(Path.Segments.Count - 1)
                     .ToPathSegmentList(PathKind.Directory, Path.Segments.IsNormalized);
 
-                if (parentPathSegments.Count == 1)
-                {
-                    parentPath = parentPathSegments[0].Kind is PathSegmentKind.DirectoryName
-                         ? PathDescriptor.Empty
-                         : parentPathSegments;
-                }
-                else
-                {
-                    parentPath = parentPathSegments;
-                }
-
-                var parentDirectory = new DirectoryDescriptor(parentPath);
+                DirectoryDescriptor parentDirectory = parentPathSegments.IsEmpty
+                    ? DirectoryDescriptor.Empty
+                    : new DirectoryDescriptor(parentPathSegments.ToPathDescriptor());
                 _location.SetValue(parentDirectory);
             }
 
