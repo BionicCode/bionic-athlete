@@ -91,15 +91,11 @@ public sealed class WriteOnce<TValue> : IFormattable
             Volatile.Write(ref _isSet, 1);
             return true;
         }
-    }
+    }   
 
-    public void SetValue(TValue value)
-    {
-        if (!TrySetValue(value))
-        {
-            throw new InvalidOperationException("Name has already been initialized and cannot be modified.");
-        }
-    }
+    public TValue SetValue(TValue value) => TrySetValue(value) 
+        ? this 
+        : throw new InvalidOperationException("Name has already been initialized and cannot be modified.");
 
     [SuppressMessage("Design", "CA1024:Use properties where appropriate", Justification = "Required.")]
     public TValue GetValueOrDefault() => Volatile.Read(ref _isSet) != 0 ? _value : default!;
